@@ -315,6 +315,24 @@ export const App: React.FC = () => {
     setTimeout(() => setAlertInfo(null), 3000);
   };
 
+  const handleDeleteTransactionRecord = (id: string) => {
+    setGameState(prev => {
+      const index = prev.history.findIndex(tx => tx.id === id);
+      if (index === -1) return prev;
+
+      // 目前僅支援刪除「最新一筆」交易，以確保現金與結餘一致
+      if (index !== 0) {
+        showAlert('目前僅能刪除最後一筆交易紀錄。', 'info');
+        return prev;
+      }
+
+      const newHistory = prev.history.slice(1);
+      const newCash = newHistory.length > 0 ? newHistory[0].balance : 0;
+
+      return { ...prev, history: newHistory, cash: newCash };
+    });
+  };
+
   useEffect(() => {
     if (!auth) { setIsLoadingAuth(false); return; }
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -978,9 +996,9 @@ export const App: React.FC = () => {
                             <div className="flex justify-between"> <span className="text-slate-400">月收入增加</span> <span className="text-emerald-400 font-mono">+{formatMoney(e.income)}</span> </div>
                             <div className="border-t border-slate-700 pt-2 mt-1"> 
                                 <div className="text-xs text-slate-500 mb-1 text-left">相關職業加成</div> 
-                                <div className="flex justify-between items-center w-full"> 
-                                    <span className="text-blue-300 font-bold">{relatedProf}</span> 
-                                    <span className="text-blue-400 text-xs font-bold">月收入增加 10~50% (根據職業等級)</span> 
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full gap-1"> 
+                                    <span className="text-blue-300 font-bold whitespace-nowrap">{relatedProf}</span> 
+                                    <span className="text-blue-400 text-xs font-bold text-right">月收入增加 10~50% (根據職業等級)</span> 
                                 </div> 
                             </div>
                             <div className="flex justify-between items-center pt-2"> <span className="text-slate-400">幸福點數</span> <span className="text-pink-400 font-bold">+{e.happyPoints}</span> </div>
@@ -1111,6 +1129,7 @@ export const App: React.FC = () => {
                     onShowAlert={showAlert}
                     onRemoveAsset={(id) => { const asset = gameState.assets.find(a => a.id === id); if(asset) { showAlert(`請使用「+」功能中的「賣出資產」來出售 ${asset.name}`, 'info'); } }} 
                     onRepayLiability={() => showAlert("請使用「+」功能中的「借貸/還款」來記錄還款。", 'info')} 
+                    onDeleteTransaction={handleDeleteTransactionRecord}
                 /> 
             </div>
         </div>

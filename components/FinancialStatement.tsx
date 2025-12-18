@@ -12,6 +12,7 @@ interface FinancialStatementProps {
   onRemoveAsset: (id: string) => void;
   onRepayLiability: (id: string, amount: number) => void;
   onShowAlert?: (message: string, type: 'info' | 'error' | 'success') => void;
+  onDeleteTransaction?: (id: string) => void;
 }
 
 const formatMoney = (amount: number) => `${amount.toLocaleString()} H`;
@@ -37,7 +38,14 @@ const getAssetDisplayName = (asset: Asset) => {
     return asset.name;
 };
 
-export const FinancialStatement: React.FC<FinancialStatementProps> = ({ gameState, summary, onShowAlert }) => {
+export const FinancialStatement: React.FC<FinancialStatementProps> = ({
+  gameState,
+  summary,
+  onShowAlert,
+  onRemoveAsset,
+  onRepayLiability,
+  onDeleteTransaction,
+}) => {
   const [view, setView] = useState<'income' | 'balance' | 'cashflow' | 'history'>('income');
   const [showInsDetail, setShowInsDetail] = useState(false);
   const [showLoanDetail, setShowLoanDetail] = useState(false);
@@ -259,7 +267,12 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({ gameStat
         </div>
       )}
       {view === 'cashflow' && <CashFlowLog history={gameState.history} />}
-      {view === 'history' && <HistoryTable history={gameState.history} />}
+      {view === 'history' && (
+        <HistoryTable
+          history={gameState.history}
+          onDeleteTransaction={onDeleteTransaction}
+        />
+      )}
     </div>
   );
 };

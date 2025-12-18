@@ -2,12 +2,14 @@
 import React from 'react';
 import { Transaction } from '../types';
 import { Card } from './ui';
+import { Trash2 } from 'lucide-react';
 
 interface HistoryTableProps {
   history: Transaction[];
+  onDeleteTransaction?: (id: string) => void;
 }
 
-export const HistoryTable: React.FC<HistoryTableProps> = ({ history }) => {
+export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTransaction }) => {
   const formatMoney = (amount: number) => 
     `${amount.toLocaleString()} H`;
 
@@ -30,12 +32,13 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history }) => {
               <th className="px-4 py-3 text-right font-semibold">金額</th>
               <th className="px-4 py-3 text-center font-semibold">摘要</th>
               <th className="px-4 py-3 text-center font-semibold">類型</th>
+              <th className="px-4 py-3 text-center font-semibold">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
             {sortedHistory.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-12 text-center text-slate-500 italic">
+                <td colSpan={5} className="px-4 py-12 text-center text-slate-500 italic">
                   尚未有交易紀錄。
                 </td>
               </tr>
@@ -56,6 +59,18 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history }) => {
                     <span className="bg-purple-900/30 text-purple-300 px-2 py-1 rounded text-[10px] border border-purple-800/50 inline-block min-w-[60px]">
                       {tx.usageLabel}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {onDeleteTransaction && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteTransaction(tx.id)}
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-rose-900/40 text-rose-300 border border-rose-700/70 hover:bg-rose-700/70 hover:text-white transition-colors text-xs"
+                        title="刪除這筆交易"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
