@@ -404,12 +404,40 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
               impactList = [`現金 -${formatMoney(amt)}`];
               expectedEntries = [ { category: 'Assets', name: '現金', direction: 'Decrease' } ];
           } else {
-              // Logic 2 & 3: Only Monthly Expense Increases/Decreases
-              if (!amt) { setErrorMessage("請輸入月變動金額"); return; }
+              // Handle Monthly Expense Increases/Decreases
+              if (!amt || amt <= 0) { 
+                setErrorMessage("請輸入有效的月變動金額"); 
+                return; 
+              }
               const isInc = eventSubMode === 'inc_exp';
-              txData = { name: `${isInc ? '增加' : '減少'}月支出`, amount: 0, cashChange: 0, source: 'income', usage: 'expense_update', expensePayload: { category: eventExpCategory, amount: amt || 0, isIncrease: isInc } };
-              impactList = [`月支出 ${isInc ? '+' : '-'}${formatMoney(amt)}`];
-              expectedEntries = [ { category: 'Expenses', name: '其他支出', direction: isInc ? 'Increase' : 'Decrease' } ];
+              const categoryName = 
+                eventExpCategory === 'basicLiving' ? '餐飲服飾居住' :
+                eventExpCategory === 'transportEdu' ? '交通教育娛樂' : '其他醫療育兒';
+                
+              txData = { 
+                name: `${isInc ? '增加' : '減少'}月支出：${categoryName}`, 
+                amount: amt, 
+                cashChange: 0, // 現金流不變，因為這是月支出的變動
+                source: 'income', 
+                usage: 'expense_update', 
+                expensePayload: { 
+                  category: eventExpCategory, 
+                  amount: amt, 
+                  isIncrease: isInc 
+                },
+                impacts: [
+                  `每月${categoryName}支出${isInc ? '增加' : '減少'} ${formatMoney(amt)} H`
+                ]
+              };
+              
+              impactList = txData.impacts || [];
+              expectedEntries = [ 
+                { 
+                  category: 'Expenses', 
+                  name: categoryName, 
+                  direction: isInc ? 'Increase' : 'Decrease' 
+                } 
+              ];
           }
       }
 

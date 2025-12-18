@@ -254,19 +254,31 @@ const MOCK_HISTORY: GameRecord[] = [
     { id: '2', date: '2023/10/05', playerName: 'DemoUser', profession: '飛行員', finalScore: 12, happinessScore: 100, isWin: true, financialSummary: { passiveIncome: 65000, totalExpenses: 50000, totalAssets: 5000000 } },
 ];
 
+// 檢查是否為本地環境
+const isLocalEnv = 
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' ||
+   window.location.hostname === '127.0.0.1' ||
+   window.location.hostname === '');
+
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('auth_home');
-  const [user, setUser] = useState<{email: string, name: string} | null>(null);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [sessionMeta, setSessionMeta] = useState<GameSessionMeta>({ reportName: '', playerName: '', createdAt: '' });
+  const [user, setUser] = useState<{email: string, name: string} | null>(isLocalEnv ? { email: 'local@example.com', name: '本地測試用戶' } : null);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(!isLocalEnv);
+  const [sessionMeta, setSessionMeta] = useState<GameSessionMeta>({ 
+    reportName: '本地測試報告', 
+    playerName: '本地玩家', 
+    createdAt: new Date().toISOString().split('T')[0]
+  });
+  
   const [gameHistory, setGameHistory] = useState<GameRecord[]>(MOCK_HISTORY);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
-  const [authPlayerName, setAuthPlayerName] = useState(''); 
+  const [authPlayerName, setAuthPlayerName] = useState('本地玩家'); 
   const [authError, setAuthError] = useState('');
-  const [inputReportName, setInputReportName] = useState('');
+  const [inputReportName, setInputReportName] = useState('我的本地遊戲');
   const [formError, setFormError] = useState(''); 
-  const [selectedProfessionId, setSelectedProfessionId] = useState<string | null>(null);
+  const [selectedProfessionId, setSelectedProfessionId] = useState<string | null>(isLocalEnv ? 'beekeeper' : null);
   const [selectedEnterpriseId, setSelectedEnterpriseId] = useState<string | null>(null);
   const [selectedDreamId, setSelectedDreamId] = useState<string | null>(null);
   
