@@ -134,6 +134,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
   const filteredAssets = assets.filter(a => a.type === sellCat);
   const stockAssets = assets.filter(a => a.type === '股票');
   const cdTotal = assets.filter(a => a.type === '定存').reduce((sum, a) => sum + a.cost, 0);
+  const creditLoanTotal = liabilities
+    .filter(l => l.type === '信用貸款')
+    .reduce((sum, l) => sum + l.totalOwed, 0);
 
   const uninsuredHouses = useMemo(() => assets.filter(a => a.type === '不動產' && !a.isInsured), [assets]);
   const hasAircraftAsset = useMemo(() => assets.some(a => a.type === '飛行器' as any), [assets]);
@@ -522,7 +525,26 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
                         ) : (
                             <div className="space-y-4">
                                 <div className="flex justify-center gap-2 border-b border-slate-700 pb-2">{(['信用貸款', '不動產貸款', '企業貸款'] as const).map(t => (<button key={t} onClick={() => { setRepayType(t); setRepayInputs({}); setRepayAmount(''); }} className={`px-4 py-1.5 rounded-full text-[10px] whitespace-nowrap font-bold transition-all ${repayType === t ? 'bg-orange-600 text-white shadow-lg' : 'bg-slate-700 text-slate-400'}`}>{t}</button>))}</div>
-                                {repayType === '信用貸款' ? (<div><label className="text-xs text-slate-400 block mb-1">還款金額</label><Input type="number" value={repayAmount} onChange={e => setRepayAmount(e.target.value)} /></div>) : (
+                                {repayType === '信用貸款' ? (
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-xs text-slate-400">
+                                            <span>目前信貸餘額</span>
+                                            <span className="font-mono text-orange-300 font-bold">
+                                                {formatMoney(creditLoanTotal)}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 block mb-1">
+                                                本次還款金額
+                                            </label>
+                                            <Input
+                                                type="number"
+                                                value={repayAmount}
+                                                onChange={e => setRepayAmount(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
                                     <div className="space-y-2 max-h-40 overflow-y-auto">
                                         {liabilities.filter(l => l.type === repayType).length > 0 ? liabilities.filter(l => l.type === repayType).map(liab => (
                                             <div key={liab.id} className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg border border-slate-700"><div className="flex flex-col gap-0.5"><span className="text-sm font-bold text-white">{liab.name}</span><span className="text-[10px] text-slate-500">餘額: {liab.totalOwed.toLocaleString()} H</span></div><div className="w-32"><Input type="number" placeholder="還款額" className="h-9 text-xs" value={repayInputs[liab.id] || ''} onChange={e => setRepayInputs({[liab.id]: e.target.value})} /></div></div>
