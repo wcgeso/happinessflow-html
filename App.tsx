@@ -474,13 +474,19 @@ export const App: React.FC = () => {
     }
 
     const houseSubIds: Record<string, string> = { '1room': 'h_house_1', '2room': 'h_house_2', '3room': 'h_house_3', '5room': 'h_house_5' };
-    const ownedTypes = new Set(gameState.assets.filter(a => a.houseType).map(a => a.houseType));
+    const ownedTypes = new Set(
+      gameState.assets
+        .filter(a => a.houseType && a.isSelfUse)
+        .map(a => a.houseType)
+    );
     Object.entries(houseSubIds).forEach(([typeKey, itemId]) => {
          const shouldBeChecked = ownedTypes.has(typeKey);
          const item = updatedHappiness.find(h => h.id === itemId);
          if (item && item.checked !== shouldBeChecked) { updatedHappiness = updatedHappiness.map(h => h.id === itemId ? { ...h, checked: shouldBeChecked } : h); changed = true; }
     });
-    const hasAnyHouseType = gameState.assets.some(a => a.type === '不動產' && a.houseType);
+    const hasAnyHouseType = gameState.assets.some(
+      a => a.type === '不動產' && a.houseType && a.isSelfUse
+    );
     const houseItem = updatedHappiness.find(h => h.id === 'h_house_self');
     if (houseItem && houseItem.checked !== hasAnyHouseType) { updatedHappiness = updatedHappiness.map(h => h.id === 'h_house_self' ? { ...h, checked: hasAnyHouseType } : h); changed = true; }
     const hasDate = updatedHappiness.find(h => h.id === 'h_date')?.checked;

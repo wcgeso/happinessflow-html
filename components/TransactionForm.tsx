@@ -7,6 +7,14 @@ import { CheckCircle2, AlertCircle, PieChart, TrendingUp, TrendingDown, Wallet, 
 
 const formatMoney = (amount: number) => `${amount.toLocaleString()} H`;
 
+const getSellDisplayName = (asset: Asset) => {
+  if (asset.type === '不動產' && asset.name) {
+    const match = asset.name.match(/[A-Z]\d+/);
+    if (match) return match[0];
+  }
+  return asset.name;
+};
+
 interface TransactionFormProps {
   profession: Profession | null;
   selectedEnterprise: Enterprise | null;
@@ -138,6 +146,10 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
     .filter(l => l.type === '信用貸款')
     .reduce((sum, l) => sum + l.totalOwed, 0);
 
+  const [sellStockDetails, setSellStockDetails] = useState<
+    Record<string, { price: string; qty: string }>
+  >({});
+
   const uninsuredHouses = useMemo(() => assets.filter(a => a.type === '不動產' && !a.isInsured), [assets]);
   const hasAircraftAsset = useMemo(() => assets.some(a => a.type === '飛行器' as any), [assets]);
 
@@ -149,7 +161,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
       setErrorMessage(null);
 
       if (mode === 'buy') {
-          if (assetType === '股票') {
+              if (assetType === '股票') {
               const list: StockTransactionItem[] = (Object.entries(stockInputs) as [string, { price: string, qty: string }][])
                 .filter(([_, val]) => Number(val.price) > 0 && Number(val.qty) > 0)
                 .map(([symbol, val]) => ({ symbol, price: Number(val.price), qty: Number(val.qty) }));
@@ -165,7 +177,23 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
               if (!reDownPayment) { setErrorMessage("請輸入頭期款"); return; }
               const down = Number(reDownPayment), loan = Number(reLoan), inc = Number(reIncome), inter = Number(reInterest);
               if (down > cash) { setErrorMessage("現金不足"); return; }
-              txData = { name: `購買不動產 ${reSymbol} ${reSelfUse ? '(自用)' : ''}`, amount: down + loan, cashChange: -down, source: loan > 0 ? 'loan' : 'cash', usage: 'asset', assetDetails: { type: '不動產', cashflow: reSelfUse ? 0 : (inc - inter), downPayment: down, loanAmount: loan, loanInterest: inter, symbol: reSymbol, isSelfUse: reSelfUse, houseType: reHouseType } };
+              txData = {
+                  name: `購買不動產 ${reSymbol} ${reSelfUse ? '(自用)' : ''}`,
+                  amount: down + loan,
+                  cashChange: -down,
+                  source: loan > 0 ? 'loan' : 'cash',
+                  usage: 'asset',
+                  assetDetails: {
+                    type: '不動產',
+                    cashflow: reSelfUse ? 0 : inc,
+                    downPayment: down,
+                    loanAmount: loan,
+                    loanInterest: inter,
+                    symbol: reSymbol,
+                    isSelfUse: reSelfUse,
+                    houseType: reHouseType
+                  }
+              };
               impactList.push(`現金 -${formatMoney(down)}`);
               impactList.push(`不動產資產 +${formatMoney(down + loan)}`);
               if (loan > 0) {
@@ -262,15 +290,46 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
           }
       } else if (mode === 'sell') {
           if (sellCat === '股票') {
-              const list: StockTransactionItem[] = (Object.entries(sellStockInputs) as [string, { price: string, qty: string }][])
-                .filter(([_, val]) => Number(val.price) > 0 && Number(val.qty) > 0)
-                .map(([symbol, val]) => ({ symbol, price: Number(val.price), qty: Number(val.qty) }));
-              if (list.length === 0) { setErrorMessage("請輸入股票資訊"); return; }
-              const totalGain = list.reduce((sum, item) => sum + (item.price * item.qty), 0);
-              txData = { name: `賣出股票 (${list.length}筆)`, amount: totalGain, cashChange: totalGain, source: 'income', usage: 'cash', stockList: list };
+              const entries = (Object.entries(sellStockDetails) as [
+                string,
+                { price: string; qty: string }
+              ][]).filter(([_, val]) => Number(val.price) > 0 && Number(val.qty) > 0);
+              if (entries.length === 0) { setErrorMessage("請輸入股票售價與賣出張數"); return; }
+
+              const list: StockTransactionItem[] = [];
+              let totalGain = 0;
+
+              for (const [assetId, val] of entries) {
+                  const asset = assets.find(a => a.id === assetId);
+                  if (!asset || !asset.quantity) continue;
+                  const qty = Number(val.qty);
+                  const price = Number(val.price);
+                  if (qty <= 0 || price <= 0) continue;
+                  if (qty > asset.quantity) { setErrorMessage("賣出張數不可大於持有張數"); return; }
+                  const symbol = asset.name.replace('股票 ', '');
+                  list.push({ symbol, price, qty });
+                  totalGain += price * qty;
+              }
+
+              if (list.length === 0) { setErrorMessage("請確認輸入的股票資料正確"); return; }
+
+              txData = {
+                  name: `賣出股票 (${list.length}筆)`,
+                  amount: totalGain,
+                  cashChange: totalGain,
+                  source: 'income',
+                  usage: 'cash',
+                  stockList: list
+              };
               impactList = [`現金 +${formatMoney(totalGain)}`, `股票資產 減少`];
               expectedEntries.push({ category: 'Assets', name: '現金', direction: 'Increase' });
-              list.forEach(s => expectedEntries.push({ category: 'Assets', name: `股票 (${s.symbol})`, direction: 'Decrease' }));
+              list.forEach(s =>
+                  expectedEntries.push({
+                      category: 'Assets',
+                      name: `股票 (${s.symbol})`,
+                      direction: 'Decrease'
+                  })
+              );
           } else if (sellCat === '定存') {
               const amt = Number(withdrawAmount); 
               if (!amt) { setErrorMessage("請輸入解約金額"); return; }
@@ -501,17 +560,94 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
                         </div>
                         {sellCat === '定存' ? (
                             <div className="p-4 bg-slate-900 rounded-lg border border-slate-700">
-                                <div className="flex justify-between text-sm mb-4"><span>持有定存額</span><span className="text-orange-400 font-bold">{formatMoney(cdTotal)}</span></div>
-                                <Input type="number" placeholder="解約金額" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
+                                <div className="flex justify-between text-sm mb-4">
+                                  <span>持有定存額</span>
+                                  <span className="text-orange-400 font-bold">{formatMoney(cdTotal)}</span>
+                                </div>
+                                <Input
+                                  type="number"
+                                  placeholder="解約金額"
+                                  value={withdrawAmount}
+                                  onChange={e => setWithdrawAmount(e.target.value)}
+                                />
                             </div>
                         ) : (
                             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                                {filteredAssets.length > 0 ? filteredAssets.map(a => (
-                                    <div key={a.id} className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg border border-slate-700 hover:bg-slate-900 transition-colors">
-                                        <div className="flex flex-col"><span className="text-sm font-bold text-white">{a.name}</span><span className="text-[10px] text-slate-500">成本: {a.cost.toLocaleString()} H</span></div>
-                                        <div className="w-32"><Input type="number" placeholder="售價" className="h-9 text-xs" value={repayInputs[a.id] || ''} onChange={e => setRepayInputs({[a.id]: e.target.value})} /></div>
+                                {filteredAssets.length > 0 ? (
+                                  filteredAssets.map(a => (
+                                    <div
+                                      key={a.id}
+                                      className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg border border-slate-700 hover:bg-slate-900 transition-colors"
+                                    >
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-bold text-white">
+                                          {getSellDisplayName(a)}
+                                        </span>
+                                        <span className="text-[10px] text-slate-500">
+                                          價值: {a.cost.toLocaleString()} H
+                                        </span>
+                                        {a.type === '股票' && (
+                                          <span className="text-[10px] text-slate-500">
+                                            持有張數: {a.quantity || 0} 張
+                                          </span>
+                                        )}
+                                        {a.type === '企業' && (
+                                          <span className="text-[10px] text-slate-500">
+                                            每月企業收益: {a.cashflow.toLocaleString()} H
+                                          </span>
+                                        )}
+                                      </div>
+                                      {a.type === '股票' ? (
+                                        <div className="flex flex-col gap-1 w-40">
+                                          <Input
+                                            type="number"
+                                            placeholder="每張股價"
+                                            className="h-8 text-xs"
+                                            value={sellStockDetails[a.id]?.price || ''}
+                                            onChange={e =>
+                                              setSellStockDetails(prev => ({
+                                                ...prev,
+                                                [a.id]: {
+                                                  ...(prev[a.id] || { price: '', qty: '' }),
+                                                  price: e.target.value
+                                                }
+                                              }))
+                                            }
+                                          />
+                                          <Input
+                                            type="number"
+                                            placeholder="賣出張數"
+                                            className="h-8 text-xs"
+                                            value={sellStockDetails[a.id]?.qty || ''}
+                                            onChange={e =>
+                                              setSellStockDetails(prev => ({
+                                                ...prev,
+                                                [a.id]: {
+                                                  ...(prev[a.id] || { price: '', qty: '' }),
+                                                  qty: e.target.value
+                                                }
+                                              }))
+                                            }
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div className="w-32">
+                                          <Input
+                                            type="number"
+                                            placeholder="售價"
+                                            className="h-9 text-xs"
+                                            value={repayInputs[a.id] || ''}
+                                            onChange={e => setRepayInputs({ [a.id]: e.target.value })}
+                                          />
+                                        </div>
+                                      )}
                                     </div>
-                                )) : <p className="text-center text-slate-500 py-6 italic text-sm">尚無資產可出售</p>}
+                                  ))
+                                ) : (
+                                  <p className="text-center text-slate-500 py-6 italic text-sm">
+                                    尚無資產可出售
+                                  </p>
+                                )}
                             </div>
                         )}
                     </div>
