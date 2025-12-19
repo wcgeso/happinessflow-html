@@ -1,14 +1,14 @@
-
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Wallet, 
-  Baby, 
+  Baby,
   Briefcase, 
   Plus, 
   LayoutDashboard,
   Heart,
   X,
   ArrowRight,
+  ArrowLeft,
   Award,
   Plane,
   Stethoscope,
@@ -145,32 +145,86 @@ const SelectionCarousel = ({
     onSelect, 
     renderItem, 
     onNext,
+    onBack,
     btnLabel,
     sessionMeta,
     shape = 'rectangle',
     showSliderPrompt = true,
 }: any) => {
     const scrollRef = useRef<HTMLDivElement>(null);
+    const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
     const isCircle = shape === 'circle';
+    const itemWidth = 280 + 24; // 卡片寬度 + 間距
+    const [centerIndex, setCenterIndex] = useState<number | null>(null);
 
     const displayItems = useMemo(() => {
         return [...items, ...items, ...items];
     }, [items]);
 
-    const initialOffsetSet = useRef(false);
+    const initialOffsetSet = useRef<boolean>(false);
+    const isScrolling = useRef<boolean>(false);
+    const scrollTimeout = useRef<NodeJS.Timeout>();
 
+    // 設置初始滾動位置
     useEffect(() => {
         if (scrollRef.current && !initialOffsetSet.current) {
-            const itemWidth = 280 + 24; 
             const centerIndex = items.length;
             scrollRef.current.scrollLeft = centerIndex * itemWidth;
             initialOffsetSet.current = true;
         }
-    }, [items.length]);
+    }, [items.length, itemWidth]);
+
+    // 設置 IntersectionObserver 來檢測中央卡片
+    useEffect(() => {
+        console.log('設置 IntersectionObserver');
+        
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach(entry => {
+                    console.log('觀察到元素變化:', {
+                        target: entry.target.getAttribute('data-index'),
+                        isIntersecting: entry.isIntersecting,
+                        intersectionRatio: entry.intersectionRatio
+                    });
+                    
+                    if (entry.isIntersecting && !isScrolling.current) {
+                        const index = parseInt(entry.target.getAttribute('data-index') || '0', 10);
+                        console.log('檢測到中央卡片:', { index, itemsLength: items.length });
+                        
+                        if (index >= 0 && index < items.length * 3) {
+                            const actualIndex = index % items.length;
+                            const itemId = items[actualIndex]?.id;
+                            console.log('準備選擇卡片:', { actualIndex, itemId, selectedId });
+                            
+                            if (itemId && itemId !== selectedId) {
+                                console.log('觸發 onSelect:', itemId);
+                                onSelect(itemId);
+                            }
+                        }
+                    }
+                });
+            },
+            {
+                root: scrollRef.current,
+                threshold: 0.5, // 降低閾值到 50%
+                rootMargin: '0px',
+            }
+        );
+
+        itemRefs.current.forEach(ref => {
+            if (ref) observer.observe(ref);
+        });
+
+        return () => {
+            itemRefs.current.forEach(ref => {
+                if (ref) observer.unobserve(ref);
+            });
+            observer.disconnect();
+        };
+    }, [items, selectedId, onSelect]);
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const container = e.currentTarget;
-        const itemWidth = 280 + 24;
         const listWidth = items.length * itemWidth;
 
         if (container.scrollLeft < listWidth / 2) {
@@ -178,15 +232,89 @@ const SelectionCarousel = ({
         } else if (container.scrollLeft > listWidth * 2) {
             container.scrollLeft -= listWidth;
         }
+
+        // 設置滾動標記，避免在滾動過程中觸發過多的狀態更新
+        isScrolling.current = true;
+        if (scrollTimeout.current) {
+            clearTimeout(scrollTimeout.current);
+        }
+        
+        // 縮短延遲時間，讓響應更靈敏
+        scrollTimeout.current = setTimeout(() => {
+            isScrolling.current = false;
+            console.log('滾動結束，尋找中央卡片...');
+            // 滾動結束後，找到最接近中央的卡片
+            findCenterCard();
+        }, 100) as NodeJS.Timeout;
+    };
+
+    // 找到最接近中央的卡片
+    const findCenterCard = () => {
+        if (!scrollRef.current) {
+            console.log('scrollRef 未就緒');
+            return;
+        }
+        
+        const container = scrollRef.current;
+        const containerRect = container.getBoundingClientRect();
+        const containerCenter = containerRect.left + containerRect.width / 2;
+        
+        console.log('尋找最接近中央的卡片，容器中心:', containerCenter);
+        
+        let closestCard = null;
+        let minDistance = Infinity;
+        
+        itemRefs.current.forEach((ref, index) => {
+            if (!ref) return;
+            
+            const rect = ref.getBoundingClientRect();
+            const cardCenter = rect.left + rect.width / 2;
+            const distance = Math.abs(cardCenter - containerCenter);
+            
+            console.log(`卡片 ${index}: 中心位置 ${cardCenter}, 距離 ${distance}`);
+            
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestCard = { index, distance };
+            }
+        });
+        
+        if (closestCard) {
+            console.log('找到最接近中央的卡片:', closestCard);
+            setCenterIndex(closestCard.index);
+            
+            // 處理所有卡片的索引，但只選擇中間部分的卡片
+            const actualIndex = closestCard.index % items.length;
+            const itemId = items[actualIndex]?.id;
+            
+            console.log('處理選擇:', { actualIndex, itemId, selectedId });
+            
+            if (itemId && itemId !== selectedId) {
+                console.log('觸發 onSelect (滾動結束):', itemId);
+                onSelect(itemId);
+            }
+        } else {
+            console.log('未找到中央卡片');
+        }
     };
 
     return (
     <div className="fixed inset-0 bg-slate-950 flex flex-col overflow-hidden animate-in fade-in duration-500 z-50">
-      <div className="shrink-0 px-4 py-3 border-b border-slate-800 flex justify-between items-center bg-slate-900 z-10">
-         <div>
+      <div className="relative shrink-0 px-4 py-3 border-b border-slate-800 flex items-center justify-center bg-slate-900 z-10">
+         <div className="text-center">
             <h1 className="text-xl font-black text-white leading-tight">蜂富人生</h1>
             <p className="text-[10px] text-slate-400">{title} | 玩家: {sessionMeta.playerName}</p>
          </div>
+         {onBack && (
+           <button 
+             onClick={onBack}
+             className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1"
+             aria-label="返回"
+             style={{ transform: 'translateY(-50%)' }}
+           >
+             <ArrowLeft size={24} />
+           </button>
+         )}
       </div>
       
       <div className="flex-1 relative flex flex-col justify-center overflow-hidden bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 to-slate-950">
@@ -201,25 +329,11 @@ const SelectionCarousel = ({
         <div 
             ref={scrollRef}
             onScroll={handleScroll}
-            className="w-full flex items-center overflow-x-auto snap-x snap-mandatory gap-6 pb-4 pt-16 scrollbar-hide"
-            style={{ 
+            className="w-full flex items-center overflow-x-auto snap-x snap-mandatory gap-6 pb-4 pt-16 hide-scrollbar"
+            style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
-              overflow: 'auto',
-              WebkitOverflowScrolling: 'touch'
-            }}
-            css={{
-              '&::-webkit-scrollbar': {
-                display: 'none',
-                width: 0,
-                height: 0,
-              },
-              '&::-webkit-scrollbar-track': {
-                display: 'none',
-              },
-              '&::-webkit-scrollbar-thumb': {
-                display: 'none',
-              }
+              WebkitOverflowScrolling: 'touch',
             }}
         >
             {displayItems.map((item: any, idx: number) => {
@@ -227,8 +341,11 @@ const SelectionCarousel = ({
               const isSelected = selectedId === actualId;
               return (
                 <div 
+                    ref={el => {
+                        itemRefs.current[idx] = el;
+                    }}
                     key={`${actualId}-${idx}`} 
-                    onClick={() => onSelect(actualId)}
+                    data-index={idx}
                     className={`snap-center shrink-0 transition-all duration-300 ease-out cursor-pointer flex flex-col relative z-10 
                       ${isCircle ? 'w-[75vw] max-w-[280px] aspect-square' : 'w-[85vw] max-w-[280px] h-[55vh]'} 
                       ${isSelected ? 'scale-105' : 'scale-90 opacity-60 hover:opacity-100'}`}
@@ -1098,6 +1215,7 @@ export const App: React.FC = () => {
               selectedId={selectedProfessionId}
               onSelect={setSelectedProfessionId}
               onNext={() => setCurrentView('enterprise_select')}
+              onBack={() => setCurrentView('lobby')} // 返回大廳或登入頁面
               sessionMeta={sessionMeta}
               shape="circle"
               renderItem={(p: Profession, isSelected: boolean) => (
@@ -1121,6 +1239,7 @@ export const App: React.FC = () => {
               selectedId={selectedEnterpriseId} 
               onSelect={setSelectedEnterpriseId} 
               onNext={() => setCurrentView('dream_select')} 
+              onBack={() => setCurrentView('profession_select')}
               sessionMeta={sessionMeta}
               showSliderPrompt={true} 
               renderItem={(e: Enterprise, isSelected: boolean) => {
@@ -1160,6 +1279,7 @@ export const App: React.FC = () => {
             selectedId={selectedDreamId}
             onSelect={setSelectedDreamId}
             onNext={finalizeSetup}
+            onBack={() => setCurrentView('enterprise_select')}
             sessionMeta={sessionMeta}
             renderItem={(d: Dream, isSelected: boolean) => (
                 <>
