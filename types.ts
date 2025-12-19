@@ -93,10 +93,28 @@ export interface HappinessItem {
   parentId?: string; 
 }
 
+export interface IncomeDetails {
+  salary?: number;
+  investment?: number;
+  other?: number;
+  [key: string]: number | undefined;
+}
+
+export interface ExpenseDetailsType {
+  taxes?: number;
+  mortgage?: number;
+  studentLoan?: number;
+  creditCard?: number;
+  other?: number;
+  [key: string]: number | undefined;
+}
+
 export interface GameState {
   profession: Profession | null;
   selectedEnterprise: Enterprise | null;
   selectedDream: Dream | null;
+  expenses: ExpenseDetailsType;
+  income: IncomeDetails;
   
   currentRankTitle: string; 
   currentRankLevel: number; 

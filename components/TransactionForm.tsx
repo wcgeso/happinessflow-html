@@ -106,10 +106,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
   const [bizIncome, setBizIncome] = useState<string>('');
   
   const [cdAmount, setCdAmount] = useState<string>('');
-  const [insType, setInsType] = useState<string>('medical');
+  type InsuranceType = 'medical' | 'house' | 'aircraft';
+  const [insType, setInsType] = useState<InsuranceType>('medical');
   const [insMedicalQty, setInsMedicalQty] = useState<string>('1');
   const [insSelectedHouses, setInsSelectedHouses] = useState<string[]>([]);
   const [insAircraftSelected, setInsAircraftSelected] = useState(false);
+  const [showInsAircraftError, setShowInsAircraftError] = useState(false);
 
   const [aircraftCash, setAircraftCash] = useState<string>('');
   const [aircraftLoan, setAircraftLoan] = useState<string>('');
@@ -555,10 +557,50 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
                             )}
                             {assetType === '保險' && ( 
                                 <div className="space-y-4">
-                                    <div className="flex gap-2 mb-4 bg-slate-800 p-1 rounded-lg">
-                                      <button onClick={() => {setInsType('medical'); setErrorMessage(null);}} className={`flex-1 py-1 text-[10px] font-bold rounded ${insType === 'medical' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>醫療保險</button>
-                                      <button onClick={() => {setInsType('house'); setErrorMessage(null);}} className={`flex-1 py-1 text-[10px] font-bold rounded ${insType === 'house' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>房屋保險</button>
-                                      <button onClick={() => {setInsType('aircraft'); setErrorMessage(null);}} className={`flex-1 py-1 text-[10px] font-bold rounded ${insType === 'aircraft' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>飛行器保險</button>
+                                    <div className="space-y-2">
+                                      <div className="flex gap-2 bg-slate-800 p-1 rounded-lg">
+                                        <button 
+                                          onClick={() => {
+                                            setInsType('medical'); 
+                                            setErrorMessage(null);
+                                            setShowInsAircraftError(false);
+                                          }} 
+                                          className={`flex-1 py-1 text-[10px] font-bold rounded ${insType === 'medical' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}
+                                        >
+                                          醫療保險
+                                        </button>
+                                        <button 
+                                          onClick={() => {
+                                            setInsType('house'); 
+                                            setErrorMessage(null);
+                                            setShowInsAircraftError(false);
+                                          }} 
+                                          className={`flex-1 py-1 text-[10px] font-bold rounded ${insType === 'house' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}
+                                        >
+                                          房屋保險
+                                        </button>
+                                        <button 
+                                          onClick={() => {
+                                            if (!hasAircraftAsset) {
+                                              setShowInsAircraftError(true);
+                                              setTimeout(() => setShowInsAircraftError(false), 3000);
+                                              return;
+                                            }
+                                            setInsType('aircraft'); 
+                                            setInsAircraftSelected(true);
+                                            setErrorMessage(null);
+                                          }} 
+                                          className={`flex-1 py-1 text-[10px] font-bold rounded ${insType === 'aircraft' ? 'bg-slate-600 text-white' : 'text-slate-400'} ${!hasAircraftAsset ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                          disabled={!hasAircraftAsset}
+                                        >
+                                          飛行器保險
+                                        </button>
+                                      </div>
+                                      {showInsAircraftError && (
+                                        <div className="text-red-500 text-xs text-center animate-fade-in">
+                                          您尚未擁有飛行器，無法購買飛行器保險
+                                        </div>
+                                      )}
                                     </div>
                                     {insType === 'medical' && (<div><label className="text-xs text-slate-400 block mb-1">購買張數</label><Input type="number" value={insMedicalQty} onChange={e => setInsMedicalQty(e.target.value)} /></div>)}
                                     {insType === 'house' && (<div className="space-y-2 max-h-40 overflow-y-auto pr-1">{uninsuredHouses.length > 0 ? uninsuredHouses.map(h => <div key={h.id} className="flex items-center gap-2 bg-slate-900 p-2 rounded border border-slate-700" onClick={() => setInsSelectedHouses(prev => prev.includes(h.id) ? prev.filter(i => i !== h.id) : [...prev, h.id])}><input type="checkbox" checked={insSelectedHouses.includes(h.id)} readOnly className="accent-emerald-500"/><span className="text-sm text-slate-200">{h.name}</span></div>) : <p className="text-center text-slate-500 text-xs py-4 italic">目前無房屋可投保</p>}</div>)}

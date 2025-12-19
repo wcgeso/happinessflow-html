@@ -236,7 +236,7 @@ const SelectionCarousel = ({
                     <div className={`w-full h-full bg-slate-900 border-2 overflow-hidden flex flex-col shadow-2xl relative transition-colors duration-300 
                       ${isCircle ? 'rounded-full items-center justify-center' : 'rounded-2xl'} 
                       ${isSelected ? 'border-emerald-500 shadow-emerald-500/30' : 'border-slate-700'}`}>
-                        <div className={`flex-1 flex flex-col items-center text-center space-y-4 overflow-y-auto ${isCircle ? 'justify-center p-8' : 'p-6'}`}>
+                        <div className={`flex-1 flex flex-col items-center text-center space-y-4 overflow-hidden ${isCircle ? 'justify-center p-8' : 'p-6'}`} style={{ maxHeight: '100%' }}>
                             {renderItem(item, isSelected)}
                         </div>
                     </div>
@@ -1043,12 +1043,13 @@ export const App: React.FC = () => {
                         <div className="w-full bg-slate-800/50 rounded-xl p-4 flex flex-col gap-3 border border-slate-700/50 text-sm">
                             <div className="flex justify-between"> <span className="text-slate-400">投資金額</span> <span className="text-emerald-400 font-mono">{formatMoney(e.cost)}</span> </div>
                             <div className="flex justify-between"> <span className="text-slate-400">月收入增加</span> <span className="text-emerald-400 font-mono">+{formatMoney(e.income)}</span> </div>
-                            <div className="border-t border-slate-700 pt-2 mt-1"> 
-                                <div className="text-xs text-slate-500 mb-1 text-left">相關職業加成</div> 
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full gap-1"> 
-                                    <span className="text-blue-300 font-bold whitespace-nowrap">{relatedProf}</span> 
-                                    <span className="text-blue-400 text-xs font-bold text-right">月收入增加 10~50% (根據職業等級)</span> 
-                                </div> 
+                            <div className="border-t border-slate-700 pt-2 mt-1 space-y-1">
+                                <div className="text-xs text-slate-500">相關職業加成</div>
+                                <div className="text-blue-300 font-bold">{relatedProf}</div>
+                                <div className="text-blue-400 text-xs">
+                                    <div>月收入增加 10~50%</div>
+                                    <div>(根據職業等級)</div>
+                                </div>
                             </div>
                             <div className="flex justify-between items-center pt-2"> <span className="text-slate-400">幸福點數</span> <span className="text-pink-400 font-bold">+{e.happyPoints}</span> </div>
                         </div>

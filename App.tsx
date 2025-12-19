@@ -236,7 +236,7 @@ const SelectionCarousel = ({
                     <div className={`w-full h-full bg-slate-900 border-2 overflow-hidden flex flex-col shadow-2xl relative transition-colors duration-300 
                       ${isCircle ? 'rounded-full items-center justify-center' : 'rounded-2xl'} 
                       ${isSelected ? 'border-emerald-500 shadow-emerald-500/30' : 'border-slate-700'}`}>
-                        <div className={`flex-1 flex flex-col items-center text-center space-y-4 overflow-y-auto ${isCircle ? 'justify-center p-8' : 'p-6'}`}>
+                        <div className={`flex-1 flex flex-col items-center text-center space-y-4 overflow-hidden ${isCircle ? 'justify-center p-8' : 'p-6'}`} style={{ maxHeight: '100%' }}>
                             {renderItem(item, isSelected)}
                         </div>
                     </div>
@@ -346,16 +346,94 @@ export const App: React.FC = () => {
       const index = prev.history.findIndex(tx => tx.id === id);
       if (index === -1) return prev;
 
-      // 目前僅支援刪除「最新一筆」交易，以確保現金與結餘一致
-      if (index !== 0) {
-        showAlert('目前僅能刪除最後一筆交易紀錄。', 'info');
-        return prev;
+      // 創建新的歷史記錄數組，不包含要刪除的交易
+      const newHistory = [...prev.history];
+      const deletedTx = newHistory.splice(index, 1)[0];
+      
+      // 初始化新的財務數據
+      let newCash = 0;
+      let newAssets = [...prev.assets];
+      let newLiabilities = [...prev.liabilities];
+      let newExpenses = { ...prev.expenses };
+      let newIncome = { ...prev.income };
+      
+      // 處理被刪除的交易
+      switch (deletedTx.sourceLabel) {
+        case '收入':
+          // 從收入中減去被刪除的金額
+          if (deletedTx.usageLabel === '薪資') {
+            newIncome.salary = Math.max(0, (newIncome.salary || 0) - deletedTx.amount);
+          } else if (deletedTx.usageLabel === '投資收益') {
+            newIncome.investment = Math.max(0, (newIncome.investment || 0) - deletedTx.amount);
+          } else if (deletedTx.usageLabel === '其他收入') {
+            newIncome.other = Math.max(0, (newIncome.other || 0) - deletedTx.amount);
+          }
+          break;
+          
+        case '支出':
+          // 恢復被刪除的支出
+          if (deletedTx.usageLabel === '稅金') {
+            newExpenses.taxes = Math.max(0, (newExpenses.taxes || 0) + deletedTx.amount);
+          } else if (deletedTx.usageLabel === '房貸') {
+            newExpenses.mortgage = Math.max(0, (newExpenses.mortgage || 0) + deletedTx.amount);
+          } else if (deletedTx.usageLabel === '學貸') {
+            newExpenses.studentLoan = Math.max(0, (newExpenses.studentLoan || 0) + deletedTx.amount);
+          } else if (deletedTx.usageLabel === '信用卡') {
+            newExpenses.creditCard = Math.max(0, (newExpenses.creditCard || 0) + deletedTx.amount);
+          } else if (deletedTx.usageLabel === '其他支出') {
+            newExpenses.other = Math.max(0, (newExpenses.other || 0) + deletedTx.amount);
+          }
+          break;
+          
+        case '資產交易':
+          // 從資產列表中移除該資產
+          newAssets = newAssets.filter(asset => 
+            !(asset.name === deletedTx.name && asset.cost === deletedTx.amount)
+          );
+          break;
+          
+        case '負債還款':
+          // 恢復負債餘額
+          const liability = newLiabilities.find(l => l.name === deletedTx.name);
+          if (liability) {
+            liability.totalOwed += deletedTx.amount;
+            // 重新計算每月還款金額（假設剩餘期限不變）
+            liability.monthlyPayment = Math.ceil(liability.totalOwed / 12); // 假設12個月
+          }
+          break;
       }
+      
+      // 重新計算所有交易的現金流和餘額
+      const updatedHistory = newHistory.map(tx => {
+        // 根據交易類型更新現金流
+        switch (tx.sourceLabel) {
+          case '收入':
+            newCash += tx.amount;
+            break;
+          case '支出':
+            newCash -= tx.amount;
+            break;
+          case '資產交易':
+            newCash -= tx.amount;
+            break;
+          case '負債還款':
+            newCash -= tx.amount;
+            break;
+        }
+        
+        // 更新交易的餘額
+        return { ...tx, balance: newCash };
+      });
 
-      const newHistory = prev.history.slice(1);
-      const newCash = newHistory.length > 0 ? newHistory[0].balance : 0;
-
-      return { ...prev, history: newHistory, cash: newCash };
+      return {
+        ...prev,
+        history: updatedHistory,
+        cash: newCash,
+        assets: newAssets,
+        liabilities: newLiabilities,
+        expenses: newExpenses,
+        income: newIncome
+      };
     });
   };
 
@@ -785,13 +863,24 @@ export const App: React.FC = () => {
                   
                   if (data.insuranceType === 'medical') { 
                     newMedicalInsuranceCount += (data.insurancePayload?.medicalQty || 0); 
-                    detailsText = `張數: ${data.insurancePayload?.medicalQty}`; 
+                    detailsText = `張數: ${data.insurancePayload?.medicalQty}`;
+                    sourceLabel = "購買保險";
+                    usageLabel = "醫療保險";
                   } 
                   else if (data.insurancePayload?.targetAssetIds) { 
                       newAssets = newAssets.map(a => { if (data.insurancePayload?.targetAssetIds?.includes(a.id)) { return { ...a, isInsured: true }; } return a; }); 
                       detailsText = `投保資產數: ${data.insurancePayload?.targetAssetIds?.length}`;
+                      sourceLabel = "購買保險";
+                      usageLabel = "房屋保險";
                   }
-                  usageLabel = data.name;
+                  else if (data.insurancePayload?.aircraft) {
+                      sourceLabel = "購買保險";
+                      usageLabel = "飛行器保險";
+                      detailsText = "飛行器事故險";
+                  }
+                  else {
+                      usageLabel = data.name;
+                  }
               }
               else if (data.usage === 'asset' && details) {
                   const newAsset: Asset = { id: Math.random().toString(36).substr(2, 9), name: data.name.replace('購買 ', '').replace('投資 ', '').replace('收購目標企業: ', ''), cost: data.amount, downPayment: details.downPayment, cashflow: details.cashflow, type: details.type as any, isSelfUse: details.isSelfUse, houseType: details.houseType, quantity: details.quantity };
@@ -1043,12 +1132,13 @@ export const App: React.FC = () => {
                         <div className="w-full bg-slate-800/50 rounded-xl p-4 flex flex-col gap-3 border border-slate-700/50 text-sm">
                             <div className="flex justify-between"> <span className="text-slate-400">投資金額</span> <span className="text-emerald-400 font-mono">{formatMoney(e.cost)}</span> </div>
                             <div className="flex justify-between"> <span className="text-slate-400">月收入增加</span> <span className="text-emerald-400 font-mono">+{formatMoney(e.income)}</span> </div>
-                            <div className="border-t border-slate-700 pt-2 mt-1"> 
-                                <div className="text-xs text-slate-500 mb-1 text-left">相關職業加成</div> 
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center w-full gap-1"> 
-                                    <span className="text-blue-300 font-bold whitespace-nowrap">{relatedProf}</span> 
-                                    <span className="text-blue-400 text-xs font-bold text-right">月收入增加 10~50% (根據職業等級)</span> 
-                                </div> 
+                            <div className="border-t border-slate-700 pt-2 mt-1 space-y-1">
+                                <div className="text-xs text-slate-500">相關職業加成</div>
+                                <div className="text-blue-300 font-bold">{relatedProf}</div>
+                                <div className="text-blue-400 text-xs">
+                                    <div>月收入增加 10~50%</div>
+                                    <div>(根據職業等級)</div>
+                                </div>
                             </div>
                             <div className="flex justify-between items-center pt-2"> <span className="text-slate-400">幸福點數</span> <span className="text-pink-400 font-bold">+{e.happyPoints}</span> </div>
                         </div>
