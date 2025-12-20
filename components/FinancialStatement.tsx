@@ -240,15 +240,15 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                  {businesses.length > 0 && <AssetGroup title="企業" color="text-purple-300" items={businesses} />}
                  {stocks.length > 0 && <AssetGroup title="股票" color="text-yellow-300" items={stocks} isStock />}
                  
-                 {/* 定存直接顯示一行 (Aggregated display per request) */}
+                 {/* 定存整合顯示 */}
                  {cds.length > 0 && (
                      <div className="bg-slate-900/50 rounded-lg p-2 border border-slate-700">
-                         {cds.map((cd, idx) => (
-                             <div key={cd.id} className={`flex justify-between items-center text-xs p-2 ${idx !== cds.length - 1 ? 'border-b border-slate-700/50' : ''}`}>
-                                 <span className="text-orange-300 font-bold">定存 ({formatMoney(cd.cost)})</span>
-                                 <span className="text-emerald-400 font-bold">{formatMoney(cd.cost)}</span>
-                             </div>
-                         ))}
+                         <div className="flex justify-between items-center text-xs p-2">
+                             <span className="text-orange-300 font-bold">定存</span>
+                             <span className="text-emerald-400 font-bold">
+                                 {formatMoney(cds.reduce((sum, cd) => sum + cd.cost, 0))}
+                             </span>
+                         </div>
                      </div>
                  )}
               </div>
@@ -301,7 +301,7 @@ const AssetGroup = ({ title, color, items, isStock = false, onShowAlert }: any) 
                                 />
                             )}
                         </div>
-                        <span className="text-emerald-400">價值 {formatMoney(item.cost)}</span>
+                        <span className="text-emerald-400">價值 {formatMoney(Math.abs(item.cost))}</span>
                      </div>
                      {isStock && (
                          <div className="text-[10px] text-slate-400 flex justify-between border-t border-slate-700/50 pt-1 mt-1">

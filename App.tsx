@@ -382,7 +382,7 @@ const SelectionCarousel = ({
     );
 };
 
-type AppView = 'auth_home' | 'login' | 'register' | 'lobby' | 'history' | 'create_report' | 'profession_select' | 'enterprise_select' | 'dream_select' | 'game';
+type AppView = 'auth_home' | 'login' | 'register' | 'lobby' | 'history' | 'create_report' | 'profession_select' | 'enterprise_select' | 'dream_select' | 'game' | 'achievements';
 
 const MOCK_HISTORY: GameRecord[] = [
     { id: '1', date: '2023/10/01', playerName: 'DemoUser', profession: '釀蜜師', finalScore: 8, happinessScore: 85, isWin: false, financialSummary: { passiveIncome: 25000, totalExpenses: 40000, totalAssets: 1500000 } },
@@ -787,7 +787,18 @@ export const App: React.FC = () => {
       } else { setAuthError('請輸入完整資訊'); }
   };
 
-  const handleLogout = async () => { if (auth) { try { await signOut(auth); } catch (error) { console.error(error); } } else { setUser(null); setCurrentView('auth_home'); } };
+  const handleLogout = async () => {
+    try {
+        if (auth) {
+            await signOut(auth);
+        }
+        setUser(null);
+        setCurrentView('auth_home');
+    } catch (error) {
+        console.error('登出時發生錯誤:', error);
+        showAlert('登出失敗，請稍後再試', 'error');
+    }
+};
 
   const handleCreateReport = () => {
       setFormError('');
@@ -1170,6 +1181,7 @@ export const App: React.FC = () => {
                   <Card className="p-4 bg-slate-900 border-slate-700 flex flex-col items-center justify-center gap-2"> <div className="text-slate-400 text-xs uppercase tracking-wider">遊玩局數</div> <div className="text-3xl font-black text-blue-400">{userStats.totalGames}</div> </Card>
               </div>
               <div className="flex-1 flex flex-col gap-4 max-w-md mx-auto w-full justify-center">
+                  <button onClick={() => setCurrentView('achievements')} className="group relative p-6 bg-gradient-to-r from-amber-600 to-yellow-600 rounded-2xl shadow-xl hover:scale-105 transition-all flex items-center justify-between"> <div className="flex flex-col text-left"> <span className="text-2xl font-bold text-white mb-1">我的成就</span> <span className="text-amber-100 text-sm">查看已解鎖的成就與獎勵</span> </div> <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center"> <Award size={24} className="text-white" /> </div> </button>
                   <button onClick={() => setCurrentView('create_report')} className="group relative p-6 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl shadow-xl hover:scale-105 transition-all flex items-center justify-between"> <div className="flex flex-col text-left"> <span className="text-2xl font-bold text-white mb-1">開始新冒險</span> <span className="text-emerald-100 text-sm">建立新報表並開始遊戲</span> </div> <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center"> <Play size={24} className="text-white fill-white" /> </div> </button>
                   <button onClick={() => setCurrentView('history')} className="p-6 bg-slate-800 border border-slate-700 rounded-2xl hover:bg-slate-700 transition-all flex items-center justify-between group"> <div className="flex flex-col text-left"> <span className="text-xl font-bold text-white mb-1 group-hover:text-emerald-400 transition-colors">歷史紀錄</span> <span className="text-slate-400 text-sm">查看過往財報與分數</span> </div> <History size={24} className="text-slate-500 group-hover:text-emerald-400 transition-colors" /> </button>
               </div>
@@ -1195,7 +1207,7 @@ export const App: React.FC = () => {
               <Card className="max-w-lg w-full bg-slate-900 border-slate-700 shadow-2xl p-8 animate-in zoom-in-95">
                   <div className="mb-6 border-b border-slate-800 pb-4"> <h2 className="text-2xl font-bold text-white flex items-center gap-3"> <FileText className="text-emerald-400" /> 新增財務報表 </h2> <p className="text-slate-400 text-sm mt-1">設定您的報表基本資訊以開始遊戲</p> </div>
                   <div className="space-y-6">
-                      <div> <label className="text-sm font-bold text-slate-300 mb-2 block flex items-center gap-2"> <FileText size={16} /> 報表名稱 </label> <Input placeholder="例如: 週末聚會第一局" value={inputReportName} onChange={e => { setInputReportName(e.target.value); if (formError) setFormError(''); }} autoFocus /> </div>
+                      <div> <label className="text-sm font-bold text-slate-300 mb-2 block flex items-center gap-2"> <FileText size={16} /> 報表名稱 </label> <Input placeholder="例如: 週末聚會第一局" value={inputReportName} onChange={e => { setInputReportName(e.target.value); if (formError) setFormError(''); }} /> </div>
                       <div> <label className="text-sm font-bold text-slate-300 mb-2 block flex items-center gap-2"> <User size={16} /> 玩家名稱 </label> <div className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white font-bold"> {user?.name || 'Guest'} </div> </div>
                       <div> <label className="text-sm font-bold text-slate-300 mb-2 block flex items-center gap-2"> <Calendar size={16} /> 建立日期 (自動) </label> <div className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-400 font-mono"> {dateStr} </div> </div>
                       <div className="pt-4 flex flex-col gap-3"> {formError && ( <div className="bg-rose-900/30 border border-rose-500/30 text-rose-400 text-sm p-3 rounded-lg flex items-center justify-center gap-2 animate-pulse"> <AlertCircle size={16} /> {formError} </div> )} <div className="flex gap-3"> <Button variant="secondary" onClick={() => setCurrentView('lobby')} className="flex-1"> 取消 </Button> <Button onClick={handleCreateReport} className="flex-1 py-3 text-lg"> 下一步：選擇職業 <ArrowRight size={18} /> </Button> </div> </div>
@@ -1300,7 +1312,7 @@ export const App: React.FC = () => {
     <div className="min-h-screen bg-slate-950 pb-20 overflow-x-hidden animate-in fade-in duration-500">
       {/* 店內 Alert - 修正位置至按鈕上方 (符合第 7 點) */}
       {alertInfo && (
-        <div className={`fixed bottom-28 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom-4 border ${
+        <div className={`fixed bottom-28 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl whitespace-nowrap flex items-center gap-2 animate-in slide-in-from-bottom-4 border ${
           alertInfo.type === 'error' ? 'bg-rose-900 border-rose-500 text-rose-100' : 
           alertInfo.type === 'success' ? 'bg-emerald-900 border-emerald-500 text-emerald-100' : 
           'bg-slate-800 border-slate-600 text-white'
@@ -1340,9 +1352,22 @@ export const App: React.FC = () => {
             </div>
           </div>
           <div className="flex gap-2 items-center">
-             <div className={`relative transition-all duration-300 ${hasAircraft ? 'cursor-pointer hover:scale-110' : 'opacity-30 grayscale'}`} onTouchStart={() => hasAircraft && setShowAircraftTooltip(true)} onTouchEnd={() => hasAircraft && setShowAircraftTooltip(false)} onMouseDown={() => hasAircraft && setShowAircraftTooltip(true)} onMouseUp={() => hasAircraft && setShowAircraftTooltip(false)} onMouseLeave={() => hasAircraft && setShowAircraftTooltip(false)} onClick={() => hasAircraft && setShowAircraftTooltip(!showAircraftTooltip)}>
-                  <div className={`p-2 rounded-lg shadow-lg transition-colors ${hasAircraft ? 'bg-indigo-600 text-white shadow-indigo-500/20' : 'bg-slate-800 text-slate-500'}`}> <Plane size={16} /> </div>
-                  {showAircraftTooltip && hasAircraft && ( <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-32 bg-slate-800 text-white text-[10px] p-2 rounded border border-slate-600 z-50 shadow-xl animate-in fade-in zoom-in-95 pointer-events-none"> 遊玩時可擲兩顆骰子 </div> )}
+             <div className="relative cursor-pointer hover:scale-110 transition-transform">
+               <div 
+                 className={`p-2 rounded-lg shadow-lg transition-colors ${hasAircraft ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-600 hover:bg-slate-500'} text-white shadow-indigo-500/20`}
+                 onMouseEnter={() => setShowAircraftTooltip(true)}
+                 onMouseLeave={() => setShowAircraftTooltip(false)}
+               >
+                 <Plane size={16} className={!hasAircraft ? 'text-slate-300' : 'text-white'} />
+               </div>
+               {showAircraftTooltip && (
+                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-40 bg-slate-800 text-white text-xs p-3 rounded border border-slate-600 z-50 shadow-xl animate-in fade-in zoom-in-95 pointer-events-none">
+                   <div className="relative">
+                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-slate-800"></div>
+                     {hasAircraft ? '遊玩時可擲兩顆骰子' : '尚未擁有飛行器'}
+                   </div>
+                 </div>
+               )}
              </div>
              <Button onClick={() => setShowPromotionModal(true)} className="bg-purple-600 hover:bg-purple-500 text-white text-xs px-3 py-2 shadow-lg shadow-purple-900/20 z-50"> <GraduationCap size={16} /> 升等考試 </Button>
           </div>

@@ -5,7 +5,12 @@ import { Button, Card, Input } from './ui';
 import { STOCK_SYMBOLS, REAL_ESTATE_SYMBOLS, BUSINESS_SYMBOLS } from '../constants';
 import { CheckCircle2, AlertCircle, PieChart, TrendingUp, TrendingDown, Wallet, HelpCircle, ArrowUpCircle, ArrowDownCircle, Trash2, Plane, Home, Zap, Coins, Box, ChevronRight, ShieldCheck, Heart, Star, Building2, X } from 'lucide-react';
 
-const formatMoney = (amount: number) => `${amount.toLocaleString()} H`;
+const formatMoney = (amount: number) => {
+  // 確保金額是數字
+  const num = Number(amount);
+  // 取得絕對值並格式化，避免重複顯示符號
+  return `${Math.abs(num).toLocaleString()} H`;
+};
 
 const getSellDisplayName = (asset: Asset) => {
   if (asset.type === '不動產' && asset.name) {
@@ -85,9 +90,12 @@ interface AccountEntry {
   direction: ChangeDirection;
 }
 
+type Mode = 'loan' | 'buy' | 'sell' | 'dividend' | 'event' | 'expense';
+type ExpenseType = 'housing_loan' | 'increase_monthly' | 'decrease_monthly' | '';
+
 export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, selectedEnterprise, selectedDream, cash, salary, assets = [], happiness = [], liabilities = [], onTransaction, onCancel }) => {
   const [phase, setPhase] = useState<1 | 2 | 3>(1);
-  const [mode, setMode] = useState<'buy' | 'sell' | 'loan' | 'dividend' | 'event'>('buy');
+  const [mode, setMode] = useState<Mode>('buy');
   
   const [assetType, setAssetType] = useState<AssetType>('股票');
   const [stockInputs, setStockInputs] = useState<Record<string, { price: string, qty: string }>>({});
@@ -135,6 +143,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
   const [eventAmount, setEventAmount] = useState<string>('');
   const [eventCustomName, setEventCustomName] = useState('');
   const [eventExpCategory, setEventExpCategory] = useState<'basicLiving' | 'transportEdu' | 'otherMedicalChild'>('basicLiving');
+  
+  const [selectedExpense, setSelectedExpense] = useState<ExpenseType>('');
+  const [expenseAmount, setExpenseAmount] = useState<string>('');
 
   const [userEntries, setUserEntries] = useState<AccountEntry[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -161,6 +172,77 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
       let expectedEntries: AccountEntry[] = [];
       let impactList: string[] = [];
       setErrorMessage(null);
+      
+      // 房屋貸款還款的特殊處理
+      if (mode === 'expense' && selectedExpense === 'housing_loan') {
+          const amount = Number(expenseAmount);
+          if (!amount || amount <= 0) { setErrorMessage("請輸入有效的還款金額"); return; }
+          if (amount > cash) { setErrorMessage("現金不足"); return; }
+          
+          txData = { 
+              name: "償還房屋貸款", 
+              amount: amount, 
+              cashChange: -amount, 
+              source: 'cash', 
+              usage: 'expense',
+              expensePayload: {
+                  category: 'otherMedicalChild',
+                  amount: amount,
+                  isIncrease: false
+              }
+          };
+          
+          impactList.push(`現金 -${formatMoney(amount)}`);
+          impactList.push(`不動產貸款 -${formatMoney(amount)}`);
+          
+          expectedEntries.push(
+              { category: 'Assets', name: '現金', direction: 'Decrease' },
+              { category: 'Liabilities', name: '不動產貸款', direction: 'Decrease' },
+              { category: 'Expenses', name: '不動產貸款利息', direction: 'Decrease' }
+          );
+      } 
+      // 增加月支出的特殊處理
+      else if (mode === 'expense' && selectedExpense === 'increase_monthly') {
+          const amount = Number(expenseAmount);
+          if (!amount || amount <= 0) { setErrorMessage("請輸入有效的金額"); return; }
+          
+          txData = { 
+              name: "增加月支出", 
+              amount: amount, 
+              cashChange: 0, 
+              source: 'cash', 
+              usage: 'expense',
+              expensePayload: {
+                  category: 'otherMedicalChild',
+                  amount: amount,
+                  isIncrease: true
+              }
+          };
+          
+          impactList.push(`月支出 +${formatMoney(amount)}`);
+          expectedEntries.push({ category: 'Expenses', name: '月支出', direction: 'Increase' });
+      }
+      // 減少月支出的特殊處理
+      else if (mode === 'expense' && selectedExpense === 'decrease_monthly') {
+          const amount = Number(expenseAmount);
+          if (!amount || amount <= 0) { setErrorMessage("請輸入有效的金額"); return; }
+          
+          txData = { 
+              name: "減少月支出", 
+              amount: amount, 
+              cashChange: 0, 
+              source: 'cash', 
+              usage: 'expense',
+              expensePayload: {
+                  category: 'otherMedicalChild',
+                  amount: amount,
+                  isIncrease: false
+              }
+          };
+          
+          impactList.push(`月支出 -${formatMoney(amount)}`);
+          expectedEntries.push({ category: 'Expenses', name: '月支出', direction: 'Decrease' });
+      }
 
       if (mode === 'buy') {
               if (assetType === '股票') {
@@ -176,6 +258,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
               expectedEntries.push({ category: 'Assets', name: '現金', direction: 'Decrease' });
               list.forEach(s => expectedEntries.push({ category: 'Assets', name: `股票 (${s.symbol})`, direction: 'Increase' }));
           } else if (assetType === '不動產') {
+              // 檢查是否已擁有該不動產
+              const existingRealEstate = assets.find(asset => asset.type === '不動產' && asset.name && asset.name.includes(reSymbol));
+              if (existingRealEstate) {
+                  setErrorMessage(`您已經擁有 ${reSymbol} 不動產，無法重複購買`);
+                  return;
+              }
+              
               if (!reDownPayment) { setErrorMessage("請輸入頭期款"); return; }
               const down = Number(reDownPayment), loan = Number(reLoan), inc = Number(reIncome), inter = Number(reInterest);
               if (down > cash) { setErrorMessage("現金不足"); return; }
@@ -210,39 +299,95 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
               if (loan > 0) { expectedEntries.push({ category: 'Liabilities', name: '不動產貸款', direction: 'Increase' }); expectedEntries.push({ category: 'Expenses', name: '不動產貸款利息', direction: 'Increase' }); }
               if (!reSelfUse && inc > 0) expectedEntries.push({ category: 'Income', name: '租金收入', direction: 'Increase' });
           } else if (assetType === '企業') {
-              if (!bizCost) { setErrorMessage("請輸入投資金額"); return; }
-              const cost = Number(bizCost), ln = Number(bizLoan), inc = Number(bizIncome);
-              const cashChange = ln - cost;
-              if (cashChange < 0 && Math.abs(cashChange) > cash) { setErrorMessage("現金不足"); return; }
-
-              txData = { name: `投資企業 ${bizSymbol}`, amount: cost, cashChange: cashChange, source: ln > 0 ? 'loan' : 'cash', usage: 'asset', assetDetails: { type: '企業', cashflow: inc, downPayment: cost, loanAmount: ln, loanInterest: Math.floor(ln * 0.005), symbol: bizSymbol } };
+              const cost = Number(bizCost);
+              const loan = Number(bizLoan);
+              const inc = Number(bizIncome);
               
-              // Impacts
-              if (cashChange > 0) impactList.push(`現金 +${formatMoney(cashChange)} (超貸部分)`);
-              else if (cashChange < 0) impactList.push(`現金 -${formatMoney(Math.abs(cashChange))}`);
-              
-              impactList.push(`企業資產價值 +${formatMoney(cost)}`);
-              
-              if (ln > 0) {
-                  impactList.push(`企業貸款 +${formatMoney(ln)}`);
-                  impactList.push(`貸款利息(月) +${formatMoney(Math.floor(ln * 0.005))}`);
+              // 檢查是否已擁有該企業
+              const existingBusiness = assets.find(asset => asset.type === '企業' && asset.name && asset.name.includes(bizSymbol));
+              if (existingBusiness) {
+                  setErrorMessage(`您已經擁有 ${bizSymbol} 企業，無法重複購買`);
+                  return;
               }
-              if (inc > 0) impactList.push(`企業收益(月) +${formatMoney(inc)}`);
-
-              expectedEntries.push({ category: 'Assets', name: `企業 (${bizSymbol})`, direction: 'Increase' });
               
-              // Cash Check Logic
-              if (cashChange > 0) {
-                  expectedEntries.push({ category: 'Assets', name: '現金（企業貸款）', direction: 'Increase' });
-              } else if (cashChange < 0) {
-                  expectedEntries.push({ category: 'Assets', name: '現金', direction: 'Decrease' });
+              // 驗證輸入
+              if (!cost || cost <= 0) { setErrorMessage("請輸入有效的投資金額"); return; }
+              if (loan < 0) { setErrorMessage("貸款金額必須大於或等於 0"); return; }
+              
+              const down = cost - loan; // 自備款
+              
+              // 檢查現金是否足夠支付自備款
+              if (down > cash) { setErrorMessage("現金不足支付頭期款"); return; }
+              
+              // 企業價值等於實際投資金額（不包含貸款）
+              const businessValue = down;
+              
+              // 現金變動 = 貸款金額 - 投資金額
+              const cashChange = loan - cost;
+              
+              // 創建交易資料
+              txData = {
+                  name: `投資企業 ${bizSymbol}`,
+                  amount: down, // 企業價值等於實際投資金額
+                  cashChange: cashChange, // 現金變動 = 貸款金額 - 自備款
+                  source: loan > 0 ? 'loan' : 'cash',
+                  usage: 'asset',
+                  assetDetails: {
+                      type: '企業',
+                      cashflow: inc,
+                      downPayment: down, // 實際支付的自備款
+                      loanAmount: loan,  // 貸款金額
+                      loanInterest: Math.floor(loan * 0.005), // 貸款利息（0.5%）
+                      symbol: bizSymbol
+                  }
+              };
+              
+              // 影響列表
+              impactList = [];
+              
+              // 現金減少（投資金額部分）
+              impactList.push(`現金 -${formatMoney(cost)}`);
+              
+              // 企業資產增加（等於實際投資金額）
+              impactList.push(`企業 (${bizSymbol}) +${formatMoney(down)}`);
+              
+              // 如果有貸款，添加貸款相關影響
+              if (loan > 0) {
+                  impactList.push(`企業貸款 +${formatMoney(loan)}`);
+                  impactList.push(`企業貸款利息(月) +${formatMoney(Math.floor(loan * 0.005))}`);
+                  // 貸款現金增加
+                  impactList.push(`現金（企業貸款） +${formatMoney(loan)}`);
               }
-
-              if (ln > 0) { 
-                  expectedEntries.push({ category: 'Liabilities', name: '企業貸款', direction: 'Increase' }); 
-                  expectedEntries.push({ category: 'Expenses', name: '企業貸款利息', direction: 'Increase' });
+              
+              // 如果有收益，添加收益影響
+              if (inc > 0) {
+                  impactList.push(`企業收益(月) +${formatMoney(inc)}`);
               }
-              if (inc > 0) expectedEntries.push({ category: 'Income', name: '企業收益', direction: 'Increase' });
+              
+              // 預期會計分錄
+              expectedEntries = [
+                  // 企業資產增加
+                  { category: 'Assets', name: `企業 (${bizSymbol})`, direction: 'Increase' },
+                  // 現金減少（支付自備款）
+                  { category: 'Assets', name: '現金', direction: 'Decrease' }
+              ];
+              
+              // 如果有貸款，添加貸款相關的會計分錄
+              if (loan > 0) {
+                  // 貸款增加（負債）
+                  expectedEntries.push(
+                      { category: 'Liabilities', name: '企業貸款', direction: 'Increase' },
+                      // 貸款利息支出
+                      { category: 'Expenses', name: '企業貸款利息', direction: 'Increase' },
+                      // 貸款現金增加
+                      { category: 'Assets', name: '現金（企業貸款）', direction: 'Increase' }
+                  );
+              }
+              
+              // 如果有收益，添加收益相關的會計分錄
+              if (inc > 0) {
+                  expectedEntries.push({ category: 'Income', name: '企業收益', direction: 'Increase' });
+              }
 
           } else if (assetType === '定存') {
               const amt = Number(cdAmount); 
@@ -336,9 +481,30 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
               const amt = Number(withdrawAmount); 
               if (!amt) { setErrorMessage("請輸入解約金額"); return; }
               if (amt > cdTotal) { setErrorMessage("超過定存餘額"); return; }
-              txData = { name: `定存解約`, amount: amt, cashChange: amt, source: 'income', usage: 'cash', relatedAssetId: assets.find(a => a.type === '定存')?.id };
-              impactList = [`現金 +${formatMoney(amt)}`, `定存 -${formatMoney(amt)}`];
-              expectedEntries = [ { category: 'Assets', name: '現金', direction: 'Increase' }, { category: 'Assets', name: '定存', direction: 'Decrease' } ];
+              const interest = Math.floor(amt * 0.005); // Calculate interest (0.5% of the amount)
+              txData = { 
+                  name: `定存解約`, 
+                  amount: amt, 
+                  cashChange: amt, 
+                  source: 'income', 
+                  usage: 'cash', 
+                    relatedAssetId: assets.find(a => a.type === '定存')?.id,
+                    expensePayload: {
+                        category: 'otherMedicalChild',
+                        amount: interest,
+                        isIncrease: false
+                    }
+                };
+                impactList = [
+                    `現金 +${formatMoney(amt)}`, 
+                    `定存 -${formatMoney(amt)}`,
+                    `定存利息(月) -${formatMoney(interest)}`
+                ];
+                expectedEntries = [
+                    { category: 'Assets', name: '現金', direction: 'Increase' },
+                    { category: 'Assets', name: '定存', direction: 'Decrease' },
+                    { category: 'Income', name: '定存利息', direction: 'Decrease' }
+                ];
           } else {
               const entries = (Object.entries(repayInputs) as [string, string][]).filter(([_, val]) => Number(val) > 0);
               if (entries.length === 0) { setErrorMessage("請輸入售價"); return; }
@@ -489,9 +655,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ profession, se
      return [...new Set(base)];
   }, [mode, assetType, reSymbol, bizSymbol, sellCat, assets, stockAssets, divMode]);
 
-  const possibleItemsIncome = ['租金收入', '企業收益', '股利', '定存利息'];
+  const possibleItemsIncome = ['租金收入', '企業收益', '定存利息'];
   const possibleItemsLiabilities = ['信用貸款', '不動產貸款', '企業貸款', '飛行器貸款'].concat(liabilities.map(l => l.name));
-  const possibleItemsExpenses = ['信貸利息（貸款金額x10%）', '不動產貸款利息', '企業貸款利息', '飛行器貸款利息', '其他支出', '投資損失', '保險支出', '餐飲服飾居住', '交通教育娛樂', '其他醫療育兒'];
+  const possibleItemsExpenses = ['信貸利息', '不動產貸款利息', '企業貸款利息', '飛行器貸款利息', '保險支出', '餐飲、服飾、居住類', '交通、教育、娛樂類', '其他、醫療、育兒類'];
 
   return (
     <Card className="bg-slate-900 border-slate-600 shadow-2xl max-w-4xl w-full mx-auto animate-in zoom-in-95 overflow-hidden flex flex-col h-[85vh]">
