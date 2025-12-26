@@ -1,26 +1,26 @@
 
 import { initializeApp } from 'firebase/app';
-import { 
-  getAuth, 
-  Auth, 
-  GoogleAuthProvider, 
+import {
+  getAuth,
+  Auth,
+  GoogleAuthProvider,
   signInWithEmailAndPassword as _signInWithEmailAndPassword,
   signInWithPopup as _signInWithPopup,
   signOut as _signOut,
   User as FirebaseUser
 } from 'firebase/auth';
-import { 
-  getFirestore, 
-  Firestore, 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  getDocs, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where 
+import {
+  getFirestore,
+  Firestore,
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  query,
+  where
 } from 'firebase/firestore';
 
 // 模擬的用戶數據
@@ -48,7 +48,7 @@ const createMockAuth = () => ({
   currentUser: MOCK_USER,
   onAuthStateChanged: (callback: (user: any) => void) => {
     callback(MOCK_USER);
-    return () => {}; // 返回一個空的取消訂閱函數
+    return () => { }; // 返回一個空的取消訂閱函數
   },
   signInWithEmailAndPassword: async (email: string, password: string) => ({
     user: MOCK_USER
@@ -56,7 +56,7 @@ const createMockAuth = () => ({
   signInWithPopup: async () => ({
     user: MOCK_USER
   }),
-  signOut: async () => {}
+  signOut: async () => { }
 });
 
 const createMockDb = () => ({
@@ -68,15 +68,12 @@ const createMockDb = () => ({
         id: 'local-game-123'
       }),
       set: async (data: any) => {
-        console.log('Saving game data:', data);
         return Promise.resolve();
       },
       update: async (data: any) => {
-        console.log('Updating game data:', data);
         return Promise.resolve();
       },
       delete: async () => {
-        console.log('Deleting game data');
         return Promise.resolve();
       }
     }),
@@ -90,7 +87,6 @@ const createMockDb = () => ({
       })
     }),
     add: async (data: any) => {
-      console.log('Adding document:', data);
       return { id: 'new-doc-' + Date.now() };
     },
     get: async () => ({
@@ -104,17 +100,13 @@ const createMockDb = () => ({
 });
 
 // 檢查是否為本地環境
-const isLocalEnv =
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' ||
-   window.location.hostname === '127.0.0.1' ||
-   window.location.hostname === '');
+// 提示：如果您想要在本地測試時也連動真實的 Firebase，請將此處改為 false
+const isLocalEnv = false;
 
 let authInstance: any = null;
 let dbInstance: any = null;
 
 if (isLocalEnv) {
-  console.log('Running in local development mode with mock data');
   authInstance = createMockAuth();
   dbInstance = createMockDb();
 } else {
@@ -128,7 +120,7 @@ if (isLocalEnv) {
       appId: "1:54477291050:web:8efff9dbb79f6b4fb90d53",
       measurementId: "G-K2Z04E3XRV"
     };
-    
+
     const app = initializeApp(firebaseConfig);
     authInstance = getAuth(app);
     dbInstance = getFirestore(app);
@@ -147,16 +139,16 @@ export const googleProvider = new GoogleAuthProvider();
 // 導出模擬的登入方法
 export const signInWithEmailAndPassword = isLocalEnv
   ? async (email: string, password: string) => ({
-      user: MOCK_USER
-    })
+    user: MOCK_USER
+  })
   : _signInWithEmailAndPassword;
 
 export const signInWithPopup = isLocalEnv
   ? async () => ({
-      user: MOCK_USER
-    })
+    user: MOCK_USER
+  })
   : _signInWithPopup;
 
 export const signOut = isLocalEnv
-  ? async () => {}
+  ? async () => { }
   : _signOut;
