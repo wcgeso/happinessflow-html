@@ -276,8 +276,21 @@ export const useGameLogic = () => {
                     }
                 }
             } else if (data.usage === 'liability' && data.liabilityId) {
-                if (data.liabilityId === 'bank_loan') { newState.loans = Math.max(0, newState.loans - amount); }
-                else { newState.liabilities = newState.liabilities.map(l => { if (l.id === data.liabilityId) return { ...l, totalOwed: Math.max(0, l.totalOwed - amount) }; return l; }); }
+                if (data.liabilityId === 'bank_loan') { 
+                    newState.loans = Math.max(0, newState.loans - amount); 
+                } else { 
+                    newState.liabilities = newState.liabilities.map(l => { 
+                        if (l.id === data.liabilityId) {
+                            const newTotal = Math.max(0, l.totalOwed - amount);
+                            // 同步更新月支付金額（利息），維持 0.5% 或 10% 的比例
+                            const newMonthly = l.type === '信用貸款' ? Math.floor(newTotal * 0.1) : Math.floor(newTotal * 0.005);
+                            return { ...l, totalOwed: newTotal, monthlyPayment: newMonthly }; 
+                        }
+                        return l; 
+                    }); 
+                    // 如果還清了，移除該負債
+                    newState.liabilities = newState.liabilities.filter(l => l.totalOwed > 0);
+                }
             } else if (data.source === 'loan' && data.usage === 'cash') {
                 newState.liabilities = [...newState.liabilities, { id: generateId(), name: '信用貸款', totalOwed: amount, monthlyPayment: Math.floor(amount * 0.1), type: '信用貸款' }];
             } else if (data.usage === 'happiness_event' && data.happinessEventPayload) {
@@ -338,18 +351,42 @@ export const useGameLogic = () => {
                 } else if (data.relatedAssetId) {
                     const assetToSell = updatedAssets.find(a => a.id === data.relatedAssetId);
                     if (assetToSell) {
-                        storageData.relatedAssetPayload = assetToSell;
-                        updatedAssets = updatedAssets.filter(a => a.id !== data.relatedAssetId);
-                        
-                        // Also remove associated liabilities (e.g., loans for Real Estate or Enterprise)
-                        const assetSymbol = assetToSell.name.split(' ').slice(1).join(' ');
-                        const loanType = assetToSell.type === '不動產' ? '不動產貸款' : assetToSell.type === '企業' ? '企業貸款' : assetToSell.type === '飛行器' ? '飛行器貸款' : null;
-                        
-                        if (loanType) {
-                            const loanName = `${loanType} (${assetSymbol})`.trim();
-                            const removedLiabilities = newState.liabilities.filter(l => l.name === loanName);
-                            storageData.removedLiabilities = removedLiabilities;
-                            newState.liabilities = newState.liabilities.filter(l => l.name !== loanName);
+                        if (assetToSell.type === '定存') {
+                            // 定存解約：從所有定存項目中扣除金額
+                            let remainingToWithdraw = amount;
+                            updatedAssets = updatedAssets.reduce((acc: Asset[], asset) => {
+                                if (asset.type === '定存' && remainingToWithdraw > 0) {
+                                    if (asset.cost <= remainingToWithdraw) {
+                                        remainingToWithdraw -= asset.cost;
+                                        return acc;
+                                    } else {
+                                        const newCost = asset.cost - remainingToWithdraw;
+                                        remainingToWithdraw = 0;
+                                        acc.push({
+                                            ...asset,
+                                            cost: newCost,
+                                            downPayment: newCost,
+                                            cashflow: Math.floor(newCost * 0.005)
+                                        });
+                                        return acc;
+                                    }
+                                }
+                                acc.push(asset);
+                                return acc;
+                            }, []);
+                        } else {
+                            storageData.relatedAssetPayload = assetToSell;
+                            updatedAssets = updatedAssets.filter(a => a.id !== data.relatedAssetId);
+                            
+                            const assetSymbol = assetToSell.name.split(' ').slice(1).join(' ');
+                            const loanType = assetToSell.type === '不動產' ? '不動產貸款' : assetToSell.type === '企業' ? '企業貸款' : assetToSell.type === '飛行器' ? '飛行器貸款' : null;
+                            
+                            if (loanType) {
+                                const loanName = `${loanType} (${assetSymbol})`.trim();
+                                const removedLiabilities = newState.liabilities.filter(l => l.name === loanName);
+                                storageData.removedLiabilities = removedLiabilities;
+                                newState.liabilities = newState.liabilities.filter(l => l.name !== loanName);
+                            }
                         }
                     }
                 }
@@ -505,12 +542,13 @@ export const useGameLogic = () => {
 
     const handleAddHappinessItem = (label: string, points: number) => {
         setGameState(prev => {
-            const newItem = { id: generateId(), label, points, checked: false, isCustom: true };
+            const newItem = { id: generateId(), label, points, checked: true, isCustom: true };
             const newHappiness = [...prev.happiness, newItem];
             
             return { 
                 ...prev, 
-                happiness: newHappiness
+                happiness: newHappiness,
+                happinessTotal: newHappiness.reduce((sum, h) => sum + (h.checked ? h.points : 0), 0)
             };
         });
     };

@@ -79,19 +79,19 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
                                         <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
                                             <Dice5 size={20} />
                                         </div>
-                                        <span className="text-sm text-slate-200 font-medium">經過銀行時，擲骰子大於等於 5</span>
+                                        <span className="text-sm text-slate-200 font-medium">經過銀行時，擲骰子 ≥ 5</span>
                                     </div>
                                 </div>
                                 <div className="text-left space-y-2">
                                     <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">成功獎勵</h4>
                                     <ul className="space-y-2 text-sm text-emerald-400 font-bold">
                                         <li className="flex items-center gap-2">
-                                            <div className="w-1 h-1 rounded-full bg-emerald-500" />
-                                            貸款與利息全數取消
+                                            <div className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
+                                            <span className="whitespace-nowrap">貸款與利息全數取消</span>
                                         </li>
                                         <li className="flex items-center gap-2">
-                                            <div className="w-1 h-1 rounded-full bg-emerald-500" />
-                                            企業收入增加 (骰子點數 × 10,000 H)
+                                            <div className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
+                                            <span className="whitespace-nowrap">企業收入增加 (骰子點數 × 10,000 H)</span>
                                         </li>
                                     </ul>
                                 </div>

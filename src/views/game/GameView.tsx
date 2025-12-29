@@ -39,7 +39,6 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
         handleLifelongConfirm,
         applyLifelongResult,
         applyExamResult,
-        handleFinishGame,
         happinessSubMode,
         setHappinessSubMode
     } = useGameLogic();

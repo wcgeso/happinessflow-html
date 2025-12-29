@@ -32,7 +32,12 @@ export const InsuranceForm: React.FC<InsuranceFormProps> = ({
                 <div>
                     <label className="text-xs text-slate-400 block mb-1">購買張數</label>
                     <Input type="number" value={insMedicalQty} onChange={e => setInsMedicalQty(e.target.value)} />
-                    {Number(insMedicalQty) > 0 && <div className="text-[10px] text-rose-400 font-bold mt-1">預計花費: {(Number(insMedicalQty) * 2000).toLocaleString()} H</div>}
+                    {Number(insMedicalQty) > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                            <div className="text-[10px] text-rose-400 font-bold">預計花費: {(Number(insMedicalQty) * 2000).toLocaleString()} H</div>
+                            <div className="text-[10px] text-rose-400 font-bold">預計每月支出增加: {(Number(insMedicalQty) * 2000).toLocaleString()} H</div>
+                        </div>
+                    )}
                 </div>
             )}
              {insType === 'house' && (
@@ -44,7 +49,12 @@ export const InsuranceForm: React.FC<InsuranceFormProps> = ({
                              </div>
                          )) : <p className="text-center text-slate-500 text-xs py-4 italic">目前無房屋可投保</p>}
                      </div>
-                     {insSelectedHouses.length > 0 && <div className="text-[10px] text-rose-400 font-bold px-1">預計花費: {(insSelectedHouses.length * 2000).toLocaleString()} H</div>}
+                     {insSelectedHouses.length > 0 && (
+                          <div className="mt-1 space-y-0.5 px-1">
+                              <div className="text-[10px] text-rose-400 font-bold">預計花費: {(insSelectedHouses.length * 2000).toLocaleString()} H</div>
+                              <div className="text-[10px] text-rose-400 font-bold">預計每月支出增加: {(insSelectedHouses.length * 2000).toLocaleString()} H</div>
+                          </div>
+                      )}
                  </div>
              )}
              {insType === 'aircraft' && (
@@ -53,7 +63,12 @@ export const InsuranceForm: React.FC<InsuranceFormProps> = ({
                          <input type="checkbox" checked={insAircraftSelected} disabled={!hasAircraftAsset} readOnly className="accent-emerald-500 w-5 h-5 pointer-events-none" />
                          <div className="flex-1"><div className="text-sm font-bold text-white">飛行器事故險</div><div className="text-[10px] text-slate-400">{!hasAircraftAsset ? '需先持有飛行器' : '全方位飛行保障'}</div></div>
                      </div>
-                     {insAircraftSelected && <div className="text-[10px] text-rose-400 font-bold px-1">預計花費: 2,000 H</div>}
+                     {insAircraftSelected && (
+                          <div className="mt-1 space-y-0.5 px-1">
+                              <div className="text-[10px] text-rose-400 font-bold">預計花費: 2,000 H</div>
+                              <div className="text-[10px] text-rose-400 font-bold">預計每月支出增加: 2,000 H</div>
+                          </div>
+                      )}
                  </div>
              )}
             <div className="bg-emerald-900/20 p-3 rounded-lg border border-emerald-800/30 flex justify-between items-center text-xs text-emerald-300"><span>每張保費</span><span className="font-bold">2,000 H</span></div>

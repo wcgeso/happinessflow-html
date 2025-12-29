@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, GraduationCap, TrendingUp, Building2, ChevronRight, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { X, GraduationCap, TrendingUp, Building2, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Button, Card } from '../ui/ui';
 import { cn } from '../../utils/gameUtils';
 import { GameState } from '../../types';
@@ -30,7 +30,7 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
             description: '透過進修無條件晉升一級。',
             cost: 5000,
             requirement: '擲骰子 ≥ 2 點',
-            icon: <GraduationCap size={24} />,
+            icon: <GraduationCap size={20} />,
             color: 'blue',
             disabled: gameState.currentRankLevel >= (gameState.profession?.promotions.length || 0) + 1
         },
@@ -40,17 +40,17 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
             description: '提升市場洞察，現有股票張數翻倍。',
             cost: 10000,
             requirement: '擲骰子 ≥ 4 點',
-            icon: <TrendingUp size={24} />,
+            icon: <TrendingUp size={20} />,
             color: 'emerald',
             disabled: false
         },
         {
             id: 'real_estate_ability',
             title: '投資不動產的能力',
-            description: '精進物件管理，所有出租房產租金 +10,000H。',
+            description: '精進物件管理，\n所有現有及未來出租房產租金 +10,000H。',
             cost: 10000,
             requirement: '擲骰子 ≥ 4 點',
-            icon: <Building2 size={24} />,
+            icon: <Building2 size={20} />,
             color: 'amber',
             disabled: false
         }
@@ -70,61 +70,88 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[100px]" />
             </div>
 
-            <Card className="max-w-md w-full bg-slate-900 border-slate-800 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="p-8 space-y-8 relative">
+            <Card className="max-w-sm w-full bg-slate-900 border-slate-800 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="p-6 space-y-6 relative">
                     {/* Close Button */}
                     <button 
                         onClick={onClose}
-                        className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/5 text-slate-500 hover:text-white transition-all z-20"
+                        className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/5 text-slate-500 hover:text-white transition-all z-20"
                     >
-                        <X size={24} />
+                        <X size={20} />
                     </button>
 
-                    <div className="text-center space-y-3">
-                        <div className="w-20 h-20 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-3xl flex items-center justify-center mx-auto text-indigo-400 border border-indigo-500/30 -rotate-6 transition-transform hover:rotate-0 duration-500">
-                            <TrendingUp size={44} strokeWidth={1.5} />
+                    <div className="text-center space-y-2">
+                        <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto text-white border border-white/20 shadow-[0_0_25px_-5px_rgba(99,102,241,0.6)] -rotate-6 transition-transform hover:rotate-0 duration-500">
+                            <TrendingUp size={36} strokeWidth={2.5} className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" />
                         </div>
-                        <h3 className="text-2xl font-black text-white tracking-tight">終身學習</h3>
-                        <p className="text-slate-500 text-sm">投資自己，獲得永久的能力與財富增益</p>
+                        <h3 className="text-xl font-black text-white tracking-tight">終身學習</h3>
+                        <p className="text-slate-400 text-xs">投資自己，獲得永久的能力與財富增益</p>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3">
+                    <div className="grid grid-cols-1 gap-2.5">
                         {options.map((opt) => (
                             <button
                                 key={opt.id}
                                 disabled={opt.disabled}
                                 onClick={() => setSelectedId(opt.id)}
                                 className={cn(
-                                    "group relative flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 text-left overflow-hidden border-2",
+                                    "group relative flex items-center gap-3 p-3 rounded-xl transition-all duration-300 text-left overflow-hidden border-2",
                                     selectedId === opt.id 
-                                        ? "bg-indigo-500/10 border-indigo-500 shadow-[0_0_20px_-5px_rgba(99,102,241,0.4)]" 
-                                        : "bg-slate-950/40 border-slate-800 hover:border-slate-600",
+                                        ? opt.color === 'blue' ? "bg-blue-500/10 border-blue-500 shadow-[0_0_20px_-5px_rgba(59,130,246,0.4)]"
+                                          : opt.color === 'emerald' ? "bg-emerald-500/10 border-emerald-500 shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)]"
+                                          : "bg-amber-500/10 border-amber-500 shadow-[0_0_20px_-5px_rgba(245,158,11,0.4)]"
+                                        : "bg-slate-950/40 border-slate-800 hover:border-slate-700",
                                     opt.disabled && "opacity-50 grayscale cursor-not-allowed"
                                 )}
                             >
                                 <div className={cn(
-                                    "shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all border shadow-lg",
+                                    "shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all border shadow-lg",
                                     selectedId === opt.id 
-                                        ? "bg-indigo-500 text-white border-indigo-400" 
+                                        ? opt.color === 'blue' ? "bg-blue-500 text-white border-blue-400"
+                                          : opt.color === 'emerald' ? "bg-emerald-500 text-white border-emerald-400"
+                                          : "bg-amber-500 text-white border-amber-400"
                                         : "bg-slate-800 text-slate-400 border-slate-700"
                                 )}>
                                     {opt.icon}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <div className="text-white font-bold text-base leading-tight whitespace-nowrap">
+                                    <div className={cn(
+                                        "font-bold text-sm leading-tight whitespace-nowrap transition-colors",
+                                        selectedId === opt.id 
+                                            ? opt.color === 'blue' ? "text-blue-400"
+                                              : opt.color === 'emerald' ? "text-emerald-400"
+                                              : "text-amber-400"
+                                            : "text-white"
+                                    )}>
                                         {opt.title}
                                     </div>
-                                    <div className="text-slate-500 text-[11px] mt-0.5 leading-normal">{opt.description}</div>
-                                    <div className="flex items-center gap-2 mt-1.5">
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium">
+                                    <div className={cn(
+                                        "text-[10px] mt-0.5 leading-normal whitespace-pre-line transition-colors",
+                                        selectedId === opt.id ? "text-white" : "text-slate-500"
+                                    )}>
+                                        {opt.description}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <span className={cn(
+                                            "text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors",
+                                            selectedId === opt.id 
+                                                ? opt.color === 'blue' ? "bg-blue-500/20 text-blue-300"
+                                                  : opt.color === 'emerald' ? "bg-emerald-500/20 text-emerald-300"
+                                                  : "bg-amber-500/20 text-amber-300"
+                                                : "bg-slate-800 text-slate-400"
+                                        )}>
                                             {opt.requirement}
                                         </span>
                                     </div>
                                 </div>
                                 <div className="text-right shrink-0">
                                     <div className={cn(
-                                        "font-mono font-black text-lg",
-                                        selectedId === opt.id ? "text-emerald-400" : "text-slate-400"
+                                        "font-mono font-black text-base transition-colors",
+                                        selectedId === opt.id 
+                                            ? opt.color === 'blue' ? "text-blue-400"
+                                              : opt.color === 'emerald' ? "text-emerald-400"
+                                              : "text-amber-400"
+                                            : "text-slate-400"
                                     )}>
                                         {opt.cost.toLocaleString()}<span className="text-[10px] ml-0.5">H</span>
                                     </div>
@@ -133,21 +160,21 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                         ))}
                     </div>
 
-                    <div className="flex flex-col gap-3 pt-2">
+                    <div className="flex flex-col gap-2 pt-1">
                         <Button
                             disabled={!selectedId}
                             onClick={handleConfirm}
-                            className="w-full py-4 rounded-2xl font-black text-lg transition-all shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-indigo-900/40 disabled:opacity-50 disabled:shadow-none"
+                            className="w-full py-3 rounded-xl font-black text-base transition-all shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-indigo-900/40 disabled:opacity-50 disabled:shadow-none"
                         >
                             <span>確認學習</span>
-                            <ChevronRight size={20} className="animate-in slide-in-from-left-2" />
+                            <ChevronRight size={18} className="animate-in slide-in-from-left-2" />
                         </Button>
                         <Button
                             variant="secondary"
                             onClick={onBack}
-                            className="w-full py-4 text-slate-400 font-bold hover:text-white transition-colors border-none flex items-center justify-center gap-2"
+                            className="w-full py-3 text-slate-400 font-bold hover:text-white transition-colors border-none flex items-center justify-center gap-2 text-sm"
                         >
-                            <ArrowLeft size={18} />
+                            <ArrowLeft size={16} />
                             <span>上一頁</span>
                         </Button>
                     </div>

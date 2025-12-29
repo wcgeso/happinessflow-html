@@ -1,8 +1,15 @@
 import React from 'react';
-import { Asset, Profession, Enterprise, Dream, HappinessItem, TransactionData } from '../../types';
-import { STOCK_SYMBOLS } from '../../constants';
-import { Button, Card } from '../ui/ui';
-import { Wallet, HelpCircle, CheckCircle2, Plus, AlertCircle, Star, X } from 'lucide-react';
+import {
+  Asset, Profession, Enterprise, Dream, HappinessItem,
+  TransactionData
+} from '../../types';
+import { REAL_ESTATE_SYMBOLS, BUSINESS_SYMBOLS } from '../../constants';
+import { Card, Button } from '../ui/ui';
+import {
+  ArrowLeft, ArrowRight, X, Briefcase, Building2, TrendingUp,
+  ShieldCheck, Plane, Landmark, History, Wallet, CheckCircle2,
+  AlertCircle, Info, Calculator, PieChart, HelpCircle, Star
+} from 'lucide-react';
 import { useTransactionLogic } from '../../hooks/useTransactionLogic';
 
 // UI Components
@@ -286,7 +293,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
                     sellCat === '定存' ? ['定存'] : assets.filter(a => a.type === sellCat).map(a => a.name)
                 ) : mode === 'dividend' && divMode === 'stock' ? ['股票'] : [])
               ]}
-              possibleItemsIncome={['租金收入', '企業收益', '定存利息', '理財收入']}
+              possibleItemsIncome={['租金收入', '企業收益', '定存利息']}
               possibleItemsLiabilities={['信用貸款', '不動產貸款', '企業貸款', '飛行器貸款', ...liabilities.map(l => l.name)]}
               possibleItemsExpenses={['信貸利息', '不動產貸款利息', '企業貸款利息', '飛行器貸款利息', '保險支出', '餐飲、服飾、居住類', '交通、教育、娛樂類', '其他、醫療、育兒類']}
               userEntries={userEntries}

@@ -121,23 +121,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const dynamicIncome = Object.values(gameState.income || {}).reduce((sum, v) => sum + (v || 0), 0);
         const totalIncome = gameState.profession.salary + passiveIncome + dynamicIncome;
 
-        // Credit loan interest is 10%
-        const creditLoanPrincipal = gameState.liabilities.filter(l => l.type === '信用貸款').reduce((sum, l) => sum + l.totalOwed, 0) + gameState.loans;
-        const creditLoanInterest = creditLoanPrincipal * 0.1;
-
-        const aircraftLoanPrincipal = gameState.liabilities.filter(l => l.type === '飛行器貸款').reduce((sum, l) => sum + l.totalOwed, 0);
-        const aircraftLoanInterest = aircraftLoanPrincipal * 0.005;
-
-        const businessLoanPrincipal = gameState.liabilities.filter(l => l.type === '企業貸款').reduce((sum, l) => sum + l.totalOwed, 0);
-        const businessLoanInterest = businessLoanPrincipal * 0.005;
-
-        const realEstateLoanPrincipal = gameState.liabilities.filter(l => l.type === '不動產貸款').reduce((sum, l) => sum + l.totalOwed, 0);
-        const realEstateLoanInterest = realEstateLoanPrincipal * 0.005;
+        // Calculate interest from liabilities' monthlyPayment
+        const creditLoanInterest = (gameState.liabilities.filter(l => l.type === '信用貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0)) + (gameState.loans * 0.1);
+        const aircraftLoanInterest = gameState.liabilities.filter(l => l.type === '飛行器貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+        const businessLoanInterest = gameState.liabilities.filter(l => l.type === '企業貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+        const realEstateLoanInterest = gameState.liabilities.filter(l => l.type === '不動產貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
 
         const p = gameState.profession;
 
         // Calculate each expense category, combining professional base and user adjustments
-        const taxExpense = p.expenses?.tax || 0;
+        // 所得稅務隨工作收入(salary)變動，比例為 5%
+        const taxExpense = Math.floor(p.salary * 0.05);
         const basicLivingTotal = Math.max(0, (p.expenses?.basicLiving || 0) + (gameState.expenses?.basicLiving || 0));
         const transportEduTotal = Math.max(0, (p.expenses?.transportEdu || 0) + (gameState.expenses?.transportEdu || 0));
         const otherMedicalChildTotal = Math.max(0, (p.expenses?.otherMedicalChild || 0) + (gameState.expenses?.otherMedicalChild || 0));

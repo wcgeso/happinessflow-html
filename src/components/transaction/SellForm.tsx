@@ -85,8 +85,11 @@ export const SellForm: React.FC<SellFormProps> = ({
             <div className="space-y-1">
                 <div className="flex justify-between text-xs text-slate-400 mb-2"><span>目前定存總額</span><span>{formatMoney(cdTotal)}</span></div>
                 <label className="text-xs text-slate-400 block mb-1">解約金額</label>
-                <Input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
-                {Number(withdrawAmount) > 0 && <div className="text-[10px] text-emerald-400 font-bold mt-1">預計領取: {Number(withdrawAmount).toLocaleString()} H</div>}
+                <div className="flex items-center gap-2">
+                    <Input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} className="flex-1" />
+                    <span className="text-sm font-bold text-slate-300">萬元</span>
+                </div>
+                {Number(withdrawAmount) > 0 && <div className="text-[10px] text-emerald-400 font-bold mt-1">預計領取: {(Number(withdrawAmount) * 10000).toLocaleString()} H</div>}
             </div>
         );
     }

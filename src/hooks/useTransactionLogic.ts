@@ -226,8 +226,9 @@ export const useTransactionLogic = ({
                 if (!reSelfUse && inc > 0) expectedEntries.push({ category: 'Income', name: '租金收入', direction: 'Increase' });
             } else if (assetType === '企業') {
                 const cost = Number(bizCost), loan = Number(bizLoan || 0), inc = Number(bizIncome), inter = Number(bizInterest || 0);
+                const isRepeatable = ['N055', 'N057', 'N059', 'N060'].includes(bizSymbol);
                 const existing = assets.find(a => a.type === '企業' && a.name?.includes(bizSymbol));
-                if (existing) { showError(`您已經擁有 ${bizSymbol} 企業，無法重複購買`); return; }
+                if (existing && !isRepeatable) { showError(`您已經擁有 ${bizSymbol} 企業，無法重複購買`); return; }
                 if (!cost || cost <= 0) { showError("請輸入有效的投資金額"); return; }
                 if (!bizLoan) { showError("請輸入企業貸款金額，若無貸款請輸入 0"); return; }
                 const down = cost - loan;
@@ -240,9 +241,9 @@ export const useTransactionLogic = ({
                 if (loan > 0) { expectedEntries.push({ category: 'Liabilities', name: '企業貸款', direction: 'Increase' }, { category: 'Expenses', name: '企業貸款利息', direction: 'Increase' }, { category: 'Assets', name: '現金（企業貸款）', direction: 'Increase' }); }
                 if (inc > 0) expectedEntries.push({ category: 'Income', name: '企業收益', direction: 'Increase' });
             } else if (assetType === '定存') {
-                const amt = Number(cdAmount);
+                const amt = Number(cdAmount) * 10000;
                 if (!amt) { showError("請輸入金額"); return; }
-                if (amt <= 0 || amt % 10000 !== 0) { showError("定存金額必須為 10,000 的倍數且大於 0"); return; }
+                if (amt <= 0) { showError("定存金額必須大於 0"); return; }
                 if (amt > cash) { showError("現金不足"); return; }
                 txData = { name: '存入定存', amount: amt, cashChange: -amt, source: 'cash', usage: 'asset', assetDetails: { type: '定存', cashflow: Math.floor(amt * 0.005), downPayment: amt } };
                 impactList = [`現金 -${formatMoney(amt)}`, `定存 +${formatMoney(amt)}`, `定存利息(月) +${formatMoney(Math.floor(amt * 0.005))}`];
@@ -302,11 +303,11 @@ export const useTransactionLogic = ({
                 expectedEntries.push({ category: 'Assets', name: '現金', direction: 'Increase' });
                 expectedEntries.push({ category: 'Assets', name: '股票', direction: 'Decrease' });
             } else if (sellCat === '定存') {
-                const amt = Number(withdrawAmount);
+                const amt = Number(withdrawAmount) * 10000;
                 if (!amt) { showError("請輸入解約金額"); return; }
                 if (amt > cdTotal) { showError("超過定存餘額"); return; }
                 const interest = Math.floor(amt * 0.005);
-                txData = { name: `定存解約`, amount: amt, cashChange: amt, source: 'income', usage: 'cash', relatedAssetId: assets.find(a => a.type === '定存')?.id, expensePayload: { category: 'otherMedicalChild', amount: interest, isIncrease: false } };
+                txData = { name: `定存解約`, amount: amt, cashChange: amt, source: 'income', usage: 'cash', relatedAssetId: assets.find(a => a.type === '定存')?.id };
                 impactList = [`現金 +${formatMoney(amt)}`, `定存 -${formatMoney(amt)}`, `定存利息(月) -${formatMoney(interest)}`];
                 expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Increase' }, { category: 'Assets', name: '定存', direction: 'Decrease' }, { category: 'Income', name: '定存利息', direction: 'Decrease' }];
             } else {
@@ -339,7 +340,17 @@ export const useTransactionLogic = ({
                     const amt = Number(repayAmount);
                     if (!amt) { showError("請輸入還款金額"); return; }
                     if (amt > cash) { showError("現金不足"); return; }
-                    txData = { name: `償還 信用貸款`, amount: amt, cashChange: -amt, source: 'cash', usage: 'liability', liabilityId: 'bank_loan' };
+                    
+                    // 優先還 `liabilities` 中的信用貸款，其次才是 `loans`
+                    const creditLiab = liabilities.find(l => l.type === '信用貸款');
+                    txData = { 
+                        name: `償還 信用貸款`, 
+                        amount: amt, 
+                        cashChange: -amt, 
+                        source: 'cash', 
+                        usage: 'liability', 
+                        liabilityId: creditLiab ? creditLiab.id : 'bank_loan' 
+                    };
                     impactList = [`現金 -${formatMoney(amt)}`, `信用貸款 -${formatMoney(amt)}`, `信貸利息 減少`];
                     expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Decrease' }, { category: 'Liabilities', name: '信用貸款', direction: 'Decrease' }, { category: 'Expenses', name: '信貸利息', direction: 'Decrease' }];
                 } else {
@@ -359,7 +370,9 @@ export const useTransactionLogic = ({
             if (divMode === 'cash') {
                 const total = entries.reduce((s, [id, v]) => {
                     const a = assets.find(x => x.id === id);
-                    return s + (Number(v) * 100 * (a?.quantity || 1));
+                    if (!a) return s;
+                    // 現金股利 = 持有張數 * 100 * 每股發放金額
+                    return s + Math.floor((a.quantity || 0) * 100 * Number(v));
                 }, 0);
                 txData = { name: `領取股票現金股利`, amount: total, cashChange: total, source: 'income', usage: 'cash' };
                 impactList = [`現金 +${formatMoney(total)}`];
@@ -367,8 +380,9 @@ export const useTransactionLogic = ({
             } else {
                 const items = entries.map(([id, v]) => {
                     const a = assets.find(x => x.id === id);
-                    const rate = Number(v);
-                    const added = Math.floor((a?.quantity || 0) * rate);
+                    const rate = Number(v) / 100;
+                    // 配股股利 = 持有張數 * (輸入百分比 / 100)，不足一張以一張計 (Math.ceil)
+                    const added = Math.ceil((a?.quantity || 0) * rate);
                     return { assetId: id, addedQty: added };
                 });
                 txData = { name: `領取配股股利`, amount: 0, cashChange: 0, source: 'income', usage: 'stock_update', stockDividendPayload: { items } };

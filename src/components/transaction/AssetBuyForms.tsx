@@ -215,9 +215,22 @@ export const AssetBuyForms: React.FC<AssetBuyFormsProps> = ({
     if (assetType === '定存') {
         return (
             <div className="space-y-2">
-                <label className="text-xs text-slate-400 block mb-1">存入金額 (需為 10,000 的倍數)</label>
-                <Input type="number" placeholder="例如: 10000, 50000..." value={cdAmount} onChange={e => setCdAmount(e.target.value)} />
-                {Number(cdAmount) > 0 && <div className="text-[10px] text-rose-400 font-bold mt-1">預計花費: {Number(cdAmount).toLocaleString()} H</div>}
+                <label className="text-xs text-slate-400 block mb-1">存入金額</label>
+                <div className="flex items-center gap-2">
+                    <Input 
+                        type="number" 
+                        placeholder="請輸入金額" 
+                        value={cdAmount} 
+                        onChange={e => setCdAmount(e.target.value)} 
+                        className="flex-1"
+                    />
+                    <span className="text-sm font-bold text-slate-300 whitespace-nowrap">萬元</span>
+                </div>
+                {Number(cdAmount) > 0 && (
+                    <div className="text-[10px] text-emerald-400 font-bold mt-1">
+                        預計存入: {(Number(cdAmount) * 10000).toLocaleString()} H
+                    </div>
+                )}
             </div>
         );
     }

@@ -73,11 +73,13 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ user, onLogout, onCreateRe
         <div className="flex-1 flex flex-col justify-center gap-6 lg:gap-8">
           {/* Logo Section */}
           <div className="text-center">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white via-slate-200 to-slate-500 tracking-tighter mb-2 italic">
-              HAPPINESS FLOW
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight mb-2">
+              蜂富人生
             </h1>
-            <div className="inline-flex items-center justify-center px-6 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-full">
-              <span className="text-[10px] md:text-xs font-black text-yellow-500 uppercase tracking-[0.3em] text-center">蜂富人生 · 幸福流</span>
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <div className="h-[1px] w-5 bg-gradient-to-r from-transparent to-amber-500/40"></div>
+              <span className="text-amber-500/80 font-bold tracking-[0.25em] text-[10px] md:text-xs uppercase">Happiness Flow</span>
+              <div className="h-[1px] w-5 bg-gradient-to-l from-transparent to-amber-500/40"></div>
             </div>
           </div>
 
