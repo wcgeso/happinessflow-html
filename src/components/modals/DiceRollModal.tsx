@@ -252,7 +252,7 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                                 className={cn(
                                     "w-full py-3.5 font-black rounded-2xl shadow-xl transition-all active:scale-95",
                                     examResult === 'success' 
-                                        ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
+                                        ? "bg-amber-600 hover:bg-amber-500 text-white" 
                                         : "bg-slate-800 hover:bg-slate-700 text-slate-300"
                                 )}
                             >

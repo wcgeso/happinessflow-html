@@ -41,9 +41,11 @@ interface TransactionFormProps {
   liabilities: any[];
   currentRankLevel: number;
   marketPrices?: Record<string, number>;
+  previousMarketPrices?: Record<string, number>;
   onTransaction: (data: TransactionData) => void;
   onCancel: () => void;
-  onShowAlert?: (message: string, type: 'info' | 'error' | 'success') => void;
+  onShowMarket?: () => void;
+  onShowAlert?: (message: string, type: 'info' | 'error' | 'success', persist?: boolean) => void;
 }
 
 export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
@@ -75,7 +77,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
     onShowAlert: props.onShowAlert
   });
 
-  const { onCancel, happiness = [], assets = [], liabilities = [], selectedEnterprise, selectedDream, cash, salary, marketPrices } = props;
+  const { onCancel, happiness = [], assets = [], liabilities = [], selectedEnterprise, selectedDream, cash, salary, marketPrices, previousMarketPrices } = props;
 
   const handleCancel = () => {
     resetFormStates();
@@ -173,7 +175,16 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
                 </div>
 
                 <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 space-y-4">
-                  {assetType === '股票' && <StockBuyForm stockInputs={stockInputs} setStockInputs={setStockInputs} marketPrices={marketPrices} stockAssets={stockAssets} />}
+                  {assetType === '股票' && (
+                    <StockBuyForm 
+                      stockInputs={stockInputs} 
+                      setStockInputs={setStockInputs} 
+                      marketPrices={marketPrices} 
+                      previousMarketPrices={previousMarketPrices}
+                      stockAssets={stockAssets} 
+                      onShowMarket={props.onShowMarket}
+                    />
+                  )}
                   {(['不動產', '企業', '定存', '飛行器'] as any).includes(assetType) && (
                     <AssetBuyForms
                       assetType={assetType} reSymbol={reSymbol} setReSymbol={setReSymbol} reSelfUse={reSelfUse} setReSelfUse={setReSelfUse}
@@ -221,7 +232,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
                 <SellForm
                   sellCat={sellCat} assets={assets} sellStockDetails={sellStockDetails} setSellStockDetails={setSellStockDetails}
                   withdrawAmount={withdrawAmount} setWithdrawAmount={setWithdrawAmount} repayInputs={repayInputs} setRepayInputs={setRepayInputs} cdTotal={cdTotal}
-                  marketPrices={marketPrices}
+                  liabilities={liabilities}
+                  marketPrices={marketPrices} previousMarketPrices={previousMarketPrices} onShowMarket={props.onShowMarket}
                 />
               </div>
             )}
@@ -267,7 +279,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
               }
             >
               {(assetType === '目標企業' && happiness.find(h => h.id === 'h_career')?.checked) || (assetType === '心儀夢想' && happiness.find(h => h.id === 'h_dream')?.checked)
-                ? '已達成，不可重複購買'
+                ? '已達成，不可重複買入'
                 : '下一步：財務檢核'}
             </Button>
             {errorMessage && <div className="hidden"> <AlertCircle size={14} /> {errorMessage} </div>}

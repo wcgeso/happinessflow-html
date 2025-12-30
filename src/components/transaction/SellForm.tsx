@@ -1,7 +1,8 @@
 import React from 'react';
 import { Asset, StockTransactionItem } from '../../types';
-import { Input } from '../ui/ui';
+import { Input, Button } from '../ui/ui';
 import { STOCK_NAMES } from '../../constants';
+import { TrendingUp } from 'lucide-react';
 
 interface SellFormProps {
     sellCat: string;
@@ -13,7 +14,10 @@ interface SellFormProps {
     repayInputs: Record<string, string>;
     setRepayInputs: (val: any) => void;
     cdTotal: number;
+    liabilities?: any[];
     marketPrices?: Record<string, number>;
+    previousMarketPrices?: Record<string, number>;
+    onShowMarket?: () => void;
 }
 
 const formatMoney = (amount: number) => `${amount.toLocaleString()} H`;
@@ -21,41 +25,71 @@ const formatMoney = (amount: number) => `${amount.toLocaleString()} H`;
 export const SellForm: React.FC<SellFormProps> = ({
     sellCat, assets, sellStockDetails, setSellStockDetails,
     withdrawAmount, setWithdrawAmount, repayInputs, setRepayInputs, cdTotal,
-    marketPrices
+    liabilities = [],
+    marketPrices, previousMarketPrices, onShowMarket
 }) => {
     const filteredAssets = assets.filter(a => a.type === sellCat);
 
     if (sellCat === '股票') {
         return (
-            <div className="space-y-2">
-                <div className="grid grid-cols-4 gap-2 px-2 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                    <span>代號</span>
-                    <span className="text-center">目前股價</span>
-                    <span className="text-center">持有張數</span>
-                    <span className="text-center">賣出張數</span>
-                </div>
-                {filteredAssets.length > 0 ? filteredAssets.map(asset => {
-                    const symbol = asset.name.replace('股票 ', '');
-                    const currentPrice = marketPrices?.[symbol] || 0;
-                    
-                    return (
-                        <div key={asset.id} className="grid grid-cols-4 gap-2 items-center bg-slate-900/40 p-2 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-colors">
-                            <div className="flex flex-col pl-1">
-                                <span className="text-sm font-black text-slate-200">{symbol}</span>
-                                <span className="text-[10px] text-slate-400 font-medium">{STOCK_NAMES[symbol]}</span>
-                            </div>
-                            <div className="text-emerald-400 font-mono text-sm text-center font-bold">
-                                {currentPrice > 0 ? (
-                                    <>
-                                        {currentPrice.toLocaleString()}<span className="text-[10px] ml-0.5 opacity-70">H</span>
-                                    </>
-                                ) : (
-                                    <span className="text-slate-500 text-[10px]">尚未開盤</span>
-                                )}
-                            </div>
-                            <div className="text-slate-400 font-bold text-sm text-center">
-                                {asset.quantity}
-                            </div>
+            <div className="space-y-4">
+                {onShowMarket && (
+                    <div className="flex justify-end">
+                        <Button 
+                            onClick={onShowMarket}
+                            className="h-8 py-0 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-lg shadow-lg shadow-emerald-900/40 transition-all active:scale-95 flex items-center gap-1.5"
+                        >
+                            <TrendingUp size={14} />
+                            查看行情
+                        </Button>
+                    </div>
+                )}
+                <div className="space-y-2">
+                    <div className="grid grid-cols-4 gap-2 px-2 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                        <span>代號</span>
+                        <span className="text-center">目前股價</span>
+                        <span className="text-center">持有張數</span>
+                        <span className="text-center">賣出張數</span>
+                    </div>
+                    {filteredAssets.length > 0 ? filteredAssets.map(asset => {
+                        const symbol = asset.name.replace('股票 ', '');
+                        const currentPrice = marketPrices?.[symbol] || 0;
+                        const prevPrice = previousMarketPrices?.[symbol] || 0;
+                        const isRise = currentPrice > prevPrice;
+                        const isFall = currentPrice < prevPrice;
+
+                        let changePercent = 0;
+                        if (prevPrice > 0) {
+                            changePercent = ((currentPrice - prevPrice) / prevPrice) * 100;
+                        }
+                        
+                        return (
+                            <div key={asset.id} className="grid grid-cols-4 gap-2 items-center bg-slate-900/40 p-2 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-colors">
+                                <div className="flex flex-col pl-1">
+                                    <span className="text-sm font-black text-slate-200">{symbol}</span>
+                                    <span className="text-[10px] text-slate-400 font-medium">{STOCK_NAMES[symbol]}</span>
+                                </div>
+                                <div className="flex justify-center">
+                                    <div className="flex flex-col items-start">
+                                        <div className="text-white font-mono text-sm font-bold">
+                                            {currentPrice > 0 ? (
+                                                <>
+                                                    {currentPrice.toLocaleString()}<span className="text-[10px] ml-0.5 opacity-70">H</span>
+                                                </>
+                                            ) : (
+                                                <span className="text-slate-500 text-[10px]">尚未開盤</span>
+                                            )}
+                                        </div>
+                                        {prevPrice > 0 && (
+                                            <div className={`text-[9px] font-mono font-black ${isRise ? 'text-emerald-400' : isFall ? 'text-rose-400' : 'text-slate-500'}`}>
+                                                {isRise ? '↑' : isFall ? '↓' : ''}{changePercent.toFixed(1)}%
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="text-slate-400 font-bold text-sm text-center">
+                                    {asset.quantity}
+                                </div>
                             <div className="flex flex-col items-end gap-1">
                                 <Input
                                     type="number"
@@ -76,6 +110,7 @@ export const SellForm: React.FC<SellFormProps> = ({
                         </div>
                     );
                 }) : <p className="text-center text-slate-500 py-6 italic text-sm">手頭目前無持有股票</p>}
+                </div>
             </div>
         );
     }
@@ -96,15 +131,35 @@ export const SellForm: React.FC<SellFormProps> = ({
 
     return (
         <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-            {filteredAssets.length > 0 ? filteredAssets.map(asset => (
-                <div key={asset.id} className="flex items-center justify-between bg-slate-900 p-3 rounded-lg border border-slate-700">
-                    <div className="flex flex-col"><span className="text-sm font-bold text-white">{asset.name}</span><span className="text-[10px] text-slate-500">原值: {formatMoney(asset.cost)}</span></div>
-                    <div className="flex flex-col items-end gap-1">
-                        <div className="w-32"><Input type="number" placeholder="售價" className="h-9 text-xs" value={repayInputs[asset.id] || ''} onChange={e => setRepayInputs({ [asset.id]: e.target.value })} /></div>
-                        {Number(repayInputs[asset.id]) > 0 && <div className="text-[10px] text-emerald-400 font-bold">預計領取: {Number(repayInputs[asset.id]).toLocaleString()} H</div>}
+            {filteredAssets.length > 0 ? filteredAssets.map(asset => {
+                // 查找該資產對應的貸款
+                const assetSymbol = asset.name.match(/[A-Z]\d+/)?.[0];
+                const relatedLoan = liabilities.find(l => 
+                    (asset.type === '不動產' && l.type === '不動產貸款' && assetSymbol && l.name.includes(assetSymbol)) ||
+                    (asset.type === '企業' && l.type === '企業貸款' && assetSymbol && l.name.includes(assetSymbol)) ||
+                    (asset.type === '飛行器' && l.type === '飛行器貸款')
+                );
+
+                return (
+                    <div key={asset.id} className="flex items-center justify-between bg-slate-900 p-3 rounded-lg border border-slate-700">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-white">{asset.name}</span>
+                            <div className="flex flex-col gap-0.5 mt-1">
+                                <span className="text-[10px] text-slate-400">價值: {formatMoney(asset.cost)}</span>
+                                {relatedLoan && (
+                                    <span className="text-[10px] text-rose-400 font-medium">
+                                        貸款金額: {formatMoney(relatedLoan.totalOwed)}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                            <div className="w-32"><Input type="number" placeholder="售價" className="h-9 text-xs" value={repayInputs[asset.id] || ''} onChange={e => setRepayInputs({ ...repayInputs, [asset.id]: e.target.value })} /></div>
+                            {Number(repayInputs[asset.id]) > 0 && <div className="text-[10px] text-emerald-400 font-bold">預計領取: {Number(repayInputs[asset.id]).toLocaleString()} H</div>}
+                        </div>
                     </div>
-                </div>
-            )) : <p className="text-center text-slate-500 py-4 italic text-sm">尚無持有此類資產</p>}
+                );
+            }) : <p className="text-center text-slate-500 py-4 italic text-sm">尚無持有此類資產</p>}
         </div>
     );
 };

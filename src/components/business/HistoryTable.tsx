@@ -7,11 +7,12 @@ import { ConfirmModal } from '../modals/ConfirmModal';
 interface HistoryTableProps {
     history: Transaction[];
     onDeleteTransaction?: (id: string) => void;
+    reportName?: string;
 }
 
 const formatMoney = (amount: number) => `${amount.toLocaleString()} H`;
 
-export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTransaction }) => {
+export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTransaction, reportName }) => {
     const [confirmId, setConfirmId] = useState<string | null>(null);
 
     const handleDeleteClick = (id: string) => {
@@ -29,7 +30,7 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTra
         <div className="space-y-4 animate-in fade-in duration-300">
             <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
                 <div className="p-4 bg-slate-900/50 border-b border-slate-700">
-                    <h3 className="font-bold text-white">交易歷史記錄</h3>
+                    <h3 className="font-bold text-white">交易歷史記錄 {reportName && <span className="text-emerald-400 ml-2">({reportName})</span>}</h3>
                     <p className="text-xs text-slate-400 mt-1">所有交易的詳細記錄</p>
                 </div>
 

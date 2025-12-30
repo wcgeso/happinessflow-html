@@ -1,6 +1,6 @@
 import React from 'react';
 
-type ButtonVariant = 'default' | 'outline' | 'ghost' | 'link';
+type ButtonVariant = 'default' | 'outline' | 'ghost' | 'link' | 'amber';
 
 type ButtonProps = {
   children: React.ReactNode;
@@ -27,6 +27,7 @@ export const Button: React.FC<ButtonProps> = ({
     outline: 'border border-slate-700 text-slate-300 hover:bg-slate-800',
     ghost: 'text-slate-300 hover:bg-slate-800',
     link: 'text-emerald-500 hover:underline',
+    amber: 'bg-amber-500 text-white hover:bg-amber-400',
   };
 
   return (

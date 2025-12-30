@@ -80,6 +80,7 @@ export interface Transaction {
   balance: number;
   timestamp: number;
   details?: string; // New: for listing sub-details
+  flowType?: '生活' | '投資' | '融資' | '其它'; // New: for cash flow classification
 }
 
 export interface HappinessItem {
@@ -110,6 +111,15 @@ export interface ExpenseDetailsType {
   [key: string]: number | undefined;
 }
 
+export interface StockPricePoint {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+}
+
 export interface GameAbilities {
   stockAbilityCount: number;
   realEstateAbilityCount: number;
@@ -136,8 +146,14 @@ export interface GameState {
   happiness: HappinessItem[];
   happinessTotal: number;
   marketPrices: Record<string, number>;
+  previousMarketPrices: Record<string, number>;
+  marketPriceHistory?: Record<string, StockPricePoint[]>;
+  lastPublishedCode: string;
   abilities: GameAbilities;
   completedHappinessEvents: string[];
+  hasShownWinAnimation?: boolean;
+  playerName?: string;
+  reportName?: string;
 }
 
 export interface FinancialSummary {
@@ -154,7 +170,9 @@ export interface GameRecord {
   id: string;
   date: string;
   playerName: string;
+  reportName: string;
   profession: string;
+  finalRankTitle?: string;
   finalScore: number;
   happinessScore: number;
   maxRankLevel?: number;
@@ -181,12 +199,18 @@ export interface GameSessionMeta {
 // Transaction Related Types
 export type SourceType = 'cash' | 'loan' | 'income' | 'storage';
 export type UsageType = 'asset' | 'liability' | 'expense' | 'storage' | 'cash' | 'stock_update' | 'expense_update' | 'insurance' | 'happiness_event';
-export type AssetType = '股票' | '不動產' | '企業' | '定存' | '保險' | '飛行器' | '目標企業' | '心儀夢想';
+export type AssetType = '股票' | '不動產' | '企業' | '定存' | '保險' | '飛行器' | '目標企業' | '心儀夢想' | '現金';
 
 export interface StockTransactionItem {
   symbol: string;
   price: number;
   qty: number;
+}
+
+export interface BatchSellItem {
+  asset: Asset;
+  price: number;
+  liability?: Liability;
 }
 
 export interface TransactionData {
@@ -210,6 +234,7 @@ export interface TransactionData {
   relatedAssetId?: string;
   sellQuantity?: number;
   stockList?: StockTransactionItem[];
+  batchSellList?: BatchSellItem[];
   happinessEventPayload?: {
     id: string;
     name: string;
@@ -238,6 +263,7 @@ export interface TransactionData {
     isIncrease: boolean;
   };
   impacts?: string[];
+  flowType?: '經營' | '投資' | '籌資' | '其它';
 }
 
 export interface Achievement {

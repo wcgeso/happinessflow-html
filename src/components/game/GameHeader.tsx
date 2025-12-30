@@ -35,26 +35,26 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                 <div className="max-w-7xl mx-auto flex items-center justify-between relative">
                     <div className="flex items-center gap-3">
                         {gameState.profession && (
-                            <>
+                            <div className="flex items-center gap-3">
                                 <div
-                                    className="w-9 h-9 rounded-full bg-slate-800 border-2 border-yellow-500 flex items-center justify-center cursor-pointer hover:border-yellow-400 transition-colors"
+                                    className="w-8 h-8 rounded-full bg-slate-800 border border-yellow-500/50 flex items-center justify-center cursor-pointer hover:border-yellow-400 transition-colors"
                                     onClick={onShowRankList}
                                 >
-                                    {getProfessionIcon(gameState.profession.id, { size: 18, className: "text-yellow-400" })}
+                                    {getProfessionIcon(gameState.profession.id, { size: 16, className: "text-yellow-400" })}
                                 </div>
                                 <div className="flex flex-col">
-                                    <div className="flex items-center gap-0.5">
+                                    <div className="flex items-center gap-1">
                                         {Array.from({ length: 5 }).map((_, i) => (
                                             <Star
                                                 key={i}
                                                 size={10}
-                                                className={cn(i < gameState.currentRankLevel ? 'text-yellow-400 fill-yellow-400' : 'text-slate-600')}
+                                                className={cn(i < gameState.currentRankLevel ? 'text-yellow-400 fill-yellow-400' : 'text-slate-700')}
                                             />
                                         ))}
                                     </div>
-                                    <span className="text-[10px] text-slate-400 leading-none mt-0.5">{gameState.currentRankTitle}</span>
+                                    <span className="text-[10px] text-slate-500 font-bold leading-none mt-1">{gameState.currentRankTitle}</span>
                                 </div>
-                            </>
+                            </div>
                         )}
                     </div>
                     <div className="flex gap-1 items-center h-8">

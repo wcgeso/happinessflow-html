@@ -8,7 +8,7 @@ interface TransactionModeTabsProps {
 
 export const TransactionModeTabs: React.FC<TransactionModeTabsProps> = ({ currentMode, onModeChange }) => {
     const modes: { id: Mode; label: string }[] = [
-        { id: 'buy', label: '購買' },
+        { id: 'buy', label: '買入' },
         { id: 'sell', label: '賣出' },
         { id: 'loan', label: '信貸/還款' },
         { id: 'dividend', label: '發放股利' },

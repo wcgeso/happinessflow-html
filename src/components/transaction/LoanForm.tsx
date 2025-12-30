@@ -55,7 +55,7 @@ export const LoanForm: React.FC<LoanFormProps> = ({
                                 <div key={l.id} className="flex items-center justify-between bg-slate-900 p-3 rounded-lg border border-slate-700">
                                     <div className="flex flex-col"><span className="text-sm font-bold text-white">{l.name}</span><span className="text-[10px] text-slate-500">欠款: {formatMoney(l.totalOwed)}</span></div>
                                     <div className="flex flex-col items-end gap-1">
-                                         <div className="w-32"><Input type="number" placeholder="還款金額" className="h-9 text-xs" value={repayInputs[l.id] || ''} onChange={e => setRepayInputs({ [l.id]: e.target.value })} /></div>
+                                         <div className="w-32"><Input type="number" placeholder="還款金額" className="h-9 text-xs" value={repayInputs[l.id] || ''} onChange={e => setRepayInputs({ ...repayInputs, [l.id]: e.target.value })} /></div>
                                          {Number(repayInputs[l.id]) > 0 && <div className="text-[10px] text-rose-400 font-bold">預計支付: {Number(repayInputs[l.id]).toLocaleString()} H</div>}
                                      </div>
                                 </div>

@@ -1,47 +1,81 @@
 import React from 'react';
-import { Input } from '../ui/ui';
+import { Input, Button } from '../ui/ui';
 import { Asset, StockTransactionItem } from '../../types';
 import { STOCK_SYMBOLS, STOCK_NAMES } from '../../constants';
+import { TrendingUp } from 'lucide-react';
 
 interface StockBuyFormProps {
     stockInputs: Record<string, { price: string; qty: string }>;
     setStockInputs: (val: Record<string, { price: string; qty: string }>) => void;
     marketPrices?: Record<string, number>;
+    previousMarketPrices?: Record<string, number>;
     stockAssets: Asset[];
+    onShowMarket?: () => void;
 }
 
-export const StockBuyForm: React.FC<StockBuyFormProps> = ({ stockInputs, setStockInputs, marketPrices, stockAssets }) => {
+export const StockBuyForm: React.FC<StockBuyFormProps> = ({ stockInputs, setStockInputs, marketPrices, previousMarketPrices, stockAssets, onShowMarket }) => {
     return (
-        <div className="space-y-2">
-            <div className="grid grid-cols-4 gap-2 px-2 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                <span>代號</span>
-                <span className="text-center">目前股價</span>
-                <span className="text-center">持有張數</span>
-                <span className="text-center">購買張數</span>
-            </div>
-            {STOCK_SYMBOLS.map((symbol) => {
-                const currentPrice = marketPrices?.[symbol] || 0;
-                const holdingAsset = stockAssets.find(a => a.name === `股票 (${symbol})`);
-                const holdingQty = holdingAsset?.quantity || 0;
-                
-                return (
-                    <div key={symbol} className="grid grid-cols-4 gap-2 items-center bg-slate-900/40 p-2 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-colors">
-                        <div className="flex flex-col pl-1">
-                            <span className="text-sm font-black text-slate-200">{symbol}</span>
-                            <span className="text-[10px] text-slate-400 font-medium">{STOCK_NAMES[symbol]}</span>
-                        </div>
-                        <div className="text-emerald-400 font-mono text-sm text-center font-bold">
-                            {currentPrice > 0 ? (
-                                <>
-                                    {currentPrice.toLocaleString()}<span className="text-[10px] ml-0.5 opacity-70">H</span>
-                                </>
-                            ) : (
-                                <span className="text-slate-500 text-[10px]">尚未開盤</span>
-                            )}
-                        </div>
-                        <div className="text-slate-400 font-bold text-sm text-center">
-                            {holdingQty}
-                        </div>
+        <div className="space-y-4">
+            {onShowMarket && (
+                <div className="flex justify-end">
+                    <Button 
+                        onClick={onShowMarket}
+                        className="h-8 py-0 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-lg shadow-lg shadow-emerald-900/40 transition-all active:scale-95 flex items-center gap-1.5"
+                    >
+                        <TrendingUp size={14} />
+                        查看行情
+                    </Button>
+                </div>
+            )}
+            
+            <div className="space-y-2">
+                <div className="grid grid-cols-4 gap-2 px-2 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                    <span>代號</span>
+                    <span className="text-center">目前股價</span>
+                    <span className="text-center">持有張數</span>
+                    <span className="text-center">買入張數</span>
+                </div>
+                {STOCK_SYMBOLS.map((symbol) => {
+                    const currentPrice = marketPrices?.[symbol] || 0;
+                    const prevPrice = previousMarketPrices?.[symbol] || 0;
+                    const isRise = currentPrice > prevPrice;
+                    const isFall = currentPrice < prevPrice;
+
+                    let changePercent = 0;
+                    if (prevPrice > 0) {
+                        changePercent = ((currentPrice - prevPrice) / prevPrice) * 100;
+                    }
+
+                    const holdingAsset = stockAssets.find(a => a.name === `股票 (${symbol})`);
+                    const holdingQty = holdingAsset?.quantity || 0;
+                    
+                    return (
+                        <div key={symbol} className="grid grid-cols-4 gap-2 items-center bg-slate-900/40 p-2 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-colors">
+                            <div className="flex flex-col pl-1">
+                                <span className="text-sm font-black text-slate-200">{symbol}</span>
+                                <span className="text-[10px] text-slate-400 font-medium">{STOCK_NAMES[symbol]}</span>
+                            </div>
+                            <div className="flex justify-center">
+                                <div className="flex flex-col items-start">
+                                    <div className="text-white font-mono text-sm font-bold">
+                                        {currentPrice > 0 ? (
+                                            <>
+                                                {currentPrice.toLocaleString()}<span className="text-[10px] ml-0.5 opacity-70">H</span>
+                                            </>
+                                        ) : (
+                                            <span className="text-slate-500 text-[10px]">尚未開盤</span>
+                                        )}
+                                    </div>
+                                    {prevPrice > 0 && (
+                                        <div className={`text-[9px] font-mono font-black ${isRise ? 'text-emerald-400' : isFall ? 'text-rose-400' : 'text-slate-500'}`}>
+                                            {isRise ? '↑' : isFall ? '↓' : ''}{changePercent.toFixed(1)}%
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="text-slate-400 font-bold text-sm text-center">
+                                {holdingQty}
+                            </div>
                         <div className="flex flex-col items-end gap-1">
                             <Input
                                 type="number"
@@ -64,6 +98,7 @@ export const StockBuyForm: React.FC<StockBuyFormProps> = ({ stockInputs, setStoc
                     </div>
                 );
             })}
+            </div>
         </div>
     );
 };

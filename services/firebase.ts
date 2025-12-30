@@ -2,153 +2,53 @@
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
-  Auth,
   GoogleAuthProvider,
   signInWithEmailAndPassword as _signInWithEmailAndPassword,
   signInWithPopup as _signInWithPopup,
+  signInWithRedirect as _signInWithRedirect,
+  getRedirectResult,
   signOut as _signOut,
-  User as FirebaseUser
+  onAuthStateChanged as _onAuthStateChanged,
+  OAuthProvider
 } from 'firebase/auth';
 import {
-  getFirestore,
-  Firestore,
-  collection,
-  doc,
-  setDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  query,
-  where
+  initializeFirestore,
 } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
-// 模擬的用戶數據
-const MOCK_USER = {
-  uid: 'local-user-123',
-  email: 'local@example.com',
-  displayName: '本地測試用戶',
-  photoURL: null,
-  emailVerified: true
+const firebaseConfig = {
+  apiKey: "AIzaSyDD6yXBqQ5qExLYvGFd8m3kSJYzRGu659g",
+  authDomain: "happinessflow.vercel.app",
+  projectId: "happinessflow-63b2e",
+  storageBucket: "happinessflow-63b2e.firebasestorage.app",
+  messagingSenderId: "663631477568",
+  appId: "1:663631477568:web:9587c1dc9a3df6d749d8a5",
+  measurementId: "G-8BTEG67DMF"
 };
 
-// 模擬的遊戲數據
-const MOCK_GAME_DATA = {
-  profession: '釀蜜師',
-  cash: 100000,
-  assets: [],
-  liabilities: [],
-  currentRound: 1,
-  happiness: 50,
-  lastUpdated: new Date().toISOString()
-};
-
-// 創建模擬的 auth 和 db 實例
-const createMockAuth = () => ({
-  currentUser: MOCK_USER,
-  onAuthStateChanged: (callback: (user: any) => void) => {
-    callback(MOCK_USER);
-    return () => { }; // 返回一個空的取消訂閱函數
-  },
-  signInWithEmailAndPassword: async (email: string, password: string) => ({
-    user: MOCK_USER
-  }),
-  signInWithPopup: async () => ({
-    user: MOCK_USER
-  }),
-  signOut: async () => { }
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
 });
-
-const createMockDb = () => ({
-  collection: (name: string) => ({
-    doc: (id: string) => ({
-      get: async () => ({
-        exists: () => true,
-        data: () => MOCK_GAME_DATA,
-        id: 'local-game-123'
-      }),
-      set: async (data: any) => {
-        return Promise.resolve();
-      },
-      update: async (data: any) => {
-        return Promise.resolve();
-      },
-      delete: async () => {
-        return Promise.resolve();
-      }
-    }),
-    where: () => ({
-      get: async () => ({
-        docs: [{
-          id: 'local-game-123',
-          data: () => MOCK_GAME_DATA,
-          ref: { id: 'local-game-123' }
-        }]
-      })
-    }),
-    add: async (data: any) => {
-      return { id: 'new-doc-' + Date.now() };
-    },
-    get: async () => ({
-      docs: [{
-        id: 'local-game-123',
-        data: () => MOCK_GAME_DATA,
-        ref: { id: 'local-game-123' }
-      }]
-    })
-  })
-});
-
-// 檢查是否為本地環境
-// 提示：如果您想要在本地測試時也連動真實的 Firebase，請將此處改為 false
-const isLocalEnv = false;
-
-let authInstance: any = null;
-let dbInstance: any = null;
-
-if (isLocalEnv) {
-  authInstance = createMockAuth();
-  dbInstance = createMockDb();
-} else {
-  try {
-    const firebaseConfig = {
-      apiKey: "AIzaSyAqRtzNpXozMB3obu2S-nwdWVQ7Uu01gYA",
-      authDomain: "the-happeniss-flow-game.firebaseapp.com",
-      projectId: "the-happeniss-flow-game",
-      storageBucket: "the-happeniss-flow-game.firebasestorage.app",
-      messagingSenderId: "54477291050",
-      appId: "1:54477291050:web:8efff9dbb79f6b4fb90d53",
-      measurementId: "G-K2Z04E3XRV"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    authInstance = getAuth(app);
-    dbInstance = getFirestore(app);
-  } catch (error) {
-    console.error("Firebase initialization failed, falling back to mock data:", error);
-    authInstance = createMockAuth();
-    dbInstance = createMockDb();
-  }
-}
-
-// 導出模擬的 auth 方法
-export const auth = authInstance;
-export const db = dbInstance;
+export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
+export const appleProvider = new OAuthProvider('apple.com');
 
-// 導出模擬的登入方法
-export const signInWithEmailAndPassword = isLocalEnv
-  ? async (email: string, password: string) => ({
-    user: MOCK_USER
-  })
-  : _signInWithEmailAndPassword;
+// Add custom parameters to providers
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
-export const signInWithPopup = isLocalEnv
-  ? async () => ({
-    user: MOCK_USER
-  })
-  : _signInWithPopup;
+appleProvider.setCustomParameters({
+  locale: 'zh_TW'
+});
 
-export const signOut = isLocalEnv
-  ? async () => { }
-  : _signOut;
+// Export auth methods
+export const signInWithEmailAndPassword = _signInWithEmailAndPassword;
+export const signInWithPopup = _signInWithPopup;
+export const signInWithRedirect = _signInWithRedirect;
+export const signOut = _signOut;
+export const onAuthStateChanged = _onAuthStateChanged;
+export { getRedirectResult };

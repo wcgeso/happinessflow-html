@@ -105,7 +105,7 @@ export const SelectionCarousel: React.FC<SelectionCarouselProps> = ({
                 </div>
 
                 <div className="absolute left-1/2 -translate-x-1/2 text-center">
-                    <div className="text-xs font-black text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 tracking-widest">{title}</div>
+                    <div className="text-xs font-black text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 tracking-widest">{title}</div>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -126,7 +126,7 @@ export const SelectionCarousel: React.FC<SelectionCarouselProps> = ({
                 {headerText && (
                     <div className="absolute top-8 left-0 right-0 text-center z-20">
                         <h2 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg tracking-wide">{headerText}</h2>
-                        <div className="w-16 h-1 bg-emerald-500 mx-auto mt-2 rounded-full"></div>
+                        <div className="w-16 h-1 bg-amber-500 mx-auto mt-2 rounded-full"></div>
                     </div>
                 )}
 
@@ -156,7 +156,7 @@ export const SelectionCarousel: React.FC<SelectionCarouselProps> = ({
                             >
                                 <div className={`w-full h-full bg-slate-900 border-2 overflow-hidden flex flex-col shadow-2xl relative transition-all duration-200 
                       ${isCircle ? 'rounded-full items-center justify-center' : 'rounded-2xl'} 
-                      ${isSelected ? 'border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)]' : 'border-slate-700 shadow-none'}`}>
+                      ${isSelected ? 'border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.3)]' : 'border-slate-700 shadow-none'}`}>
                                     <div className={`flex-1 flex flex-col items-center text-center space-y-4 overflow-hidden ${isCircle ? 'justify-center p-8' : 'p-6'}`} style={{ maxHeight: '100%' }}>
                                         {renderItem(item, isSelected)}
                                     </div>
@@ -177,7 +177,7 @@ export const SelectionCarousel: React.FC<SelectionCarouselProps> = ({
                     variant="primary"
                     disabled={!selectedId}
                     onClick={onNext}
-                    className={`w-full py-4 text-base font-black uppercase tracking-widest shadow-xl transition-all duration-200 ${selectedId ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/40 translate-y-0 active:scale-95' : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'}`}
+                    className={`w-full py-4 text-base font-black uppercase tracking-widest shadow-xl transition-all duration-200 ${selectedId ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-900/40 translate-y-0 active:scale-95' : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'}`}
                 >
                     {selectedId ? btnLabel : subtitle}
                 </Button>

@@ -20,10 +20,11 @@ import { PromotionType } from '../../hooks/useDiceRollLogic';
 import { GameHeader } from '../../components/game/GameHeader';
 import { GameStats } from '../../components/game/GameStats';
 import { GameActions } from '../../components/game/GameActions';
+import { HappinessWinAnimation } from '../../components/game/HappinessWinAnimation';
 import { formatMoney } from '../../utils/gameUtils';
 
 export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFinishGame }) => {
-    const { gameState, summary, alertInfo, showAlert } = useGame();
+    const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
     const {
         handleDeleteTransactionRecord,
@@ -55,6 +56,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
     const [showSettlementConfirm, setShowSettlementConfirm] = useState(false);
     const [showStockMarketModal, setShowStockMarketModal] = useState(false);
     const [showTutorial, setShowTutorial] = useState(false);
+    const [showWinAnimation, setShowWinAnimation] = useState(false);
 
     const [promotionType, setPromotionType] = useState<PromotionType | null>(null);
 
@@ -64,6 +66,14 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
             setShowTutorial(true);
         }
     }, []);
+
+    // 監控幸福值是否達標
+    useEffect(() => {
+        if (gameState.happinessTotal >= 100 && !gameState.hasShownWinAnimation) {
+            setShowWinAnimation(true);
+            setGameState(prev => ({ ...prev, hasShownWinAnimation: true }));
+        }
+    }, [gameState.happinessTotal, gameState.hasShownWinAnimation, setGameState]);
 
     const handleCloseTutorial = () => {
         localStorage.setItem('happiness_flow_tutorial_seen', 'true');
@@ -157,9 +167,19 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                     <div className="shrink-0">
                         {alertInfo.type === 'error' ? <AlertCircle size={20} /> : alertInfo.type === 'success' ? <CheckCircle2 size={20} /> : <Bell size={20} />}
                     </div>
-                    <span className="font-bold text-sm leading-tight whitespace-pre-line">
-                        {alertInfo.message}
-                    </span>
+                    <div className="flex flex-col gap-2">
+                        <span className="font-bold text-sm leading-tight whitespace-pre-line">
+                            {alertInfo.message}
+                        </span>
+                        {alertInfo.persist && (
+                            <button 
+                                onClick={hideAlert}
+                                className="mt-1 self-end px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-black transition-colors border border-white/20"
+                            >
+                                確認
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -173,6 +193,20 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                 onShowTutorial={() => setShowTutorial(true)}
             />
 
+            {showWinAnimation && (
+                <HappinessWinAnimation onComplete={() => setShowWinAnimation(false)} />
+            )}
+
+            {showStockMarketModal && (
+                <StockMarketModal
+                    onClose={() => setShowStockMarketModal(false)}
+                    onOpenTrade={() => {
+                        setShowStockMarketModal(false);
+                        setShowTransactionModal(true);
+                    }}
+                />
+            )}
+
             <main className="max-w-7xl mx-auto px-4 pt-44 pb-32 space-y-8">
                 <div className="space-y-6">
                     <GameStats
@@ -185,9 +219,9 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                         <FinancialStatement
                             gameState={gameState}
                             summary={summary}
+                            hideSummary={true}
+                            defaultShowDetails={true}
                             onShowAlert={showAlert}
-                            onRemoveAsset={(id: string) => { const asset = gameState.assets.find((a: any) => a.id === id); if (asset) { showAlert(`請使用「+」功能中的「賣出資產」來出售 ${asset.name}`, 'info'); } }}
-                            onRepayLiability={() => showAlert("請使用「+」功能中的「借貸/還款」來記錄還款。", 'info')}
                             onDeleteTransaction={handleDeleteTransactionRecord}
                             onUpgradeBiz={handleBizUpgrade}
                         />
@@ -224,11 +258,16 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                         happiness={gameState.happiness}
                         currentRankLevel={gameState.currentRankLevel}
                         marketPrices={gameState.marketPrices}
+                        previousMarketPrices={gameState.previousMarketPrices}
                         liabilities={gameState.liabilities.concat(gameState.loans > 0 ? [{ id: 'bank_loan', name: '信用貸款 (Legacy)', totalOwed: gameState.loans, monthlyPayment: gameState.loans * 0.1, type: '信用貸款' }] : [])}
                         happinessSubMode={happinessSubMode}
                         setHappinessSubMode={setHappinessSubMode}
                         onTransaction={handleTransaction}
                         onCancel={() => setShowTransactionModal(false)}
+                        onShowMarket={() => {
+                            setShowTransactionModal(false);
+                            setShowStockMarketModal(true);
+                        }}
                         onShowAlert={showAlert}
                     />
                 </div>
@@ -320,7 +359,13 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
             )}
 
             {showStockMarketModal && (
-                <StockMarketModal onClose={() => setShowStockMarketModal(false)} />
+                <StockMarketModal
+                    onClose={() => setShowStockMarketModal(false)}
+                    onOpenTrade={() => {
+                        setShowStockMarketModal(false);
+                        setShowTransactionModal(true);
+                    }}
+                />
             )}
 
             <TutorialModal 

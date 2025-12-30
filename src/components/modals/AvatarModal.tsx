@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Plane, Stethoscope, Palette, TreePine, Briefcase } from 'lucide-react';
+import { Bug, Plane, Stethoscope, Palette, TreePine, Briefcase } from 'lucide-react';
 import { Button } from '../ui/ui';
 
 interface AvatarOption {
@@ -16,7 +16,7 @@ interface AvatarModalProps {
 }
 
 const avatarOptions: AvatarOption[] = [
-    { id: 'default', name: '默認頭像', icon: <User size={24} className="text-yellow-400" /> },
+    { id: 'bee', name: '小蜜蜂', icon: <Bug size={24} className="text-yellow-400" /> },
     { id: 'pilot', name: '飛行員', icon: <Plane size={24} className="text-blue-400" /> },
     { id: 'doctor', name: '醫生', icon: <Stethoscope size={24} className="text-red-400" /> },
     { id: 'artist', name: '藝術家', icon: <Palette size={24} className="text-pink-400" /> },

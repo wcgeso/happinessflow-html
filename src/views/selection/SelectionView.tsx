@@ -59,7 +59,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, onCom
                 shape="circle"
                 renderItem={(p: Profession, isSelected: boolean) => (
                     <>
-                        <div className={`shrink-0 w-24 h-24 rounded-full flex items-center justify-center border-4 transition-colors duration-150 ${isSelected ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500 shadow-lg' : 'bg-slate-800 border-slate-600 text-slate-500'}`}>
+                        <div className={`shrink-0 w-24 h-24 rounded-full flex items-center justify-center border-4 transition-colors duration-150 ${isSelected ? 'bg-amber-500/10 border-amber-500 text-amber-500 shadow-lg' : 'bg-slate-800 border-slate-600 text-slate-500'}`}>
                             {getProfessionIcon(p.id, { size: 56 })}
                         </div>
                         <div className="space-y-1">
@@ -90,7 +90,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, onCom
                     const relatedProf = PROFESSIONS.find(p => p.id === e.relatedProfessionId)?.title || '未知';
                     return (
                         <>
-                            <div className={`shrink-0 w-20 h-20 rounded-full flex items-center justify-center border-4 transition-colors duration-150 ${isSelected ? 'bg-blue-500/10 border-blue-500 text-blue-500' : 'bg-slate-800 border-slate-600 text-slate-500'}`}>
+                            <div className={`shrink-0 w-20 h-20 rounded-full flex items-center justify-center border-4 transition-colors duration-150 ${isSelected ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-slate-800 border-slate-600 text-slate-500'}`}>
                                 {getEnterpriseIcon(e.id, { size: 40 })}
                             </div>
                             <h3 className="text-xl font-bold text-white flex flex-col gap-1"> <span>{e.name}</span> <span className="text-sm font-mono text-slate-500">{e.id}</span> </h3>
@@ -129,7 +129,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, onCom
                 sessionMeta={sessionMeta}
                 renderItem={(d: Dream, isSelected: boolean) => (
                     <>
-                        <div className={`shrink-0 w-20 h-20 rounded-full flex items-center justify-center border-4 transition-colors duration-150 ${isSelected ? 'bg-purple-500/10 border-purple-500 text-purple-500' : 'bg-slate-800 border-slate-600 text-slate-500'}`}>
+                        <div className={`shrink-0 w-20 h-20 rounded-full flex items-center justify-center border-4 transition-colors duration-150 ${isSelected ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-slate-800 border-slate-600 text-slate-500'}`}>
                             {getDreamIcon(d.id, { size: 40 })}
                         </div>
                         <h3 className="text-xl font-bold text-white flex flex-col gap-1"> <span>{d.name}</span> <span className="text-sm font-mono text-slate-500">{d.id}</span> </h3>

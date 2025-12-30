@@ -28,3 +28,21 @@ export const getInitialHappinessList = (enterprise: Enterprise, dream: Dream): H
         { id: 'h_dream', label: `完成夢想 (${dream.name})`, code: dream.id, description: `花費: ${formatMoney(dream.cost)} ${dream.description ? '| ' + dream.description : ''}`, points: 10, checked: false, readOnly: true },
     ];
 };
+
+/**
+ * 遞迴清理物件中的 undefined 欄位，將其轉換為 null 或刪除，
+ * 解決 Firebase 不支援 undefined 的問題。
+ */
+export const cleanDataForFirestore = (obj: any): any => {
+    if (Array.isArray(obj)) {
+        return obj.map(v => cleanDataForFirestore(v));
+    } else if (obj !== null && typeof obj === 'object') {
+        return Object.entries(obj).reduce((acc, [key, value]) => {
+            if (value !== undefined) {
+                acc[key] = cleanDataForFirestore(value);
+            }
+            return acc;
+        }, {} as any);
+    }
+    return obj;
+};

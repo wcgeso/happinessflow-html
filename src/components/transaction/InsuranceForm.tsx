@@ -30,7 +30,7 @@ export const InsuranceForm: React.FC<InsuranceFormProps> = ({
 
             {insType === 'medical' && (
                 <div>
-                    <label className="text-xs text-slate-400 block mb-1">購買張數</label>
+                    <label className="text-xs text-slate-400 block mb-1">買入張數</label>
                     <Input type="number" value={insMedicalQty} onChange={e => setInsMedicalQty(e.target.value)} />
                     {Number(insMedicalQty) > 0 && (
                         <div className="mt-1 space-y-0.5">

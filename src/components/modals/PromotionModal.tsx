@@ -47,8 +47,8 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
 
                     <div className="grid grid-cols-1 gap-4">
                         {/* Normal Exam */}
-                        <div className="group relative flex items-center gap-4 p-5 rounded-2xl transition-all duration-300 text-left overflow-hidden border-2 bg-purple-500/10 border-purple-500 shadow-[0_0_20px_-5px_rgba(168,85,247,0.4)]">
-                            <div className="shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all border shadow-lg bg-purple-500 text-white border-purple-400">
+                        <div className="group relative flex items-center gap-4 p-5 rounded-2xl transition-all duration-300 text-left overflow-hidden border-2 bg-amber-500/10 border-amber-500 shadow-[0_0_20px_-5px_rgba(245,158,11,0.4)]">
+                            <div className="shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all border shadow-lg bg-amber-500 text-white border-amber-400">
                                 <BookOpen size={24} />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -59,7 +59,7 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
                                 <div className="text-emerald-400 font-mono font-black text-xl">
                                     1,000<span className="text-[10px] ml-1">H</span>
                                 </div>
-                                <CheckCircle2 size={16} className="text-purple-500 mt-1 animate-in zoom-in" />
+                                <CheckCircle2 size={16} className="text-amber-500 mt-1 animate-in zoom-in" />
                             </div>
                         </div>
                     </div>
@@ -67,7 +67,7 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
                     <div className="flex flex-col gap-3 pt-2">
                         <Button
                             onClick={() => onConfirm('normal')}
-                            className="w-full py-4 rounded-2xl font-black text-lg transition-all shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-900/40"
+                            className="w-full py-4 rounded-2xl font-black text-lg transition-all shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white shadow-amber-900/40"
                         >
                             <span>確認報名</span>
                             <ChevronRight size={20} className="animate-in slide-in-from-left-2" />

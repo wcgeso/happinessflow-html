@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Input } from '../ui/ui';
-import { REAL_ESTATE_SYMBOLS, BUSINESS_SYMBOLS, REAL_ESTATE_TYPES } from '../../constants';
+import { REAL_ESTATE_SYMBOLS, BUSINESS_SYMBOLS, REAL_ESTATE_TYPES, REAL_ESTATE_PRESETS, BUSINESS_PRESETS } from '../../constants';
 import { AssetType } from '../../types';
 
 interface AssetBuyFormsProps {
@@ -22,20 +22,63 @@ interface AssetBuyFormsProps {
     aircraftLoan: string; setAircraftLoan: (v: string) => void;
 }
 
+const DisplayField = ({ label, value, colorClass = "text-white" }: { label: string, value: string | number, colorClass?: string }) => (
+    <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg p-2.5 flex flex-col gap-0.5">
+        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{label}</span>
+        <span className={`text-sm font-mono font-bold ${colorClass}`}>
+            {typeof value === 'number' ? `${value.toLocaleString()} H` : value}
+        </span>
+    </div>
+);
+
 export const AssetBuyForms: React.FC<AssetBuyFormsProps> = ({
     assetType, reSymbol, setReSymbol, reSelfUse, setReSelfUse, reDownPayment, setReDownPayment,
     reLoan, setReLoan, reInterest, setReInterest, reIncome, setReIncome, reHouseType, setReHouseType,
     bizSymbol, setBizSymbol, bizCost, setBizCost, bizLoan, setBizLoan, bizInterest, setBizInterest, bizIncome, setBizIncome,
     cdAmount, setCdAmount, aircraftCash, setAircraftCash, aircraftLoan, setAircraftLoan
 }) => {
+    // 當不動產代號改變時，自動填入預設資料
+    useEffect(() => {
+        if (assetType === '不動產' && reSymbol && REAL_ESTATE_PRESETS[reSymbol]) {
+            const preset = REAL_ESTATE_PRESETS[reSymbol];
+            setReDownPayment(preset.downPayment.toString());
+            setReLoan(preset.loanAmount.toString());
+            setReInterest(preset.loanInterest.toString());
+            // 租金收入 = 預設收益 + 房貸利息 (因為 UI 上租金收入是總收入，收益是扣除利息後的淨額)
+            setReIncome((preset.cashflow + preset.loanInterest).toString());
+        }
+    }, [reSymbol, assetType, setReDownPayment, setReLoan, setReInterest, setReIncome]);
+
+    // 當企業代號改變時，自動填入預設資料
+    useEffect(() => {
+        if (assetType === '企業' && bizSymbol && BUSINESS_PRESETS[bizSymbol]) {
+            // N055, N057, N059, N060 現在改為手動輸入，不自動填入預設資料
+            if (['N055', 'N057', 'N059', 'N060'].includes(bizSymbol)) {
+                setBizCost('');
+                setBizLoan('');
+                setBizInterest('');
+                setBizIncome('');
+                return;
+            }
+            const preset = BUSINESS_PRESETS[bizSymbol];
+            // 投資金額在 UI 上顯示的是首付 (總成本 - 貸款)
+            setBizCost((preset.cost - preset.loanAmount).toString());
+            setBizLoan(preset.loanAmount.toString());
+            setBizInterest(preset.loanInterest.toString());
+            setBizIncome(preset.income.toString());
+        }
+    }, [bizSymbol, assetType, setBizCost, setBizLoan, setBizInterest, setBizIncome]);
+
     useEffect(() => {
         if (assetType === '不動產') {
-            // 自動計算本利和
-            const loanNum = Number(reLoan) || 0;
-            const calculatedInterest = Math.floor(loanNum * 0.005);
-            const interestStr = loanNum > 0 ? calculatedInterest.toString() : '';
-            if (interestStr !== reInterest) {
-                setReInterest(interestStr);
+            // 自動計算本利和 (如果沒有預設資料時的備用邏輯)
+            if (!REAL_ESTATE_PRESETS[reSymbol]) {
+                const loanNum = Number(reLoan) || 0;
+                const calculatedInterest = Math.floor(loanNum * 0.005);
+                const interestStr = loanNum > 0 ? calculatedInterest.toString() : '';
+                if (interestStr !== reInterest) {
+                    setReInterest(interestStr);
+                }
             }
 
             // 自動顯示房屋類型
@@ -53,12 +96,15 @@ export const AssetBuyForms: React.FC<AssetBuyFormsProps> = ({
         }
 
         if (assetType === '企業') {
-            // 自動計算企業貸款利息 (0.5%)
-            const loanNum = Number(bizLoan) || 0;
-            const calculatedInterest = Math.floor(loanNum * 0.005);
-            const interestStr = loanNum > 0 ? calculatedInterest.toString() : '';
-            if (interestStr !== bizInterest) {
-                setBizInterest(interestStr);
+            // 自動計算企業貸款利息 (0.5%) (如果沒有預設資料時的備用邏輯，或是 N055/N057/N059/N060 手動輸入時)
+            const isManualOrSpecific = !BUSINESS_PRESETS[bizSymbol] || ['N055', 'N057', 'N059', 'N060'].includes(bizSymbol);
+            if (isManualOrSpecific) {
+                const loanNum = Number(bizLoan) || 0;
+                const calculatedInterest = Math.floor(loanNum * 0.005);
+                const interestStr = loanNum > 0 ? calculatedInterest.toString() : '';
+                if (interestStr !== bizInterest) {
+                    setBizInterest(interestStr);
+                }
             }
         }
     }, [reLoan, assetType, setReInterest, reInterest, reSymbol, reHouseType, setReHouseType, reSelfUse, setReSelfUse, bizLoan, bizInterest, setBizInterest]);
@@ -69,6 +115,7 @@ export const AssetBuyForms: React.FC<AssetBuyFormsProps> = ({
             : '未選擇';
 
         const isStore = reHouseType === 'store';
+        const happyPoints = REAL_ESTATE_PRESETS[reSymbol]?.happyPoints;
 
         return (
             <div className="space-y-4">
@@ -107,39 +154,26 @@ export const AssetBuyForms: React.FC<AssetBuyFormsProps> = ({
                                 onChange={e => setReSelfUse(e.target.checked)} 
                                 className="w-4 h-4 accent-emerald-500" 
                             />
-                            <span className="text-sm font-bold text-slate-200">設定為自用 (可增加幸福點數)</span>
+                            <span className="text-sm font-bold text-slate-200">設定為自用</span>
                         </label>
+                        {happyPoints && (
+                            <div className="ml-auto pr-2">
+                                <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    可獲得 {happyPoints} 點幸福點數
+                                </span>
+                            </div>
+                        )}
                     </div>
                 )}
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">首付</label>
-                        <Input type="number" value={reDownPayment} onChange={e => setReDownPayment(e.target.value)} />
-                         {Number(reDownPayment) > 0 && <div className="text-[10px] text-rose-400 font-bold mt-1">預計花費: {Number(reDownPayment).toLocaleString()} H</div>}
-                     </div>
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">房貸金額</label>
-                        <Input type="number" value={reLoan} onChange={e => setReLoan(e.target.value)} />
-                        {Number(reLoan) > 0 && <div className="text-[10px] text-rose-400 font-bold mt-1">預計增加負債: {Number(reLoan).toLocaleString()} H</div>}
-                    </div>
-                    <div>
-                        <label className="text-xs text-slate-400 block mb-1">每月本利和 (自動計算 0.5%)</label>
-                        <Input 
-                            type="number" 
-                            value={reInterest} 
-                            readOnly 
-                            className="bg-slate-800/50 text-slate-400 cursor-not-allowed"
-                            onChange={e => setReInterest(e.target.value)} 
-                        />
-                        {Number(reInterest) > 0 && <div className="text-[10px] text-rose-400 font-bold mt-1">預計每月支出: {Number(reInterest).toLocaleString()} H</div>}
-                    </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                    <DisplayField label="首付" value={Number(reDownPayment)} colorClass="text-rose-400" />
+                    <DisplayField label="房貸金額" value={Number(reLoan)} colorClass="text-rose-400" />
                     {!reSelfUse && (
-                        <div>
-                            <label className="text-xs text-slate-400 block mb-1">租金收入</label>
-                            <Input type="number" value={reIncome} onChange={e => setReIncome(e.target.value)} />
-                            {Number(reIncome) > 0 && <div className="text-[10px] text-emerald-400 font-bold mt-1">預計每月收入: {Number(reIncome).toLocaleString()} H</div>}
-                        </div>
+                        <DisplayField label="租金收入" value={Number(reIncome)} colorClass="text-emerald-400" />
                     )}
+                    <DisplayField label="每月本利和 (0.5%)" value={Number(reInterest)} colorClass="text-rose-400" />
                 </div>
             </div>
         );
@@ -147,6 +181,7 @@ export const AssetBuyForms: React.FC<AssetBuyFormsProps> = ({
 
     if (assetType === '企業') {
         const isPartTime = bizSymbol === 'N056' || bizSymbol === 'N058';
+        const isManual = ['N055', 'N057', 'N059', 'N060'].includes(bizSymbol);
         const bizTypeLabel = isPartTime ? '兼職工作室' : '優質企業';
 
         return (
@@ -167,46 +202,48 @@ export const AssetBuyForms: React.FC<AssetBuyFormsProps> = ({
                         <div className={`w-full border rounded px-3 py-2 text-sm font-bold transition-colors ${
                             isPartTime 
                                 ? 'bg-amber-900/20 border-amber-800/50 text-amber-400' 
-                                : 'bg-emerald-900/20 border-emerald-800/50 text-emerald-400'
+                                : (isManual ? 'bg-blue-900/20 border-blue-800/50 text-blue-400' : 'bg-emerald-900/20 border-emerald-800/50 text-emerald-400')
                         }`}>
                             {bizTypeLabel}
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-col gap-3">
-                    <div>
-                         <label className="text-xs text-slate-400 block mb-1">投資金額</label>
-                         <Input type="number" value={bizCost} onChange={e => setBizCost(e.target.value)} />
-                         {Number(bizCost) > 0 && <div className="text-[10px] text-rose-400 font-bold mt-1">預計花費: {Number(bizCost).toLocaleString()} H</div>}
-                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-xs text-slate-400 block mb-1">企業貸款</label>
-                            <Input type="number" value={bizLoan} onChange={e => setBizLoan(e.target.value)} />
-                            {Number(bizLoan) > 0 && (
-                                <div className="space-y-1 mt-1">
-                                    <div className="text-[10px] text-rose-400 font-bold">預計增加負債: {Number(bizLoan).toLocaleString()} H</div>
-                                    <div className="text-[10px] text-emerald-400 font-bold">預計增加現金: {Number(bizLoan).toLocaleString()} H</div>
-                                </div>
-                            )}
-                        </div>
-                        <div>
-                            <label className="text-xs text-slate-400 block mb-1">每月貸款利息 (0.5%)</label>
-                            <Input 
-                                type="number" 
-                                value={bizInterest} 
-                                readOnly 
-                                className="bg-slate-800/50 text-slate-400 cursor-not-allowed"
-                                onChange={e => setBizInterest(e.target.value)} 
-                            />
-                            {Number(bizInterest) > 0 && <div className="text-[10px] text-rose-400 font-bold mt-1">預計每月支出: {Number(bizInterest).toLocaleString()} H</div>}
-                        </div>
-                        <div className="col-span-2">
-                            <label className="text-xs text-slate-400 block mb-1">每月收益</label>
-                            <Input type="number" value={bizIncome} onChange={e => setBizIncome(e.target.value)} />
-                            {Number(bizIncome) > 0 && <div className="text-[10px] text-emerald-400 font-bold mt-1">預計每月收入: {Number(bizIncome).toLocaleString()} H</div>}
-                        </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                        {isManual ? (
+                            <div>
+                                <label className="text-xs text-slate-400 block mb-1">投資金額</label>
+                                <Input type="number" value={bizCost} onChange={e => setBizCost(e.target.value)} placeholder="請輸入投資金額" />
+                            </div>
+                        ) : (
+                            <DisplayField label="投資金額" value={Number(bizCost)} colorClass="text-rose-400" />
+                        )}
                     </div>
+                    {isManual ? (
+                        <>
+                            <div>
+                                <label className="text-xs text-slate-400 block mb-1">企業貸款</label>
+                                <Input type="number" value={bizLoan} onChange={e => setBizLoan(e.target.value)} placeholder="請輸入貸款額度" />
+                            </div>
+                            <div>
+                                <label className="text-xs text-slate-400 block mb-1">企業貸款利息</label>
+                                <Input type="number" value={bizInterest} readOnly className="bg-slate-800/50" placeholder="自動計算" />
+                            </div>
+                            <div className="col-span-2">
+                                <label className="text-xs text-slate-400 block mb-1">企業收益</label>
+                                <Input type="number" value={bizIncome} onChange={e => setBizIncome(e.target.value)} placeholder="請輸入每月收益" />
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                             <DisplayField label="企業貸款" value={Number(bizLoan)} colorClass="text-rose-400" />
+                             <DisplayField label="企業貸款利息" value={Number(bizInterest)} colorClass="text-rose-400" />
+                             <div className="col-span-2">
+                                 <DisplayField label="企業收益" value={Number(bizIncome)} colorClass="text-emerald-400" />
+                             </div>
+                         </>
+                    )}
                 </div>
             </div>
         );

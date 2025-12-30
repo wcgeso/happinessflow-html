@@ -7,7 +7,7 @@ import { formatMoney } from '../utils/gameUtils';
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export const useGameLogic = () => {
-    const { gameState, setGameState, gameHistory, setGameHistory, summary, scoreResult, alertInfo, showAlert } = useGame();
+    const { gameState, setGameState, gameHistory, setGameHistory, summary, scoreResult, alertInfo, showAlert, saveGameRecord } = useGame();
 
     const [happinessSubMode, setHappinessSubMode] = useState<'history' | 'pay' | 'inc_exp'>('history');
 
@@ -97,7 +97,12 @@ export const useGameLogic = () => {
                     // 2. Reverse completed list
                     newState.completedHappinessEvents = (newState.completedHappinessEvents || []).filter(eid => eid !== id);
                     
-                    // 3. Reverse happiness item
+                    // 3. Reverse children count if applicable
+                    if (id === 'child1' || id === 'child2') {
+                        newState.children = Math.max(0, (newState.children || 0) - 1);
+                    }
+                    
+                    // 4. Reverse happiness item
                     const mapping: Record<string, string> = {
                         'date': 'h_date',
                         'propose': 'h_proposal',
@@ -127,6 +132,16 @@ export const useGameLogic = () => {
                             }
                         });
                         newState.assets = updatedAssets;
+                    }
+                    if (data.batchSellList && data.batchSellList.length > 0) {
+                        data.batchSellList.forEach((item: any) => {
+                            if (item.asset) {
+                                newState.assets = [...newState.assets, item.asset];
+                            }
+                            if (item.liability) {
+                                newState.liabilities = [...newState.liabilities, item.liability];
+                            }
+                        });
                     }
                     if (data.relatedAssetPayload) {
                         newState.assets = [...newState.assets, data.relatedAssetPayload];
@@ -186,6 +201,48 @@ export const useGameLogic = () => {
                         newState.assets = updatedAssets;
                     }
                 }
+                else if (data.type === 'market_update' && data.updates) {
+                    if (data.previousPrices) {
+                        newState.marketPrices = data.previousPrices;
+                    }
+                }
+                else if (data.type === 'exam_promotion') {
+                    if (data.success && newState.profession) {
+                        newState.currentRankLevel = data.oldRankLevel;
+                        newState.currentRankTitle = data.oldTitle;
+                        newState.profession = {
+                            ...newState.profession,
+                            salary: data.oldSalary
+                        };
+                    }
+                }
+                else if (data.type === 'lifelong_success') {
+                    newState.abilities = data.oldAbilities;
+                    if (data.learningType === 'enhance_profession' && newState.profession) {
+                        newState.currentRankLevel = data.oldRankLevel;
+                        newState.currentRankTitle = data.oldTitle || newState.currentRankTitle;
+                        newState.profession = {
+                            ...newState.profession,
+                            salary: data.oldSalary
+                        };
+                    } else if (data.learningType === 'stock_ability') {
+                        newState.assets = data.oldAssets;
+                    }
+                }
+                else if (data.type === 'biz_upgrade') {
+                    const assetIdx = newState.assets.findIndex(a => a.id === data.assetId);
+                    if (assetIdx !== -1) {
+                        const asset = newState.assets[assetIdx];
+                        newState.assets[assetIdx] = {
+                            ...asset,
+                            cashflow: data.oldCashflow,
+                            isUpgraded: false
+                        };
+                    }
+                    if (data.removedLiability) {
+                        newState.liabilities = [...newState.liabilities, data.removedLiability];
+                    }
+                }
 
                 if (data.name.includes('達成事業成就')) {
                     newState.happiness = newState.happiness.map(h => h.id === 'h_career' ? { ...h, checked: false } : h);
@@ -213,11 +270,23 @@ export const useGameLogic = () => {
 
         const storageData: any = { ...data };
 
+        // Determine flowType if not provided
+        let flowType: '生活' | '投資' | '融資' | '其它' = (data.flowType as any) || '其它';
+        if (!data.flowType) {
+            if (data.usage === 'asset' || (data.usage === 'cash' && data.source === 'income')) {
+                flowType = '投資';
+            } else if (data.usage === 'liability' || (data.usage === 'cash' && data.source === 'loan')) {
+                flowType = '融資';
+            } else if (data.usage === 'expense_update' || data.usage === 'happiness_event' || data.usage === 'stock_update' || data.insuranceType) {
+                flowType = '生活';
+            }
+        }
+
         // Pre-calculate success message
         let finalSuccessMessage = '交易已記錄';
         if (data.usage === 'asset') {
-            if (data.stockList && data.stockList.length > 0) finalSuccessMessage = `成功購買股票 ${data.stockList.length} 筆`;
-            else if (data.assetDetails) finalSuccessMessage = `成功購買 ${data.assetDetails.type} ${data.assetDetails.symbol || ''}`.trim();
+            if (data.stockList && data.stockList.length > 0) finalSuccessMessage = `成功買入股票 ${data.stockList.length} 筆`;
+            else if (data.assetDetails) finalSuccessMessage = `成功買入 ${data.assetDetails.type} ${data.assetDetails.symbol || ''}`.trim();
         } else if (data.usage === 'liability') {
             finalSuccessMessage = `成功還款 ${formatMoney(amount)}`;
         } else if (data.source === 'loan' && data.usage === 'cash') {
@@ -253,19 +322,21 @@ export const useGameLogic = () => {
                 } else if (data.assetDetails) {
                     const details = data.assetDetails;
                     const loanAmt = details.loanAmount || 0;
-                    const totalCost = (details.downPayment || 0) + loanAmt;
                     
-                    const newAsset: Asset = { 
-                        id: generateId(), 
-                        name: `${details.type} ${details.symbol || ''}`.trim(), 
-                        cost: totalCost, 
-                        downPayment: details.downPayment || 0, 
-                        cashflow: details.cashflow || 0, 
-                        type: details.type as any, 
-                        isSelfUse: details.isSelfUse, 
-                        houseType: details.houseType, 
-                        isInsured: false 
-                    };
+                    // 企業類型的資產，其顯示價值（cost）應為投資總額（downPayment），不包含企業貸款
+      const assetCost = details.type === '企業' ? (details.downPayment || 0) : data.amount;
+
+      const newAsset: Asset = { 
+        id: generateId(), 
+        name: `${details.type} ${details.symbol || ''}`.trim(), 
+        cost: assetCost, 
+        downPayment: details.downPayment || 0, 
+        cashflow: details.cashflow || 0, 
+        type: details.type as any, 
+        isSelfUse: details.isSelfUse, 
+        houseType: details.houseType, 
+        isInsured: false 
+      };
                     newState.assets = [...newState.assets, newAsset];
                     if (loanAmt > 0) {
                         const loanTypeMap: Record<string, '不動產貸款' | '企業貸款' | '飛行器貸款'> = { '不動產': '不動產貸款', '企業': '企業貸款', '飛行器': '飛行器貸款' };
@@ -348,6 +419,14 @@ export const useGameLogic = () => {
                             }
                         }
                     });
+                } else if (data.batchSellList && data.batchSellList.length > 0) {
+                    // 處理批次賣出
+                    data.batchSellList.forEach(item => {
+                        updatedAssets = updatedAssets.filter(a => a.id !== item.asset.id);
+                        if (item.liability) {
+                            newState.liabilities = newState.liabilities.filter(l => l.id !== item.liability?.id);
+                        }
+                    });
                 } else if (data.relatedAssetId) {
                     const assetToSell = updatedAssets.find(a => a.id === data.relatedAssetId);
                     if (assetToSell) {
@@ -418,10 +497,11 @@ export const useGameLogic = () => {
                 name: data.name,
                 amount: amount,
                 sourceLabel: data.source === 'income' ? '收入' : data.source === 'loan' ? '借貸' : data.usage === 'liability' ? '負債還款' : data.usage === 'asset' ? '資產交易' : '支出',
-                usageLabel: data.usage === 'asset' ? '購買資產' : data.usage === 'liability' ? '償還負債' : '一般支出',
+                usageLabel: data.usage === 'asset' ? '買入資產' : data.usage === 'liability' ? '償還負債' : '一般支出',
                 cashChange: data.cashChange,
                 balance: newState.cash,
-                details: JSON.stringify(storageData)
+                details: JSON.stringify(storageData),
+                flowType: flowType
             };
             newState.history = [...newState.history, newTx];
 
@@ -458,7 +538,8 @@ export const useGameLogic = () => {
                 sourceLabel: flow >= 0 ? '收入' : '支出',
                 usageLabel: '月現金流',
                 cashChange: flow,
-                balance: newState.cash
+                balance: newState.cash,
+                flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
             return newState;
@@ -483,7 +564,8 @@ export const useGameLogic = () => {
                 sourceLabel: '收入',
                 usageLabel: '保險理賠',
                 cashChange: claimAmount,
-                balance: newState.cash
+                balance: newState.cash,
+                flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
             return newState;
@@ -510,7 +592,8 @@ export const useGameLogic = () => {
                 sourceLabel: '收入',
                 usageLabel: '保險理賠',
                 cashChange: claimAmount,
-                balance: newState.cash
+                balance: newState.cash,
+                flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
             return newState;
@@ -581,7 +664,8 @@ export const useGameLogic = () => {
                 sourceLabel: '支出',
                 usageLabel: '教育進修',
                 cashChange: -cost,
-                balance: newState.cash
+                balance: newState.cash,
+                flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
             return newState;
@@ -629,10 +713,14 @@ export const useGameLogic = () => {
                 details: JSON.stringify({
                     type: 'biz_upgrade',
                     assetId,
+                    symbol,
                     diceRoll,
                     addedIncome,
+                    oldCashflow: asset.cashflow,
+                    removedLiability: newState.liabilities.find(l => l.name === loanName) || null,
                     description: `${symbol} 從兼職工作室升級為小型企業。利息全免，企業收入增加 ${formatMoney(addedIncome)}。`
-                })
+                }),
+                flowType: '投資'
             };
             newState.history = [upgradeTx, ...newState.history];
 
@@ -663,7 +751,8 @@ export const useGameLogic = () => {
                 sourceLabel: '支出',
                 usageLabel: '教育支出',
                 cashChange: -cost,
-                balance: newState.cash
+                balance: newState.cash,
+                flowType: '生活'
             };
 
             newState.history = [...newState.history, newTx];
@@ -734,7 +823,22 @@ export const useGameLogic = () => {
                 sourceLabel: '事件',
                 usageLabel: '能力獲得',
                 cashChange: 0,
-                balance: newState.cash
+                balance: newState.cash,
+                details: JSON.stringify({
+                    type: 'lifelong_success',
+                    learningType: type,
+                    oldAbilities: prev.abilities,
+                    newAbilities: newState.abilities,
+                    // If it was profession enhancement, store rank info
+                    oldTitle: prev.currentRankTitle,
+                    oldRankLevel: prev.currentRankLevel,
+                    newRankLevel: newState.currentRankLevel,
+                    oldSalary: prev.profession?.salary || 0,
+                    newSalary: newState.profession?.salary || 0,
+                    // If it was stock ability, store previous assets to revert doubling
+                    oldAssets: prev.assets
+                }),
+                flowType: '其它'
             };
 
             newState.history = [...newState.history, newTx];
@@ -774,7 +878,19 @@ export const useGameLogic = () => {
                 sourceLabel: success ? '收入' : '事件',
                 usageLabel: success ? '工作收入增加' : '考試結果',
                 cashChange: 0,
-                balance: newState.cash
+                balance: newState.cash,
+                details: JSON.stringify({
+                    type: 'exam_promotion',
+                    success,
+                    bonus,
+                    oldTitle: prev.currentRankTitle,
+                    newTitle,
+                    oldSalary: prev.profession?.salary || 0,
+                    newSalary: updatedProfession.salary,
+                    oldRankLevel: prev.currentRankLevel,
+                    newRankLevel: success ? prev.currentRankLevel + 1 : prev.currentRankLevel
+                }),
+                flowType: '其它'
             };
             
             newState.history = [...newState.history, newTx];
@@ -782,12 +898,17 @@ export const useGameLogic = () => {
         });
     };
 
-    const handleFinishGame = (meta: { playerName: string }) => {
+    const handleFinishGame = async (meta: { playerName: string }) => {
+        // 限制歷史紀錄長度，避免超過 Firestore 1MB 限制
+        const optimizedHistory = gameState.history.slice(0, 100);
+        
         const record: GameRecord = {
             id: generateId(),
-            date: new Date().toISOString().split('T')[0],
+            date: new Date().toISOString(),
             playerName: meta.playerName,
+            reportName: gameState.reportName || '',
             profession: gameState.profession?.title || 'Unknown',
+            finalRankTitle: gameState.currentRankTitle || gameState.profession?.title || 'Unknown',
             finalScore: scoreResult.totalScore,
             happinessScore: gameState.happinessTotal,
             maxRankLevel: gameState.currentRankLevel,
@@ -798,13 +919,13 @@ export const useGameLogic = () => {
                 liabilities: gameState.liabilities,
                 income: gameState.income,
                 expenses: gameState.expenses,
-                history: gameState.history,
+                history: optimizedHistory,
                 happiness: gameState.happiness,
                 cash: gameState.cash,
                 loans: gameState.loans,
             }
         };
-        setGameHistory(prev => [record, ...prev]);
+        await saveGameRecord(record);
         return record;
     };
 

@@ -87,11 +87,11 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
                                     <ul className="space-y-2 text-sm text-emerald-400 font-bold">
                                         <li className="flex items-center gap-2">
                                             <div className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
-                                            <span className="whitespace-nowrap">貸款與利息全數取消</span>
+                                            <span>貸款與利息全數取消</span>
                                         </li>
                                         <li className="flex items-center gap-2">
                                             <div className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
-                                            <span className="whitespace-nowrap">企業收入增加 (骰子點數 × 10,000 H)</span>
+                                            <span>企業收入增加 (骰子點數 × 10,000 H)</span>
                                         </li>
                                     </ul>
                                 </div>

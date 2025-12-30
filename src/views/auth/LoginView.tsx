@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '../../../components/ui';
+import { Button } from '../../components/ui';
 
 type LoginViewProps = {
   onLogin: (email: string, password: string) => void;
@@ -41,7 +41,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 required
               />
             </div>
@@ -54,12 +54,12 @@ export const LoginView: React.FC<LoginViewProps> = ({
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
                 required
               />
             </div>
             
-            <Button type="submit" className="w-full py-2.5">
+            <Button type="submit" variant="amber" className="w-full py-2.5">
               登入
             </Button>
             
@@ -68,7 +68,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
               <button 
                 type="button" 
                 onClick={onSwitchToRegister}
-                className="text-emerald-400 hover:text-emerald-300 font-medium"
+                className="text-amber-500 hover:text-amber-400 font-medium"
               >
                 註冊新帳號
               </button>

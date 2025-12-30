@@ -130,17 +130,33 @@ export const EventForm: React.FC<EventFormProps> = ({
 
                     {happinessSubMode === 'history' ? (
                         <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
-                            {HAPPINESS_EVENTS.map(event => {
+                            {HAPPINESS_EVENTS.map((event, index) => {
                                 const isCompleted = completedHappinessEvents.includes(event.id) || 
                                                    (event.id === 'date' && happiness.find(h => h.id === 'h_date')?.checked) ||
                                                    (event.id === 'propose' && happiness.find(h => h.id === 'h_proposal')?.checked) ||
                                                    (event.id === 'wedding' && happiness.find(h => h.id === 'h_wedding')?.checked) ||
                                                    (event.id === 'child1' && happiness.find(h => h.id === 'h_child1')?.checked) ||
                                                    (event.id === 'child2' && happiness.find(h => h.id === 'h_child2')?.checked);
+                                
+                                // Check if previous event is completed
+                                let isLocked = false;
+                                if (index > 0) {
+                                    const prevEvent = HAPPINESS_EVENTS[index - 1];
+                                    const isPrevCompleted = completedHappinessEvents.includes(prevEvent.id) || 
+                                                           (prevEvent.id === 'date' && happiness.find(h => h.id === 'h_date')?.checked) ||
+                                                           (prevEvent.id === 'propose' && happiness.find(h => h.id === 'h_proposal')?.checked) ||
+                                                           (prevEvent.id === 'wedding' && happiness.find(h => h.id === 'h_wedding')?.checked) ||
+                                                           (prevEvent.id === 'child1' && happiness.find(h => h.id === 'h_child1')?.checked) ||
+                                                           (prevEvent.id === 'child2' && happiness.find(h => h.id === 'h_child2')?.checked);
+                                    if (!isPrevCompleted) {
+                                        isLocked = true;
+                                    }
+                                }
+
                                 return (
                                     <button
                                         key={event.id}
-                                        disabled={isCompleted}
+                                        disabled={isCompleted || isLocked}
                                         onClick={() => {
                                             setEventCustomName(event.name);
                                             setEventAmount(event.cost.replace(/,/g, ''));
@@ -153,13 +169,16 @@ export const EventForm: React.FC<EventFormProps> = ({
                                                 ? 'bg-rose-600/20 border-rose-500 shadow-[0_0_15px_rgba(225,29,72,0.1)]' 
                                                 : isCompleted 
                                                     ? 'bg-slate-900/30 border-slate-800 opacity-50 grayscale' 
-                                                    : 'bg-slate-900/50 border-slate-700 hover:border-rose-500/50 hover:bg-slate-800'
+                                                    : isLocked
+                                                        ? 'bg-slate-900/20 border-slate-800 opacity-40 cursor-not-allowed'
+                                                        : 'bg-slate-900/50 border-slate-700 hover:border-rose-500/50 hover:bg-slate-800'
                                         }`}
                                     >
                                         <div className="flex flex-col items-start flex-1">
                                             <span className={`text-xs font-bold ${eventCustomName === event.name ? 'text-rose-400' : 'text-slate-200'}`}>
                                                 {event.name}
                                                 {isCompleted && <span className="ml-2 text-[10px] text-emerald-500">(已達成)</span>}
+                                                {!isCompleted && isLocked && <span className="ml-2 text-[10px] text-slate-500">(未解鎖)</span>}
                                             </span>
                                             <span className="text-[10px] text-slate-500">
                                                 {event.type === 'pay' ? `花費: ${event.cost} H` : `每月支出增加: ${event.cost} H`}

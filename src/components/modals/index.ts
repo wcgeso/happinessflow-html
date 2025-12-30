@@ -1,4 +1,5 @@
 export { AvatarModal, avatarOptions } from './AvatarModal';
+export { ProfileModal } from './ProfileModal';
 export { PaydayModal } from './PaydayModal';
 export { MedicalClaimModal } from './MedicalClaimModal';
 export { PromotionModal } from './PromotionModal';

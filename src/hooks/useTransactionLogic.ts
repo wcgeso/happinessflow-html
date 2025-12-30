@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
     Liability, Asset, Profession, Enterprise, Dream, HappinessItem,
-    Mode, AssetType, TransactionData, StockTransactionItem,
+    Mode, AssetType, TransactionData, StockTransactionItem, BatchSellItem,
     AccountEntry, AccountCategory, ChangeDirection
 } from '../types';
 import { STOCK_SYMBOLS, REAL_ESTATE_SYMBOLS, BUSINESS_SYMBOLS } from '../constants';
@@ -27,7 +27,7 @@ interface UseTransactionLogicProps {
     liabilities: Liability[];
     marketPrices?: Record<string, number>;
     onTransaction: (data: TransactionData) => void;
-    onShowAlert?: (message: string, type: 'info' | 'error' | 'success') => void;
+    onShowAlert?: (message: string, type: 'info' | 'error' | 'success', persist?: boolean) => void;
 }
 
 export const useTransactionLogic = ({
@@ -201,22 +201,22 @@ export const useTransactionLogic = ({
                         return { symbol: s, price: price, qty: Number(v.qty) };
                     });
 
-                if (list.length === 0) { showError("請輸入購買張數"); return; }
+                if (list.length === 0) { showError("請輸入買入張數"); return; }
                 const total = list.reduce((s, i) => s + (i.price * i.qty), 0);
                 if (total > cash) { showError("現金不足"); return; }
                 const tickerNames = list.map(i => i.symbol).join(', ');
-                txData = { name: `購買股票 (${tickerNames})`, amount: total, cashChange: -total, source: 'cash', usage: 'asset', stockList: list, assetDetails: { type: '股票', cashflow: 0, downPayment: total } };
+                txData = { name: `買入股票 (${tickerNames})`, amount: total, cashChange: -total, source: 'cash', usage: 'asset', stockList: list, assetDetails: { type: '股票', cashflow: 0, downPayment: total } };
                 impactList.push(`現金 -${formatMoney(total)}`);
                 list.forEach(s => impactList.push(`股票 (${s.symbol}) +${formatMoney(s.price * s.qty)}`));
                 expectedEntries.push({ category: 'Assets', name: '現金', direction: 'Decrease' });
                 expectedEntries.push({ category: 'Assets', name: '股票', direction: 'Increase' });
             } else if (assetType === '不動產') {
                 const existing = assets.find(a => a.type === '不動產' && a.name?.includes(reSymbol));
-                if (existing) { showError(`您已經擁有 ${reSymbol} 不動產，無法重複購買`); return; }
+                if (existing) { showError(`您已經擁有 ${reSymbol} 不動產，無法重複買入`); return; }
                 if (!reDownPayment) { showError("請輸入頭期款"); return; }
                 const down = Number(reDownPayment), loan = Number(reLoan), inc = Number(reIncome), inter = Number(reInterest);
                 if (down > cash) { showError("現金不足"); return; }
-                txData = { name: `購買不動產 ${reSymbol} ${reSelfUse ? '(自用)' : ''}`, amount: down + loan, cashChange: -down, source: loan > 0 ? 'loan' : 'cash', usage: 'asset', assetDetails: { type: '不動產', cashflow: reSelfUse ? 0 : inc, downPayment: down, loanAmount: loan, loanInterest: inter, symbol: reSymbol, isSelfUse: reSelfUse, houseType: reHouseType } };
+                txData = { name: `買入不動產 ${reSymbol} ${reSelfUse ? '(自用)' : ''}`, amount: down + loan, cashChange: -down, source: loan > 0 ? 'loan' : 'cash', usage: 'asset', assetDetails: { type: '不動產', cashflow: reSelfUse ? 0 : inc, downPayment: down, loanAmount: loan, loanInterest: inter, symbol: reSymbol, isSelfUse: reSelfUse, houseType: reHouseType } };
                 impactList.push(`現金 -${formatMoney(down)}`, `不動產 (${reSymbol}) +${formatMoney(down + loan)}`);
                 if (loan > 0) { impactList.push(`不動產貸款 +${formatMoney(loan)}`, `貸款利息(月) +${formatMoney(inter)}`); }
                 if (!reSelfUse && inc > 0) { impactList.push(`租金收入(月) +${formatMoney(inc)}`); }
@@ -225,16 +225,30 @@ export const useTransactionLogic = ({
                 if (loan > 0) { expectedEntries.push({ category: 'Liabilities', name: '不動產貸款', direction: 'Increase' }, { category: 'Expenses', name: '不動產貸款利息', direction: 'Increase' }); }
                 if (!reSelfUse && inc > 0) expectedEntries.push({ category: 'Income', name: '租金收入', direction: 'Increase' });
             } else if (assetType === '企業') {
-                const cost = Number(bizCost), loan = Number(bizLoan || 0), inc = Number(bizIncome), inter = Number(bizInterest || 0);
-                const isRepeatable = ['N055', 'N057', 'N059', 'N060'].includes(bizSymbol);
+                const down = Number(bizCost), loan = Number(bizLoan || 0), inc = Number(bizIncome), inter = Number(bizInterest || 0);
+                const totalCost = down + loan;
                 const existing = assets.find(a => a.type === '企業' && a.name?.includes(bizSymbol));
-                if (existing && !isRepeatable) { showError(`您已經擁有 ${bizSymbol} 企業，無法重複購買`); return; }
-                if (!cost || cost <= 0) { showError("請輸入有效的投資金額"); return; }
-                if (!bizLoan) { showError("請輸入企業貸款金額，若無貸款請輸入 0"); return; }
-                const down = cost - loan;
-                if (down > cash) { showError("現金不足支付頭期款"); return; }
-                txData = { name: `投資企業 ${bizSymbol}`, amount: cost, cashChange: loan - cost, source: loan > 0 ? 'loan' : 'cash', usage: 'asset', assetDetails: { type: '企業', cashflow: inc, downPayment: Math.max(0, down), loanAmount: loan, loanInterest: inter, symbol: bizSymbol } };
-                impactList.push(`現金 -${formatMoney(cost)}`, `企業 (${bizSymbol}) +${formatMoney(cost)}`);
+                if (existing) { showError(`您已經擁有 ${bizSymbol} 企業，無法重複買入`); return; }
+                if (down < 0) { showError("請輸入有效的投資金額"); return; }
+                
+                if (down > cash) { showError("現金不足支付投資金額"); return; }
+                txData = { 
+                    name: `買入企業 ${bizSymbol}`, 
+                    amount: down, 
+                    cashChange: -down, 
+                    source: loan > 0 ? 'loan' : 'cash', 
+                    usage: 'asset', 
+                    assetDetails: { 
+                        type: '企業', 
+                        cashflow: inc, 
+                        downPayment: down, 
+                        loanAmount: loan, 
+                        loanInterest: inter, 
+                        symbol: bizSymbol 
+                    } 
+                };
+                // 根據用戶要求，企業在資產負債表中的價值為投資總額（downPayment），不包含貸款
+                impactList.push(`現金 -${formatMoney(down)}`, `企業 (${bizSymbol}) +${formatMoney(down)}`);
                 if (loan > 0) { impactList.push(`企業貸款 +${formatMoney(loan)}`, `企業貸款利息(月) +${formatMoney(inter)}`, `現金（企業貸款） +${formatMoney(loan)}`); }
                 if (inc > 0) { impactList.push(`企業收益(月) +${formatMoney(inc)}`); }
                 expectedEntries = [{ category: 'Assets', name: `企業 (${bizSymbol})`, direction: 'Increase' }, { category: 'Assets', name: '現金', direction: 'Decrease' }];
@@ -245,14 +259,14 @@ export const useTransactionLogic = ({
                 if (!amt) { showError("請輸入金額"); return; }
                 if (amt <= 0) { showError("定存金額必須大於 0"); return; }
                 if (amt > cash) { showError("現金不足"); return; }
-                txData = { name: '存入定存', amount: amt, cashChange: -amt, source: 'cash', usage: 'asset', assetDetails: { type: '定存', cashflow: Math.floor(amt * 0.005), downPayment: amt } };
+                txData = { name: '買入定期存款', amount: amt, cashChange: -amt, source: 'cash', usage: 'asset', assetDetails: { type: '定存', cashflow: Math.floor(amt * 0.005), downPayment: amt } };
                 impactList = [`現金 -${formatMoney(amt)}`, `定存 +${formatMoney(amt)}`, `定存利息(月) +${formatMoney(Math.floor(amt * 0.005))}`];
                 expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Decrease' }, { category: 'Assets', name: '定存', direction: 'Increase' }, { category: 'Income', name: '定存利息', direction: 'Increase' }];
             } else if (assetType === '保險') {
                 let desc = '', pay: any = {}, qty = 0;
-                if (insType === 'medical') { qty = Number(insMedicalQty); if (qty <= 0) { showError("請輸入張數"); return; } desc = `購買醫療保險 (${qty}張)`; pay = { medicalQty: qty }; }
-                else if (insType === 'house') { qty = insSelectedHouses.length; if (qty <= 0) { showError("請選擇投保房屋"); return; } desc = `購買房屋保險 (${qty}間)`; pay = { targetAssetIds: insSelectedHouses }; }
-                else if (insType === 'aircraft') { if (!insAircraftSelected) { showError("請勾選飛行器保險"); return; } qty = 1; desc = `購買飛行器保險`; pay = { aircraft: true }; }
+                if (insType === 'medical') { qty = Number(insMedicalQty); if (qty <= 0) { showError("請輸入張數"); return; } desc = `買入醫療保險 (${qty}張)`; pay = { medicalQty: qty }; }
+                else if (insType === 'house') { qty = insSelectedHouses.length; if (qty <= 0) { showError("請選擇投保房屋"); return; } desc = `買入房屋保險 (${qty}間)`; pay = { targetAssetIds: insSelectedHouses }; }
+                else if (insType === 'aircraft') { if (!insAircraftSelected) { showError("請勾選飛行器保險"); return; } qty = 1; desc = `買入飛行器保險`; pay = { aircraft: true }; }
                 const total = qty * 2000;
                 if (total > cash) { showError("現金不足"); return; }
                 txData = { name: desc, amount: total, cashChange: -total, source: 'cash', usage: 'expense', insuranceType: insType, insurancePayload: pay };
@@ -262,14 +276,14 @@ export const useTransactionLogic = ({
                 const c = Number(aircraftCash), l = Number(aircraftLoan);
                 if (c + l !== 500000) { showError("支付現金與貸款額度加總不足 500,000 H"); return; }
                 if (c > cash) { showError("現金不足"); return; }
-                txData = { name: '購買飛行器（增加一顆骰子）', amount: 500000, cashChange: -c, source: l > 0 ? 'loan' : 'cash', usage: 'asset', assetDetails: { type: '飛行器' as any, cashflow: 0, downPayment: c, loanAmount: l, loanInterest: Math.floor(l * 0.005) } };
+                txData = { name: '買入飛行器（增加一顆骰子）', amount: 500000, cashChange: -c, source: l > 0 ? 'loan' : 'cash', usage: 'asset', assetDetails: { type: '飛行器' as any, cashflow: 0, downPayment: c, loanAmount: l, loanInterest: Math.floor(l * 0.005) } };
                 impactList.push(`現金 -${formatMoney(c)}`, `飛行器資產 +${formatMoney(500000)}`);
                 if (l > 0) impactList.push(`飛行器貸款 +${formatMoney(l)}`);
                 expectedEntries.push({ category: 'Assets', name: '飛行器', direction: 'Increase' });
                 if (c > 0) expectedEntries.push({ category: 'Assets', name: '現金', direction: 'Decrease' });
                 if (l > 0) { expectedEntries.push({ category: 'Liabilities', name: '飛行器貸款', direction: 'Increase' }, { category: 'Expenses', name: '飛行器貸款利息', direction: 'Increase' }); }
             } else if (assetType === '目標企業' && selectedEnterprise) {
-                if (happiness.find(h => h.id === 'h_career')?.checked) { showError(`您已達成事業成就：${selectedEnterprise.name}，不可重複購買`); return; }
+                if (happiness.find(h => h.id === 'h_career')?.checked) { showError(`您已達成事業成就：${selectedEnterprise.name}，不可重複買入`); return; }
                 const { cost, income, name } = selectedEnterprise;
                 if (cost > cash) { showError("現金不足以支付投資金額"); return; }
                 txData = { name: `達成事業成就：${name}`, amount: cost, cashChange: -cost, source: 'cash', usage: 'asset', assetDetails: { type: '企業', cashflow: income, downPayment: cost, symbol: name } };
@@ -313,19 +327,95 @@ export const useTransactionLogic = ({
             } else {
                 const entries = Object.entries(repayInputs).filter(([_, v]) => Number(v) > 0);
                 if (entries.length === 0) { showError("請輸入售價"); return; }
-                const [id, price] = entries[0];
-                const asset = assets.find(a => a.id === id); if (!asset) return;
-                txData = { name: `賣出 ${asset.name}`, amount: Number(price), cashChange: Number(price), source: 'income', usage: 'cash', relatedAssetId: asset.id };
-                const assetImpactName = asset.type === '股票' ? `股票 (${asset.name.replace('股票 ', '')})` : asset.name;
-                impactList = [`現金 +${formatMoney(Number(price))}`, `${assetImpactName} -${formatMoney(asset.cost)}`];
-                expectedEntries = [
-                    { category: 'Assets', name: '現金', direction: 'Increase' },
-                    { category: 'Assets', name: asset.type === '股票' ? '股票' : asset.name, direction: 'Decrease' }
-                ];
-                if (asset.cashflow > 0) {
-                    const incName = asset.type === '企業' ? '企業收益' : asset.type === '不動產' ? '租金收入' : '理財收入';
-                    impactList.push(`${incName} 減少`); expectedEntries.push({ category: 'Income', name: incName, direction: 'Decrease' });
+                
+                const batchList: BatchSellItem[] = [];
+                let totalSellPrice = 0;
+                let totalLoanBalance = 0;
+                let totalCashChange = 0;
+                
+                for (const [id, price] of entries) {
+                    const asset = assets.find(a => a.id === id); 
+                    if (!asset) continue;
+
+                    // 查找該資產對應的貸款
+                    const assetSymbol = asset.name.match(/[A-Z]\d+/)?.[0];
+                    const relatedLoan = liabilities.find(l => 
+                        (asset.type === '不動產' && l.type === '不動產貸款' && assetSymbol && l.name.includes(assetSymbol)) ||
+                        (asset.type === '企業' && l.type === '企業貸款' && assetSymbol && l.name.includes(assetSymbol)) ||
+                        (asset.type === '飛行器' && l.type === '飛行器貸款')
+                    );
+
+                    const sellPrice = Number(price);
+                    const loanBalance = relatedLoan ? relatedLoan.totalOwed : 0;
+                    
+                    if (sellPrice <= loanBalance) {
+                        showError(`${asset.name} 的售價 (${formatMoney(sellPrice)}) 必須大於貸款金額 (${formatMoney(loanBalance)})`);
+                        return;
+                    }
+                    
+                    batchList.push({
+                asset: asset,
+                price: sellPrice,
+                liability: relatedLoan
+            });
+
+            totalSellPrice += sellPrice;
+            totalLoanBalance += loanBalance;
+            
+            const assetImpactName = asset.name;
+            impactList.push(`賣出 ${assetImpactName}: +${formatMoney(sellPrice)}`);
+            impactList.push(`${assetImpactName} 資產減少: -${formatMoney(asset.cost)}`);
+                    
+                    // 移除償還貸款的提示訊息
+
+                    // 1. 資產減少 (企業或不動產)
+                    const assetTypeLabel = asset.type === '不動產' ? '不動產' : asset.type === '企業' ? '企業' : asset.name;
+                    if (!expectedEntries.some(e => e.category === 'Assets' && (e.name === assetTypeLabel || e.name === asset.name) && e.direction === 'Decrease')) {
+                        expectedEntries.push({ category: 'Assets', name: asset.type === '股票' ? '股票' : (asset.type === '定存' ? '定存' : asset.name), direction: 'Decrease' });
+                    }
+
+                    // 2. 負債與支出減少
+                    if (loanBalance > 0) {
+                        const loanName = asset.type === '不動產' ? '不動產貸款' : asset.type === '企業' ? '企業貸款' : asset.type === '飛行器' ? '飛行器貸款' : (relatedLoan?.name || '貸款');
+                        const interestName = asset.type === '不動產' ? '不動產貸款利息' : asset.type === '企業' ? '企業貸款利息' : asset.type === '飛行器' ? '飛行器貸款利息' : '貸款利息';
+                        
+                        expectedEntries.push({ category: 'Liabilities', name: loanName, direction: 'Decrease' });
+                        expectedEntries.push({ category: 'Expenses', name: interestName, direction: 'Decrease' });
+                        
+                        impactList.push(`${loanName} 減少: -${formatMoney(loanBalance)}`);
+                        impactList.push(`${interestName} 減少`);
+                    }
+
+                    // 3. 收益減少
+                    if (asset.cashflow > 0) {
+                        const incName = asset.type === '企業' ? '企業收益' : asset.type === '不動產' ? '租金收入' : '理財收入';
+                        if (!expectedEntries.some(e => e.category === 'Income' && e.name === incName && e.direction === 'Decrease')) {
+                            expectedEntries.push({ category: 'Income', name: incName, direction: 'Decrease' });
+                        }
+                    }
                 }
+
+                totalCashChange = totalSellPrice - totalLoanBalance;
+                
+                if (totalCashChange !== 0) {
+                    expectedEntries.push({ 
+                        category: 'Assets', 
+                        name: '現金', 
+                        direction: totalCashChange > 0 ? 'Increase' : 'Decrease' 
+                    });
+                }
+                
+                const assetNames = batchList.map(i => i.asset.name).join(', ');
+                txData = { 
+                    name: `賣出資產 (${assetNames})`, 
+                    amount: totalSellPrice, 
+                    cashChange: totalCashChange, 
+                    source: 'income', 
+                    usage: 'cash', 
+                    batchSellList: batchList
+                };
+
+                impactList.push(`總計獲得現金: +${formatMoney(totalCashChange)}`);
             }
         } else if (mode === 'loan') {
             if (loanSubMode === 'borrow') {
@@ -531,7 +621,7 @@ export const useTransactionLogic = ({
 
             setErrorMessage("答案不正確，請重新檢查項目與增減方向");
             if (onShowAlert) {
-                onShowAlert(msg, 'error');
+                onShowAlert(msg, 'error', true);
             } else {
                 alert(msg);
             }

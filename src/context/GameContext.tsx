@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
-import { GameState, FinancialSummary, GameRecord, Transaction } from '../types';
+import { GameState, FinancialSummary, GameRecord, Transaction, StockPricePoint } from '../types';
 import { STOCK_SYMBOLS } from '../constants';
+import { cleanDataForFirestore } from '../utils/gameUtils';
 import { db, auth } from '../../services/firebase';
-import { collection, addDoc, query, where, getDocs, orderBy, limit, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, orderBy, limit, doc, setDoc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const getRandomPrice = () => (Math.floor(Math.random() * (13 - 2 + 1)) + 2) * 100;
 
@@ -18,45 +20,57 @@ interface GameContextValue {
     };
     saveGameRecord: (record: GameRecord) => Promise<void>;
     loadGameHistory: () => Promise<void>;
-    updateMarketPrices: (updates: Record<string, number>) => void;
-    bubbleBurst: () => void;
-    alertInfo: { message: string; type: 'info' | 'error' | 'success' } | null;
-    showAlert: (message: string, type?: 'info' | 'error' | 'success') => void;
+    autoSaveGameState: (state: GameState) => Promise<void>;
+    loadAutoSave: () => Promise<GameState | null>;
+    clearAutoSave: () => Promise<void>;
+    resetGameState: () => void;
+    updateMarketPrices: (updates: Record<string, number>, code?: string) => void;
+    bubbleBurst: (code?: string) => void;
+    alertInfo: { message: string; type: 'info' | 'error' | 'success'; persist?: boolean } | null;
+    showAlert: (message: string, type?: 'info' | 'error' | 'success', persist?: boolean) => void;
+    hideAlert: () => void;
 }
 
 const GameContext = createContext<GameContextValue | undefined>(undefined);
 
 const MOCK_HISTORY: GameRecord[] = [];
 
+const INITIAL_STATE: GameState = {
+    profession: null,
+    selectedEnterprise: null,
+    selectedDream: null,
+    currentRankTitle: '',
+    currentRankLevel: 1,
+    cash: 0,
+    children: 0,
+    medicalInsuranceCount: 0,
+    assets: [],
+    liabilities: [],
+    loans: 0,
+    isSetup: false,
+    history: [],
+    happiness: [],
+    happinessTotal: 0,
+    expenses: {},
+    marketPrices: STOCK_SYMBOLS.reduce((acc, symbol) => {
+        acc[symbol] = 0;
+        return acc;
+    }, {} as Record<string, number>),
+    previousMarketPrices: STOCK_SYMBOLS.reduce((acc, symbol) => {
+        acc[symbol] = 0;
+        return acc;
+    }, {} as Record<string, number>),
+    lastPublishedCode: '',
+    abilities: {
+        stockAbilityCount: 0,
+        realEstateAbilityCount: 0,
+        professionAbilityCount: 0,
+    },
+    completedHappinessEvents: [],
+} as any;
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [gameState, setGameState] = useState<GameState>({
-        profession: null,
-        selectedEnterprise: null,
-        selectedDream: null,
-        currentRankTitle: '',
-        currentRankLevel: 1,
-        cash: 0,
-        children: 0,
-        medicalInsuranceCount: 0,
-        assets: [],
-        liabilities: [],
-        loans: 0,
-        isSetup: false,
-        history: [],
-        happiness: [],
-        happinessTotal: 0,
-        expenses: {}, // Initialize expenses as an empty object
-        marketPrices: STOCK_SYMBOLS.reduce((acc, symbol) => {
-            acc[symbol] = getRandomPrice();
-            return acc;
-        }, {} as Record<string, number>),
-        abilities: {
-            stockAbilityCount: 0,
-            realEstateAbilityCount: 0,
-            professionAbilityCount: 0,
-        },
-        completedHappinessEvents: [],
-    } as any);
+    const [gameState, setGameState] = useState<GameState>(INITIAL_STATE);
 
     const [gameHistory, setGameHistory] = useState<GameRecord[]>([]);
 
@@ -67,79 +81,209 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (auth.currentUser) {
             try {
                 const userRecordsRef = collection(db, 'users', auth.currentUser.uid, 'gameRecords');
-                await addDoc(userRecordsRef, {
+                const cleanedRecord = cleanDataForFirestore({
                     ...record,
                     userId: auth.currentUser.uid,
                     createdAt: new Date().toISOString()
                 });
+                await addDoc(userRecordsRef, cleanedRecord);
                 console.log('遊戲紀錄已成功儲存至 Firebase');
             } catch (error) {
                 console.error('儲存遊戲紀錄失敗:', error);
+                throw error; // 重新拋出錯誤讓呼叫者處理
             }
         }
     };
 
     const loadGameHistory = async () => {
-        if (!auth.currentUser) return;
+        if (!auth.currentUser) {
+            console.log('未登入，無法載入歷史紀錄');
+            return;
+        }
         
+        console.log('正在載入用戶歷史紀錄, UID:', auth.currentUser.uid);
         try {
             const userRecordsRef = collection(db, 'users', auth.currentUser.uid, 'gameRecords');
-            const q = query(userRecordsRef, orderBy('date', 'desc'), limit(50));
+            
+            // 先嘗試不排序抓取，確保能拿到資料，防止因為缺少索引或欄位導致回傳空值
+            const q = query(userRecordsRef, limit(50));
             const querySnapshot = await getDocs(q);
+            
+            console.log(`從 Firebase 抓取到 ${querySnapshot.size} 筆原始紀錄`);
             
             const records: GameRecord[] = [];
             querySnapshot.forEach((doc) => {
-                records.push(doc.data() as GameRecord);
+                const data = doc.data();
+                // 處理可能缺失的欄位，確保 UI 不會崩潰
+                records.push({
+                    ...data,
+                    id: data.id || doc.id,
+                    date: data.date || data.createdAt || '未知日期',
+                } as GameRecord);
             });
             
-            if (records.length > 0) {
-                setGameHistory(records);
-            }
+            // 在記憶體中排序
+            records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            console.log('處理後的紀錄數量:', records.length);
+            setGameHistory(records);
         } catch (error) {
             console.error('載入遊戲歷史失敗:', error);
         }
     };
-    const [alertInfo, setAlertInfo] = useState<{ message: string; type: 'info' | 'error' | 'success' } | null>(null);
 
-    const showAlert = (message: string, type: 'info' | 'error' | 'success' = 'info') => {
-        setAlertInfo({ message, type });
-        setTimeout(() => setAlertInfo(null), 3000);
+    const autoSaveGameState = async (state: GameState) => {
+        if (!auth.currentUser || !state.isSetup) return;
+
+        try {
+            const autoSaveRef = doc(db, 'users', auth.currentUser.uid, 'currentGames', 'latest');
+            const cleanedState = cleanDataForFirestore({
+                ...state,
+                lastSaved: new Date().toISOString()
+            });
+            await setDoc(autoSaveRef, cleanedState);
+            // console.log('遊戲已自動存檔');
+        } catch (error) {
+            console.error('自動存檔失敗:', error);
+        }
     };
+
+    const loadAutoSave = async (): Promise<GameState | null> => {
+        if (!auth.currentUser) return null;
+
+        try {
+            const autoSaveRef = doc(db, 'users', auth.currentUser.uid, 'currentGames', 'latest');
+            const docSnap = await getDoc(autoSaveRef);
+            
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                console.log('已載入自動存檔');
+                // 確保從資料庫讀取的資料包含所有必要欄位，防止舊格式或缺失欄位導致崩潰
+                return {
+                    ...INITIAL_STATE,
+                    ...data,
+                    // 確保陣列欄位不為空
+                    assets: data.assets || [],
+                    liabilities: data.liabilities || [],
+                    history: data.history || [],
+                    happiness: data.happiness || [],
+                    income: data.income || {},
+                    expenses: data.expenses || {},
+                } as GameState;
+            }
+        } catch (error) {
+            console.error('載入自動存檔失敗:', error);
+        }
+        return null;
+    };
+
+    const resetGameState = () => {
+        setGameState({
+            ...INITIAL_STATE,
+            isSetup: false,
+            marketPrices: STOCK_SYMBOLS.reduce((acc, symbol) => {
+                acc[symbol] = getRandomPrice();
+                return acc;
+            }, {} as Record<string, number>)
+        });
+    };
+
+    const clearAutoSave = async () => {
+        if (!auth.currentUser) return;
+        try {
+            const autoSaveRef = doc(db, 'users', auth.currentUser.uid, 'currentGames', 'latest');
+            await setDoc(autoSaveRef, { isSetup: false, lastCleared: new Date().toISOString() });
+            console.log('自動存檔已清除');
+        } catch (error) {
+            console.error('清除自動存檔失敗:', error);
+            throw error; // 重新拋出錯誤
+        }
+    };
+
+    // Auto-save logic with debounce
+    useEffect(() => {
+        if (!gameState.isSetup || !auth.currentUser) return;
+
+        const timer = setTimeout(() => {
+            autoSaveGameState(gameState);
+        }, 2000); // 2秒延遲
+
+        return () => clearTimeout(timer);
+    }, [gameState, auth.currentUser]);
+
+    // Initial load for auto-save and history
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                console.log('Firebase Auth 狀態變更：用戶已登入', user.uid);
+                // 登入時載入該用戶的歷史紀錄
+                await loadGameHistory();
+                
+                // 載入自動存檔
+                const savedState = await loadAutoSave();
+                if (savedState && !gameState.isSetup) {
+                    setGameState(savedState);
+                }
+            } else {
+                console.log('Firebase Auth 狀態變更：用戶已登出');
+                setGameHistory([]);
+                setGameState(INITIAL_STATE);
+            }
+        });
+
+        return () => unsubscribe();
+    }, []); // 僅在組件掛載時訂閱一次 Auth 狀態變更
+
+    const [alertInfo, setAlertInfo] = useState<{ message: string; type: 'info' | 'error' | 'success'; persist?: boolean } | null>(null);
+
+    const showAlert = (message: string, type: 'info' | 'error' | 'success' = 'info', persist: boolean = false) => {
+        setAlertInfo({ message, type, persist });
+        if (!persist) {
+            setTimeout(() => setAlertInfo(null), 3000);
+        }
+    };
+
+    const hideAlert = () => setAlertInfo(null);
 
     // Calculate financial summary
     const summary: FinancialSummary = useMemo(() => {
         if (!gameState.profession) return { totalIncome: 0, totalExpenses: 0, monthlyCashflow: 0, passiveIncome: 0, totalAssets: 0, totalLiabilities: 0, payday: 0 };
 
-        const passiveIncome = gameState.assets.reduce((sum, a) => {
-            let income = a.cashflow;
+        const assets = gameState.assets || [];
+        const liabilities = gameState.liabilities || [];
+        const income = gameState.income || {};
+        const expenses = gameState.expenses || {};
+
+        const passiveIncome = assets.reduce((sum, a) => {
+            let incomeVal = a.cashflow;
             // 投資不動產的能力：所有出租房產租金 +10,000H * 能力次數
             if (a.type === '不動產' && !a.isSelfUse && gameState.abilities?.realEstateAbilityCount > 0) {
-                income += 10000 * gameState.abilities.realEstateAbilityCount;
+                incomeVal += 10000 * gameState.abilities.realEstateAbilityCount;
             }
-            return sum + income;
+            return sum + incomeVal;
         }, 0);
-        const dynamicIncome = Object.values(gameState.income || {}).reduce((sum, v) => sum + (v || 0), 0);
-        const totalIncome = gameState.profession.salary + passiveIncome + dynamicIncome;
+        const dynamicIncome = Object.values(income).reduce((sum, v) => sum + (v || 0), 0);
+        const totalIncome = (gameState.profession.salary || 0) + passiveIncome + dynamicIncome;
 
         // Calculate interest from liabilities' monthlyPayment
-        const creditLoanInterest = (gameState.liabilities.filter(l => l.type === '信用貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0)) + (gameState.loans * 0.1);
-        const aircraftLoanInterest = gameState.liabilities.filter(l => l.type === '飛行器貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
-        const businessLoanInterest = gameState.liabilities.filter(l => l.type === '企業貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
-        const realEstateLoanInterest = gameState.liabilities.filter(l => l.type === '不動產貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+        const creditLoanInterest = (liabilities.filter(l => l.type === '信用貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0)) + ((gameState.loans || 0) * 0.1);
+        const aircraftLoanInterest = liabilities.filter(l => l.type === '飛行器貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+        const businessLoanInterest = liabilities.filter(l => l.type === '企業貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+        const realEstateLoanInterest = liabilities.filter(l => l.type === '不動產貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
 
         const p = gameState.profession;
 
         // Calculate each expense category, combining professional base and user adjustments
         // 所得稅務隨工作收入(salary)變動，比例為 5%
-        const taxExpense = Math.floor(p.salary * 0.05);
-        const basicLivingTotal = Math.max(0, (p.expenses?.basicLiving || 0) + (gameState.expenses?.basicLiving || 0));
-        const transportEduTotal = Math.max(0, (p.expenses?.transportEdu || 0) + (gameState.expenses?.transportEdu || 0));
-        const otherMedicalChildTotal = Math.max(0, (p.expenses?.otherMedicalChild || 0) + (gameState.expenses?.otherMedicalChild || 0));
+        const taxExpense = Math.floor((p.salary || 0) * 0.05);
+        const basicLivingTotal = Math.max(0, (p.expenses?.basicLiving || 0) + (expenses.basicLiving || 0));
+        const transportEduTotal = Math.max(0, (p.expenses?.transportEdu || 0) + (expenses.transportEdu || 0));
+        const otherMedicalChildTotal = Math.max(0, (p.expenses?.otherMedicalChild || 0) + (expenses.otherMedicalChild || 0));
 
-        const rankIncrease = Math.max(0, gameState.currentRankLevel - 1);
+        const rankIncrease = Math.max(0, (gameState.currentRankLevel || 1) - 1);
         const otherExpensesBonus = rankIncrease * 10000; // This bonus is specifically for otherMedicalChild
 
-        const totalInsuranceCount = (gameState.medicalInsuranceCount || 0) + gameState.assets.filter(a => a.isInsured).length;
+        const totalInsuranceCount = (gameState.medicalInsuranceCount || 0) + assets.filter(a => a.isInsured).length;
         const insuranceCost = totalInsuranceCount * 2000;
 
         const totalExpenses = taxExpense +
@@ -153,14 +297,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                               realEstateLoanInterest +
                               insuranceCost;
 
-        const totalAssets = gameState.assets.reduce((sum, a) => {
+        const totalAssets = assets.reduce((sum, a) => {
             if (a.type === '股票') {
                 const symbol = a.name.replace('股票 ', '');
                 const marketPrice = (gameState.marketPrices && gameState.marketPrices[symbol]) || a.lastPurchasePrice || 0;
                 return sum + (a.quantity || 0) * marketPrice;
             }
             return sum + a.cost;
-        }, 0) + gameState.cash;
+        }, 0) + (gameState.cash || 0);
 
         return {
             totalIncome,
@@ -168,20 +312,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             monthlyCashflow: totalIncome - totalExpenses,
             passiveIncome,
             totalAssets,
-            totalLiabilities: gameState.liabilities.reduce((sum, l) => sum + l.totalOwed, 0) + gameState.loans,
+            totalLiabilities: liabilities.reduce((sum, l) => sum + (l.totalOwed || 0), 0) + (gameState.loans || 0),
             payday: totalIncome - totalExpenses
         };
     }, [gameState.profession, gameState.expenses?.basicLiving, gameState.expenses?.transportEdu, gameState.expenses?.otherMedicalChild, gameState.currentRankLevel, gameState.liabilities, gameState.medicalInsuranceCount, gameState.assets, gameState.cash, gameState.loans, gameState.income, gameState.marketPrices]);
 
     // Calculate score result
     const scoreResult = useMemo(() => {
-        const h = gameState.happinessTotal;
-        const reserve = gameState.cash + gameState.assets.filter(a => a.type === '定存').reduce((s, a) => s + a.cost, 0);
-        const isReserveOk = reserve > summary.totalExpenses;
+        const h = gameState.happinessTotal || 0;
+        const assets = gameState.assets || [];
+        const reserve = (gameState.cash || 0) + assets.filter(a => a.type === '定存').reduce((s, a) => s + a.cost, 0);
+        const isReserveOk = reserve >= summary.totalExpenses * 6;
         const isInsured = (gameState.medicalInsuranceCount || 0) >= 1;
         const isCashflowOk = summary.monthlyCashflow > 0;
         const validInvestmentTypes = new Set(['股票', '不動產', '企業', '定存']);
-        const playerAssetTypes = new Set(gameState.assets.map(a => a.type).filter(t => validInvestmentTypes.has(t as string)));
+        const playerAssetTypes = new Set(assets.map(a => a.type).filter(t => validInvestmentTypes.has(t as string)));
 
         const criteriaList = [
             { label: '遊玩積分', points: 2, achieved: true },
@@ -190,7 +335,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             { label: '幸福指數達 60', points: 2, achieved: h >= 60 },
             { label: '幸福指數達 80', points: 3, achieved: h >= 80 },
             { label: '幸福指數達 100', points: 5, achieved: h >= 100 },
-            { label: '達到財務安全 (預備金/保險/收支平衡)', points: 1, achieved: isReserveOk && isInsured && isCashflowOk },
+            { label: '達到財務安全 (預備金達總支出 6 倍)', points: 1, achieved: isReserveOk },
             { label: '達到財務寬裕 (擁有多種資產)', points: 2, achieved: playerAssetTypes.size >= 2 },
             { label: '達到財務自由 (理財收入 > 總支出)', points: 3, achieved: summary.passiveIncome > summary.totalExpenses },
         ];
@@ -275,12 +420,37 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [summary.passiveIncome, summary.totalExpenses, gameState.assets, gameState.isSetup, gameState.happiness]);
 
-    const updateMarketPrices = (updates: Record<string, number>) => {
+    const updateMarketPrices = (updates: Record<string, number>, code?: string) => {
         setGameState(prev => {
+            const oldMarketPrices = { ...prev.marketPrices };
             const newMarketPrices = {
                 ...prev.marketPrices,
                 ...updates
             };
+
+            // Update price history
+            const newHistory = { ...prev.marketPriceHistory };
+            const timestamp = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            Object.entries(updates).forEach(([symbol, price]) => {
+                if (!newHistory[symbol]) newHistory[symbol] = [];
+                
+                const prevPrice = oldMarketPrices[symbol] || price;
+                const history = newHistory[symbol];
+                
+                // If we have history, the last close is our open
+                // In this game context, each update is a new "candle"
+                const point: StockPricePoint = {
+                    time: timestamp,
+                    open: prevPrice,
+                    close: price,
+                    high: Math.max(prevPrice, price),
+                    low: Math.min(prevPrice, price),
+                };
+                
+                // Limit history to last 20 points
+                newHistory[symbol] = [...history, point].slice(-20);
+            });
             
             // Create a log entry for market updates
             const updateDetails = Object.entries(updates)
@@ -299,20 +469,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 details: JSON.stringify({
                     type: 'market_update',
                     updates,
-                    description: `股票價格調整：${updateDetails}`
+                    previousPrices: oldMarketPrices,
+                    code,
+                    description: `股票價格調整：${updateDetails}${code ? ` (代碼: ${code})` : ''}`
                 })
             };
 
             return {
                 ...prev,
                 marketPrices: newMarketPrices,
+                previousMarketPrices: oldMarketPrices,
+                marketPriceHistory: newHistory,
+                lastPublishedCode: code || prev.lastPublishedCode,
                 history: [marketUpdateEvent, ...prev.history]
             };
         });
         showAlert('📈 市場行情已更新！', 'success');
     };
 
-    const bubbleBurst = () => {
+    const bubbleBurst = (code?: string) => {
         setGameState(prev => {
             const affectedStocks: string[] = [];
             const updatedAssets = prev.assets.map(asset => {
@@ -333,7 +508,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return asset;
             }).filter((a): a is any => a !== null);
 
-            if (affectedStocks.length === 0) {
+            if (affectedStocks.length === 0 && !code) {
                 return prev;
             }
 
@@ -349,22 +524,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 details: JSON.stringify({
                     type: 'bubble_burst',
                     affectedStocks,
+                    code,
                     // Store full asset info for restoration if they were completely lost
                     fullAssets: prev.assets.filter(a => a.type === '股票').map(a => ({...a})),
-                    description: '泡沫化風暴席捲市場，所有股票資產數量減半。'
+                    description: `泡沫化風暴席捲市場，所有股票資產數量減半。${code ? ` (代碼: ${code})` : ''}`
                 })
             };
 
             return {
                 ...prev,
                 assets: updatedAssets,
+                lastPublishedCode: code || prev.lastPublishedCode,
                 history: [bubbleEvent, ...prev.history]
             };
         });
         showAlert('🌪️ 泡沫化風暴已席捲市場！\n所有股票資產已減半。', 'error');
     };
 
-    const value: GameContextValue = {
+    const value: GameContextValue = useMemo(() => ({
         gameState,
         setGameState,
         gameHistory,
@@ -373,11 +550,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         scoreResult,
         saveGameRecord,
         loadGameHistory,
+        autoSaveGameState,
+        loadAutoSave,
+        clearAutoSave,
+        resetGameState,
         updateMarketPrices,
         bubbleBurst,
         alertInfo,
-        showAlert
-    };
+        showAlert,
+        hideAlert
+    }), [gameState, gameHistory, summary, scoreResult, alertInfo]);
 
     useEffect(() => {
         loadGameHistory();

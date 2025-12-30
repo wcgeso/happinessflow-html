@@ -81,7 +81,7 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                     </button>
 
                     <div className="text-center space-y-2">
-                        <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto text-white border border-white/20 shadow-[0_0_25px_-5px_rgba(99,102,241,0.6)] -rotate-6 transition-transform hover:rotate-0 duration-500">
+                        <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-2xl flex items-center justify-center mx-auto text-white border border-white/20 shadow-[0_0_25px_-5px_rgba(245,158,11,0.6)] -rotate-6 transition-transform hover:rotate-0 duration-500">
                             <TrendingUp size={36} strokeWidth={2.5} className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" />
                         </div>
                         <h3 className="text-xl font-black text-white tracking-tight">終身學習</h3>
@@ -97,9 +97,7 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                                 className={cn(
                                     "group relative flex items-center gap-3 p-3 rounded-xl transition-all duration-300 text-left overflow-hidden border-2",
                                     selectedId === opt.id 
-                                        ? opt.color === 'blue' ? "bg-blue-500/10 border-blue-500 shadow-[0_0_20px_-5px_rgba(59,130,246,0.4)]"
-                                          : opt.color === 'emerald' ? "bg-emerald-500/10 border-emerald-500 shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)]"
-                                          : "bg-amber-500/10 border-amber-500 shadow-[0_0_20px_-5px_rgba(245,158,11,0.4)]"
+                                        ? "bg-amber-500/10 border-amber-500 shadow-[0_0_20px_-5px_rgba(245,158,11,0.4)]"
                                         : "bg-slate-950/40 border-slate-800 hover:border-slate-700",
                                     opt.disabled && "opacity-50 grayscale cursor-not-allowed"
                                 )}
@@ -107,9 +105,7 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                                 <div className={cn(
                                     "shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all border shadow-lg",
                                     selectedId === opt.id 
-                                        ? opt.color === 'blue' ? "bg-blue-500 text-white border-blue-400"
-                                          : opt.color === 'emerald' ? "bg-emerald-500 text-white border-emerald-400"
-                                          : "bg-amber-500 text-white border-amber-400"
+                                        ? "bg-amber-500 text-white border-amber-400"
                                         : "bg-slate-800 text-slate-400 border-slate-700"
                                 )}>
                                     {opt.icon}
@@ -118,9 +114,7 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                                     <div className={cn(
                                         "font-bold text-sm leading-tight whitespace-nowrap transition-colors",
                                         selectedId === opt.id 
-                                            ? opt.color === 'blue' ? "text-blue-400"
-                                              : opt.color === 'emerald' ? "text-emerald-400"
-                                              : "text-amber-400"
+                                            ? "text-amber-400"
                                             : "text-white"
                                     )}>
                                         {opt.title}
@@ -135,9 +129,7 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                                         <span className={cn(
                                             "text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors",
                                             selectedId === opt.id 
-                                                ? opt.color === 'blue' ? "bg-blue-500/20 text-blue-300"
-                                                  : opt.color === 'emerald' ? "bg-emerald-500/20 text-emerald-300"
-                                                  : "bg-amber-500/20 text-amber-300"
+                                                ? "bg-amber-500/20 text-amber-300"
                                                 : "bg-slate-800 text-slate-400"
                                         )}>
                                             {opt.requirement}
@@ -164,7 +156,7 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                         <Button
                             disabled={!selectedId}
                             onClick={handleConfirm}
-                            className="w-full py-3 rounded-xl font-black text-base transition-all shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-indigo-900/40 disabled:opacity-50 disabled:shadow-none"
+                            className="w-full py-3 rounded-xl font-black text-base transition-all shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white shadow-amber-900/40 disabled:opacity-50 disabled:shadow-none"
                         >
                             <span>確認學習</span>
                             <ChevronRight size={18} className="animate-in slide-in-from-left-2" />

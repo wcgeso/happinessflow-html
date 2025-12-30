@@ -17,13 +17,13 @@ import { GameSessionMeta } from './types';
 // Mock Spinner
 const Spinner = () => (
     <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
     </div>
 );
 
 const AppContent = () => {
     const { user, isLoadingAuth } = useAuth();
-    const { setGameState } = useGame();
+    const { gameState, setGameState } = useGame();
 
     // View State
     const [currentView, setCurrentView] = useState<'lobby' | 'history' | 'create_report' | 'selection' | 'game' | 'score' | 'achievements'>('lobby');
@@ -47,6 +47,7 @@ const AppContent = () => {
                 setCurrentView={setCurrentView}
                 sessionMeta={sessionMeta}
                 setSessionMeta={setSessionMeta}
+                gameState={gameState}
                 setGameState={setGameState}
             />
         </Suspense>
@@ -54,7 +55,7 @@ const AppContent = () => {
 };
 
 // Separated to use hooks cleanly if needed, or just inline.
-const MainRouting = ({ user, currentView, setCurrentView, sessionMeta, setSessionMeta, setGameState }: any) => {
+const MainRouting = ({ user, currentView, setCurrentView, sessionMeta, setSessionMeta, gameState, setGameState }: any) => {
     const { logout } = useAuth();
 
     const handleCreateReportComplete = (meta: GameSessionMeta) => {
@@ -98,12 +99,25 @@ const MainRouting = ({ user, currentView, setCurrentView, sessionMeta, setSessio
                             realEstateAbilityCount: 0,
                             professionAbilityCount: 0,
                         },
-                        completedHappinessEvents: []
+                        completedHappinessEvents: [],
+                        playerName: sessionMeta?.playerName || user.name,
+                        reportName: sessionMeta?.reportName || '我的財報'
                     });
                     setCurrentView('game');
                 });
             }
         });
+    };
+
+    const handleResumeGame = () => {
+        if (gameState.playerName) {
+            setSessionMeta({
+                playerName: gameState.playerName,
+                reportName: gameState.reportName || '我的財報',
+                createdAt: new Date().toISOString()
+            });
+        }
+        setCurrentView('game');
     };
 
     const handleGameFinish = () => {
@@ -115,9 +129,9 @@ const MainRouting = ({ user, currentView, setCurrentView, sessionMeta, setSessio
         case 'lobby':
             return (
                 <LobbyView
-                    user={user}
                     onLogout={logout}
                     onCreateReport={() => setCurrentView('create_report')}
+                    onResumeGame={handleResumeGame}
                     onViewHistory={() => setCurrentView('history')}
                     onViewAchievements={() => setCurrentView('achievements')}
                 />

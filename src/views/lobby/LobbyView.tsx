@@ -1,23 +1,73 @@
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
-import { Card } from '../../components/ui/ui';
-import { LogOut, Award, Play, History, User, BookOpen, Mail } from 'lucide-react';
-import { AvatarModal, TutorialModal, LetterToPlayersModal } from '../../components/modals';
+import { useAuth } from '../../context/AuthContext';
+import { LogOut, Award, Play, History, BookOpen, Mail } from 'lucide-react';
+import { ProfileModal, TutorialModal, LetterToPlayersModal, avatarOptions } from '../../components/modals';
 
 interface LobbyViewProps {
-  user: { name: string; email: string } | null;
   onLogout: () => void;
   onCreateReport: () => void;
+  onResumeGame: () => void;
   onViewHistory: () => void;
   onViewAchievements: () => void; 
 }
 
-export const LobbyView: React.FC<LobbyViewProps> = ({ user, onLogout, onCreateReport, onViewHistory, onViewAchievements }) => {
-  const { gameHistory } = useGame();
-  const [showAvatarModal, setShowAvatarModal] = useState(false);
+export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, onResumeGame, onViewHistory, onViewAchievements }) => {
+  const { gameHistory, gameState } = useGame();
+  const { user } = useAuth();
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [showLetterModal, setShowLetterModal] = useState(false);
-  const [selectedAvatar, setSelectedAvatar] = useState('default');
+  const [isLetterRead, setIsLetterRead] = useState(() => {
+    return localStorage.getItem('letter_to_players_read') === 'true';
+  });
+
+  const handleOpenLetter = () => {
+    setShowLetterModal(true);
+    if (!isLetterRead) {
+      setIsLetterRead(true);
+      localStorage.setItem('letter_to_players_read', 'true');
+    }
+  };
+
+  const userAvatar = React.useMemo(() => {
+    if (!user) return null;
+    const isCustom = user.photoURL?.startsWith('http') || user.photoURL?.startsWith('data:image');
+    
+    if (isCustom) {
+       let position = { x: 50, y: 50 };
+       let scale = 1;
+       
+       if (user.photoPosition) {
+         try {
+           position = JSON.parse(user.photoPosition);
+         } catch (e) {
+           position = { x: 50, y: parseInt(user.photoPosition) || 50 };
+         }
+       }
+       if (user.photoScale) {
+         scale = parseFloat(user.photoScale) || 1;
+       }
+ 
+       return (
+         <img 
+           src={user.photoURL} 
+           alt="Avatar" 
+           className="w-full h-full object-cover group-hover:scale-110 transition-transform" 
+           style={{ 
+             objectPosition: `${position.x}% ${position.y}%`,
+             transform: `scale(${scale})`
+           }}
+         />
+       );
+     }
+     
+     return (
+       <div className="w-full h-full bg-gradient-to-b from-amber-300 to-amber-600 flex items-center justify-center text-2xl shadow-inner select-none group-hover:scale-110 transition-transform">
+         🐝
+       </div>
+     );
+   }, [user]);
 
   const userStats = React.useMemo(() => {
     if (gameHistory.length === 0) return { totalGames: 0, winRate: 0, totalScore: 0, happinessRate: 0 };
@@ -47,10 +97,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ user, onLogout, onCreateRe
       <div className="relative z-10 px-6 py-4 h-20 flex justify-between items-center border-b border-slate-800/50 backdrop-blur-sm bg-slate-950/50 shrink-0">
         <div className="flex items-center gap-4">
           <div
-            className="w-12 h-12 rounded-full bg-slate-900 border-2 border-yellow-500/50 flex items-center justify-center cursor-pointer hover:border-yellow-400 hover:shadow-[0_0_15px_rgba(234,179,8,0.3)] transition-all group"
-            onClick={() => setShowAvatarModal(true)}
+            className="w-12 h-12 rounded-full bg-slate-900 border-2 border-yellow-500/50 flex items-center justify-center cursor-pointer hover:border-yellow-400 hover:shadow-[0_0_15px_rgba(234,179,8,0.3)] transition-all group overflow-hidden"
+            onClick={() => setShowProfileModal(true)}
           >
-            <User size={24} className="text-yellow-400 group-hover:scale-110 transition-transform" />
+            {userAvatar}
           </div>
           <div>
             <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">歡迎回來</div>
@@ -104,18 +154,39 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ user, onLogout, onCreateRe
           {/* Main Actions Container */}
           <div className="flex flex-col gap-3 md:gap-4">
             {/* Primary Action: Start Game */}
+            {gameState.isSetup && (
+              <button 
+                onClick={onResumeGame} 
+                className="group relative p-1 overflow-hidden rounded-2xl transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl shadow-amber-500/20"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600 animate-gradient-x" />
+                <div className="relative p-5 md:p-6 bg-amber-600 rounded-2xl flex items-center justify-between overflow-hidden">
+                  <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
+                    <Play size={100} className="fill-white" />
+                  </div>
+                  <div className="flex flex-col text-left relative z-10"> 
+                    <span className="text-2xl md:text-3xl font-black text-white mb-0.5 tracking-tight">繼續遊戲</span> 
+                    <span className="text-amber-100/80 text-xs md:text-sm font-medium">回到您的「{gameState.reportName || '我的財報'}」，繼續您的財富之旅</span> 
+                  </div> 
+                  <div className="w-12 h-12 md:w-14 md:h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center relative z-10 group-hover:bg-white/30 transition-colors shadow-inner"> 
+                    <Play size={24} className="text-white fill-white translate-x-0.5" /> 
+                  </div> 
+                </div> 
+              </button>
+            )}
+
             <button 
               onClick={onCreateReport} 
-              className="group relative p-1 overflow-hidden rounded-2xl transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl shadow-emerald-500/20"
+              className="group relative p-1 overflow-hidden rounded-2xl transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl shadow-amber-500/20"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-600 animate-gradient-x" />
-              <div className="relative p-5 md:p-6 bg-emerald-600 rounded-2xl flex items-center justify-between overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 animate-gradient-x" />
+              <div className="relative p-5 md:p-6 bg-amber-500 rounded-2xl flex items-center justify-between overflow-hidden">
                 <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
                   <Play size={100} className="fill-white" />
                 </div>
                 <div className="flex flex-col text-left relative z-10"> 
                   <span className="text-2xl md:text-3xl font-black text-white mb-0.5 tracking-tight">開始新人生</span> 
-                  <span className="text-emerald-100/80 text-xs md:text-sm font-medium">建立新財報，開啟您的財富覺醒之旅</span> 
+                  <span className="text-amber-100/80 text-xs md:text-sm font-medium">建立新財報，開啟您的財富覺醒之旅</span> 
                 </div> 
                 <div className="w-12 h-12 md:w-14 md:h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center relative z-10 group-hover:bg-white/30 transition-colors shadow-inner"> 
                   <Play size={24} className="text-white fill-white translate-x-0.5" /> 
@@ -130,8 +201,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ user, onLogout, onCreateRe
                 onClick={onViewAchievements} 
                 className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 md:gap-3 text-left"
               > 
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 group-hover:bg-amber-500/20 transition-colors"> 
-                  <Award size={18} className="text-amber-500" /> 
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-colors"> 
+                  <Award size={18} className="text-pink-500" /> 
                 </div> 
                 <div className="flex flex-col"> 
                   <span className="text-base md:text-lg font-black text-white leading-tight whitespace-nowrap">成就獎勵</span> 
@@ -144,8 +215,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ user, onLogout, onCreateRe
                 onClick={onViewHistory} 
                 className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 md:gap-3 text-left"
               > 
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20 group-hover:bg-blue-500/20 transition-colors"> 
-                  <History size={18} className="text-blue-500" /> 
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors"> 
+                  <History size={18} className="text-emerald-500" /> 
                 </div> 
                 <div className="flex flex-col"> 
                   <span className="text-base md:text-lg font-black text-white leading-tight whitespace-nowrap">歷史紀錄</span> 
@@ -158,8 +229,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ user, onLogout, onCreateRe
                 onClick={() => setShowTutorialModal(true)} 
                 className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 md:gap-3 text-left"
               >
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 group-hover:bg-indigo-500/20 transition-colors"> 
-                  <BookOpen size={18} className="text-indigo-500" /> 
+                <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20 group-hover:bg-blue-500/20 transition-colors"> 
+                  <BookOpen size={18} className="text-blue-500" /> 
                 </div> 
                 <div className="flex flex-col"> 
                   <span className="text-base md:text-lg font-black text-white leading-tight whitespace-nowrap">遊戲教學</span> 
@@ -169,12 +240,14 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ user, onLogout, onCreateRe
 
               {/* Letter to Players */}
               <button 
-                onClick={() => setShowLetterModal(true)} 
+                onClick={handleOpenLetter} 
                 className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 md:gap-3 text-left"
               >
                 <div className="w-8 h-8 md:w-10 md:h-10 bg-yellow-500/10 rounded-xl flex items-center justify-center border border-yellow-500/20 group-hover:bg-yellow-500/20 transition-colors relative"> 
-                  <Mail size={18} className="text-yellow-400" /> 
-                  <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse" />
+                  <Mail size={18} className="text-yellow-500" /> 
+                  {!isLetterRead && (
+                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse" />
+                  )}
                 </div> 
                 <div className="flex flex-col"> 
                   <span className="text-base md:text-lg font-black text-white leading-tight whitespace-nowrap">給玩家的一封信</span> 
@@ -186,10 +259,29 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ user, onLogout, onCreateRe
         </div>
 
         {/* Footer info - Static bottom */}
-        <div className="py-4 text-center shrink-0">
+        <div className="py-4 text-center shrink-0 flex flex-col gap-2">
           <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
             v1.2.0 · Designed for Financial Awakening
           </p>
+          <div className="flex items-center justify-center gap-3 text-[10px] text-slate-600 font-medium">
+            <a 
+              href="https://happinessflow.vercel.app/privacy.html" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-amber-500/60 transition-colors"
+            >
+              隱私權政策
+            </a>
+            <div className="w-[1px] h-2 bg-slate-800"></div>
+            <a 
+              href="https://happinessflow.vercel.app/terms.html" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-amber-500/60 transition-colors"
+            >
+              服務條款
+            </a>
+          </div>
         </div>
       </div>
 
@@ -200,12 +292,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ user, onLogout, onCreateRe
         />
       )}
 
-      {showAvatarModal && (
-        <AvatarModal
-          isOpen={showAvatarModal}
-          onClose={() => setShowAvatarModal(false)}
-          selectedAvatar={selectedAvatar}
-          onSelectAvatar={setSelectedAvatar}
+      {showProfileModal && (
+        <ProfileModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
         />
       )}
 
