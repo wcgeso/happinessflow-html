@@ -3,7 +3,7 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!privacy\\.html|terms\\.html|assets/|favicon\\.ico|manifest\\.json).*)",
       "destination": "/index.html"
     }
   ]
