@@ -157,16 +157,16 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
             {gameState.isSetup && (
               <button 
                 onClick={onResumeGame} 
-                className="group relative p-1 overflow-hidden rounded-2xl transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl shadow-amber-500/20"
+                className="group relative p-1 overflow-hidden rounded-2xl transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl shadow-orange-500/20"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-600 animate-gradient-x" />
-                <div className="relative p-5 md:p-6 bg-amber-600 rounded-2xl flex items-center justify-between overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-amber-400 to-orange-600 animate-gradient-x" />
+                <div className="relative p-5 md:p-6 bg-orange-600 rounded-2xl flex items-center justify-between overflow-hidden">
                   <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
                     <Play size={100} className="fill-white" />
                   </div>
                   <div className="flex flex-col text-left relative z-10"> 
                     <span className="text-2xl md:text-3xl font-black text-white mb-0.5 tracking-tight">繼續遊戲</span> 
-                    <span className="text-amber-100/80 text-xs md:text-sm font-medium">回到您的「{gameState.reportName || '我的財報'}」，繼續您的財富之旅</span> 
+                    <span className="text-orange-100/80 text-xs md:text-sm font-medium">回到您的「{gameState.reportName || '我的財報'}」，繼續您的財富之旅</span> 
                   </div> 
                   <div className="w-12 h-12 md:w-14 md:h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center relative z-10 group-hover:bg-white/30 transition-colors shadow-inner"> 
                     <Play size={24} className="text-white fill-white translate-x-0.5" /> 
