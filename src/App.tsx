@@ -25,9 +25,36 @@ const AppContent = () => {
     const { user, isLoadingAuth } = useAuth();
     const { gameState, setGameState } = useGame();
 
+    // 維護模式判斷 (依據域名)
+    const isMaintenance = window.location.hostname === 'happinessflow.vercel.app';
+
     // View State
     const [currentView, setCurrentView] = useState<'lobby' | 'history' | 'create_report' | 'selection' | 'game' | 'score' | 'achievements'>('lobby');
     const [sessionMeta, setSessionMeta] = useState<GameSessionMeta | null>(null);
+
+    // 維護中頁面
+    if (isMaintenance) {
+        return (
+            <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 text-center">
+                <div className="w-24 h-24 rounded-full bg-amber-500/10 flex items-center justify-center mb-8 animate-pulse">
+                    <span className="text-5xl">🐝</span>
+                </div>
+                <div className="px-4 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-500 text-[10px] font-bold uppercase tracking-widest mb-4">
+                    System Update
+                </div>
+                <h1 className="text-3xl font-black mb-4 bg-gradient-to-b from-white to-amber-500 bg-clip-text text-transparent">
+                    正在優化您的幸福體驗
+                </h1>
+                <p className="text-slate-400 max-w-sm leading-relaxed mb-8">
+                    「蜂富人生」正在進行系統維護與功能升級。<br />
+                    我們很快就會帶著更棒的體驗回來！
+                </p>
+                <div className="text-[11px] text-slate-500 font-medium">
+                    感謝您的耐心等待
+                </div>
+            </div>
+        );
+    }
 
     // If not logged in, show Auth
     if (isLoadingAuth) return <Spinner />;
@@ -175,10 +202,29 @@ const MainRouting = ({ user, currentView, setCurrentView, sessionMeta, setSessio
 };
 
 export default function App() {
+    useEffect(() => {
+        // 防止行動端瀏覽器彈性滾動 (Elastic Scrolling)
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+        document.body.style.height = '100%';
+        document.body.style.touchAction = 'none';
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.height = '';
+            document.body.style.touchAction = '';
+        };
+    }, []);
+
     return (
         <AuthProvider>
             <GameProvider>
-                <AppContent />
+                <div className="fixed inset-0 overflow-hidden bg-slate-950 select-none touch-none">
+                    <AppContent />
+                </div>
             </GameProvider>
         </AuthProvider>
     );

@@ -357,7 +357,7 @@ const tutorialSteps: TutorialStep[] = [
     title: "第一步 - 交易輸入",
     icon: <ArrowRightLeft className="text-emerald-400" />,
     category: 'transaction',
-    content: "當你決定進行任何投資、貸款或處理事件時，點選畫面下方的「交易輸入」按鈕：\n1. 選擇交易類型：買入、賣出、信貸、遊戲事件等\n2. 填寫交易細節：輸入名稱、金額或張數\n3. 確認後點擊「下一步」進入財務檢核",
+    content: "當你決定進行任何投資、貸款 or 處理事件時，點選畫面下方的「交易輸入」按鈕：\n1. 選擇交易：買入、賣出、信貸、遊戲事件等\n2. 填寫交易細節：輸入名稱、金額或張數\n3. 確認後點擊「下一步」進入財務檢核",
     uiPreview: <MockTransactionForm />
   },
   {
@@ -371,7 +371,7 @@ const tutorialSteps: TutorialStep[] = [
     title: "實戰示範 - 買房收租",
     icon: <HelpCircle className="text-purple-400" />,
     category: 'audit',
-    content: "假設你要購買一間不動產並出租：\n1. 資產欄：現金「減少」(支付頭期款)、不動產「增加」\n2. 負債欄：房貸「增加」\n3. 收入欄：租金收入「增加」\n4. 支出欄：房貸利息「增加」\n\n全部選對後交易才會成功執行！這能訓練你理解各項目的資產負債類別，並掌握現金流向。",
+    content: "假設你要購買一間不動產並出租：\n1. 資產欄：現金「減少」、不動產「增加」\n2. 負債欄：房貸「增加」\n3. 收入欄：租金收入「增加」\n4. 支出欄：房貸利息「增加」\n\n全部選對後交易才會成功執行！這能訓練你理解各項目的資產負債類別，並掌握現金流向。",
   },
   {
     title: "查看財務報表",

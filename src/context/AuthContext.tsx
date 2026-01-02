@@ -101,8 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             await signInWithEmailAndPassword(auth, email, password);
         } catch (error: any) {
-            console.error('登入錯誤:', error);
-            throw error; // 直接拋出原始錯誤，保留 .code 屬性
+            throw error;
         } finally {
             setIsLoadingAuth(false);
         }

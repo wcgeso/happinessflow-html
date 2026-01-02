@@ -22,7 +22,7 @@ export const CreateReportView: React.FC<CreateReportViewProps> = ({ defaultName,
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative">
+        <div className="h-[100dvh] bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden touch-none">
             <Button variant="secondary" onClick={onBack} className="absolute top-4 right-4 text-slate-400 hover:text-white pl-4 gap-2">
                 <ArrowLeft size={20} /> 返回大廳
             </Button>

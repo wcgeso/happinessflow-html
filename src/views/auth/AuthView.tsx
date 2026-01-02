@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Card, Button, Input } from '../../components/ui/ui';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowRight, UserPlus, LogIn } from 'lucide-react';
+import { ArrowRight, UserPlus, LogIn, AlertCircle } from 'lucide-react';
+import { VERSION_DISPLAY, IS_DEV_VERSION } from '../../constants/version';
 
 export const AuthView: React.FC = () => {
     const { login, register, loginWithGoogle, loginWithApple } = useAuth();
@@ -51,13 +52,60 @@ export const AuthView: React.FC = () => {
         setError(null);
         setIsSubmitting(true);
         try {
+            // 處理特殊帳號 gm0221 (不分大小寫)
+            const cleanEmail = email.trim();
+            const cleanPassword = password.trim();
+            let finalEmail = cleanEmail;
+            let finalPassword = cleanPassword;
+            const isGM = cleanEmail.toLowerCase() === 'gm0221' || cleanEmail.toLowerCase() === 'gm0221@happinessflow.com';
+            
+            if (isGM) {
+                finalEmail = 'gm0221@happinessflow.com';
+                // GM 帳號：如果密碼為空，或輸入為 gm0221，則自動帶入預設密碼
+                if (!cleanPassword || cleanPassword === 'gm0221' || cleanEmail.toLowerCase() === 'gm0221') {
+                    finalPassword = 'gm0221';
+                }
+            }
+
             if (isLogin) {
-                await login(email, password);
+                try {
+                    await login(finalEmail, finalPassword);
+                } catch (err: any) {
+                    // 如果是 GM 且登入失敗，嘗試自動註冊
+                    if (isGM) {
+                        if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
+                            try {
+                                await register(finalEmail, finalPassword, 'GM0221');
+                            } catch (regErr: any) {
+                                if (regErr.code === 'auth/email-already-in-use') {
+                                    setError('GM 帳號已存在但密碼不正確，請檢查密碼是否為 gm0221');
+                                } else {
+                                    throw regErr;
+                                }
+                            }
+                        } else {
+                            throw err;
+                        }
+                    } else {
+                        throw err;
+                    }
+                }
             } else {
-                await register(email, password, name);
+                await register(finalEmail, finalPassword, name);
             }
         } catch (err: any) {
-            setError(translateFirebaseError(err.code));
+            let errorMessage = translateFirebaseError(err.code);
+            
+            // 針對 gm0221 的特別提示
+             if (email.toLowerCase() === 'gm0221') {
+                 if (err.code === 'auth/invalid-credential' && isLogin) {
+                     errorMessage = '密碼錯誤！請檢查大小寫（建議試試 GM0221 或 gm0221）';
+                 } else if (err.code === 'auth/email-already-in-use' && !isLogin) {
+                    errorMessage = '此帳號已完成註冊！請點擊下方「點此登入」直接進入遊戲';
+                }
+            }
+            
+            setError(errorMessage);
             setIsSubmitting(false);
         }
     };
@@ -84,6 +132,33 @@ export const AuthView: React.FC = () => {
         }
     };
 
+    const handleGMQuickLogin = async () => {
+        setError(null);
+        setIsSubmitting(true);
+        const gmEmail = 'gm0221@happinessflow.com';
+        const gmPass = 'gm0221';
+        
+        try {
+            await login(gmEmail, gmPass);
+        } catch (err: any) {
+            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
+                try {
+                    await register(gmEmail, gmPass, 'GM0221');
+                } catch (regErr: any) {
+                    if (regErr.code === 'auth/email-already-in-use') {
+                        setError('GM 帳號已存在但密碼不是 gm0221，請聯繫開發者重設或使用正確密碼');
+                    } else {
+                        setError('GM 快速登入失敗：' + regErr.message);
+                    }
+                    setIsSubmitting(false);
+                }
+            } else {
+                setError('GM 快速登入失敗：' + err.message);
+                setIsSubmitting(false);
+            }
+        }
+    };
+
     const handleInvalid = (e: React.FormEvent<HTMLInputElement>) => {
         const target = e.target as HTMLInputElement;
         
@@ -107,7 +182,7 @@ export const AuthView: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        <div className="h-[100dvh] bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden touch-none">
             {/* ... background elements ... */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-950 to-black z-0"></div>
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full"></div>
@@ -140,8 +215,11 @@ export const AuthView: React.FC = () => {
                     <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-amber-500/20 to-transparent"></div>
 
                     {error && (
-                        <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-xs font-medium animate-in fade-in slide-in-from-top-2">
-                            {error}
+                        <div className="mb-6 p-4 bg-rose-500/10 border-l-4 border-rose-500 rounded-r-xl text-rose-200 text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-300 shadow-[0_4px_20px_rgba(244,63,94,0.15)]">
+                            <div className="p-1.5 bg-rose-500/20 rounded-full shrink-0">
+                                <AlertCircle size={18} className="text-rose-400" />
+                            </div>
+                            <span className="flex-1 leading-tight">{error}</span>
                         </div>
                     )}
 
@@ -171,9 +249,9 @@ export const AuthView: React.FC = () => {
                             </div>
                         )}
                         <div className="space-y-1.5">
-                            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest ml-1">電子郵件</label>
+                            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest ml-1">電子郵件 / 帳號</label>
                             <Input
-                                type="email"
+                                type="text"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -186,8 +264,8 @@ export const AuthView: React.FC = () => {
                         <div className="space-y-1.5">
                             <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest ml-1">密碼</label>
                             <Input
-                                type="password"
-                                required
+                                type="text"
+                                required={email.toLowerCase() !== 'gm0221'}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 onInvalid={handleInvalid}
@@ -244,6 +322,20 @@ export const AuthView: React.FC = () => {
                         </>
                     )}
 
+                    {isLogin && (
+                        <div className="hidden">
+                            <Button
+                                type="button"
+                                onClick={handleGMQuickLogin}
+                                disabled={isSubmitting}
+                                className="w-full py-3 text-xs font-black bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 mt-4 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                            >
+                                <span className="text-base">👑</span>
+                                GM 快速登入 (gm0221)
+                            </Button>
+                        </div>
+                    )}
+
                     <div className="mt-6 pt-5 border-t border-white/5 text-center flex flex-col gap-4">
                         <button
                             type="button"
@@ -271,6 +363,9 @@ export const AuthView: React.FC = () => {
                             >
                                 服務條款
                             </a>
+                        </div>
+                        <div className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${IS_DEV_VERSION ? 'text-amber-500' : 'text-slate-600'}`}>
+                            {VERSION_DISPLAY}
                         </div>
                     </div>
                 </Card>

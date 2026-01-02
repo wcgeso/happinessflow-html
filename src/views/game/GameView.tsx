@@ -157,7 +157,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 pb-20 overflow-x-hidden no-scrollbar animate-in fade-in duration-500">
+        <div className="h-[100dvh] bg-slate-950 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500">
             {/* Alert System */}
             {alertInfo && (
                 <div className={`fixed bottom-36 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-4 border max-w-[90vw] w-max ${alertInfo.type === 'error' ? 'bg-rose-900 border-rose-500 text-rose-100' :
@@ -207,8 +207,8 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                 />
             )}
 
-            <main className="max-w-7xl mx-auto px-4 pt-44 pb-32 space-y-8">
-                <div className="space-y-6">
+            <main className="flex-1 overflow-y-auto no-scrollbar px-4 pt-44 pb-32 space-y-8 touch-pan-y">
+                <div className="max-w-7xl mx-auto w-full space-y-6">
                     <GameStats
                         gameState={gameState}
                         summary={summary}

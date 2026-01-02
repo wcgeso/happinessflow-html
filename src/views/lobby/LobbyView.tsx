@@ -3,6 +3,7 @@ import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
 import { LogOut, Award, Play, History, BookOpen, Mail } from 'lucide-react';
 import { ProfileModal, TutorialModal, LetterToPlayersModal, avatarOptions } from '../../components/modals';
+import { VERSION_DISPLAY, IS_DEV_VERSION } from '../../constants/version';
 
 interface LobbyViewProps {
   onLogout: () => void;
@@ -86,7 +87,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
   }, [gameHistory]);
 
   return (
-    <div className="h-screen bg-slate-950 flex flex-col relative overflow-hidden select-none">
+    <div className="h-[100dvh] bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none">
       {/* Background Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500 rounded-full blur-[120px]" />
@@ -260,8 +261,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
 
         {/* Footer info - Static bottom */}
         <div className="py-4 text-center shrink-0 flex flex-col gap-2">
-          <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
-            v1.2.0 · Designed for Financial Awakening
+          <p className={`text-[10px] font-bold uppercase tracking-widest ${IS_DEV_VERSION ? 'text-amber-500' : 'text-slate-600'}`}>
+            {VERSION_DISPLAY}
           </p>
           <div className="flex items-center justify-center gap-3 text-[10px] text-slate-600 font-medium">
             <a 

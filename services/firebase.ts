@@ -18,7 +18,7 @@ import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDD6yXBqQ5qExLYvGFd8m3kSJYzRGu659g",
-  authDomain: "happinessflow.vercel.app",
+  authDomain: "happinessflow-63b2e.firebaseapp.com",
   projectId: "happinessflow-63b2e",
   storageBucket: "happinessflow-63b2e.firebasestorage.app",
   messagingSenderId: "663631477568",

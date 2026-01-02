@@ -242,7 +242,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({ onBack }) =>
   }, [activeCategory]);
 
   return (
-    <div className="h-screen bg-slate-950 flex flex-col relative overflow-hidden select-none">
+    <div className="h-[100dvh] bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none">
       {/* Background Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-500 rounded-full blur-[120px]" />
@@ -271,7 +271,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({ onBack }) =>
       </div>
 
       {/* Category Tabs */}
-      <div className="relative z-10 px-6 py-4 flex gap-2 overflow-x-auto no-scrollbar border-b border-slate-800/30">
+      <div className="relative z-10 px-6 py-4 flex gap-2 overflow-x-auto no-scrollbar border-b border-slate-800/30 touch-pan-x">
         {categories.map(cat => (
           <button
             key={cat.id}
@@ -290,7 +290,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({ onBack }) =>
       </div>
 
       {/* Achievement Grid */}
-      <div className="relative z-10 flex-1 overflow-y-auto p-6">
+      <div className="relative z-10 flex-1 overflow-y-auto p-6 touch-pan-y no-scrollbar">
         <div className="max-w-6xl mx-auto space-y-12">
           {groupedAchievements.map(group => (
             <div key={group.category.id} className="space-y-6">

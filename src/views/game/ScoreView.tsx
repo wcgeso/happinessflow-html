@@ -44,8 +44,8 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, onBackToLobby 
     };
 
     return (
-        <div className="min-h-screen bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="max-w-lg w-full h-full max-h-[90vh] flex flex-col py-4 overflow-hidden no-scrollbar">
+        <div className="h-[100dvh] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-hidden touch-none">
+            <div className="max-w-lg w-full h-full flex flex-col py-4 overflow-hidden no-scrollbar">
                 <Card className="bg-slate-900 border-slate-500 shadow-2xl shadow-slate-500/10 flex flex-col overflow-hidden animate-in zoom-in-95 no-scrollbar">
                     <div className="shrink-0 p-6 bg-slate-800/40 border-b border-slate-500/30 text-center">
                         <Trophy size={40} className="mx-auto text-yellow-400 mb-2" />

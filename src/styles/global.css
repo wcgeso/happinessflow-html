@@ -3,8 +3,17 @@
 @tailwind utilities;
 
 /* 添加自定義全局樣式 */
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: fixed; /* 防止手機端拉動 */
+  overscroll-behavior-y: none;
+}
+
 body {
   @apply bg-slate-950 text-white;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* 自定義滾動條樣式 */
