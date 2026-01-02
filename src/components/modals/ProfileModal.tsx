@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Bug, Plane, Stethoscope, Palette, TreePine, Briefcase, Edit3, Calendar, Hash, Award, History, Play, X, Check, Upload, Image as ImageIcon, Move, Copy } from 'lucide-react';
 import { Button, Input, Slider } from '../ui/ui';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, getUserTitle } from '../../context/AuthContext';
 import { useGame } from '../../context/GameContext';
 import { avatarOptions } from './AvatarModal';
 
@@ -237,47 +237,63 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                         <div className="flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <div className="flex-1">
-                                    {isEditingName ? (
-                                        <div className="flex items-center gap-2">
-                                            <Input 
-                                                value={newName}
-                                                maxLength={10}
-                                                onChange={(e) => setNewName(e.target.value)}
-                                                className="h-9 bg-slate-950/50 border-slate-700 focus:border-amber-500"
-                                                placeholder="輸入新暱稱 (最多10字)"
-                                                autoFocus
-                                            />
-                                            <button 
-                                                onClick={handleSaveName}
-                                                disabled={isSaving}
-                                                className="p-2 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded-lg transition-colors"
-                                            >
-                                                <Check size={18} />
-                                            </button>
-                                            <button 
-                                                onClick={() => { setIsEditingName(false); setNewName(user.name); }}
-                                                className="p-2 bg-slate-800 text-slate-400 hover:bg-slate-700 rounded-lg transition-colors"
-                                            >
-                                                <X size={18} />
-                                            </button>
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wider shadow-sm ${
+                                                user?.role === 'coach' 
+                                                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white' 
+                                                    : 'bg-slate-800 text-amber-500 border border-amber-500/20'
+                                            }`}>
+                                                {getUserTitle(user)}
+                                            </span>
+                                            {user.role === 'coach' && (
+                                                 <span className="text-[10px] font-bold text-amber-500/80 uppercase tracking-widest">
+                                                     管理員
+                                                 </span>
+                                             )}
                                         </div>
-                                    ) : (
-                                        <div className="flex flex-col gap-1">
+                                        {isEditingName ? (
                                             <div className="flex items-center gap-2">
-                                                <h2 className="text-2xl font-black text-white tracking-tight">{user.name}</h2>
+                                                <Input
+                                                    value={newName}
+                                                    maxLength={10}
+                                                    onChange={(e) => setNewName(e.target.value)}
+                                                    className="h-9 bg-slate-950/50 border-slate-700 text-white font-black"
+                                                    placeholder="輸入新暱稱 (最多10字)"
+                                                    autoFocus
+                                                />
                                                 <button 
-                                                    onClick={() => setIsEditingName(true)}
-                                                    className="p-1.5 text-slate-500 hover:text-amber-500 transition-colors"
+                                                    onClick={handleSaveName}
+                                                    disabled={isSaving}
+                                                    className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-400 transition-colors"
                                                 >
-                                                    <Edit3 size={16} />
+                                                    <Check size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => { setIsEditingName(false); setNewName(user.name); }}
+                                                    className="p-2 bg-slate-800 text-slate-400 rounded-lg hover:bg-slate-700 transition-colors"
+                                                >
+                                                    <X size={16} />
                                                 </button>
                                             </div>
-                                            <div className="flex items-center gap-1.5 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
-                                                <Calendar size={10} className="text-slate-600" />
-                                                <span>加入於 {joinDate}</span>
+                                        ) : (
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h2 className="text-2xl font-black text-white tracking-tight">{user.name}</h2>
+                                                    <button 
+                                                        onClick={() => setIsEditingName(true)}
+                                                        className="p-1.5 text-slate-500 hover:text-amber-500 transition-colors rounded-lg hover:bg-amber-500/10"
+                                                    >
+                                                        <Edit3 size={16} />
+                                                    </button>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                                                    <Calendar size={10} className="text-slate-600" />
+                                                    <span>加入於 {joinDate}</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1.5 text-slate-500 text-[10px] font-bold uppercase tracking-widest">

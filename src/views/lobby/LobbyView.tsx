@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
-import { useAuth } from '../../context/AuthContext';
-import { LogOut, Award, Play, History, BookOpen, Mail } from 'lucide-react';
-import { ProfileModal, TutorialModal, LetterToPlayersModal, avatarOptions } from '../../components/modals';
+import { useAuth, getUserTitle } from '../../context/AuthContext';
+import { LogOut, Award, Play, History, BookOpen, Mail, Users, Scan } from 'lucide-react';
+import { ProfileModal, TutorialModal, LetterToPlayersModal, avatarOptions, CreateRoomModal, QRScannerModal } from '../../components/modals';
+import { RoomView } from './RoomView';
+import { CoachDashboard } from './CoachDashboard';
 import { VERSION_DISPLAY, IS_DEV_VERSION } from '../../constants/version';
+import { useRoom } from '../../context/RoomContext';
 
 interface LobbyViewProps {
   onLogout: () => void;
@@ -16,9 +19,85 @@ interface LobbyViewProps {
 export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, onResumeGame, onViewHistory, onViewAchievements }) => {
   const { gameHistory, gameState } = useGame();
   const { user } = useAuth();
+  const { room, joinRoom, createRoom } = useRoom();
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [showLetterModal, setShowLetterModal] = useState(false);
+  const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+  const [showRoomView, setShowRoomView] = useState(false);
+  const [viewMode, setViewMode] = useState<'player' | 'coach'>(user?.role === 'coach' ? 'coach' : 'player');
+  const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
+
+  // 處理 QR Code 掃描成功
+  const handleScanSuccess = async (decodedText: string) => {
+    setShowScanner(false);
+    
+    // 解析 URL 獲取房間碼，例如: http://localhost:5173/?room=123456
+    let roomCode = decodedText;
+    try {
+      if (decodedText.includes('?room=')) {
+        const url = new URL(decodedText);
+        roomCode = url.searchParams.get('room') || decodedText;
+      }
+    } catch (e) {
+      // 如果不是有效的 URL，就直接使用原始文字
+    }
+
+    // 清理房間碼 (只保留數字)
+    roomCode = roomCode.replace(/\D/g, '').slice(0, 6);
+    
+    if (roomCode.length === 6) {
+      setRoomCodeInput(roomCode);
+      setIsJoiningRoom(true);
+      setJoinError(null);
+      try {
+        await joinRoom(roomCode);
+      } catch (err: any) {
+        setJoinError(err.message);
+      } finally {
+        setIsJoiningRoom(false);
+      }
+    } else {
+      setJoinError('無效的房間碼');
+    }
+  };
+
+  // 處理 QR Code 房間碼自動加入
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const roomCode = params.get('room');
+    if (roomCode && user && !room) {
+      joinRoom(roomCode).catch(console.error);
+    }
+  }, [user, room, joinRoom]);
+
+  const handleJoinRoom = async () => {
+    if (!roomCodeInput.trim()) return;
+    setIsJoiningRoom(true);
+    setJoinError(null);
+    try {
+      await joinRoom(roomCodeInput.trim());
+    } catch (err: any) {
+      setJoinError(err.message);
+    } finally {
+      setIsJoiningRoom(false);
+    }
+  };
+
+  const handleCreateRoom = async (settings: { name: string; maxPlayers: number; duration: number }) => {
+    try {
+      // 這裡可以將 settings 傳給 createRoom，如果後端有支援
+      await createRoom();
+      setShowCreateRoomModal(false);
+      setShowRoomView(true);
+    } catch (err: any) {
+      console.error('Create room error:', err);
+    }
+  };
+
   const [isLetterRead, setIsLetterRead] = useState(() => {
     return localStorage.getItem('letter_to_players_read') === 'true';
   });
@@ -86,6 +165,14 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
     };
   }, [gameHistory]);
 
+  if (showRoomView || room) {
+    return (
+      <div className="h-[100dvh] bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none">
+        <RoomView onBack={() => setShowRoomView(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="h-[100dvh] bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none">
       {/* Background Decorative Elements */}
@@ -103,160 +190,212 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
           >
             {userAvatar}
           </div>
-          <div>
-            <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">歡迎回來</div>
-            <h2 className="text-lg font-black text-white leading-tight">{user?.name || '幸福拓荒者'}</h2>
+          <div className="flex flex-col">
+             <div className="flex items-center gap-2 mb-1">
+               <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wider shadow-sm ${
+                 user?.role === 'coach' 
+                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white' 
+                   : 'bg-slate-800 text-amber-500 border border-amber-500/20'
+               }`}>
+                 {getUserTitle(user)}
+               </span>
+             </div>
+             <div className="flex items-center gap-2">
+               <h2 className="text-lg font-black text-white leading-tight">{user?.name || '幸福拓荒者'}</h2>
+             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {user?.role === 'coach' && (
+            <button 
+              onClick={() => setViewMode(viewMode === 'player' ? 'coach' : 'player')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all text-[10px] font-black tracking-tight shadow-sm ${
+                viewMode === 'coach' 
+                  ? 'bg-amber-500 text-black shadow-amber-500/10' 
+                  : 'bg-slate-800 text-slate-500 hover:text-white border border-slate-700/50'
+              }`}
+            >
+              <Users size={12} />
+              <span>{viewMode === 'coach' ? '玩家模式' : '執行師模式'}</span>
+            </button>
+          )}
           <button 
             onClick={onLogout} 
-            className="flex items-center gap-2 px-4 py-2 text-slate-400 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 border border-transparent rounded-xl transition-all text-sm font-medium"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-slate-500 hover:text-white hover:bg-red-500/10 rounded-lg transition-all text-[10px] font-bold"
           >
-            <LogOut size={18} />
+            <LogOut size={14} />
             <span>登出</span>
           </button>
         </div>
       </div>
       
-      <div className="relative z-10 flex-1 flex flex-col px-6 py-4 max-w-2xl mx-auto w-full overflow-hidden">
+      <div className="relative z-10 flex-1 flex flex-col px-6 py-4 max-w-4xl mx-auto w-full overflow-hidden">
         {/* Main Content Area - Auto Scaling */}
         <div className="flex-1 flex flex-col justify-center gap-6 lg:gap-8">
-          {/* Logo Section */}
+          {/* Logo Section - Common to both modes */}
           <div className="text-center">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight mb-2">
-              蜂富人生
+              {viewMode === 'coach' ? '執行師後台' : '蜂富人生'}
             </h1>
             <div className="flex items-center justify-center gap-2 mb-3">
               <div className="h-[1px] w-5 bg-gradient-to-r from-transparent to-amber-500/40"></div>
-              <span className="text-amber-500/80 font-bold tracking-[0.25em] text-[10px] md:text-xs uppercase">Happiness Flow</span>
+              <span className="text-amber-500/80 font-bold tracking-[0.25em] text-[10px] md:text-xs uppercase">
+                {viewMode === 'coach' ? 'Coach Management' : 'Happiness Flow'}
+              </span>
               <div className="h-[1px] w-5 bg-gradient-to-l from-transparent to-amber-500/40"></div>
             </div>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-4 gap-2 md:gap-4">
-            {[
-              { label: '平均幸福指數', value: userStats.happinessRate, color: 'text-pink-400', icon: Award },
-              { label: '賽季總積分', value: userStats.totalScore, color: 'text-yellow-400', icon: Award },
-              { label: '勝率', value: `${userStats.winRate}%`, color: 'text-emerald-400', icon: History },
-              { label: '遊玩局數', value: userStats.totalGames, color: 'text-blue-400', icon: Play },
-            ].map((stat, i) => (
-              <div key={i} className="group relative p-2 md:p-4 bg-slate-900/50 border border-slate-800/50 rounded-2xl backdrop-blur-sm hover:bg-slate-800/50 hover:border-slate-700/50 transition-all flex flex-col items-center text-center">
-                <div className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 md:mb-2">{stat.label}</div>
-                <div className={`text-lg md:text-3xl font-black ${stat.color} mb-1`}>{stat.value}</div>
-                <div className="absolute top-1 right-1 md:top-2 md:right-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <stat.icon size={10} className="md:w-[14px] md:h-[14px]" />
+          {viewMode === 'coach' ? (
+            <CoachDashboard 
+              onCreateGame={() => setShowCreateRoomModal(true)}
+              onViewHistory={onViewHistory}
+              userStats={userStats}
+            />
+          ) : (
+            <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-left-4 duration-500">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-4 gap-2 md:gap-4">
+                {[
+                  { label: '平均幸福指數', value: userStats.happinessRate, color: 'text-pink-400', icon: Award },
+                  { label: '賽季總積分', value: userStats.totalScore, color: 'text-yellow-400', icon: Award },
+                  { label: '勝率', value: `${userStats.winRate}%`, color: 'text-emerald-400', icon: History },
+                  { label: '遊玩局數', value: userStats.totalGames, color: 'text-blue-400', icon: Play },
+                ].map((stat, i) => (
+                  <div key={i} className="group relative p-2 md:p-4 bg-slate-900/50 border border-slate-800/50 rounded-2xl backdrop-blur-sm hover:bg-slate-800/50 hover:border-slate-700/50 transition-all flex flex-col items-center text-center">
+                    <div className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 md:mb-2">{stat.label}</div>
+                    <div className={`text-lg md:text-3xl font-black ${stat.color} mb-1`}>{stat.value}</div>
+                    <div className="absolute top-1 right-1 md:top-2 md:right-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                      <stat.icon size={10} className="md:w-[14px] md:h-[14px]" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Main Actions Container */}
+              <div className="flex flex-col gap-3 md:gap-4">
+                {/* Primary Action: Continue Game */}
+                {gameState.isSetup && (
+                  <button 
+                    onClick={onResumeGame} 
+                    className="group relative p-1 overflow-hidden rounded-2xl transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl shadow-emerald-500/20"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-teal-400 to-emerald-600 animate-gradient-x" />
+                    <div className="relative p-5 md:p-6 bg-emerald-600 rounded-2xl flex items-center justify-between overflow-hidden">
+                      <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
+                        <Play size={100} className="fill-white" />
+                      </div>
+                      <div className="flex flex-col text-left relative z-10"> 
+                        <span className="text-2xl md:text-3xl font-black text-white mb-0.5 tracking-tight">繼續遊戲</span> 
+                        <span className="text-emerald-100/80 text-xs md:text-sm font-medium">回到您的「{gameState.reportName || '我的財報'}」，繼續您的財富之旅</span> 
+                      </div> 
+                      <div className="w-12 h-12 md:w-14 md:h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center relative z-10 group-hover:bg-white/30 transition-colors shadow-inner"> 
+                        <Play size={24} className="text-white fill-white translate-x-0.5" /> 
+                      </div> 
+                    </div> 
+                  </button>
+                )}
+
+                {/* Main Action Area - Player Only: Join Room */}
+                {!gameState.isSetup && (
+                  <div className="bg-slate-900/50 p-4 rounded-3xl border border-white/5 backdrop-blur-xl">
+                    <div className="flex gap-2 h-14">
+                      <div className="flex-[2] relative">
+                        <input 
+                          type="text" 
+                          value={roomCodeInput}
+                          onChange={(e) => setRoomCodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="房間碼"
+                          className="w-full h-full bg-slate-950 border-2 border-slate-800 rounded-xl px-4 text-xl font-black tracking-[0.2em] text-white placeholder:text-slate-700 placeholder:tracking-normal focus:border-amber-500 focus:bg-slate-900 transition-all outline-none"
+                        />
+                        {isJoiningRoom && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                          </div>
+                        )}
+                      </div>
+
+                      <button 
+                        onClick={handleJoinRoom}
+                        disabled={roomCodeInput.length !== 6 || isJoiningRoom}
+                        className="flex-1 h-full bg-gradient-to-r from-amber-500 to-yellow-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 text-black font-black text-sm rounded-xl transition-all active:scale-95 shadow-lg shadow-amber-500/10 flex items-center justify-center gap-1.5 px-2"
+                      >
+                        <Play size={16} className="fill-black" />
+                        <span>加入</span>
+                      </button>
+
+                      <button 
+                      onClick={() => setShowScanner(true)}
+                      className="aspect-square h-full bg-slate-800 hover:bg-slate-700 text-white font-black rounded-xl transition-all active:scale-95 border border-slate-700 flex items-center justify-center shadow-lg"
+                      title="掃碼"
+                    >
+                      <Scan size={18} />
+                    </button>
+                    </div>
+
+                    {joinError && (
+                      <div className="mt-2 text-red-400 text-xs font-bold flex items-center gap-1 animate-shake">
+                        <div className="w-1 h-1 bg-red-400 rounded-full" />
+                        {joinError}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Secondary Actions Grid */}
+                <div className="grid grid-cols-2 gap-3 md:gap-4">
+                  <button onClick={onViewAchievements} className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 text-left"> 
+                    <div className="w-10 h-10 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-colors"> 
+                      <Award size={20} className="text-pink-500" /> 
+                    </div> 
+                    <div className="flex flex-col"> 
+                      <span className="text-lg font-black text-white leading-tight">成就獎勵</span> 
+                      <span className="text-slate-500 text-xs mt-0.5">解鎖榮譽與目標</span> 
+                    </div> 
+                  </button>
+
+                  <button onClick={onViewHistory} className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 text-left"> 
+                    <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors"> 
+                      <History size={20} className="text-emerald-500" /> 
+                    </div> 
+                    <div className="flex flex-col"> 
+                      <span className="text-lg font-black text-white leading-tight">歷史紀錄</span> 
+                      <span className="text-slate-500 text-xs mt-0.5">回顧財報與數據</span> 
+                    </div> 
+                  </button>
+
+                  <button 
+                    onClick={() => setShowTutorialModal(true)} 
+                    className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 text-left"
+                  >
+                    <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20 group-hover:bg-blue-500/20 transition-colors"> 
+                      <BookOpen size={20} className="text-blue-500" /> 
+                    </div> 
+                    <div className="flex flex-col"> 
+                      <span className="text-lg font-black text-white leading-tight">遊戲教學</span> 
+                      <span className="text-slate-500 text-xs mt-0.5">掌握致富的核心規則</span> 
+                    </div> 
+                  </button>
+
+                  <button 
+                    onClick={handleOpenLetter} 
+                    className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 text-left"
+                  >
+                    <div className="w-10 h-10 bg-yellow-500/10 rounded-xl flex items-center justify-center border border-yellow-500/20 group-hover:bg-yellow-500/20 transition-colors relative"> 
+                      <Mail size={20} className="text-yellow-500" /> 
+                      {!isLetterRead && (
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse" />
+                      )}
+                    </div> 
+                    <div className="flex flex-col"> 
+                      <span className="text-lg font-black text-white leading-tight">給玩家的一封信</span> 
+                      <span className="text-slate-500 text-xs mt-0.5">來自團隊的叮嚀與祝福</span> 
+                    </div> 
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Main Actions Container */}
-          <div className="flex flex-col gap-3 md:gap-4">
-            {/* Primary Action: Start Game */}
-            {gameState.isSetup && (
-              <button 
-                onClick={onResumeGame} 
-                className="group relative p-1 overflow-hidden rounded-2xl transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl shadow-emerald-500/20"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-teal-400 to-emerald-600 animate-gradient-x" />
-                <div className="relative p-5 md:p-6 bg-emerald-600 rounded-2xl flex items-center justify-between overflow-hidden">
-                  <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
-                    <Play size={100} className="fill-white" />
-                  </div>
-                  <div className="flex flex-col text-left relative z-10"> 
-                    <span className="text-2xl md:text-3xl font-black text-white mb-0.5 tracking-tight">繼續遊戲</span> 
-                    <span className="text-emerald-100/80 text-xs md:text-sm font-medium">回到您的「{gameState.reportName || '我的財報'}」，繼續您的財富之旅</span> 
-                  </div> 
-                  <div className="w-12 h-12 md:w-14 md:h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center relative z-10 group-hover:bg-white/30 transition-colors shadow-inner"> 
-                    <Play size={24} className="text-white fill-white translate-x-0.5" /> 
-                  </div> 
-                </div> 
-              </button>
-            )}
-
-            <button 
-              onClick={onCreateReport} 
-              className="group relative p-1 overflow-hidden rounded-2xl transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl shadow-amber-500/20"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 animate-gradient-x" />
-              <div className="relative p-5 md:p-6 bg-amber-500 rounded-2xl flex items-center justify-between overflow-hidden">
-                <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12">
-                  <Play size={100} className="fill-white" />
-                </div>
-                <div className="flex flex-col text-left relative z-10"> 
-                  <span className="text-2xl md:text-3xl font-black text-white mb-0.5 tracking-tight">開始新人生</span> 
-                  <span className="text-amber-100/80 text-xs md:text-sm font-medium">建立新財報，開啟您的財富覺醒之旅</span> 
-                </div> 
-                <div className="w-12 h-12 md:w-14 md:h-14 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center relative z-10 group-hover:bg-white/30 transition-colors shadow-inner"> 
-                  <Play size={24} className="text-white fill-white translate-x-0.5" /> 
-                </div> 
-              </div> 
-            </button>
-
-            {/* Secondary Actions Grid */}
-            <div className="grid grid-cols-2 gap-3 md:gap-4">
-              {/* Achievements */}
-              <button 
-                onClick={onViewAchievements} 
-                className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 md:gap-3 text-left"
-              > 
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/20 group-hover:bg-pink-500/20 transition-colors"> 
-                  <Award size={18} className="text-pink-500" /> 
-                </div> 
-                <div className="flex flex-col"> 
-                  <span className="text-base md:text-lg font-black text-white leading-tight whitespace-nowrap">成就獎勵</span> 
-                  <span className="text-slate-500 text-[10px] md:text-xs mt-0.5">解鎖榮譽與目標</span> 
-                </div> 
-              </button>
-
-              {/* History */}
-              <button 
-                onClick={onViewHistory} 
-                className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 md:gap-3 text-left"
-              > 
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors"> 
-                  <History size={18} className="text-emerald-500" /> 
-                </div> 
-                <div className="flex flex-col"> 
-                  <span className="text-base md:text-lg font-black text-white leading-tight whitespace-nowrap">歷史紀錄</span> 
-                  <span className="text-slate-500 text-[10px] md:text-xs mt-0.5">回顧財報與數據</span> 
-                </div> 
-              </button>
-
-              {/* Tutorial */}
-              <button 
-                onClick={() => setShowTutorialModal(true)} 
-                className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 md:gap-3 text-left"
-              >
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-500/10 rounded-xl flex items-center justify-center border border-blue-500/20 group-hover:bg-blue-500/20 transition-colors"> 
-                  <BookOpen size={18} className="text-blue-500" /> 
-                </div> 
-                <div className="flex flex-col"> 
-                  <span className="text-base md:text-lg font-black text-white leading-tight whitespace-nowrap">遊戲教學</span> 
-                  <span className="text-slate-500 text-[10px] md:text-xs mt-0.5">掌握致富的核心規則</span> 
-                </div> 
-              </button>
-
-              {/* Letter to Players */}
-              <button 
-                onClick={handleOpenLetter} 
-                className="group relative p-4 md:p-5 bg-slate-900/80 border border-slate-800 rounded-2xl hover:bg-slate-800 transition-all flex flex-col gap-2 md:gap-3 text-left"
-              >
-                <div className="w-8 h-8 md:w-10 md:h-10 bg-yellow-500/10 rounded-xl flex items-center justify-center border border-yellow-500/20 group-hover:bg-yellow-500/20 transition-colors relative"> 
-                  <Mail size={18} className="text-yellow-500" /> 
-                  {!isLetterRead && (
-                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900 animate-pulse" />
-                  )}
-                </div> 
-                <div className="flex flex-col"> 
-                  <span className="text-base md:text-lg font-black text-white leading-tight whitespace-nowrap">給玩家的一封信</span> 
-                  <span className="text-slate-500 text-[10px] md:text-xs mt-0.5 whitespace-nowrap">來自團隊的叮嚀與祝福</span> 
-                </div> 
-              </button>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer info - Static bottom */}
@@ -287,9 +426,17 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
       </div>
 
       {showLetterModal && (
-        <LetterToPlayersModal
-          isOpen={showLetterModal}
-          onClose={() => setShowLetterModal(false)}
+        <LetterToPlayersModal 
+          isOpen={showLetterModal} 
+          onClose={() => setShowLetterModal(false)} 
+        />
+      )}
+
+      {showCreateRoomModal && (
+        <CreateRoomModal
+          isOpen={showCreateRoomModal}
+          onClose={() => setShowCreateRoomModal(false)}
+          onCreate={handleCreateRoom}
         />
       )}
 
@@ -297,6 +444,14 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
         <ProfileModal
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
+        />
+      )}
+
+      {showScanner && (
+        <QRScannerModal
+          isOpen={showScanner}
+          onClose={() => setShowScanner(false)}
+          onScanSuccess={handleScanSuccess}
         />
       )}
 

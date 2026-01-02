@@ -18,11 +18,89 @@ interface User {
     uid: string;
     email: string;
     name: string;
+    role: 'coach' | 'player';
     photoURL?: string;
     photoPosition?: string;
     photoScale?: string;
     creationTime?: string;
+    title?: string;
+    experience?: number; // 場次或積分
 }
+
+export const getUserTitle = (user: User | null): string => {
+    if (!user) return '';
+    
+    // 優先判斷特殊唯一稱號
+    if (user.title === '遊戲管理員' || user.title === '管理員' || user.email?.toLowerCase() === 'gm0221@happinessflow.com') return '遊戲管理員';
+    if (user.title === '幸福實踐家') return '幸福實踐家';
+
+    if (user.role === 'coach') {
+        const exp = user.experience || 0;
+        if (exp >= 40) return '傳奇執行師';
+        if (exp >= 20) return '資深執行師';
+        return '蜂富執行師';
+    } else {
+        const exp = user.experience || 0;
+        if (exp >= 1000 || user.title === '蜂后傳奇') return '蜂后傳奇';
+        if (exp >= 500) return '蜂饒大師';
+        if (exp >= 200) return '築夢家';
+        if (exp >= 50) return '採蜜人';
+        return '尋夢者';
+    }
+};
+
+export const getAvatarBorderStyle = (user: User | null): string => {
+    if (!user) return 'border-slate-700';
+    
+    // 執行師特殊邊框
+    if (user.role === 'coach') {
+        return 'border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.3)]';
+    }
+
+    const title = getUserTitle(user);
+    
+    switch (title) {
+        case '遊戲管理員':
+            return 'border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.8)] animate-pulse ring-2 ring-indigo-400/50';
+        case '幸福實踐家':
+            return 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse';
+        case '蜂后傳奇':
+            return 'border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.5)]';
+        case '蜂饒大師':
+            return 'border-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.4)]';
+        case '築夢家':
+            return 'border-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.3)]';
+        case '採蜜人':
+            return 'border-emerald-400';
+        case '尋夢者':
+        default:
+            return 'border-slate-700';
+    }
+};
+
+export const getCoachBadge = (user: User | null): string => {
+    if (!user || user.role !== 'coach') return '';
+    const title = getUserTitle(user);
+    if (title === '遊戲管理員') return '/assets/badges/管理員-去背.png';
+    if (title === '傳奇執行師') return '/assets/badges/傳奇執行師-去背.png';
+    if (title === '資深執行師') return '/assets/badges/資深執行師-去背.png';
+    return '/assets/badges/蜂富執行師-去背.png';
+};
+
+export const getPlayerBadge = (user: User | null): string => {
+    if (!user || user.role !== 'player') return '';
+    const title = getUserTitle(user);
+    switch (title) {
+        case '遊戲管理員': return '/assets/badges/管理員-去背.png';
+        case '幸福實踐家': return '/assets/badges/幸福實踐家-去背.png';
+        case '蜂后傳奇': return '/assets/badges/蜂后傳奇-去背.png';
+        case '蜂饒大師': return '/assets/badges/蜂饒大師-去背.png';
+        case '築夢家': return '/assets/badges/築夢家-去背.png';
+        case '採蜜人': return '/assets/badges/採蜜人-去背.png';
+        case '尋夢者': return '/assets/badges/尋夢者-去背.png';
+        default: return '';
+    }
+};
 
 interface AuthContextValue {
     user: User | null;
@@ -69,18 +147,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     uid: firebaseUser.uid,
                     email: firebaseUser.email || '',
                     name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Player',
+                    role: 'player', // 預設角色
                     photoURL: firebaseUser.photoURL || 'bee',
                     creationTime: firebaseUser.metadata.creationTime
                 };
 
-                // 嘗試從 Firestore 獲取自定義頭像 (因為 Auth Profile 的 photoURL 有長度限制)
+                // GM 帳號特殊處理
+                if (firebaseUser.email?.toLowerCase() === 'gm0221@happinessflow.com') {
+                    basicUserInfo.role = 'coach';
+                    basicUserInfo.title = '遊戲管理員';
+                }
+
+                // 嘗試從 Firestore 獲取自定義資料
                 try {
                     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
                     if (userDoc.exists()) {
                         const data = userDoc.data();
+                        if (data.role) basicUserInfo.role = data.role;
                         if (data.photoURL) basicUserInfo.photoURL = data.photoURL;
                         if (data.photoPosition) basicUserInfo.photoPosition = data.photoPosition;
                         if (data.photoScale) basicUserInfo.photoScale = data.photoScale;
+                    } else if (basicUserInfo.role === 'coach') {
+                        // 如果是 GM 但 Firestore 還沒資料，先幫他建立
+                        await setDoc(doc(db, 'users', firebaseUser.uid), {
+                            uid: firebaseUser.uid,
+                            email: firebaseUser.email,
+                            name: basicUserInfo.name,
+                            role: 'coach',
+                            title: '遊戲管理員',
+                            photoURL: 'bee'
+                        }, { merge: true });
                     }
                 } catch (error) {
                     console.error('獲取 Firestore 使用者資料失敗:', error);
@@ -156,15 +252,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const nickname = playerName.trim() || email.split('@')[0];
+            const isGM = email.toLowerCase() === 'gm0221@happinessflow.com';
+            const role = isGM ? 'coach' : 'player';
+            const title = isGM ? '遊戲管理員' : '';
+            
             await updateProfile(userCredential.user, { 
                 displayName: nickname,
                 photoURL: 'bee'
             });
             
+            // 在 Firestore 中建立使用者資料
+            await setDoc(doc(db, 'users', userCredential.user.uid), {
+                uid: userCredential.user.uid,
+                email: userCredential.user.email,
+                name: nickname,
+                role: role,
+                title: title,
+                photoURL: 'bee'
+            }, { merge: true });
+            
             setUser({
                 uid: userCredential.user.uid,
                 email: userCredential.user.email || '',
                 name: nickname,
+                role: role,
+                title: title,
                 photoURL: 'bee',
                 creationTime: userCredential.user.metadata.creationTime
             });

@@ -1,6 +1,7 @@
 import React, { Suspense, useState, useEffect } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { RoomProvider } from './context/RoomContext';
 
 // Lazy load views
 const AuthView = React.lazy(() => import('./views/auth/AuthView').then(module => ({ default: module.AuthView })));
@@ -221,11 +222,13 @@ export default function App() {
 
     return (
         <AuthProvider>
-            <GameProvider>
-                <div className="fixed inset-0 overflow-hidden bg-slate-950 select-none touch-none">
-                    <AppContent />
-                </div>
-            </GameProvider>
+            <RoomProvider>
+                <GameProvider>
+                    <div className="fixed inset-0 overflow-hidden bg-slate-950 select-none touch-none">
+                        <AppContent />
+                    </div>
+                </GameProvider>
+            </RoomProvider>
         </AuthProvider>
     );
 }
