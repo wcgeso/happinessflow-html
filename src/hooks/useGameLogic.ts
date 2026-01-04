@@ -7,7 +7,7 @@ import { formatMoney } from '../utils/gameUtils';
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export const useGameLogic = () => {
-    const { gameState, setGameState, gameHistory, setGameHistory, summary, scoreResult, alertInfo, showAlert, saveGameRecord } = useGame();
+    const { gameState, setGameState, gameHistory, setGameHistory, summary, scoreResult, alertInfo, showAlert, hideAlert, saveGameRecord } = useGame();
 
     const [happinessSubMode, setHappinessSubMode] = useState<'history' | 'pay' | 'inc_exp'>('history');
 

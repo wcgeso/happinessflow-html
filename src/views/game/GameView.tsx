@@ -3,6 +3,7 @@ import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
 import { useGameLogic } from '../../hooks/useGameLogic';
 import { AlertCircle, CheckCircle2, Bell } from 'lucide-react';
+import { useRoom } from '../../context/RoomContext';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
 import { HappinessPanel } from '../../components/business/HappinessPanel';
 import { TransactionForm } from '../../components/business/TransactionForm';
@@ -11,11 +12,11 @@ import { MedicalClaimModal } from '../../components/modals/MedicalClaimModal';
 import { PromotionModal } from '../../components/modals/PromotionModal';
 import { RankListModal } from '../../components/modals/RankListModal';
 import { LifelongLearningModal } from '../../components/modals/LifelongLearningModal';
-import { SettlementConfirmModal } from '../../components/modals/SettlementConfirmModal';
 import { HappinessListModal } from '../../components/modals/HappinessListModal';
 import { StockMarketModal } from '../../components/transaction/StockMarketModal';
 import { TutorialModal } from '../../components/modals/TutorialModal';
 import { DiceRollContainer } from '../../components/game/DiceRollContainer';
+import { ScoreView } from './ScoreView';
 import { PromotionType } from '../../hooks/useDiceRollLogic';
 import { GameHeader } from '../../components/game/GameHeader';
 import { GameStats } from '../../components/game/GameStats';
@@ -26,6 +27,14 @@ import { formatMoney } from '../../utils/gameUtils';
 export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFinishGame }) => {
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
+    const { room } = useRoom();
+
+    useEffect(() => {
+        if (room?.status === 'finished') {
+            setShowScoreView(true);
+        }
+    }, [room?.status]);
+
     const {
         handleDeleteTransactionRecord,
         handleTransactionSubmit,
@@ -53,10 +62,10 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
     const [showDiceModal, setShowDiceModal] = useState(false);
     const [lastDiceSuccess, setLastDiceSuccess] = useState(false);
     const [showRankListModal, setShowRankListModal] = useState(false);
-    const [showSettlementConfirm, setShowSettlementConfirm] = useState(false);
     const [showStockMarketModal, setShowStockMarketModal] = useState(false);
     const [showTutorial, setShowTutorial] = useState(false);
     const [showWinAnimation, setShowWinAnimation] = useState(false);
+    const [showScoreView, setShowScoreView] = useState(false);
 
     const [promotionType, setPromotionType] = useState<PromotionType | null>(null);
 
@@ -90,11 +99,6 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
             }
             setShowTransactionModal(false);
         }
-    };
-
-    const confirmFinish = () => {
-        setShowSettlementConfirm(false);
-        onFinishGame({ playerName: user?.name || 'Player' });
     };
 
     const onModalPaydayConfirm = () => {
@@ -158,6 +162,14 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
 
     return (
         <div className="h-[100dvh] bg-slate-950 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500">
+            {showScoreView && (
+                <div className="fixed inset-0 z-[10000]">
+                    <ScoreView 
+                        playerName={user?.name || 'Player'} 
+                        onClose={() => setShowScoreView(false)}
+                    />
+                </div>
+            )}
             {/* Alert System */}
             {alertInfo && (
                 <div className={`fixed bottom-36 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-4 border max-w-[90vw] w-max ${alertInfo.type === 'error' ? 'bg-rose-900 border-rose-500 text-rose-100' :
@@ -188,7 +200,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                 summary={summary}
                 onShowRankList={() => setShowRankListModal(true)} 
                 onShowPromotion={() => setShowPromotionModal(true)}
-                onFinishGame={() => setShowSettlementConfirm(true)}
+                onFinishGame={() => setShowScoreView(true)}
                 onShowStockMarket={() => setShowStockMarketModal(true)}
                 onShowTutorial={() => setShowTutorial(true)}
             />
@@ -242,7 +254,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                 onShowMedical={() => setShowMedicalClaimModal(true)}
                 onShowTransaction={() => setShowTransactionModal(true)}
                 onShowPayday={() => setShowPaydayModal(true)}
-                onShowSettlement={() => setShowSettlementConfirm(true)}
+                onShowSettlement={() => setShowScoreView(true)}
             />
 
             {/* Modals */}
@@ -338,13 +350,6 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                 onResult={onDiceComplete}
                 promotionType={promotionType}
             />
-            )}
-
-            {showSettlementConfirm && (
-                <SettlementConfirmModal
-                    onConfirm={confirmFinish}
-                    onCancel={() => setShowSettlementConfirm(false)}
-                />
             )}
 
             {showHappinessModal && (

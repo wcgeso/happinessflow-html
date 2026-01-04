@@ -16,9 +16,13 @@ interface FinancialStatementProps {
   hideSummary?: boolean;
   defaultShowDetails?: boolean;
   hideNav?: boolean;
+  isMasked?: boolean;
 }
 
-const formatMoney = (amount: number) => `${amount.toLocaleString()} H`;
+const formatMoney = (amount: number, isMasked?: boolean) => {
+  if (isMasked) return '**** H';
+  return `${amount.toLocaleString()} H`;
+};
 
 const reHouseTypeMap: Record<string, string> = {
   '1room': '單間小套房',
@@ -66,11 +70,12 @@ const getAssetDisplayName = (asset: Asset) => {
 };
 
 // Animated numerical value with flash effect
-const NumericalValue: React.FC<{ value: number, colorClass?: string, prefix?: string }> = ({ value, colorClass = "text-white text-[11px]", prefix = "" }) => {
+const NumericalValue: React.FC<{ value: number, colorClass?: string, prefix?: string, isMasked?: boolean }> = ({ value, colorClass = "text-white text-[11px]", prefix = "", isMasked = false }) => {
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
   const prevValue = useRef(value);
 
   useEffect(() => {
+    if (isMasked) return;
     if (prevValue.current < value) {
       setFlash('up');
       const timer = setTimeout(() => setFlash(null), 800);
@@ -82,7 +87,7 @@ const NumericalValue: React.FC<{ value: number, colorClass?: string, prefix?: st
       prevValue.current = value;
       return () => clearTimeout(timer);
     }
-  }, [value]);
+  }, [value, isMasked]);
 
   return (
     <span className={cn(
@@ -90,7 +95,7 @@ const NumericalValue: React.FC<{ value: number, colorClass?: string, prefix?: st
       flash === 'up' ? "text-emerald-400 scale-110 font-bold" :
         flash === 'down' ? "text-rose-400 scale-110 font-bold" : colorClass
     )}>
-      {prefix}{formatMoney(value)}
+      {prefix}{formatMoney(value, isMasked)}
     </span>
   );
 };
@@ -104,6 +109,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   hideSummary = false,
   defaultShowDetails = false,
   hideNav = false,
+  isMasked = false,
 }) => {
   const [view, setView] = useState<'financial' | 'cashflow' | 'history'>('financial');
   const [isIncomeOpen, setIsIncomeOpen] = useState(defaultShowDetails);
@@ -191,21 +197,21 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                 <div className="space-y-3">
                   <div className="flex justify-between items-center bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/30">
                     <span className="text-[10px] font-bold text-emerald-500/80">總收入</span>
-                    <NumericalValue value={summary.totalIncome} colorClass="text-emerald-400 text-xs font-black" />
+                    <NumericalValue isMasked={isMasked} value={summary.totalIncome} colorClass="text-emerald-400 text-xs font-black" />
                   </div>
                   <div className="flex justify-between items-center bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/30">
                     <span className="text-[10px] font-bold text-orange-500/80">總支出</span>
-                    <NumericalValue value={summary.totalExpenses} colorClass="text-orange-400 text-xs font-black" />
+                    <NumericalValue isMasked={isMasked} value={summary.totalExpenses} colorClass="text-orange-400 text-xs font-black" />
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/30">
                     <span className="text-[10px] font-bold text-blue-500/80">總資產</span>
-                    <NumericalValue value={summary.totalAssets} colorClass="text-blue-400 text-xs font-black" />
+                    <NumericalValue isMasked={isMasked} value={summary.totalAssets} colorClass="text-blue-400 text-xs font-black" />
                   </div>
                   <div className="flex justify-between items-center bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/30">
                     <span className="text-[10px] font-bold text-rose-500/80">總負債</span>
-                    <NumericalValue value={summary.totalLiabilities} colorClass="text-rose-400 text-xs font-black" />
+                    <NumericalValue isMasked={isMasked} value={summary.totalLiabilities} colorClass="text-rose-400 text-xs font-black" />
                   </div>
                 </div>
               </div>
@@ -242,6 +248,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                           subLabel="(穩固的收入才是幸福人生的基礎)"
                           value={gameState.profession?.salary || 0} 
                           color="text-emerald-400" 
+                          isMasked={isMasked}
                         />
                         <div className="pt-2 border-t border-slate-800/50 space-y-2">
                           <div className="text-xs text-slate-400 leading-tight break-all whitespace-nowrap text-left">理財收入</div>
@@ -251,13 +258,13 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                                 <span>定存利息</span>
                                 <span className="text-slate-500 font-normal lowercase">(利息0.5%)</span>
                               </div>
-                              {cds.map(cd => <TAccountSubItem key={cd.id} label={getAssetDisplayName(cd)} value={cd.cashflow} />)}
+                              {cds.map(cd => <TAccountSubItem key={cd.id} label={getAssetDisplayName(cd)} value={cd.cashflow} isMasked={isMasked} />)}
                             </div>
                           )}
                           {businesses.length > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-purple-300">企業收益</div>
-                              {businesses.map(b => <TAccountSubItem key={b.id} label={getAssetDisplayName(b)} value={b.cashflow} />)}
+                              {businesses.map(b => <TAccountSubItem key={b.id} label={getAssetDisplayName(b)} value={b.cashflow} isMasked={isMasked} />)}
                             </div>
                           )}
                           {realEstate.length > 0 && (
@@ -282,7 +289,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                                         </span>
                                       )}
                                     </div>
-                                  } value={income} />
+                                  } value={income} isMasked={isMasked} />
                                 );
                               })}
                             </div>
@@ -297,13 +304,14 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                         <span className="shrink-0">金額</span>
                       </div>
                       <div className="space-y-3">
-                        <TAccountItem label="餐飲、服飾、居住類" value={Math.max(0, (gameState.profession?.expenses.basicLiving || 0) + (gameState.expenses?.basicLiving || 0))} color="text-slate-300" />
-                        <TAccountItem label="交通、教育、娛樂類" value={Math.max(0, (gameState.profession?.expenses.transportEdu || 0) + (gameState.expenses?.transportEdu || 0))} color="text-slate-300" />
+                        <TAccountItem label="餐飲、服飾、居住類" value={Math.max(0, (gameState.profession?.expenses.basicLiving || 0) + (gameState.expenses?.basicLiving || 0))} color="text-slate-300" isMasked={isMasked} />
+                        <TAccountItem label="交通、教育、娛樂類" value={Math.max(0, (gameState.profession?.expenses.transportEdu || 0) + (gameState.expenses?.transportEdu || 0))} color="text-slate-300" isMasked={isMasked} />
                         <TAccountItem 
                           label="其他、醫療、育兒類" 
                           subLabel="(職等每提升一級，增加10000H)"
                           value={Math.max(0, (gameState.profession?.expenses.otherMedicalChild || 0) + (Math.max(0, gameState.currentRankLevel - 1) * 10000) + (gameState.expenses?.otherMedicalChild || 0))} 
                           color="text-slate-300" 
+                          isMasked={isMasked}
                         />
                         <div className="pt-2 border-t border-slate-800/50 space-y-2">
                           <div className="text-xs text-slate-400 leading-tight break-all whitespace-nowrap text-left">保險支出</div>
@@ -315,7 +323,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                                   <span>醫療保險</span>
                                   <span className="text-[9px] opacity-70">({gameState.medicalInsuranceCount}張)</span>
                                 </div>
-                              } value={medicalInsCost} />
+                              } value={medicalInsCost} isMasked={isMasked} />
                             </div>
                           )}
                           {houseInsCost > 0 && (
@@ -326,7 +334,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                                   <span className="text-[10px] text-slate-500 leading-tight">
                                     {house.name.match(/[A-Z]\d+/)?.[0] || house.name}
                                   </span>
-                                  <NumericalValue value={2000} colorClass="text-[12px] text-white" />
+                                  <NumericalValue value={2000} colorClass="text-[12px] text-white" isMasked={isMasked} />
                                 </div>
                               ))}
                             </div>
@@ -334,7 +342,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                           {aircraftInsCost > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-yellow-300">飛行器保險</div>
-                              <TAccountSubItem label="飛行器保險" value={aircraftInsCost} />
+                              <TAccountSubItem label="飛行器保險" value={aircraftInsCost} isMasked={isMasked} />
                             </div>
                           )}
                         </div>
@@ -344,9 +352,9 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-orange-300">信用貸款</div>
                               {creditLoans.map(l => (
-                                <TAccountSubItem key={l.id} label={l.name.match(/\(([^)]+)\)/)?.[1] || l.name} value={l.monthlyPayment} />
+                                <TAccountSubItem key={l.id} label={l.name.match(/\(([^)]+)\)/)?.[1] || l.name} value={l.monthlyPayment} isMasked={isMasked} />
                               ))}
-                              {gameState.loans > 0 && <TAccountSubItem label="銀行貸款利息" value={gameState.loans * 0.1} />}
+                              {gameState.loans > 0 && <TAccountSubItem label="銀行貸款利息" value={gameState.loans * 0.1} isMasked={isMasked} />}
                             </div>
                           )}
                           {realEstateLoans.length > 0 && (
@@ -357,7 +365,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                                 return (
                                   <TAccountSubItem key={l.id} label={
                                       <span className="text-[10px] text-slate-500 leading-tight">{loanSymbol}</span>
-                                  } value={l.monthlyPayment} />
+                                  } value={l.monthlyPayment} isMasked={isMasked} />
                                 );
                               })}
                             </div>
@@ -365,13 +373,13 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                           {businessLoans.length > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-purple-300">企業貸款</div>
-                              {businessLoans.map(l => <TAccountSubItem key={l.id} label={l.name.match(/\(([^)]+)\)/)?.[1] || l.name} value={l.monthlyPayment} />)}
+                              {businessLoans.map(l => <TAccountSubItem key={l.id} label={l.name.match(/\(([^)]+)\)/)?.[1] || l.name} value={l.monthlyPayment} isMasked={isMasked} />)}
                             </div>
                           )}
                           {aircraftLoans.length > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-yellow-300">飛行器貸款利息</div>
-                              {aircraftLoans.map(l => <TAccountSubItem key={l.id} label={l.name.match(/\(([^)]+)\)/)?.[1] || l.name} value={l.monthlyPayment} />)}
+                              {aircraftLoans.map(l => <TAccountSubItem key={l.id} label={l.name.match(/\(([^)]+)\)/)?.[1] || l.name} value={l.monthlyPayment} isMasked={isMasked} />)}
                             </div>
                           )}
                         </div>
@@ -503,11 +511,11 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                   <div className="grid grid-cols-2 gap-px">
                     <div className="p-3 bg-slate-800/40 flex justify-between items-center">
                       <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">總資產</span>
-                      <NumericalValue value={summary.totalAssets} colorClass="text-blue-400 text-[11px] font-black" />
+                      <NumericalValue value={summary.totalAssets} colorClass="text-blue-400 text-[11px] font-black" isMasked={isMasked} />
                     </div>
                     <div className="p-3 bg-slate-800/40 flex justify-between items-center">
                       <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">總負債</span>
-                      <NumericalValue value={summary.totalLiabilities} colorClass="text-rose-400 text-[11px] font-black" />
+                      <NumericalValue value={summary.totalLiabilities} colorClass="text-rose-400 text-[11px] font-black" isMasked={isMasked} />
                     </div>
                   </div>
                   <div className="p-2.5 bg-slate-900/60 flex justify-between items-center border-t border-slate-700/30">
@@ -518,6 +526,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                         "text-xs font-black",
                         (summary.totalAssets - summary.totalLiabilities) >= 0 ? "text-blue-400" : "text-rose-400"
                       )} 
+                      isMasked={isMasked}
                     />
                   </div>
                 </div>
@@ -554,22 +563,22 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   );
 };
 
-const TAccountItem = ({ label, subLabel, value, color = "text-white" }: { label: React.ReactNode, subLabel?: React.ReactNode, value: number, color?: string }) => (
+const TAccountItem = ({ label, subLabel, value, color = "text-white", isMasked = false }: { label: React.ReactNode, subLabel?: React.ReactNode, value: number, color?: string, isMasked?: boolean }) => (
   <div className="flex flex-col w-full py-0.5 gap-0.5">
     <span className="text-xs text-slate-400 leading-tight break-all whitespace-nowrap text-left">{label}</span>
     {subLabel && <span className="text-[10px] text-slate-500 leading-tight break-all whitespace-nowrap text-left">{subLabel}</span>}
-    <div className="text-right"><NumericalValue value={value} colorClass={cn(color, "text-[14px]")} /></div>
+    <div className="text-right"><NumericalValue value={value} colorClass={cn(color, "text-[14px]")} isMasked={isMasked} /></div>
   </div>
 );
 
-const TAccountSubItem = ({ label, value }: { label: React.ReactNode, value: number }) => (
+const TAccountSubItem = ({ label, value, isMasked = false }: { label: React.ReactNode, value: number, isMasked?: boolean }) => (
   <div className="flex flex-col pl-2 border-l border-slate-700 mb-2">
     <span className="text-[10px] text-slate-500 leading-tight break-all whitespace-normal mb-0.5">{label}</span>
-    <div className="text-right"><NumericalValue value={value} colorClass="text-[14px] text-white" /></div>
+    <div className="text-right"><NumericalValue value={value} colorClass="text-[14px] text-white" isMasked={isMasked} /></div>
   </div>
 );
 
-const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices = {}, previousMarketPrices = {}, onUpgradeClick, onShowAlert }: any) => (
+const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices = {}, previousMarketPrices = {}, onUpgradeClick, onShowAlert, isMasked = false }: any) => (
   <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
     <div className={cn("text-[9px] font-black uppercase tracking-widest", color)}>{title}</div>
     {items.map((item: any) => {
@@ -615,7 +624,7 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
                     {isStock && (
                       <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium flex-1">
                         <span>{item.quantity} 張</span>
-                        <span className="ml-auto">價格 {formatMoney(currentPrice)}</span>
+                        <span className="ml-auto">價格 {formatMoney(currentPrice, isMasked)}</span>
                       </div>
                     )}
                     {item.isInsured && <ShieldCheck size={10} className="text-emerald-400 shrink-0" />}
@@ -635,7 +644,7 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
                 </>
               )}
             </div>
-            <div className="text-right"><NumericalValue value={displayValue} colorClass="text-[12px] text-white" /></div>
+            <div className="text-right"><NumericalValue value={displayValue} colorClass="text-[12px] text-white" isMasked={isMasked} /></div>
           </div>
         </div>
       );

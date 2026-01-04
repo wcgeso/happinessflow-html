@@ -1,4 +1,75 @@
-import { Asset, HappinessItem, Enterprise, Dream } from '../types';
+import { Asset, HappinessItem, Enterprise, Dream, GameState, FinancialSummary } from '../types';
+
+export const calculateFinancialSummary = (gameState: GameState): FinancialSummary => {
+    if (!gameState.profession) return { totalIncome: 0, totalExpenses: 0, monthlyCashflow: 0, passiveIncome: 0, totalAssets: 0, totalLiabilities: 0, payday: 0 };
+
+    const assets = gameState.assets || [];
+    const liabilities = gameState.liabilities || [];
+    const income = gameState.income || {};
+    const expenses = gameState.expenses || {};
+
+    const passiveIncome = assets.reduce((sum, a) => {
+        let incomeVal = a.cashflow;
+        // 投資不動產的能力：所有出租房產租金 +10,000H * 能力次數
+        if (a.type === '不動產' && !a.isSelfUse && gameState.abilities?.realEstateAbilityCount > 0) {
+            incomeVal += 10000 * gameState.abilities.realEstateAbilityCount;
+        }
+        return sum + incomeVal;
+    }, 0);
+    const dynamicIncome = Object.values(income).reduce((sum, v) => sum + (Number(v) || 0), 0);
+    const totalIncome = (gameState.profession.salary || 0) + passiveIncome + dynamicIncome;
+
+    // Calculate interest from liabilities' monthlyPayment
+    const creditLoanInterest = (liabilities.filter(l => l.type === '信用貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0)) + ((gameState.loans || 0) * 0.1);
+    const aircraftLoanInterest = liabilities.filter(l => l.type === '飛行器貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+    const businessLoanInterest = liabilities.filter(l => l.type === '企業貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+    const realEstateLoanInterest = liabilities.filter(l => l.type === '不動產貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+
+    const p = gameState.profession;
+
+    // Calculate each expense category, combining professional base and user adjustments
+    // 所得稅務隨工作收入(salary)變動，比例為 5%
+    const taxExpense = Math.floor((p.salary || 0) * 0.05);
+    const basicLivingTotal = Math.max(0, (p.expenses?.basicLiving || 0) + (Number(expenses.basicLiving) || 0));
+    const transportEduTotal = Math.max(0, (p.expenses?.transportEdu || 0) + (Number(expenses.transportEdu) || 0));
+    const otherMedicalChildTotal = Math.max(0, (p.expenses?.otherMedicalChild || 0) + (Number(expenses.otherMedicalChild) || 0));
+
+    const rankIncrease = Math.max(0, (gameState.currentRankLevel || 1) - 1);
+    const otherExpensesBonus = rankIncrease * 10000; // This bonus is specifically for otherMedicalChild
+
+    const totalInsuranceCount = (gameState.medicalInsuranceCount || 0) + assets.filter(a => a.isInsured).length;
+    const insuranceCost = totalInsuranceCount * 2000;
+
+    const totalExpenses = taxExpense +
+                          basicLivingTotal +
+                          transportEduTotal +
+                          otherMedicalChildTotal +
+                          otherExpensesBonus +
+                          creditLoanInterest +
+                          aircraftLoanInterest +
+                          businessLoanInterest +
+                          realEstateLoanInterest +
+                          insuranceCost;
+
+    const totalAssets = assets.reduce((sum, a) => {
+        if (a.type === '股票') {
+            const symbol = a.name.replace('股票 ', '');
+            const marketPrice = (gameState.marketPrices && gameState.marketPrices[symbol]) || a.lastPurchasePrice || 0;
+            return sum + (a.quantity || 0) * marketPrice;
+        }
+        return sum + a.cost;
+    }, 0) + (gameState.cash || 0);
+
+    return {
+        totalIncome,
+        totalExpenses,
+        monthlyCashflow: totalIncome - totalExpenses,
+        passiveIncome,
+        totalAssets,
+        totalLiabilities: liabilities.reduce((sum, l) => sum + (l.totalOwed || 0), 0) + (gameState.loans || 0),
+        payday: totalIncome - totalExpenses
+    };
+};
 
 export const formatMoney = (amount: number) => {
     const lucky = Number(amount) || 0;

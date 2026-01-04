@@ -23,8 +23,8 @@ const MockGameStats = () => (
             <div className="text-6xl font-black text-white tracking-tighter"> 45 </div>
             <div className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1"> / 100 </div>
           </div>
-          <div className="w-full max-w-md bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div className="h-full bg-pink-500 transition-all duration-1000" style={{ width: '45%' }} />
+          <div className="w-full max-w-md bg-slate-800/50 h-2.5 rounded-full overflow-hidden border border-slate-700/50 p-[1px]">
+            <div className="h-full bg-gradient-to-r from-pink-600 to-pink-400 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(236,72,153,0.5)]" style={{ width: '45%' }} />
           </div>
         </div>
         <div className="text-[10px] text-slate-500 font-mono mt-4 uppercase tracking-[0.3em]"> 邁向幸福人生 </div>

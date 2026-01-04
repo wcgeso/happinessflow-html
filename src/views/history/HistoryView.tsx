@@ -216,7 +216,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack }) => {
                                                 <div className="text-pink-500 font-black text-xl">{record.happinessScore}</div>
                                             </div>
                                             <div className="flex flex-col items-center md:items-end">
-                                                <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">結算得分</div>
+                                                <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">評分得分</div>
                                                 <div className="text-yellow-400 font-black text-xl">{record.finalScore}</div>
                                             </div>
                                             <div className="hidden lg:flex flex-col items-end">

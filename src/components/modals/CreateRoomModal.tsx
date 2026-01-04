@@ -5,22 +5,34 @@ import { Button } from '../ui/ui';
 interface CreateRoomModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onCreate: (settings: { name: string; maxPlayers: number; duration: number }) => void;
+    onCreate: (settings: { name: string; maxPlayers: number; duration: number }) => Promise<void>;
 }
 
 export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onCreate }) => {
-    const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
-    const [name, setName] = useState(`遊戲-${today}`);
-    const [maxPlayers, setMaxPlayers] = useState(6);
-    const [duration, setDuration] = useState(1);
+    const [name, setName] = useState('');
+    const [maxPlayers, setMaxPlayers] = useState(1);
+    const [duration, setDuration] = useState(60);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const durations = [
-        { label: '1 小時', value: 1 },
-        { label: '1.5 小時', value: 1.5 },
-        { label: '2 小時', value: 2 },
-        { label: '2.5 小時', value: 2.5 },
-        { label: '3 小時', value: 3 },
+        { label: '1 小時', value: 60 },
+        { label: '1.5 小時', value: 90 },
+        { label: '2 小時', value: 120 },
+        { label: '2.5 小時', value: 150 },
+        { label: '3 小時', value: 180 },
     ];
+
+    const handleSubmit = async () => {
+        setIsSubmitting(true);
+        setError(null);
+        try {
+            await onCreate({ name: name.trim(), maxPlayers, duration });
+        } catch (err: any) {
+            setError(err.message || '建立房間失敗，請稍後再試');
+            setIsSubmitting(false);
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -54,14 +66,14 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
                         <div className="space-y-2">
                             <label className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                                 <Calendar size={14} />
-                                遊戲名稱
+                                報表名稱
                             </label>
                             <input 
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white font-bold focus:border-amber-500/50 outline-none transition-all"
-                                placeholder="輸入遊戲名稱..."
+                                placeholder="輸入報表名稱..."
                             />
                         </div>
 
@@ -110,12 +122,26 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
                                 ))}
                             </div>
                         </div>
+                        
+                        {error && (
+                            <div className="text-red-400 text-xs font-bold bg-red-400/10 p-3 rounded-xl border border-red-400/20 animate-shake">
+                                {error}
+                            </div>
+                        )}
 
                         <Button 
-                            onClick={() => onCreate({ name, maxPlayers, duration })}
-                            className="w-full py-6 mt-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black text-lg rounded-2xl shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all"
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            className="w-full py-6 mt-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black text-lg rounded-2xl shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            確認建立
+                            {isSubmitting ? (
+                                <div className="flex items-center gap-2">
+                                    <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                                    <span>建立中...</span>
+                                </div>
+                            ) : (
+                                '確認建立'
+                            )}
                         </Button>
                     </div>
                 </div>

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
 import { X, Users, Copy, Check, Play, LogOut, ShieldCheck, Award } from 'lucide-react';
 import { useRoom } from '../../context/RoomContext';
-import { useAuth, getUserTitle, getAvatarBorderStyle, getCoachBadge, getPlayerBadge } from '../../context/AuthContext';
+import { useAuth, getUserTitle, getAvatarBorderStyle, getCoachBadge, getPlayerBadge, getTitleColor, getBadgeGlowStyle } from '../../context/AuthContext';
 import { Button } from '../../components/ui/ui';
 
 interface RoomViewProps {
@@ -13,9 +12,7 @@ export const RoomView: React.FC<RoomViewProps> = ({ onBack }) => {
     const { room, createRoom, leaveRoom, closeRoom, startRoomGame, isLoadingRoom, error } = useRoom();
     const { user } = useAuth();
     const [copied, setCopied] = useState(false);
-    const [linkCopied, setLinkCopied] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
-    const [showRoomInfo, setShowRoomInfo] = useState(false);
 
     const coachMember = room?.members.find(m => m.role === 'coach');
     const playerMembers = room?.members.filter(m => m.role === 'player') || [];
@@ -34,30 +31,99 @@ export const RoomView: React.FC<RoomViewProps> = ({ onBack }) => {
 
     if (!room) return null;
 
-    const roomLink = `${window.location.origin}?room=${room.id}`;
-
-    const handleCopyCode = () => {
+    const handleCopyCode = async () => {
         if (!room.id) return;
-        navigator.clipboard.writeText(room.id);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    const handleCopyLink = () => {
-        if (!room.id) return;
-        navigator.clipboard.writeText(roomLink);
-        setLinkCopied(true);
-        setTimeout(() => setLinkCopied(false), 2000);
+        
+        try {
+            // 優先使用 navigator.clipboard
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(room.id);
+            } else {
+                // 備案：使用傳統 textarea 方法
+                const textArea = document.createElement("textarea");
+                textArea.value = room.id;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                textArea.style.top = "0";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                } catch (err) {
+                    console.error('execCommand copy 失敗:', err);
+                }
+                document.body.removeChild(textArea);
+            }
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('複製失敗:', err);
+        }
     };
 
     const isHost = user?.uid === room.hostId;
+
+    const renderMemberAvatar = (member: any, isCoach: boolean = false) => {
+        const isCustom = member.photoURL?.startsWith('http') || member.photoURL?.startsWith('data:image');
+        
+        if (isCustom) {
+            let position = { x: 50, y: 50 };
+            let scale = 1;
+            
+            if (member.photoPosition) {
+                try {
+                    position = JSON.parse(member.photoPosition);
+                } catch (e) {
+                    position = { x: 50, y: parseInt(member.photoPosition) || 50 };
+                }
+            }
+            if (member.photoScale) {
+                scale = parseFloat(member.photoScale) || 1;
+            }
+
+            return (
+                <img 
+                    src={member.photoURL} 
+                    className={isCoach ? "w-full h-full object-cover rounded-lg" : "w-full h-full object-cover"} 
+                    alt=""
+                    style={{ 
+                        objectPosition: `${position.x}% ${position.y}%`,
+                        transform: `scale(${scale})`
+                    }}
+                />
+            );
+        }
+
+        return '🐝';
+    };
+
+    const isGM = (m: any) => {
+        const email = m?.email?.toLowerCase() || '';
+        const title = m?.title || '';
+        const name = m?.name?.toUpperCase() || '';
+        return (
+            email === 'gm0221@happinessflow.com' || 
+            title === '遊戲管理員' || 
+            name === 'GM' || 
+            name === 'GM0221'
+        );
+    };
+    const getMemberTitle = (m: any) => isGM(m) ? '遊戲管理員' : getUserTitle(m);
+    const getMemberBadge = (m: any) => {
+        if (isGM(m)) return '/assets/badges/傳奇執行師-去背.png';
+        return m.role === 'coach' ? getCoachBadge(m) : getPlayerBadge(m);
+    };
+    const getMemberBadgeStyle = (m: any) => getBadgeGlowStyle(m);
 
     return (
         <div className="flex-1 flex flex-col p-6 animate-in fade-in duration-300">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <div className="text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] mb-1">Room Status</div>
+                    <div className="text-[10px] text-amber-500 font-black uppercase tracking-[0.2em] mb-1">
+                        {room?.name || `執行日記${new Date().getFullYear()}.${String(new Date().getMonth() + 1).padStart(2, '0')}.${String(new Date().getDate()).padStart(2, '0')}`}
+                    </div>
                     <h2 className="text-2xl font-black text-white flex items-center gap-2">
                         等待玩家加入
                         <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -65,11 +131,22 @@ export const RoomView: React.FC<RoomViewProps> = ({ onBack }) => {
                 </div>
                 <div className="flex items-center gap-3">
                     <button 
-                        onClick={() => setShowRoomInfo(true)}
-                        className="flex flex-col items-center px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-2xl hover:bg-amber-500/20 transition-all group"
+                        onClick={handleCopyCode}
+                        className={`flex flex-col items-center px-4 py-2 border rounded-2xl transition-all group relative active:scale-95 ${copied ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20'}`}
                     >
-                        <span className="text-[9px] text-amber-500 font-black uppercase tracking-widest mb-0.5">房間碼</span>
-                        <span className="text-lg font-black text-white group-hover:scale-105 transition-transform">{room.id}</span>
+                        <span className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${copied ? 'text-emerald-500' : 'text-amber-500'}`}>
+                            {copied ? '已複製' : '房間碼'}
+                        </span>
+                        <span className={`text-lg font-black group-hover:scale-105 transition-transform ${copied ? 'text-emerald-400' : 'text-white'}`}>
+                            {room.id}
+                        </span>
+                        {!copied && (
+                            <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="bg-amber-500 text-slate-950 p-1 rounded-full shadow-lg">
+                                    <Copy size={10} />
+                                </div>
+                            </div>
+                        )}
                     </button>
                     <button 
                         onClick={handleCloseOrLeave}
@@ -88,7 +165,7 @@ export const RoomView: React.FC<RoomViewProps> = ({ onBack }) => {
                             <Users size={18} className="text-slate-500" />
                             <span className="text-sm font-black text-white uppercase tracking-widest">已加入成員</span>
                         </div>
-                        {isHost && playerMembers.length === room.maxPlayers ? (
+                        {isHost && playerMembers.length > 0 ? (
                             <button 
                                 onClick={startRoomGame}
                                 className="flex items-center gap-2 px-4 py-1.5 bg-emerald-500 text-white text-xs font-black rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:bg-emerald-400 transition-all animate-pulse active:scale-95 border border-emerald-400/50"
@@ -108,18 +185,12 @@ export const RoomView: React.FC<RoomViewProps> = ({ onBack }) => {
                         <div className="shrink-0 flex flex-col items-center justify-center">
                             {displayCoach && (
                                 <div 
-                                    className={`flex flex-row items-center gap-3 p-1.5 px-3 rounded-xl border transition-all relative w-full max-w-sm ${
-                                        displayCoach.uid === room.hostId 
-                                        ? 'bg-gradient-to-r from-amber-500/10 to-amber-900/10 border-amber-500/30 shadow-md' 
-                                        : 'bg-slate-900/80 border-slate-700'
-                                    }`}
+                                    className="flex flex-row items-center gap-3 p-1.5 px-3 rounded-xl border border-amber-500/20 bg-amber-500/5 transition-all relative w-full max-w-sm shadow-[0_0_20px_rgba(245,158,11,0.1)]"
                                 >
                                     <div className={`w-16 h-16 rounded-lg bg-slate-800 border-2 flex items-center justify-center text-3xl shadow-inner shrink-0 ${
-                                         displayCoach.uid === room.hostId ? 'border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]' : 'border-slate-700'
+                                         getAvatarBorderStyle(displayCoach as any)
                                      }`}>
-                                        {displayCoach.photoURL?.startsWith('http') || displayCoach.photoURL?.startsWith('data:image') ? (
-                                            <img src={displayCoach.photoURL} className="w-full h-full object-cover rounded-lg" alt="" />
-                                        ) : '🐝'}
+                                        {renderMemberAvatar(displayCoach, true)}
                                     </div>
 
                                     <div className="flex flex-col min-w-0 flex-1">
@@ -131,15 +202,19 @@ export const RoomView: React.FC<RoomViewProps> = ({ onBack }) => {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <img 
-                                                src={getCoachBadge(displayCoach as any)} 
-                                                className="w-10 h-10 object-contain drop-shadow-[0_0_8px_rgba(245,158,11,0.5)] shrink-0" 
-                                                alt={getUserTitle(displayCoach as any)}
+                                                src={getMemberBadge(displayCoach as any)} 
+                                                className={`w-12 h-12 object-contain shrink-0 ${getMemberBadgeStyle(displayCoach as any)}`} 
+                                                alt={getMemberTitle(displayCoach as any)}
                                                 onError={(e) => {
                                                     e.currentTarget.style.display = 'none';
                                                 }}
                                             />
-                                            <span className="text-xs font-black text-amber-500 uppercase tracking-widest whitespace-nowrap bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/10">
-                                                {getUserTitle(displayCoach as any)}
+                                            <span className={`text-xs font-black uppercase tracking-widest whitespace-nowrap px-3 py-1 rounded-full border ${
+                                                isGM(displayCoach)
+                                                ? 'bg-indigo-500/10 border-indigo-500/20'
+                                                : 'bg-amber-500/10 border-amber-500/10'
+                                            } ${getTitleColor(displayCoach as any)}`}>
+                                                {getMemberTitle(displayCoach as any)}
                                             </span>
                                         </div>
                                     </div>
@@ -154,42 +229,35 @@ export const RoomView: React.FC<RoomViewProps> = ({ onBack }) => {
                                 {playerMembers.map((member) => (
                                     <div 
                                         key={member.uid}
-                                        className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all relative h-full ${
-                                            member.uid === user?.uid 
-                                            ? 'bg-amber-500/5 border-amber-500/20 shadow-sm' 
-                                            : 'bg-slate-900/50 border-slate-800/50'
-                                        }`}
+                                        className="flex flex-col items-center justify-center p-2 rounded-xl border border-slate-800/50 bg-slate-900/50 transition-all relative h-full"
                                     >
-                                        {/* Avatar with badge overlay - Enlarged */}
+                                        {/* Avatar - Simplified */}
                                         <div className="relative shrink-0 mb-2">
-                                            <div className="w-16 h-16 rounded-xl bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-3xl shadow-inner">
-                                                {member.photoURL?.startsWith('http') || member.photoURL?.startsWith('data:image') ? (
-                                                    <img src={member.photoURL} className="w-full h-full object-cover rounded-xl" alt="" />
-                                                ) : '🐝'}
+                                            <div className="w-16 h-16 rounded-xl bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-3xl shadow-inner overflow-hidden">
+                                                {renderMemberAvatar(member)}
                                             </div>
-                                            
-                                            <div className="absolute -bottom-1.5 -right-1.5">
-                                                <img 
-                                                    src={getPlayerBadge(member as any)} 
-                                                    className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]" 
-                                                    alt=""
-                                                    onError={(e) => e.currentTarget.style.display = 'none'}
-                                                />
-                                            </div>
-
-                                            {member.uid === user?.uid && (
-                                                <div className="absolute -top-0.5 -left-0.5 w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] border-2 border-slate-900 z-10" />
-                                            )}
                                         </div>
 
-                                        {/* Info Below Avatar - Enlarged */}
+                                        {member.uid === user?.uid && (
+                                            <div className="absolute top-2 right-2 w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] border-2 border-slate-900 z-10" />
+                                        )}
+
+                                        {/* Info Below Avatar */}
                                         <div className="flex flex-col items-center min-w-0 text-center w-full px-1">
                                             <span className="text-sm font-black text-white truncate w-full mb-1">
                                                 {member.name}
                                             </span>
-                                            <span className="text-[10px] font-black text-amber-500/80 uppercase tracking-widest truncate">
-                                                {getUserTitle(member as any)}
-                                            </span>
+                                            <div className="flex items-center justify-center gap-1.5 w-full">
+                                                <img 
+                                                    src={getMemberBadge(member as any)} 
+                                                    className={`w-10 h-10 object-contain shrink-0 ${getMemberBadgeStyle(member as any)}`} 
+                                                    alt=""
+                                                    onError={(e) => e.currentTarget.style.display = 'none'}
+                                                />
+                                                <span className={`text-[10px] font-black uppercase tracking-widest truncate ${getTitleColor(member as any)}`}>
+                                                    {getMemberTitle(member as any)}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -197,12 +265,25 @@ export const RoomView: React.FC<RoomViewProps> = ({ onBack }) => {
                                 {Array.from({ length: room.maxPlayers - playerMembers.length }).map((_, i) => (
                                     <div 
                                         key={`empty-${i}`}
-                                        className="flex flex-col items-center justify-center p-2 rounded-xl border border-dashed border-slate-800/30 opacity-20 h-full"
+                                        className="flex flex-col items-center justify-center p-2 rounded-2xl bg-slate-900/30 border border-slate-800/50 h-full relative group transition-all duration-300"
                                     >
-                                        <div className="w-16 h-16 rounded-xl bg-slate-900 border-2 border-slate-800 flex items-center justify-center text-slate-700 mb-2">
-                                            <Users size={24} />
+                                        <div className="w-14 h-14 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-center text-slate-600 mb-2 relative overflow-hidden animate-breath shadow-[0_0_20px_rgba(245,158,11,0.1)]">
+                                            {/* Internal pulsing gradient - slowed down to match breath */}
+                                            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-transparent animate-pulse [animation-duration:4s]" />
+                                            <Users size={24} strokeWidth={1.5} className="relative z-10 opacity-40 text-amber-500/60" />
                                         </div>
-                                        <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">等待加入</span>
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] group-hover:text-amber-500/60 transition-colors">等待中</span>
+                                    </div>
+                                ))}
+
+                                {Array.from({ length: 6 - room.maxPlayers }).map((_, i) => (
+                                    <div 
+                                        key={`disabled-${i}`}
+                                        className="flex flex-col items-center justify-center p-2 rounded-2xl border border-transparent bg-slate-950/40 h-full select-none relative overflow-hidden"
+                                    >
+                                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-slate-900/20 border border-white/5">
+                                            <X size={20} strokeWidth={1.2} className="text-slate-800" />
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -216,58 +297,6 @@ export const RoomView: React.FC<RoomViewProps> = ({ onBack }) => {
             {error && (
                 <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-sm font-medium text-center animate-in slide-in-from-bottom-2">
                     {error}
-                </div>
-            )}
-
-            {/* Room Info Modal */}
-            {showRoomInfo && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setShowRoomInfo(false)} />
-                    <div className="relative bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <button 
-                            onClick={() => setShowRoomInfo(false)}
-                            className="absolute top-6 right-6 p-2 text-slate-500 hover:text-white transition-colors"
-                        >
-                            <X size={20} />
-                        </button>
-                        
-                        <div className="flex flex-col items-center text-center">
-                            <div className="text-xs text-slate-500 font-black uppercase tracking-widest mb-4">房間資訊</div>
-                            
-                            <div className="mb-8">
-                                <div className="text-6xl font-black text-white tracking-[0.2em]">
-                                    {room.id}
-                                </div>
-                            </div>
-
-                            <div className="p-4 bg-white rounded-2xl shadow-2xl mb-6">
-                                <QRCodeSVG 
-                                    value={roomLink} 
-                                    size={180}
-                                    level="H"
-                                    includeMargin={true}
-                                />
-                            </div>
-                            
-                            <div className="w-full">
-                                <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2 text-left px-2">房間連結</div>
-                                <div 
-                                    onClick={handleCopyLink}
-                                    className="group flex items-center gap-3 p-3 bg-slate-950/50 border border-slate-800 rounded-xl hover:border-amber-500/50 transition-all cursor-pointer"
-                                >
-                                    <div className="flex-1 truncate text-xs text-slate-400 font-medium text-left">
-                                        {roomLink}
-                                    </div>
-                                    <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase transition-all shrink-0 ${linkCopied ? 'text-emerald-500' : 'text-slate-600 group-hover:text-amber-500'}`}>
-                                        {linkCopied ? <Check size={12} /> : <Copy size={12} />}
-                                        {linkCopied ? '已複製' : '複製'}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <p className="mt-6 text-[10px] text-slate-500 font-medium uppercase tracking-wider">透過 QR Code 或房間連結邀請玩家</p>
-                        </div>
-                    </div>
                 </div>
             )}
 

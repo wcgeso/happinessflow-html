@@ -1,7 +1,7 @@
 import React, { Suspense, useState, useEffect } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { RoomProvider } from './context/RoomContext';
+import { RoomProvider, useRoom } from './context/RoomContext';
 
 // Lazy load views
 const AuthView = React.lazy(() => import('./views/auth/AuthView').then(module => ({ default: module.AuthView })));
@@ -12,6 +12,8 @@ const SelectionView = React.lazy(() => import('./views/selection/SelectionView')
 const GameView = React.lazy(() => import('./views/game/GameView').then(module => ({ default: module.GameView })));
 const ScoreView = React.lazy(() => import('./views/game/ScoreView').then(module => ({ default: module.ScoreView })));
 const AchievementsView = React.lazy(() => import('./views/achievements/AchievementsView').then(module => ({ default: module.AchievementsView })));
+
+const CoachGameView = React.lazy(() => import('./views/lobby/CoachGameView').then(module => ({ default: module.CoachGameView })));
 
 import { GameSessionMeta } from './types';
 
@@ -30,7 +32,7 @@ const AppContent = () => {
     const isMaintenance = window.location.hostname === 'happinessflow.vercel.app';
 
     // View State
-    const [currentView, setCurrentView] = useState<'lobby' | 'history' | 'create_report' | 'selection' | 'game' | 'score' | 'achievements'>('lobby');
+    const [currentView, setCurrentView] = useState<'lobby' | 'history' | 'create_report' | 'selection' | 'game' | 'score' | 'achievements' | 'coach_monitor'>('lobby');
     const [sessionMeta, setSessionMeta] = useState<GameSessionMeta | null>(null);
 
     // 維護中頁面
@@ -85,6 +87,47 @@ const AppContent = () => {
 // Separated to use hooks cleanly if needed, or just inline.
 const MainRouting = ({ user, currentView, setCurrentView, sessionMeta, setSessionMeta, gameState, setGameState }: any) => {
     const { logout } = useAuth();
+    const { room } = useRoom();
+
+    // 監聽房間狀態，如果是執行師且房間開始遊戲，自動跳轉到監控畫面
+    // 如果是玩家且房間開始遊戲，自動跳轉到職業選擇畫面
+    // 如果房間結束，玩家跳轉到評分畫面
+    useEffect(() => {
+        if (!room) {
+            // 如果玩家不在房間中且當前處於與房間相關的畫面，跳回大廳
+            const roomViews = ['selection', 'game', 'score', 'coach_monitor'];
+            if (roomViews.includes(currentView)) {
+                console.log('不在房間中，跳回大廳');
+                setCurrentView('lobby');
+            }
+            return;
+        }
+
+        console.log('App 路由監聽 - 角色:', user?.role, '房間狀態:', room.status, '當前視圖:', currentView);
+
+        if (room.status === 'playing') {
+            if (user?.role === 'coach' && currentView !== 'coach_monitor') {
+                console.log('執行師跳轉到監控畫面');
+                setCurrentView('coach_monitor');
+            } else if (user?.role === 'player' && currentView !== 'selection' && currentView !== 'game') {
+                console.log('玩家跳轉到職業選擇畫面');
+                // 確保玩家有 sessionMeta
+                if (!sessionMeta) {
+                    setSessionMeta({
+                        playerName: user.name,
+                        reportName: '我的財報',
+                        createdAt: new Date().toISOString()
+                    });
+                }
+                setCurrentView('selection');
+            }
+        } else if (room.status === 'finished') {
+            if (user?.role === 'player' && currentView !== 'score' && currentView !== 'game') {
+                console.log('玩家跳轉到評分畫面');
+                setCurrentView('score');
+            }
+        }
+    }, [user?.uid, room?.status, currentView, sessionMeta]);
 
     const handleCreateReportComplete = (meta: GameSessionMeta) => {
         setSessionMeta(meta);
@@ -194,9 +237,11 @@ const MainRouting = ({ user, currentView, setCurrentView, sessionMeta, setSessio
             return (
                 <ScoreView
                     playerName={sessionMeta?.playerName || user.name}
-                    onBackToLobby={() => setCurrentView('lobby')}
+                    onClose={() => setCurrentView('lobby')}
                 />
             );
+        case 'coach_monitor':
+            return <CoachGameView />;
         default:
             return <div>Unknown View</div>;
     }

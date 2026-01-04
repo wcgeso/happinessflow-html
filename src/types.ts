@@ -149,6 +149,7 @@ export interface GameState {
   previousMarketPrices: Record<string, number>;
   marketPriceHistory?: Record<string, StockPricePoint[]>;
   lastPublishedCode: string;
+  lastMarketUpdateTimestamp?: number;
   abilities: GameAbilities;
   completedHappinessEvents: string[];
   hasShownWinAnimation?: boolean;

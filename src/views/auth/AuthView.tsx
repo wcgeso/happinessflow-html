@@ -235,15 +235,33 @@ export const AuthView: React.FC = () => {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {!isLogin && (
                             <div className="space-y-1.5">
-                                <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest ml-1">暱稱 (最多10字)</label>
+                                <div className="flex justify-between items-end px-1">
+                                    <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">暱稱</label>
+                                    <span className={`text-[9px] font-bold ${
+                                        name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '').length >= ( /[\u4e00-\u9fa5]/.test(name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '')) ? 8 : 12) 
+                                            ? 'text-amber-500' 
+                                            : 'text-slate-500'
+                                    }`}>
+                                        {name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '').length}/{/[\u4e00-\u9fa5]/.test(name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '')) ? 8 : 12}
+                                    </span>
+                                </div>
                                 <Input
                                     required
-                                    maxLength={10}
                                     value={name}
-                                    onChange={(e) => setName(e.target.value)}
+                                    onChange={(e) => {
+                                                const val = e.target.value;
+                                                // 排除注音符號後的有效長度
+                                                const effectiveVal = val.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '');
+                                                // 無論中英文，上限統一為 8 字
+                                                const max = 8;
+                                                if (effectiveVal.length <= max) {
+                                                    setName(val);
+                                                }
+                                            }}
                                     onInvalid={handleInvalid}
                                     onInput={handleInput}
                                     onBlur={handleBlur}
+                                    placeholder="輸入您的暱稱"
                                     className="bg-slate-950/50 border-white/5 focus:border-amber-500/50 transition-all h-10 text-sm"
                                 />
                             </div>

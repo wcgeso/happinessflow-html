@@ -31,7 +31,15 @@ export const getUserTitle = (user: User | null): string => {
     if (!user) return '';
     
     // 優先判斷特殊唯一稱號
-    if (user.title === '遊戲管理員' || user.title === '管理員' || user.email?.toLowerCase() === 'gm0221@happinessflow.com') return '遊戲管理員';
+    const email = user.email?.toLowerCase() || '';
+    const name = user.name?.toUpperCase() || '';
+    if (
+        user.title === '遊戲管理員' || 
+        user.title === '管理員' || 
+        email === 'gm0221@happinessflow.com' ||
+        name === 'GM' ||
+        name === 'GM0221'
+    ) return '遊戲管理員';
     if (user.title === '幸福實踐家') return '幸福實踐家';
 
     if (user.role === 'coach') {
@@ -49,19 +57,39 @@ export const getUserTitle = (user: User | null): string => {
     }
 };
 
+export const getTitleColor = (user: User | null): string => {
+    if (!user) return 'text-slate-400';
+    
+    const title = getUserTitle(user);
+    if (title === '遊戲管理員') return 'text-indigo-400';
+    if (user.role === 'coach') return 'text-amber-500';
+    
+    // 玩家根據稱號有不同顏色
+    switch (title) {
+        case '幸福實踐家': return 'text-rose-400';
+        case '蜂后傳奇': return 'text-amber-400';
+        case '蜂饒大師': return 'text-purple-400';
+        case '築夢家': return 'text-cyan-400';
+        case '採蜜人': return 'text-emerald-400';
+        default: return 'text-amber-500/80';
+    }
+};
+
 export const getAvatarBorderStyle = (user: User | null): string => {
     if (!user) return 'border-slate-700';
     
+    const title = getUserTitle(user);
+    
+    if (title === '遊戲管理員') {
+        return 'border-2 animate-gm-border ring-1 ring-white/20';
+    }
+
     // 執行師特殊邊框
     if (user.role === 'coach') {
         return 'border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.3)]';
     }
 
-    const title = getUserTitle(user);
-    
     switch (title) {
-        case '遊戲管理員':
-            return 'border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.8)] animate-pulse ring-2 ring-indigo-400/50';
         case '幸福實踐家':
             return 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse';
         case '蜂后傳奇':
@@ -78,20 +106,38 @@ export const getAvatarBorderStyle = (user: User | null): string => {
     }
 };
 
-export const getCoachBadge = (user: User | null): string => {
-    if (!user || user.role !== 'coach') return '';
+export const getBadgeGlowStyle = (user: User | null): string => {
+    if (!user) return '';
     const title = getUserTitle(user);
-    if (title === '遊戲管理員') return '/assets/badges/管理員-去背.png';
+    if (title === '幸福實踐家') return 'drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]';
+    if (title === '蜂后傳奇') return 'drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]';
+    if (title === '蜂饒大師') return 'drop-shadow-[0_0_8px_rgba(192,132,252,0.5)]';
+    if (user.role === 'coach' || title === '遊戲管理員') return 'drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]';
+    return '';
+};
+
+export const getCoachBadge = (user: User | null): string => {
+    if (!user) return '';
+    const title = getUserTitle(user);
+    // GM 帳號優先判斷
+    if (title === '遊戲管理員' || user.email?.toLowerCase() === 'gm0221@happinessflow.com') return '/assets/badges/傳奇執行師-去背.png';
+    
+    if (user.role !== 'coach') return '';
+    
     if (title === '傳奇執行師') return '/assets/badges/傳奇執行師-去背.png';
     if (title === '資深執行師') return '/assets/badges/資深執行師-去背.png';
     return '/assets/badges/蜂富執行師-去背.png';
 };
 
 export const getPlayerBadge = (user: User | null): string => {
-    if (!user || user.role !== 'player') return '';
+    if (!user) return '';
     const title = getUserTitle(user);
+    // GM 帳號優先判斷
+    if (title === '遊戲管理員' || user.email?.toLowerCase() === 'gm0221@happinessflow.com') return '/assets/badges/傳奇執行師-去背.png';
+
+    if (user.role !== 'player') return '';
+    
     switch (title) {
-        case '遊戲管理員': return '/assets/badges/管理員-去背.png';
         case '幸福實踐家': return '/assets/badges/幸福實踐家-去背.png';
         case '蜂后傳奇': return '/assets/badges/蜂后傳奇-去背.png';
         case '蜂饒大師': return '/assets/badges/蜂饒大師-去背.png';

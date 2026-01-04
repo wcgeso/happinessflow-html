@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Bug, Plane, Stethoscope, Palette, TreePine, Briefcase, Edit3, Calendar, Hash, Award, History, Play, X, Check, Upload, Image as ImageIcon, Move, Copy } from 'lucide-react';
 import { Button, Input, Slider } from '../ui/ui';
-import { useAuth, getUserTitle } from '../../context/AuthContext';
+import { useAuth, getUserTitle, getCoachBadge, getPlayerBadge, getBadgeGlowStyle } from '../../context/AuthContext';
 import { useGame } from '../../context/GameContext';
 import { avatarOptions } from './AvatarModal';
 
@@ -21,17 +21,39 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
     const [tempScale, setTempScale] = useState(1);
     const [isSaving, setIsSaving] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [isBadgeEnlarged, setIsBadgeEnlarged] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const dragStartPos = useRef({ x: 0, y: 0 });
     const dragStartPosition = useRef({ x: 50, y: 50 });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleCopyId = () => {
+    const handleCopyId = async () => {
         if (!user?.uid) return;
-        navigator.clipboard.writeText(user.uid);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        
+        try {
+            // 優先使用現代 API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(user.uid);
+            } else {
+                // Fallback 方案
+                const textArea = document.createElement("textarea");
+                textArea.value = user.uid;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                textArea.style.top = "0";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                textArea.remove();
+            }
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy: ', err);
+            // 如果連 fallback 都失敗，可以嘗試直接顯示 UID 讓使用者手動選取
+        }
     };
 
     const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
@@ -166,8 +188,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
     const isCustomAvatar = user.photoURL?.startsWith('http') || user.photoURL?.startsWith('data:image');
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="w-full h-full md:h-auto md:max-w-lg bg-slate-900 md:border md:border-slate-800 md:rounded-3xl shadow-2xl overflow-y-auto animate-in zoom-in-95 duration-200">
                 {/* Hidden File Input */}
                 <input 
                     type="file"
@@ -195,7 +217,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                     >
                         <X size={20} />
                     </button>
-                    <div className="absolute -bottom-12 left-8 flex items-end gap-4">
+                    <div className="absolute -bottom-12 left-8 flex items-end gap-3 z-20">
                         <div className="relative group">
                             <div className="w-24 h-24 rounded-2xl bg-slate-800 border-4 border-slate-900 flex items-center justify-center shadow-xl overflow-hidden">
                                 {isCustomAvatar ? (
@@ -231,9 +253,34 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                     </div>
                 </div>
 
-                <div className="pt-16 px-8 pb-8">
+                <div className="pt-16 px-8 pb-8 relative">
+                    {/* Badge Display - Moved to right side, below the line */}
+                    {(user.role === 'coach' ? getCoachBadge(user) : getPlayerBadge(user)) && (
+                        <div 
+                            className="absolute top-2 right-4 animate-in slide-in-from-right-4 duration-500 z-10 cursor-pointer active:scale-95 transition-transform"
+                            onClick={() => {
+                                setIsBadgeEnlarged(true);
+                                setTimeout(() => setIsBadgeEnlarged(false), 1000);
+                            }}
+                        >
+                            <div className="relative group">
+                                <div className="absolute inset-0 bg-amber-500/10 blur-2xl rounded-full group-hover:bg-amber-500/30 transition-colors" />
+                                <img 
+                                    src={user.role === 'coach' ? getCoachBadge(user) : getPlayerBadge(user)} 
+                                    alt={getUserTitle(user)}
+                                    className={`relative w-32 h-32 object-contain transition-all duration-300 ${getBadgeGlowStyle(user)} ${
+                                        isBadgeEnlarged ? 'scale-125' : 'hover:scale-110'
+                                    }`}
+                                    onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     {/* User Info */}
-                    <div className="space-y-4 mb-8">
+                    <div className="space-y-4 mb-8 pr-28">
                         <div className="flex flex-col gap-2">
                             <div className="flex items-center justify-between">
                                 <div className="flex-1">
@@ -246,46 +293,60 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                                             }`}>
                                                 {getUserTitle(user)}
                                             </span>
-                                            {user.role === 'coach' && (
-                                                 <span className="text-[10px] font-bold text-amber-500/80 uppercase tracking-widest">
-                                                     管理員
-                                                 </span>
-                                             )}
                                         </div>
                                         {isEditingName ? (
-                                            <div className="flex items-center gap-2">
-                                                <Input
-                                                    value={newName}
-                                                    maxLength={10}
-                                                    onChange={(e) => setNewName(e.target.value)}
-                                                    className="h-9 bg-slate-950/50 border-slate-700 text-white font-black"
-                                                    placeholder="輸入新暱稱 (最多10字)"
-                                                    autoFocus
-                                                />
-                                                <button 
-                                                    onClick={handleSaveName}
-                                                    disabled={isSaving}
-                                                    className="p-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-400 transition-colors"
-                                                >
-                                                    <Check size={16} />
-                                                </button>
-                                                <button 
-                                                    onClick={() => { setIsEditingName(false); setNewName(user.name); }}
-                                                    className="p-2 bg-slate-800 text-slate-400 rounded-lg hover:bg-slate-700 transition-colors"
-                                                >
-                                                    <X size={16} />
-                                                </button>
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        value={newName}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            // 排除注音符號後的有效長度
+                                                            const effectiveVal = val.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '');
+                                                            // 無論中英文，上限統一為 8 字
+                                                            const max = 8;
+                                                            if (effectiveVal.length <= max) {
+                                                                setNewName(val);
+                                                            }
+                                                        }}
+                                                        className="h-10 bg-slate-950/50 border-slate-700 text-white font-black text-lg w-full max-w-[200px]"
+                                                        placeholder="輸入暱稱"
+                                                        autoFocus
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button 
+                                                        onClick={handleSaveName}
+                                                        disabled={isSaving}
+                                                        className="flex-1 flex items-center justify-center gap-2 py-2 bg-emerald-500 text-white text-sm font-black rounded-xl hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/20"
+                                                    >
+                                                        {isSaving ? (
+                                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                        ) : (
+                                                            <>
+                                                                <Check size={16} />
+                                                                <span>儲存</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => { setIsEditingName(false); setNewName(user.name); }}
+                                                        className="px-4 py-2 bg-slate-800 text-slate-400 text-sm font-black rounded-xl hover:bg-slate-700 hover:text-white transition-colors"
+                                                    >
+                                                        取消
+                                                    </button>
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <h2 className="text-2xl font-black text-white tracking-tight">{user.name}</h2>
                                                     <button 
                                                         onClick={() => setIsEditingName(true)}
-                                                        className="p-1.5 text-slate-500 hover:text-amber-500 transition-colors rounded-lg hover:bg-amber-500/10"
+                                                        className="p-1.5 bg-slate-800 text-slate-400 rounded-lg hover:bg-slate-700 hover:text-white transition-all group"
                                                     >
-                                                        <Edit3 size={16} />
+                                                        <Edit3 size={14} className="group-hover:scale-110 transition-transform" />
                                                     </button>
+                                                    <h2 className="text-xl font-black text-white tracking-tight">{user.name}</h2>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
                                                     <Calendar size={10} className="text-slate-600" />
@@ -296,17 +357,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1.5 text-slate-500 text-[10px] font-bold uppercase tracking-widest">
-                                <button 
-                                    onClick={handleCopyId}
-                                    className={`p-1 rounded-md transition-all ${copied ? 'bg-emerald-500/20 text-emerald-400' : 'hover:bg-slate-800 text-slate-600 hover:text-slate-400'}`}
-                                    title="複製 ID"
-                                >
-                                    {copied ? <Check size={12} /> : <Copy size={12} />}
-                                </button>
-                                <span>ID：{user.uid}</span>
-                                {copied && <span className="text-[8px] text-emerald-500 animate-in fade-in slide-in-from-left-1">已複製！</span>}
-                            </div>
+                            <div className="relative flex items-center gap-1.5 text-slate-500 text-[10px] font-bold uppercase tracking-widest overflow-hidden">
+                                 <button 
+                                     onClick={handleCopyId}
+                                     className={`flex-shrink-0 p-1 rounded-md transition-all ${copied ? 'bg-emerald-500/20 text-emerald-400' : 'hover:bg-slate-800 text-slate-600 hover:text-slate-400'}`}
+                                     title="複製 UID"
+                                 >
+                                     {copied ? <Check size={12} /> : <Copy size={12} />}
+                                 </button>
+                                 <span className="text-slate-500 transition-colors whitespace-nowrap overflow-x-auto no-scrollbar scroll-smooth">
+                                     UID：{user.uid}
+                                 </span>
+                                 {copied && (
+                                     <span className="absolute left-8 px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] rounded shadow-sm animate-in fade-in zoom-in duration-200">
+                                         已複製！
+                                     </span>
+                                 )}
+                             </div>
                         </div>
                     </div>
 

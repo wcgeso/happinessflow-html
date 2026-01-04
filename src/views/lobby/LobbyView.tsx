@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useGame } from '../../context/GameContext';
-import { useAuth, getUserTitle } from '../../context/AuthContext';
-import { LogOut, Award, Play, History, BookOpen, Mail, Users, Scan } from 'lucide-react';
-import { ProfileModal, TutorialModal, LetterToPlayersModal, avatarOptions, CreateRoomModal, QRScannerModal } from '../../components/modals';
+import { useAuth, getUserTitle, getCoachBadge, getPlayerBadge, getTitleColor, getAvatarBorderStyle, getBadgeGlowStyle } from '../../context/AuthContext';
+import { LogOut, Award, Play, History, BookOpen, Mail, Users } from 'lucide-react';
+import { ProfileModal, TutorialModal, LetterToPlayersModal, avatarOptions, CreateRoomModal } from '../../components/modals';
 import { RoomView } from './RoomView';
 import { CoachDashboard } from './CoachDashboard';
 import { VERSION_DISPLAY, IS_DEV_VERSION } from '../../constants/version';
@@ -29,41 +29,6 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [showScanner, setShowScanner] = useState(false);
-
-  // 處理 QR Code 掃描成功
-  const handleScanSuccess = async (decodedText: string) => {
-    setShowScanner(false);
-    
-    // 解析 URL 獲取房間碼，例如: http://localhost:5173/?room=123456
-    let roomCode = decodedText;
-    try {
-      if (decodedText.includes('?room=')) {
-        const url = new URL(decodedText);
-        roomCode = url.searchParams.get('room') || decodedText;
-      }
-    } catch (e) {
-      // 如果不是有效的 URL，就直接使用原始文字
-    }
-
-    // 清理房間碼 (只保留數字)
-    roomCode = roomCode.replace(/\D/g, '').slice(0, 6);
-    
-    if (roomCode.length === 6) {
-      setRoomCodeInput(roomCode);
-      setIsJoiningRoom(true);
-      setJoinError(null);
-      try {
-        await joinRoom(roomCode);
-      } catch (err: any) {
-        setJoinError(err.message);
-      } finally {
-        setIsJoiningRoom(false);
-      }
-    } else {
-      setJoinError('無效的房間碼');
-    }
-  };
 
   // 處理 QR Code 房間碼自動加入
   React.useEffect(() => {
@@ -89,12 +54,13 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
 
   const handleCreateRoom = async (settings: { name: string; maxPlayers: number; duration: number }) => {
     try {
-      // 這裡可以將 settings 傳給 createRoom，如果後端有支援
-      await createRoom();
+      await createRoom(settings);
       setShowCreateRoomModal(false);
       setShowRoomView(true);
     } catch (err: any) {
       console.error('Create room error:', err);
+      // 重新拋出錯誤，讓 CreateRoomModal 捕捉並顯示
+      throw err;
     }
   };
 
@@ -165,7 +131,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
     };
   }, [gameHistory]);
 
-  if (showRoomView || room) {
+  if (showRoomView || (room && room.status === 'waiting')) {
     return (
       <div className="h-[100dvh] bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none">
         <RoomView onBack={() => setShowRoomView(false)} />
@@ -185,23 +151,25 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
       <div className="relative z-10 px-6 py-4 h-20 flex justify-between items-center border-b border-slate-800/50 backdrop-blur-sm bg-slate-950/50 shrink-0">
         <div className="flex items-center gap-4">
           <div
-            className="w-12 h-12 rounded-full bg-slate-900 border-2 border-yellow-500/50 flex items-center justify-center cursor-pointer hover:border-yellow-400 hover:shadow-[0_0_15px_rgba(234,179,8,0.3)] transition-all group overflow-hidden"
+            className={`w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center cursor-pointer hover:shadow-[0_0_15px_rgba(234,179,8,0.3)] transition-all group overflow-hidden ${getAvatarBorderStyle(user)}`}
             onClick={() => setShowProfileModal(true)}
           >
             {userAvatar}
           </div>
           <div className="flex flex-col">
-             <div className="flex items-center gap-2 mb-1">
-               <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wider shadow-sm ${
-                 user?.role === 'coach' 
-                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white' 
-                   : 'bg-slate-800 text-amber-500 border border-amber-500/20'
-               }`}>
+             <div className="flex items-center gap-2">
+               <h2 className="text-base font-black text-white leading-tight">{user?.name || '幸福拓荒者'}</h2>
+             </div>
+             <div className="flex items-center gap-2 mt-1">
+               <img 
+                 src={user?.role === 'coach' ? getCoachBadge(user) : getPlayerBadge(user)} 
+                 className={`w-7 h-7 object-contain ${getBadgeGlowStyle(user)}`} 
+                 alt=""
+                 onError={(e) => e.currentTarget.style.display = 'none'}
+               />
+               <span className={`text-[11px] font-black tracking-wider ${getTitleColor(user)}`}>
                  {getUserTitle(user)}
                </span>
-             </div>
-             <div className="flex items-center gap-2">
-               <h2 className="text-lg font-black text-white leading-tight">{user?.name || '幸福拓荒者'}</h2>
              </div>
           </div>
         </div>
@@ -216,7 +184,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
               }`}
             >
               <Users size={12} />
-              <span>{viewMode === 'coach' ? '玩家模式' : '執行師模式'}</span>
+              <span>{viewMode === 'player' ? '執行師' : '玩家'}</span>
             </button>
           )}
           <button 
@@ -235,12 +203,12 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
           {/* Logo Section - Common to both modes */}
           <div className="text-center">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight mb-2">
-              {viewMode === 'coach' ? '執行師後台' : '蜂富人生'}
+              {viewMode === 'coach' ? '蜂富執行師' : '蜂富人生'}
             </h1>
             <div className="flex items-center justify-center gap-2 mb-3">
               <div className="h-[1px] w-5 bg-gradient-to-r from-transparent to-amber-500/40"></div>
               <span className="text-amber-500/80 font-bold tracking-[0.25em] text-[10px] md:text-xs uppercase">
-                {viewMode === 'coach' ? 'Coach Management' : 'Happiness Flow'}
+                Happiness Flow
               </span>
               <div className="h-[1px] w-5 bg-gradient-to-l from-transparent to-amber-500/40"></div>
             </div>
@@ -275,9 +243,15 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
               {/* Main Actions Container */}
               <div className="flex flex-col gap-3 md:gap-4">
                 {/* Primary Action: Continue Game */}
-                {gameState.isSetup && (
+                {(gameState.isSetup || room?.status === 'waiting' || room?.status === 'playing') && room && (
                   <button 
-                    onClick={onResumeGame} 
+                    onClick={() => {
+                      if (room.status === 'waiting') {
+                        setShowRoomView(true);
+                      } else {
+                        onResumeGame();
+                      }
+                    }} 
                     className="group relative p-1 overflow-hidden rounded-2xl transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl shadow-emerald-500/20"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 via-teal-400 to-emerald-600 animate-gradient-x" />
@@ -297,7 +271,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
                 )}
 
                 {/* Main Action Area - Player Only: Join Room */}
-                {!gameState.isSetup && (
+                {(!gameState.isSetup || room?.status !== 'playing') && (
                   <div className="bg-slate-900/50 p-4 rounded-3xl border border-white/5 backdrop-blur-xl">
                     <div className="flex gap-2 h-14">
                       <div className="flex-[2] relative">
@@ -318,19 +292,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
                       <button 
                         onClick={handleJoinRoom}
                         disabled={roomCodeInput.length !== 6 || isJoiningRoom}
-                        className="flex-1 h-full bg-gradient-to-r from-amber-500 to-yellow-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 text-black font-black text-sm rounded-xl transition-all active:scale-95 shadow-lg shadow-amber-500/10 flex items-center justify-center gap-1.5 px-2"
+                        className="flex-1 h-full bg-gradient-to-r from-amber-500 to-yellow-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 text-white font-black text-sm rounded-xl transition-all active:scale-95 shadow-lg shadow-amber-500/10 flex items-center justify-center px-2"
                       >
-                        <Play size={16} className="fill-black" />
                         <span>加入</span>
                       </button>
-
-                      <button 
-                      onClick={() => setShowScanner(true)}
-                      className="aspect-square h-full bg-slate-800 hover:bg-slate-700 text-white font-black rounded-xl transition-all active:scale-95 border border-slate-700 flex items-center justify-center shadow-lg"
-                      title="掃碼"
-                    >
-                      <Scan size={18} />
-                    </button>
                     </div>
 
                     {joinError && (
@@ -447,13 +412,6 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onLogout, onCreateReport, 
         />
       )}
 
-      {showScanner && (
-        <QRScannerModal
-          isOpen={showScanner}
-          onClose={() => setShowScanner(false)}
-          onScanSuccess={handleScanSuccess}
-        />
-      )}
 
       {showTutorialModal && (
         <TutorialModal
