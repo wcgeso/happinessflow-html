@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Users, Clock, Gamepad2, Calendar } from 'lucide-react';
+import { X, Users, Clock, Gamepad2, Calendar, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/ui';
 
 interface CreateRoomModalProps {
@@ -27,7 +27,12 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
         setIsSubmitting(true);
         setError(null);
         try {
-            await onCreate({ name: name.trim(), maxPlayers, duration });
+            const defaultNameFormat = `執行日記 ${new Date().toLocaleDateString('zh-TW')}`;
+            await onCreate({ 
+                name: name.trim() || defaultNameFormat, 
+                maxPlayers, 
+                duration 
+            });
         } catch (err: any) {
             setError(err.message || '建立房間失敗，請稍後再試');
             setIsSubmitting(false);
@@ -100,20 +105,20 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
                             </div>
                         </div>
 
-                        {/* Duration */}
+                        {/* Duration Selection */}
                         <div className="space-y-2">
                             <label className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                                 <Clock size={14} />
-                                遊玩時間
+                                遊戲時間
                             </label>
                             <div className="grid grid-cols-3 gap-2">
                                 {durations.map((d) => (
                                     <button
                                         key={d.value}
                                         onClick={() => setDuration(d.value)}
-                                        className={`py-3 rounded-xl font-black text-xs transition-all ${
+                                        className={`py-3 px-1 rounded-xl font-black text-xs transition-all ${
                                             duration === d.value 
-                                            ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20 scale-105' 
+                                            ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20 scale-105' 
                                             : 'bg-slate-950 text-slate-500 border border-slate-800 hover:border-slate-700'
                                         }`}
                                     >
@@ -122,9 +127,10 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
                                 ))}
                             </div>
                         </div>
-                        
+
                         {error && (
-                            <div className="text-red-400 text-xs font-bold bg-red-400/10 p-3 rounded-xl border border-red-400/20 animate-shake">
+                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs font-bold flex items-center gap-2">
+                                <AlertCircle size={16} />
                                 {error}
                             </div>
                         )}
@@ -132,16 +138,9 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
                         <Button 
                             onClick={handleSubmit}
                             disabled={isSubmitting}
-                            className="w-full py-6 mt-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-black text-lg rounded-2xl shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full py-6 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-2xl shadow-xl shadow-amber-500/20 transition-all active:scale-[0.98] mt-4"
                         >
-                            {isSubmitting ? (
-                                <div className="flex items-center gap-2">
-                                    <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                                    <span>建立中...</span>
-                                </div>
-                            ) : (
-                                '確認建立'
-                            )}
+                            {isSubmitting ? '建立中...' : '開啟房間'}
                         </Button>
                     </div>
                 </div>

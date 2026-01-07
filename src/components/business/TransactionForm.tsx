@@ -46,6 +46,7 @@ interface TransactionFormProps {
   onCancel: () => void;
   onShowMarket?: () => void;
   onShowAlert?: (message: string, type: 'info' | 'error' | 'success', persist?: boolean) => void;
+  disabled?: boolean;
 }
 
 export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
@@ -77,7 +78,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
     onShowAlert: props.onShowAlert
   });
 
-  const { onCancel, happiness = [], assets = [], liabilities = [], selectedEnterprise, selectedDream, cash, salary, marketPrices, previousMarketPrices } = props;
+  const { onCancel, happiness = [], assets = [], liabilities = [], selectedEnterprise, selectedDream, cash, salary, marketPrices, previousMarketPrices, disabled } = props;
 
   const handleCancel = () => {
     resetFormStates();
@@ -104,7 +105,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
             <button onClick={handleCancel} className="text-slate-400 hover:text-white transition-colors font-medium">取消</button>
           )}
         </div>
-        
+
         {phase === 1 && (
           <div className="px-4 pb-2 -mt-1.5">
             <div className="bg-slate-900/50 px-3 py-1.5 rounded-xl border border-slate-700/50 flex items-center justify-between">
@@ -123,7 +124,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
       <div className={`flex-1 ${phase === 3 ? 'overflow-hidden p-0' : 'overflow-y-auto p-6'} no-scrollbar`}>
         {phase === 1 && (
           <div className="space-y-6 max-w-2xl mx-auto animate-in fade-in duration-300">
-            <TransactionModeTabs currentMode={mode} onModeChange={setMode} />
+            <TransactionModeTabs currentMode={mode} onModeChange={setMode} disabled={disabled} />
 
             {mode === 'buy' && (
               <div className="space-y-6">
@@ -134,6 +135,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
                     currentType={assetType}
                     onTypeChange={setAssetType}
                     happiness={happiness}
+                    disabled={disabled}
                   />
                 </div>
 
@@ -151,11 +153,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
                       return (
                         <button
                           key={t}
-                          onClick={() => setAssetType(t as any)}
+                          onClick={() => !disabled && setAssetType(t as any)}
+                          disabled={disabled}
                           className={`relative py-3.5 rounded-xl border flex flex-col items-center justify-center transition-all overflow-hidden group shadow-lg ${isSelected
                             ? 'bg-gradient-to-br from-amber-500/20 to-orange-600/20 border-amber-500 shadow-amber-900/20'
                             : 'bg-slate-900 border-slate-700 hover:border-amber-500/40'
-                            } ${isAchieved ? 'opacity-40 grayscale-50' : ''}`}
+                            } ${isAchieved || disabled ? 'opacity-40 grayscale-50' : ''} ${disabled ? 'cursor-not-allowed' : ''}`}
                         >
                           <span className={`text-sm font-black tracking-widest uppercase ${isSelected ? 'text-amber-400' : 'text-slate-400 group-hover:text-amber-500/70'}`}>
                             {t}
@@ -176,12 +179,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
 
                 <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 space-y-4">
                   {assetType === '股票' && (
-                    <StockBuyForm 
-                      stockInputs={stockInputs} 
-                      setStockInputs={setStockInputs} 
-                      marketPrices={marketPrices} 
+                    <StockBuyForm
+                      stockInputs={stockInputs}
+                      setStockInputs={setStockInputs}
+                      marketPrices={marketPrices}
                       previousMarketPrices={previousMarketPrices}
-                      stockAssets={stockAssets} 
+                      stockAssets={stockAssets}
                       onShowMarket={props.onShowMarket}
                     />
                   )}
@@ -191,7 +194,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
                       reDownPayment={reDownPayment} setReDownPayment={setReDownPayment} reLoan={reLoan} setReLoan={setReLoan}
                       reInterest={reInterest} setReInterest={setReInterest} reIncome={reIncome} setReIncome={setReIncome}
                       reHouseType={reHouseType} setReHouseType={setReHouseType} bizSymbol={bizSymbol} setBizSymbol={setBizSymbol}
-                      bizCost={bizCost} setBizCost={setBizCost} bizLoan={bizLoan} setBizLoan={setBizLoan} 
+                      bizCost={bizCost} setBizCost={setBizCost} bizLoan={bizLoan} setBizLoan={setBizLoan}
                       bizInterest={bizInterest} setBizInterest={setBizInterest}
                       bizIncome={bizIncome} setBizIncome={setBizIncome}
                       cdAmount={cdAmount} setCdAmount={setCdAmount} aircraftCash={aircraftCash} setAircraftCash={setAircraftCash} aircraftLoan={aircraftLoan} setAircraftLoan={setAircraftLoan}
@@ -222,11 +225,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
 
             {mode === 'sell' && (
               <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 space-y-4">
-                <AssetTypeSelector 
-                  assetTypes={['股票', '不動產', '企業', '定存']} 
-                  currentType={sellCat} 
-                  onTypeChange={setSellCat} 
-                  happiness={happiness} 
+                <AssetTypeSelector
+                  assetTypes={['股票', '不動產', '企業', '定存']}
+                  currentType={sellCat}
+                  onTypeChange={setSellCat}
+                  happiness={happiness}
                   cols={4}
                 />
                 <SellForm
@@ -274,13 +277,16 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
               className="w-full py-4 text-lg font-black shadow-xl transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/30"
               onClick={handlePhase1Submit}
               disabled={
+                disabled ||
                 (assetType === '目標企業' && happiness.find(h => h.id === 'h_career')?.checked === true) ||
                 (assetType === '心儀夢想' && happiness.find(h => h.id === 'h_dream')?.checked === true)
               }
             >
-              {(assetType === '目標企業' && happiness.find(h => h.id === 'h_career')?.checked) || (assetType === '心儀夢想' && happiness.find(h => h.id === 'h_dream')?.checked)
-                ? '已達成，不可重複買入'
-                : '下一步：財務檢核'}
+              {disabled ? '遊戲已結算' : (
+                (assetType === '目標企業' && happiness.find(h => h.id === 'h_career')?.checked) || (assetType === '心儀夢想' && happiness.find(h => h.id === 'h_dream')?.checked)
+                  ? '已達成，不可重複買入'
+                  : '下一步：財務檢核'
+              )}
             </Button>
             {errorMessage && <div className="hidden"> <AlertCircle size={14} /> {errorMessage} </div>}
           </div>
@@ -306,7 +312,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
                 ) : mode === 'dividend' && divMode === 'stock' ? ['股票'] : [])
               ]}
               possibleItemsIncome={['租金收入', '企業收益', '定存利息']}
-              possibleItemsLiabilities={['信用貸款', '不動產貸款', '企業貸款', '飛行器貸款', ...liabilities.map(l => l.name)]}
+              possibleItemsLiabilities={['信用貸款', '不動產貸款', '企業貸款', '飛行器貸款']}
               possibleItemsExpenses={['信貸利息', '不動產貸款利息', '企業貸款利息', '飛行器貸款利息', '保險支出', '餐飲、服飾、居住類', '交通、教育、娛樂類', '其他、醫療、育兒類']}
               userEntries={userEntries}
               onToggle={toggleEntry}

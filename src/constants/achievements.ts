@@ -1,265 +1,105 @@
 import { Achievement } from '../types';
 
 export const ACHIEVEMENTS: Achievement[] = [
-  // 幸福指數相關
-  {
-    id: 'happy_30',
-    title: '幸福初體驗',
-    description: '第一次達成幸福指數 30 分',
-    category: 'happiness',
-    icon: 'Heart'
-  },
-  {
-    id: 'happy_60',
-    title: '幸福漸入佳境',
-    description: '達成幸福指數 60 分',
-    category: 'happiness',
-    icon: 'Heart'
-  },
-  {
-    id: 'happy_80',
-    title: '幸福滿溢',
-    description: '達成幸福指數 80 分',
-    category: 'happiness',
-    icon: 'Heart'
-  },
-  {
-    id: 'happy_100',
-    title: '幸福大滿貫',
-    description: '達成幸福指數 100 分',
-    category: 'happiness',
-    icon: 'Heart'
-  },
+  // --- 一、幸福類 (Happiness) - 15項 ---
+  { id: 'happy_30', title: '幸福初體驗', description: '單局幸福達 30', category: 'happiness', icon: 'Heart' },
+  { id: 'happy_60', title: '幸福漸入佳境', description: '單局幸福達 60', category: 'happiness', icon: 'Heart' },
+  { id: 'happy_80', title: '幸福滿溢', description: '單局幸福達 80', category: 'happiness', icon: 'Heart' },
+  { id: 'happy_100', title: '幸福大滿貫', description: '單局幸福達 100', category: 'happiness', icon: 'Trophy' },
+  { id: 'happy_total_500', title: '平凡的朝氣', description: '累計所有場次幸福總和達 500 分', category: 'happiness', icon: 'Sun' },
+  { id: 'happy_total_1000', title: '幸福傳遞者', description: '累計所有場次幸福總和達 1,000 分', category: 'happiness', icon: 'Sun' },
+  { id: 'happy_total_2000', title: '幸福之神', description: '累計所有場次幸福總和達 2,000 分', category: 'happiness', icon: 'Star' },
+  { id: 'contentment', title: '知足常樂', description: '在不購買任何「夢想」的情況下，單局幸福達 60', category: 'happiness', icon: 'Smile' },
+  { id: 'happy_duet', title: '幸福雙重奏', description: '同一局內同時完成「事業」與「夢想」，且幸福達 70 以上', category: 'happiness', icon: 'Music' },
+  { id: 'all_round_happy', title: '全心全意', description: '完成所有基礎幸福項目（約會、求婚、婚禮、孩子、自住房）', category: 'happiness', icon: 'CheckCircle' },
+  { id: 'perfect_balance', title: '幸福平衡點', description: '單局結算時，理財收入與總支出誤差於 500H 內', category: 'happiness', icon: 'Scale' },
+  { id: 'sunshine_in_adversity', title: '逆境中的陽光', description: '單局總負債超過 1000 萬且幸福指數達到 60 以上', category: 'happiness', icon: 'Sunrise' },
+  { id: 'family_glory', title: '家族榮耀', description: '擁有 2 個孩子後達成幸福 100', category: 'happiness', icon: 'Users' },
+  { id: 'ultimate_happiness', title: '至尊幸福', description: '勾選所有可用的幸福項目（含事業與夢想）', category: 'happiness', icon: 'Crown' },
 
-  // 資產與事件相關
-  {
-    id: 'first_aircraft',
-    title: '一飛衝天',
-    description: '第一次獲得飛行器',
-    category: 'asset',
-    icon: 'Plane'
-  },
-  {
-    id: 'repair_aircraft',
-    title: '飛行器維修員',
-    description: '第一次維修飛行器',
-    category: 'asset',
-    icon: 'Settings'
-  },
-  {
-    id: 'first_hospital',
-    title: '健康警訊',
-    description: '解鎖第一次住院',
-    category: 'event',
-    icon: 'PlusSquare'
-  },
-  {
-    id: 'hospital_5',
-    title: '醫院常客',
-    description: '住院累積滿 5 次',
-    category: 'event',
-    icon: 'PlusSquare'
-  },
+  // --- 二、財務類 (Finance) - 15項 ---
+  { id: 'finance_safe', title: '財務安全', description: '餘額>支出 且 有保險 且 (現金+定存) > 支出 6 倍', category: 'finance', icon: 'ShieldCheck' },
+  { id: 'finance_rich', title: '財務充裕', description: '持有資產類別 >= 3 種', category: 'finance', icon: 'Gem' },
+  { id: 'finance_free', title: '財務自由', description: '理財收入 > 總支出', category: 'finance', icon: 'Zap' },
+  { id: 'debt_free', title: '無債一身輕', description: '結算時所有貸款與負債總額為 0', category: 'finance', icon: 'CheckCircle' },
+  { id: 'passive_100k', title: '被動收入達人', description: '月理財收入超過 10 萬', category: 'finance', icon: 'TrendingUp' },
+  { id: 'cash_king_20m', title: '現金之王', description: '持有現金超過 2,000 萬', category: 'finance', icon: 'Coins' },
+  { id: 'reserve_master_12m', title: '預備金大師', description: '(現金+定存) > 每月總支出 12 倍', category: 'finance', icon: 'Wallet' },
+  { id: 'thrift_expert', title: '節流專家', description: '進行過 5 次以上減少利息或支出的交易', category: 'finance', icon: 'Scissors' },
+  { id: 'monthly_millionaire', title: '月領百萬', description: '每月結餘（Payday）超過 100 萬', category: 'finance', icon: 'DollarSign' },
+  { id: 'finance_tutor', title: '財務導師', description: '遊戲總結算評分獲得滿分 20 分', category: 'finance', icon: 'Award' },
+  { id: 'finance_pyramid', title: '理財金字塔', description: '同時持有 定存、股票、不動產、事業 四類資產', category: 'finance', icon: 'Layers' },
+  { id: 'first_million', title: '第一桶金', description: '淨資產（資產 - 負債）突破 100 萬', category: 'finance', icon: 'PiggyBank' },
+  { id: 'billionaire', title: '億萬富翁', description: '總資產突破 1 億', category: 'finance', icon: 'BaggageClaim' },
+  { id: 'compound_power', title: '複利的力量', description: '單筆股票分紅超過 10 萬', category: 'finance', icon: 'LineChart' },
+  { id: 'investment_winner', title: '投資獲利者', description: '單筆資產賣出獲利率超過 200%', category: 'finance', icon: 'ArrowUpRight' },
 
-  // 夢想相關
-  {
-    id: 'first_dream',
-    title: '夢想起飛',
-    description: '第一次完成夢想',
-    category: 'dream',
-    icon: 'Cloud'
-  },
-  {
-    id: 'dreams_3',
-    title: '夢想收藏家 (初級)',
-    description: '累積完成 3 項夢想',
-    category: 'dream',
-    icon: 'Cloud'
-  },
-  {
-    id: 'dreams_6',
-    title: '夢想收藏家 (中級)',
-    description: '累積完成 6 項夢想',
-    category: 'dream',
-    icon: 'Cloud'
-  },
-  {
-    id: 'dreams_10',
-    title: '夢想收藏家 (高級)',
-    description: '累積完成 10 項夢想',
-    category: 'dream',
-    icon: 'Cloud'
-  },
+  // --- 三、事業類 (Career) - 15項 ---
+  { id: 'first_career', title: '事業有成', description: '完成第 1 個事業', category: 'career', icon: 'Briefcase' },
+  { id: 'careers_3', title: '事業大亨 (初級)', description: '累積完成 3 項事業', category: 'career', icon: 'Briefcase' },
+  { id: 'careers_6', title: '事業大亨 (中級)', description: '累積完成 6 項事業', category: 'career', icon: 'Briefcase' },
+  { id: 'careers_10', title: '事業大亨 (高級)', description: '累積完成 10 項事業', category: 'career', icon: 'Briefcase' },
+  { id: 'career_mania_3', title: '事業狂熱', description: '累積購買過 3 間企業代號', category: 'career', icon: 'Building' },
+  { id: 'midas_touch', title: '點石成金', description: '事業產生的收入佔總收入 50% 以上', category: 'career', icon: 'Sparkles' },
+  { id: 'biz_upgrade', title: '企業優化', description: '進行過事業升級 (Upgrade)', category: 'career', icon: 'ArrowUpCircle' },
+  { id: 'career_successor', title: '事業繼承者', description: '職業等級達 5 級且持有 1 個事業成就', category: 'career', icon: 'UserCheck' },
+  { id: 'honorary_chairman_6', title: '名譽主席', description: '累積購買過 6 間企業代號', category: 'career', icon: 'Landmark' },
+  { id: 'chain_empire', title: '連鎖帝國', description: '同時持有 3 個相同類型（優質企業）的事業', category: 'career', icon: 'Boxes' },
+  { id: 'entrepreneur_spirit', title: '企業家精神', description: '持有 2 個以上事業，且事業總收入 > 工作薪資', category: 'career', icon: 'Lightbulb' },
+  { id: 'slash_boss', title: '斜槓老闆', description: '在職業等級 5 級之後才購買事業成就', category: 'career', icon: 'Medal' },
+  { id: 'industry_navigator', title: '產業領航員', description: '累積擁有過 20 項不同的事業項目', category: 'career', icon: 'Compass' },
 
-  // 事業相關
-  {
-    id: 'first_career',
-    title: '事業有成',
-    description: '第一次完成事業',
-    category: 'career',
-    icon: 'Briefcase'
-  },
-  {
-    id: 'careers_3',
-    title: '事業大亨 (初級)',
-    description: '累積完成 3 項事業',
-    category: 'career',
-    icon: 'Briefcase'
-  },
-  {
-    id: 'careers_6',
-    title: '事業大亨 (中級)',
-    description: '累積完成 6 項事業',
-    category: 'career',
-    icon: 'Briefcase'
-  },
-  {
-    id: 'careers_10',
-    title: '事業大亨 (高級)',
-    description: '累積完成 10 項事業',
-    category: 'career',
-    icon: 'Briefcase'
-  },
+  // --- 四、夢想類 (Dream) - 15項 ---
+  { id: 'first_dream', title: '夢想起飛', description: '完成第 1 個夢想', category: 'dream', icon: 'Cloud' },
+  { id: 'dreams_3', title: '夢想收藏家 (初級)', description: '累積完成 3 項夢想', category: 'dream', icon: 'Cloud' },
+  { id: 'dreams_6', title: '夢想收藏家 (中級)', description: '累積完成 6 項夢想', category: 'dream', icon: 'Cloud' },
+  { id: 'dreams_10', title: '夢想收藏家 (高級)', description: '累積完成 10 項夢想', category: 'dream', icon: 'Cloud' },
+  { id: 'dream_helper', title: '夢想資助者', description: '同時完成「心儀夢想」與「事業成就」', category: 'dream', icon: 'Handshake' },
+  { id: 'world_tour', title: '環遊世界', description: '完成「環遊世界」系列夢想項目', category: 'dream', icon: 'Globe' },
+  { id: 'dream_ambassador', title: '圓夢大使', description: '單局內完成 1 個夢想且持有 3 種以上不同資產類別', category: 'dream', icon: 'Star' },
+  { id: 'wealth_dream', title: '財富與夢想', description: '在達成財務自由（勝利）之後才購買夢想', category: 'dream', icon: 'Zap' },
+  { id: 'luxury_dream', title: '頂級奢華', description: '完成 1 億元級別的最高價值夢想（D03）', category: 'dream', icon: 'Gem' },
+  { id: 'soul_guardian', title: '心靈守護者', description: '完成所有成長/公益項目 (D01, D03, D04, D07, D08)', category: 'dream', icon: 'Heart' },
+  { id: 'dream_builder_10m', title: '築夢大師', description: '在大廳現金超過 1,000 萬時完成夢想', category: 'dream', icon: 'Hammer' },
+  { id: 'debt_free_dreams', title: '無負擔圓夢', description: '在沒有任何貸款的情況下完成夢想', category: 'dream', icon: 'Check' },
+  { id: 'soul_billionaire', title: '心靈富翁', description: '結算時幸福項目勾選數超過總項目的一半', category: 'dream', icon: 'Smile' },
 
-  // 職業等級相關
-  {
-    id: 'rank_3',
-    title: '三星達人',
-    description: '達成三星職業等級',
-    category: 'gameplay',
-    icon: 'Star'
-  },
-  {
-    id: 'rank_5',
-    title: '五星傳奇',
-    description: '達成五星職業等級',
-    category: 'gameplay',
-    icon: 'Trophy'
-  },
+  // --- 五、資產類 (Asset) - 15項 ---
+  { id: 'first_aircraft', title: '一飛衝天', description: '獲得飛行器', category: 'asset', icon: 'Plane' },
+  { id: 'repair_aircraft', title: '飛行器維修員', description: '曾進行維修飛行器交易項目', category: 'asset', icon: 'Settings' },
+  { id: 'first_house', title: '首購族', description: '獲得第 1 間房產', category: 'asset', icon: 'Home' },
+  { id: 'luxury_house_2', title: '豪宅主人', description: '同時持有 2 間「五室三廳」豪華住宅房產', category: 'asset', icon: 'Building' },
+  { id: 'landlord_5', title: '大地主', description: '單局內同時持有不動產超過 5 間', category: 'asset', icon: 'Map' },
+  { id: 'rent_king', title: '包租公/婆', description: '房租收入超過工作基本工資', category: 'asset', icon: 'Key' },
+  { id: 'asset_allocator', title: '資產配置大師', description: '同時持有 股票/不動產/企業/保險/定存/飛行器 6 種資產', category: 'asset', icon: 'PieChart' },
+  { id: 'deposit_5m', title: '定存族', description: '持有定存總額超過 500 萬', category: 'asset', icon: 'Banknote' },
+  { id: 'invest_pro_40m', title: '投資奇才', description: '賣出股票總獲利超過 3,000 萬', category: 'asset', icon: 'BarChart' },
+  { id: 'risk_manager', title: '風險管理師', description: '單局同時持有 3 種不同的保險項目', category: 'asset', icon: 'Shield' },
+  { id: 'all_round_investor', title: '全能投資人', description: '單局交易過所有不同類型的資產項目', category: 'asset', icon: 'Award' },
 
-  // 遊玩場次相關
-  {
-    id: 'first_play',
-    title: '首場紀念',
-    description: '第一次完成遊戲',
-    category: 'gameplay',
-    icon: 'Play'
-  },
-  {
-    id: 'plays_5',
-    title: '遊戲愛好者',
-    description: '累積遊玩滿 5 場',
-    category: 'gameplay',
-    icon: 'Play'
-  },
-  {
-    id: 'plays_10',
-    title: '資深玩家',
-    description: '累積遊玩滿 10 場',
-    category: 'gameplay',
-    icon: 'Play'
-  },
-  {
-    id: 'plays_20',
-    title: '幸福大師',
-    description: '累積遊玩滿 20 場',
-    category: 'gameplay',
-    icon: 'Play'
-  },
+  // --- 六、事件類 (Event) - 13項 ---
+  { id: 'first_hospital', title: '健康警訊', description: '解鎖第一次住院', category: 'event', icon: 'PlusSquare' },
+  { id: 'hospital_5', title: '醫院常客', description: '住院累積滿 5 次', category: 'event', icon: 'PlusSquare' },
+  { id: 'marriage', title: '步入禮堂', description: '第一次在遊戲中結婚', category: 'event', icon: 'Heart' },
+  { id: 'first_child', title: '新生命到來', description: '第一次獲得孩子', category: 'event', icon: 'Baby' },
+  { id: 'multi_children_2', title: '多子多孫', description: '單局內擁有 2 個孩子', category: 'event', icon: 'Baby' },
+  { id: 'rebirth', title: '逆境重生', description: '月結餘曾為負值，但最後達成財務自由', category: 'event', icon: 'Zap' },
+  { id: 'lucky_koi', title: '好運錦鯉', description: '單局內沒有發生任何支出類負面事件', category: 'event', icon: 'Sparkles' },
+  { id: 'insurance_guardian', title: '保險守護', description: '第一次領取保險', category: 'event', icon: 'ShieldCheck' },
+  { id: 'promotion_pro', title: '加薪高手', description: '單局晉升或加薪次數達到 5 次', category: 'event', icon: 'TrendingUp' },
+  { id: 'fate_god_100', title: '命運主宰 (鑽石)', description: '累積遭遇過 100 次突發事件', category: 'event', icon: 'Infinity' },
 
-  // 職業蒐集相關
-  {
-    id: 'professions_3',
-    title: '斜槓青年',
-    description: '累積體驗過 3 種職業',
-    category: 'gameplay',
-    icon: 'Users'
-  },
-  {
-    id: 'professions_6',
-    title: '職業通才',
-    description: '累積體驗過 6 種職業',
-    category: 'gameplay',
-    icon: 'Users'
-  },
-  {
-    id: 'professions_10',
-    title: '全能專家',
-    description: '累積體驗過 10 種職業',
-    category: 'gameplay',
-    icon: 'Users'
-  },
-
-  // 財務階段相關
-  {
-    id: 'finance_safe',
-    title: '財務安全',
-    description: '第一次達到財務安全階段',
-    category: 'finance',
-    icon: 'ShieldCheck'
-  },
-  {
-    id: 'finance_rich',
-    title: '財務充裕',
-    description: '第一次達到財務充裕階段',
-    category: 'finance',
-    icon: 'Gem'
-  },
-  {
-    id: 'finance_free',
-    title: '財務自由',
-    description: '第一次達到財務自由階段',
-    category: 'finance',
-    icon: 'Zap'
-  },
-  // 新增建議成就
-  {
-    id: 'marriage',
-    title: '步入禮堂',
-    description: '第一次在遊戲中結婚',
-    category: 'event',
-    icon: 'Heart'
-  },
-  {
-    id: 'first_child',
-    title: '新生命到來',
-    description: '第一次獲得孩子',
-    category: 'event',
-    icon: 'Baby'
-  },
-  {
-    id: 'first_house',
-    title: '首購族',
-    description: '第一次購入房產',
-    category: 'asset',
-    icon: 'Home'
-  },
-  {
-    id: 'luxury_house',
-    title: '豪宅主人',
-    description: '擁有價值超過 1000 萬的房產',
-    category: 'asset',
-    icon: 'Building'
-  },
-  {
-    id: 'debt_free',
-    title: '無債一身輕',
-    description: '償還所有貸款',
-    category: 'finance',
-    icon: 'CheckCircle'
-  },
-  {
-    id: 'passive_income_50k',
-    title: '被動收入達人',
-    description: '月被動收入超過 5 萬',
-    category: 'finance',
-    icon: 'TrendingUp'
-  },
-  {
-    id: 'five_blessings',
-    title: '五子登科',
-    description: '同時擁有房產、事業、孩子、飛行器與財務自由',
-    category: 'gameplay',
-    icon: 'Trophy'
-  }
+  // --- 七、遊玩類 (Gameplay) - 12項 ---
+  { id: 'first_play', title: '首場紀念', description: '第一次完成遊戲', category: 'gameplay', icon: 'Play' },
+  { id: 'plays_5', title: '遊戲愛好者', description: '累積遊玩滿 5 場', category: 'gameplay', icon: 'Play' },
+  { id: 'plays_10', title: '資深玩家', description: '累積遊玩滿 10 場', category: 'gameplay', icon: 'Play' },
+  { id: 'plays_20', title: '幸福大師', description: '累積遊玩滿 20 場', category: 'gameplay', icon: 'Play' },
+  { id: 'professions_3', title: '斜槓青年', description: '累積體驗過 3 種職業', category: 'gameplay', icon: 'Users' },
+  { id: 'professions_6', title: '職業通才', description: '累積體驗過 6 種職業', category: 'gameplay', icon: 'Users' },
+  { id: 'professions_10', title: '全能專家', description: '累積體驗過 10 種職業', category: 'gameplay', icon: 'Users' },
+  { id: 'rank_3', title: '三星達人', description: '達成三星職業等級', category: 'gameplay', icon: 'Star' },
+  { id: 'rank_5', title: '五星傳奇', description: '達成五星職業等級', category: 'gameplay', icon: 'Trophy' },
+  { id: 'five_blessings', title: '五子登科', description: '房/子/事業/飛機/財務自由 同時達成', category: 'gameplay', icon: 'Trophy' },
+  { id: 'all_professions_win', title: '全職業大滿貫', description: '所有現有職業都曾達成過財務自由勝利', category: 'gameplay', icon: 'Crown' },
+  { id: 'perfect_life', title: '完美人生', description: '單局達成幸福值 100 分、0 負債、完成夢想目標與事業成就，現金大於 3,000 萬', category: 'gameplay', icon: 'Heart' }
 ];

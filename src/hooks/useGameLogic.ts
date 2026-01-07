@@ -6,6 +6,8 @@ import { formatMoney } from '../utils/gameUtils';
 // Simple ID generator
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
+import { REAL_ESTATE_TYPES } from '../constants';
+
 export const useGameLogic = () => {
     const { gameState, setGameState, gameHistory, setGameHistory, summary, scoreResult, alertInfo, showAlert, hideAlert, saveGameRecord } = useGame();
 
@@ -53,10 +55,47 @@ export const useGameLogic = () => {
                             const loanName = `${details.type === '不動產' ? '不動產貸款' : details.type === '企業' ? '企業貸款' : '飛行器貸款'} (${details.symbol || ''})`.trim();
                             newState.liabilities = newState.liabilities.filter(l => l.name !== loanName);
                         }
+                        if (details.happyPoints) {
+                            const happyLabel = `買房自用 (${details.symbol || ''})`.trim();
+                            // Try to remove custom items or uncheck default items
+                            // Reverse logic needs matching label mapping too
+                            let baseLabel = REAL_ESTATE_TYPES[details.symbol || '']?.label || '自用住宅';
+                            if (baseLabel === '兩室一廳住宅') baseLabel = '兩室一廳';
+                            if (baseLabel === '三室二廳住宅') baseLabel = '三室兩廳';
+                            if (baseLabel === '五室三廳豪華住宅') baseLabel = '五室三廳';
+
+                            const customItems = newState.happiness.filter(h => h.label.startsWith(baseLabel) && h.isCustom);
+                            if (customItems.length > 0) {
+                                // Remove the last added custom item to behave like a stack
+                                const lastItem = customItems[customItems.length - 1];
+                                newState.happiness = newState.happiness.filter(h => h.id !== lastItem.id);
+                            } else {
+                                // If no custom items, check for base item and uncheck it
+                                const baseItem = newState.happiness.find(h => h.label === baseLabel);
+                                if (baseItem && baseItem.checked) {
+                                    newState.happiness = newState.happiness.map(h => h.id === baseItem.id ? { ...h, checked: false } : h);
+                                }
+                            }
+                        }
                     }
                 }
+
                 else if (data.usage === 'liability' && data.liabilityId) {
-                    if (data.liabilityId === 'bank_loan') {
+                    if (data.liabilityId === 'multiple_credit_loans' && data.repaidLiabilities) {
+                        data.repaidLiabilities.forEach((item: any) => {
+                            const existing = newState.liabilities.find(l => l.id === item.id);
+                            if (existing) {
+                                newState.liabilities = newState.liabilities.map(l =>
+                                    l.id === item.id ? { ...l, totalOwed: l.totalOwed + item.paid, monthlyPayment: Math.floor((l.totalOwed + item.paid) * 0.1) } : l
+                                );
+                            } else if (item.original) {
+                                newState.liabilities.push(item.original);
+                            }
+                        });
+                        if (data.repaidLegacyLoan) {
+                            newState.loans += data.repaidLegacyLoan;
+                        }
+                    } else if (data.liabilityId === 'bank_loan') {
                         newState.loans += (data.amount || 0);
                     } else {
                         newState.liabilities = newState.liabilities.map(l => {
@@ -86,22 +125,22 @@ export const useGameLogic = () => {
                 }
                 else if (data.usage === 'happiness_event' && data.happinessEventPayload) {
                     const { id, monthlyExpenseChange, expenseCategory } = data.happinessEventPayload;
-                    
+
                     // 1. Reverse monthly expense
                     if (monthlyExpenseChange) {
                         const cat = (expenseCategory as any) || 'otherMedicalChild';
                         const currentVal = newState.expenses[cat] || 0;
                         newState.expenses = { ...newState.expenses, [cat]: Math.max(0, currentVal - monthlyExpenseChange) };
                     }
-                    
+
                     // 2. Reverse completed list
                     newState.completedHappinessEvents = (newState.completedHappinessEvents || []).filter(eid => eid !== id);
-                    
+
                     // 3. Reverse children count if applicable
                     if (id === 'child1' || id === 'child2') {
                         newState.children = Math.max(0, (newState.children || 0) - 1);
                     }
-                    
+
                     // 4. Reverse happiness item
                     const mapping: Record<string, string> = {
                         'date': 'h_date',
@@ -190,10 +229,10 @@ export const useGameLogic = () => {
                                 const assetIdx = updatedAssets.findIndex(a => a.type === '股票' && a.name === `股票 (${symbol})`);
                                 if (assetIdx !== -1) {
                                     const asset = updatedAssets[assetIdx];
-                                    updatedAssets[assetIdx] = { 
-                                        ...asset, 
-                                        quantity: oldQty, 
-                                        cost: oldQty * (asset.lastPurchasePrice || 0) 
+                                    updatedAssets[assetIdx] = {
+                                        ...asset,
+                                        quantity: oldQty,
+                                        cost: oldQty * (asset.lastPurchasePrice || 0)
                                     };
                                 }
                             }
@@ -322,21 +361,21 @@ export const useGameLogic = () => {
                 } else if (data.assetDetails) {
                     const details = data.assetDetails;
                     const loanAmt = details.loanAmount || 0;
-                    
-                    // 企業類型的資產，其顯示價值（cost）應為投資總額（downPayment），不包含企業貸款
-      const assetCost = details.type === '企業' ? (details.downPayment || 0) : data.amount;
 
-      const newAsset: Asset = { 
-        id: generateId(), 
-        name: `${details.type} ${details.symbol || ''}`.trim(), 
-        cost: assetCost, 
-        downPayment: details.downPayment || 0, 
-        cashflow: details.cashflow || 0, 
-        type: details.type as any, 
-        isSelfUse: details.isSelfUse, 
-        houseType: details.houseType, 
-        isInsured: false 
-      };
+                    // 企業類型的資產，其顯示價值（cost）應為投資總額（downPayment），不包含企業貸款
+                    const assetCost = details.type === '企業' ? (details.downPayment || 0) : data.amount;
+
+                    const newAsset: Asset = {
+                        id: generateId(),
+                        name: `${details.type} ${details.symbol || ''}`.trim(),
+                        cost: assetCost,
+                        downPayment: details.downPayment || 0,
+                        cashflow: details.cashflow || 0,
+                        type: details.type as any,
+                        isSelfUse: details.isSelfUse,
+                        houseType: details.houseType,
+                        isInsured: false
+                    };
                     newState.assets = [...newState.assets, newAsset];
                     if (loanAmt > 0) {
                         const loanTypeMap: Record<string, '不動產貸款' | '企業貸款' | '飛行器貸款'> = { '不動產': '不動產貸款', '企業': '企業貸款', '飛行器': '飛行器貸款' };
@@ -345,20 +384,101 @@ export const useGameLogic = () => {
                             newState.liabilities = [...newState.liabilities, { id: generateId(), name: `${loanType} (${details.symbol || ''})`.trim(), totalOwed: loanAmt, monthlyPayment: details.loanInterest || 0, type: loanType }];
                         }
                     }
+
+
+
+
+                    if (details.happyPoints && details.happyPoints > 0) {
+                        // Determine the label used in the initial happiness list
+                        // REAL_ESTATE_TYPES has { type: '1room', label: '單間小套房' }
+                        // initialHappinessList has '單間小套房', '兩室一廳', '三室兩廳', '五室三廳'
+                        // We need to map the REAL_ESTATE_TYPES label to the initial list label if they differ slightly
+                        // 1room -> '單間小套房' (Match)
+                        // 2room -> '兩室一廳住宅' in constants vs '兩室一廳' in initial list
+                        // 3room -> '三室二廳住宅' in constants vs '三室兩廳' in initial list
+                        // 5room -> '五室三廳豪華住宅' in constants vs '五室三廳' in initial list
+
+                        let baseLabel = REAL_ESTATE_TYPES[details.symbol || '']?.label || '自用住宅';
+                        if (baseLabel === '兩室一廳住宅') baseLabel = '兩室一廳';
+                        if (baseLabel === '三室二廳住宅') baseLabel = '三室兩廳';
+                        if (baseLabel === '五室三廳豪華住宅') baseLabel = '五室三廳';
+
+                        // Check if the base item exists (e.g., "單間小套房")
+                        const existingBaseItemIndex = newState.happiness.findIndex(h => h.label === baseLabel);
+
+                        if (existingBaseItemIndex !== -1) {
+                            const item = newState.happiness[existingBaseItemIndex];
+                            if (!item.checked) {
+                                // If base item exists but not checked, verify it: this is the first house
+                                newState.happiness = newState.happiness.map((h, i) =>
+                                    i === existingBaseItemIndex ? { ...h, checked: true } : h
+                                );
+                            } else {
+                                // If base item is already checked, create a new item with index
+                                const existingCount = newState.happiness.filter(h => h.label.startsWith(baseLabel)).length;
+                                const nextIndex = existingCount + 1;
+                                const happyLabel = `${baseLabel} ${nextIndex}`; // "單間小套房 2"
+
+                                const newItem: HappinessItem = {
+                                    id: `h_re_selfuse_${Math.random().toString(36).substr(2, 9)}`,
+                                    label: happyLabel,
+                                    points: details.happyPoints,
+                                    checked: true,
+                                    isCustom: true,
+                                    parentId: 'h_house_self' // Nest it under the parent to look nice
+                                };
+                                newState.happiness = [...newState.happiness, newItem];
+                            }
+                        } else {
+                            // If base item doesn't exist at all (fallback), create "單間小套房"
+                            const newItem: HappinessItem = {
+                                id: `h_re_selfuse_${Math.random().toString(36).substr(2, 9)}`,
+                                label: baseLabel,
+                                points: details.happyPoints,
+                                checked: true,
+                                isCustom: true,
+                                parentId: 'h_house_self'
+                            };
+                            newState.happiness = [...newState.happiness, newItem];
+                        }
+                    }
                 }
             } else if (data.usage === 'liability' && data.liabilityId) {
-                if (data.liabilityId === 'bank_loan') { 
-                    newState.loans = Math.max(0, newState.loans - amount); 
-                } else { 
-                    newState.liabilities = newState.liabilities.map(l => { 
+                if (data.liabilityId === 'multiple_credit_loans') {
+                    let remaining = amount;
+                    const repaidList: { id: string, paid: number, original: any }[] = [];
+
+                    newState.liabilities = newState.liabilities.map(l => {
+                        if (l.type === '信用貸款' && remaining > 0) {
+                            const pay = Math.min(l.totalOwed, remaining);
+                            remaining -= pay;
+                            const newTotal = l.totalOwed - pay;
+                            repaidList.push({ id: l.id, paid: pay, original: { ...l } });
+                            return { ...l, totalOwed: newTotal, monthlyPayment: Math.floor(newTotal * 0.1) };
+                        }
+                        return l;
+                    }).filter(l => l.totalOwed > 0);
+
+                    if (remaining > 0 && newState.loans > 0) {
+                        const pay = Math.min(newState.loans, remaining);
+                        newState.loans -= pay;
+                        remaining -= pay;
+                        storageData.repaidLegacyLoan = pay;
+                    }
+
+                    storageData.repaidLiabilities = repaidList;
+                } else if (data.liabilityId === 'bank_loan') {
+                    newState.loans = Math.max(0, newState.loans - amount);
+                } else {
+                    newState.liabilities = newState.liabilities.map(l => {
                         if (l.id === data.liabilityId) {
                             const newTotal = Math.max(0, l.totalOwed - amount);
                             // 同步更新月支付金額（利息），維持 0.5% 或 10% 的比例
                             const newMonthly = l.type === '信用貸款' ? Math.floor(newTotal * 0.1) : Math.floor(newTotal * 0.005);
-                            return { ...l, totalOwed: newTotal, monthlyPayment: newMonthly }; 
+                            return { ...l, totalOwed: newTotal, monthlyPayment: newMonthly };
                         }
-                        return l; 
-                    }); 
+                        return l;
+                    });
                     // 如果還清了，移除該負債
                     newState.liabilities = newState.liabilities.filter(l => l.totalOwed > 0);
                 }
@@ -366,7 +486,7 @@ export const useGameLogic = () => {
                 newState.liabilities = [...newState.liabilities, { id: generateId(), name: '信用貸款', totalOwed: amount, monthlyPayment: Math.floor(amount * 0.1), type: '信用貸款' }];
             } else if (data.usage === 'happiness_event' && data.happinessEventPayload) {
                 const { id, name, points, monthlyExpenseChange } = data.happinessEventPayload;
-                
+
                 // Add to completed list
                 newState.completedHappinessEvents = [...(newState.completedHappinessEvents || []), id];
 
@@ -379,9 +499,9 @@ export const useGameLogic = () => {
                     'child2': 'h_child2'
                 };
                 const targetId = mapping[id];
-                
+
                 if (targetId && newState.happiness.some(h => h.id === targetId)) {
-                    newState.happiness = newState.happiness.map(h => 
+                    newState.happiness = newState.happiness.map(h =>
                         h.id === targetId ? { ...h, checked: true } : h
                     );
                 } else {
@@ -456,10 +576,10 @@ export const useGameLogic = () => {
                         } else {
                             storageData.relatedAssetPayload = assetToSell;
                             updatedAssets = updatedAssets.filter(a => a.id !== data.relatedAssetId);
-                            
+
                             const assetSymbol = assetToSell.name.split(' ').slice(1).join(' ');
                             const loanType = assetToSell.type === '不動產' ? '不動產貸款' : assetToSell.type === '企業' ? '企業貸款' : assetToSell.type === '飛行器' ? '飛行器貸款' : null;
-                            
+
                             if (loanType) {
                                 const loanName = `${loanType} (${assetSymbol})`.trim();
                                 const removedLiabilities = newState.liabilities.filter(l => l.name === loanName);
@@ -605,7 +725,7 @@ export const useGameLogic = () => {
         setGameState(prev => {
             const item = prev.happiness.find(h => h.id === id);
             if (!item) return prev;
-            
+
             const isNowChecked = checked !== undefined ? checked : !item.checked;
             if (item.checked === isNowChecked) return prev;
 
@@ -615,9 +735,9 @@ export const useGameLogic = () => {
             });
             const total = newHappiness.reduce((sum, h) => sum + (h.checked ? h.points : 0), 0);
 
-            return { 
-                ...prev, 
-                happiness: newHappiness, 
+            return {
+                ...prev,
+                happiness: newHappiness,
                 happinessTotal: total
             };
         });
@@ -627,9 +747,9 @@ export const useGameLogic = () => {
         setGameState(prev => {
             const newItem = { id: generateId(), label, points, checked: true, isCustom: true };
             const newHappiness = [...prev.happiness, newItem];
-            
-            return { 
-                ...prev, 
+
+            return {
+                ...prev,
                 happiness: newHappiness,
                 happinessTotal: newHappiness.reduce((sum, h) => sum + (h.checked ? h.points : 0), 0)
             };
@@ -639,7 +759,7 @@ export const useGameLogic = () => {
     const handleRemoveHappinessItem = (id: string) => {
         setGameState(prev => {
             const filteredHappiness = prev.happiness.filter(h => h.id !== id);
-            
+
             return {
                 ...prev,
                 happiness: filteredHappiness,
@@ -682,7 +802,7 @@ export const useGameLogic = () => {
             const asset = newState.assets[assetIdx];
             const symbolMatch = asset.name.match(/[A-Z]\d+/);
             const symbol = symbolMatch ? symbolMatch[0] : '';
-            
+
             // 1. Update Asset
             const oldIncome = asset.cashflow;
             const addedIncome = diceRoll * 10000;
@@ -691,7 +811,7 @@ export const useGameLogic = () => {
                 cashflow: oldIncome + addedIncome,
                 isUpgraded: true
             };
-            
+
             const updatedAssets = [...newState.assets];
             updatedAssets[assetIdx] = newAsset;
             newState.assets = updatedAssets;
@@ -774,9 +894,9 @@ export const useGameLogic = () => {
             };
 
             if (type === 'enhance_profession') {
-                newState.abilities = { 
-                    ...newState.abilities, 
-                    professionAbilityCount: (newState.abilities?.professionAbilityCount || 0) + 1 
+                newState.abilities = {
+                    ...newState.abilities,
+                    professionAbilityCount: (newState.abilities?.professionAbilityCount || 0) + 1
                 };
                 const currentLevel = prev.currentRankLevel;
                 const nextPromo = prev.profession?.promotions[currentLevel - 1];
@@ -791,9 +911,9 @@ export const useGameLogic = () => {
                     }
                 }
             } else if (type === 'stock_ability') {
-                newState.abilities = { 
-                    ...newState.abilities, 
-                    stockAbilityCount: (newState.abilities?.stockAbilityCount || 0) + 1 
+                newState.abilities = {
+                    ...newState.abilities,
+                    stockAbilityCount: (newState.abilities?.stockAbilityCount || 0) + 1
                 };
                 // 股票張數全部增加一倍
                 newState.assets = newState.assets.map(asset => {
@@ -808,9 +928,9 @@ export const useGameLogic = () => {
                     return asset;
                 });
             } else if (type === 'real_estate_ability') {
-                newState.abilities = { 
-                    ...newState.abilities, 
-                    realEstateAbilityCount: (newState.abilities?.realEstateAbilityCount || 0) + 1 
+                newState.abilities = {
+                    ...newState.abilities,
+                    realEstateAbilityCount: (newState.abilities?.realEstateAbilityCount || 0) + 1
                 };
                 // 不再直接修改現有資產的 cashflow，改由 GameContext 裡的 summary 動態計算
             }
@@ -844,7 +964,7 @@ export const useGameLogic = () => {
             newState.history = [...newState.history, newTx];
             return newState;
         });
-        
+
         if (showAlertMsg) {
             const messages: Record<string, string> = {
                 'enhance_profession': '職業能力已提升，職位晉升一級！',
@@ -858,16 +978,16 @@ export const useGameLogic = () => {
     const applyExamResult = (success: boolean, bonus: number, newTitle: string) => {
         setGameState(prev => {
             if (!prev.profession) return prev;
-            
-            const updatedProfession = success 
+
+            const updatedProfession = success
                 ? { ...prev.profession, salary: prev.profession.salary + bonus }
                 : prev.profession;
-            
-            const newState = { 
-                ...prev, 
-                profession: updatedProfession, 
-                currentRankLevel: success ? prev.currentRankLevel + 1 : prev.currentRankLevel, 
-                currentRankTitle: success ? newTitle : prev.currentRankTitle 
+
+            const newState = {
+                ...prev,
+                profession: updatedProfession,
+                currentRankLevel: success ? prev.currentRankLevel + 1 : prev.currentRankLevel,
+                currentRankTitle: success ? newTitle : prev.currentRankTitle
             };
 
             const newTx: Transaction = {
@@ -892,7 +1012,7 @@ export const useGameLogic = () => {
                 }),
                 flowType: '其它'
             };
-            
+
             newState.history = [...newState.history, newTx];
             return newState;
         });
@@ -901,7 +1021,7 @@ export const useGameLogic = () => {
     const handleFinishGame = async (meta: { playerName: string }) => {
         // 限制歷史紀錄長度，避免超過 Firestore 1MB 限制
         const optimizedHistory = gameState.history.slice(0, 100);
-        
+
         const record: GameRecord = {
             id: generateId(),
             date: new Date().toISOString(),

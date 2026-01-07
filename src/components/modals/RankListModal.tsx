@@ -10,6 +10,7 @@ interface RankListModalProps {
     onShowPromotion: () => void;
     onShowLifelong: () => void;
     currentRankLevel: number;
+    disabled?: boolean;
 }
 
 export const RankListModal: React.FC<RankListModalProps> = ({ 
@@ -18,7 +19,8 @@ export const RankListModal: React.FC<RankListModalProps> = ({
     onClose,
     onShowPromotion,
     onShowLifelong,
-    currentRankLevel
+    currentRankLevel,
+    disabled = false
 }) => {
     if (!profession) return null;
 
@@ -84,43 +86,47 @@ export const RankListModal: React.FC<RankListModalProps> = ({
                     })}
                 </div>
 
-                <div className="space-y-3">
-                    {canPromote ? (
-                        <>
+                {!disabled && (
+                    <div className="space-y-3">
+                        {canPromote ? (
+                            <>
+                                <Button 
+                                    onClick={() => {
+                                        onClose();
+                                        onShowPromotion();
+                                    }}
+                                    className="w-full py-4 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 transition-all active:scale-95"
+                                >
+                                    <GraduationCap size={18} />
+                                    參加升等考試
+                                </Button>
+                                <Button 
+                                    variant="secondary"
+                                    onClick={() => {
+                                        onClose();
+                                        onShowLifelong();
+                                    }}
+                                    className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+                                >
+                                    <GraduationCap size={18} />
+                                    終身學習
+                                </Button>
+                            </>
+                        ) : (
                             <Button 
-                                onClick={() => {
-                                    onClose();
-                                    onShowPromotion();
-                                }}
-                                className="w-full py-4 bg-amber-600 hover:bg-amber-500 text-white font-black rounded-xl shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 transition-all active:scale-95"
-                            >
-                                <GraduationCap size={18} />
-                                參加升等考試
-                            </Button>
-                            <Button 
+                                variant="secondary"
                                 onClick={() => {
                                     onClose();
                                     onShowLifelong();
                                 }}
-                                className="w-full py-4 bg-amber-700 hover:bg-amber-600 text-white font-black rounded-xl shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 transition-all active:scale-95"
+                                className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                             >
                                 <GraduationCap size={18} />
                                 終身學習
                             </Button>
-                        </>
-                    ) : (
-                        <Button 
-                            onClick={() => {
-                                onClose();
-                                onShowLifelong();
-                            }}
-                            className="w-full py-4 bg-amber-700 hover:bg-amber-600 text-white font-black rounded-xl shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2 transition-all active:scale-95"
-                        >
-                            <GraduationCap size={18} />
-                            終身學習
-                        </Button>
-                    )}
-                </div>
+                        )}
+                    </div>
+                )}
             </Card>
         </div>
     );

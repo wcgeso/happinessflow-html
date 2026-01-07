@@ -1,0 +1,90 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. GM 超級權限
+    // 只要是 GM 帳號，直接開放所有文件的讀寫權限
+    match /{document=**} {
+      allow read, write: if request.auth != null && request.auth.token.email == 'gm0221@happinessflow.com';
+    }
+    
+    // 2. 使用者資料規則
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && (
+        request.auth.uid == userId || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach'
+      );
+      
+      match /{allPaths=**} {
+        allow read, write: if request.auth != null && (
+          request.auth.uid == userId || 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach'
+        );
+      }
+    }
+    
+    // 3. 房間系統規則
+    match /rooms/{roomId} {
+      allow read, create: if request.auth != null;
+      allow delete: if request.auth != null && resource.data.hostId == request.auth.uid;
+      allow update: if request.auth != null;
+    }
+    
+    // 4. 遊戲記錄規則
+    match /score_records/S1/records/{recordId} {
+      // 允許玩家讀取包含自己 UID 的記錄，或允許執行師讀取所有記錄
+      allow read: if request.auth != null && (
+        request.auth.uid in resource.data.playerUids ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach'
+      );
+      
+      // 只有執行師可以寫入記錄（新增/修改遊戲記錄）
+      allow write: if request.auth != null && 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
+    }
+    
+    // 5. 執行師記錄規則
+    match /coach_records/{recordId} {
+      // 只有執行師可以讀寫
+      allow read, write: if request.auth != null && 
+                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
+    }
+    
+    // 6. 審計日誌規則
+    match /audit_logs/{logId} {
+      allow read: if request.auth != null && 
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
+      allow write: if request.auth != null;
+    }
+    
+    // 7. 排行榜規則
+    match /leaderboard/{document=**} {
+      // 所有已登入用戶都可以讀取排行榜
+      allow read: if request.auth != null;
+      
+      // 只有 title 為「管理員」的用戶可以寫入（新增/修改/刪除）排行榜
+      allow write: if request.auth != null && 
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.title == '管理員';
+    }
+
+    // 8. 好友系統規則 (解決您的 permission-denied錯誤)
+    match /friendships/{friendshipId} {
+      // 允許相關人員（請求者或接收者）讀取
+      allow read: if request.auth != null && (
+        resource.data.requesterId == request.auth.uid || 
+        resource.data.receiverId == request.auth.uid
+      );
+      
+      // 允許創建好友請求（請求者必須是當前用戶）
+      allow create: if request.auth != null && request.resource.data.requesterId == request.auth.uid;
+      
+      // 允許相關人員更新（例如接受請求）或刪除
+      allow update, delete: if request.auth != null && (
+        resource.data.requesterId == request.auth.uid || 
+        resource.data.receiverId == request.auth.uid
+      );
+    }
+  }
+}

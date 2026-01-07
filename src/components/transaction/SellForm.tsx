@@ -1,5 +1,5 @@
 import React from 'react';
-import { Asset, StockTransactionItem } from '../../types';
+import { Asset } from '../../types';
 import { Input, Button } from '../ui/ui';
 import { STOCK_NAMES } from '../../constants';
 import { TrendingUp } from 'lucide-react';
@@ -52,7 +52,7 @@ export const SellForm: React.FC<SellFormProps> = ({
                         <span className="text-center">賣出張數</span>
                     </div>
                     {filteredAssets.length > 0 ? filteredAssets.map(asset => {
-                        const symbol = asset.name.replace('股票 ', '');
+                        const symbol = asset.name.replace('股票 ', '').replace('(', '').replace(')', '').trim();
                         const currentPrice = marketPrices?.[symbol] || 0;
                         const prevPrice = previousMarketPrices?.[symbol] || 0;
                         const isRise = currentPrice > prevPrice;

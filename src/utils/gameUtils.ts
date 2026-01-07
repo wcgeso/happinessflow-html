@@ -8,57 +8,74 @@ export const calculateFinancialSummary = (gameState: GameState): FinancialSummar
     const income = gameState.income || {};
     const expenses = gameState.expenses || {};
 
+    // 1. 理財收入 (完全根據當前持有的資產動態計算)
     const passiveIncome = assets.reduce((sum, a) => {
-        let incomeVal = a.cashflow;
-        // 投資不動產的能力：所有出租房產租金 +10,000H * 能力次數
-        if (a.type === '不動產' && !a.isSelfUse && gameState.abilities?.realEstateAbilityCount > 0) {
+        let incomeVal = Number(a.cashflow) || 0;
+        // 投資不動產的能力加成
+        if (a.type === '不動產' && !a.isSelfUse && (gameState.abilities?.realEstateAbilityCount || 0) > 0) {
             incomeVal += 10000 * gameState.abilities.realEstateAbilityCount;
         }
         return sum + incomeVal;
     }, 0);
-    const dynamicIncome = Object.values(income).reduce((sum, v) => sum + (Number(v) || 0), 0);
+
+    // 2. 額外動態收入 (從 income 物件中抓取，但排除掉可能重複計算的部分)
+    const dynamicIncome = Object.entries(income).reduce((sum, [key, v]) => {
+        // 排除 salary 和 已經在 passiveIncome 算過的項目（標籤含 "收益", "租金" 等）
+        if (key === 'salary') return sum;
+        return sum + (Number(v) || 0);
+    }, 0);
+
     const totalIncome = (gameState.profession.salary || 0) + passiveIncome + dynamicIncome;
 
-    // Calculate interest from liabilities' monthlyPayment
+    // 3. 支出計算
+    // A. 負債利息
     const creditLoanInterest = (liabilities.filter(l => l.type === '信用貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0)) + ((gameState.loans || 0) * 0.1);
     const aircraftLoanInterest = liabilities.filter(l => l.type === '飛行器貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
     const businessLoanInterest = liabilities.filter(l => l.type === '企業貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
     const realEstateLoanInterest = liabilities.filter(l => l.type === '不動產貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
 
+    // B. 基礎支出 (職業設定 + 遊戲中發生的永久增加)
     const p = gameState.profession;
+    const taxExpense = Math.floor((p.salary || 0) * 0.05); // 所得稅 5%
 
-    // Calculate each expense category, combining professional base and user adjustments
-    // 所得稅務隨工作收入(salary)變動，比例為 5%
-    const taxExpense = Math.floor((p.salary || 0) * 0.05);
+    // 這裡要包含職業基礎支出 + gameState.expenses 中的動態增減
     const basicLivingTotal = Math.max(0, (p.expenses?.basicLiving || 0) + (Number(expenses.basicLiving) || 0));
     const transportEduTotal = Math.max(0, (p.expenses?.transportEdu || 0) + (Number(expenses.transportEdu) || 0));
     const otherMedicalChildTotal = Math.max(0, (p.expenses?.otherMedicalChild || 0) + (Number(expenses.otherMedicalChild) || 0));
 
+    // C. 職等加成支出
     const rankIncrease = Math.max(0, (gameState.currentRankLevel || 1) - 1);
-    const otherExpensesBonus = rankIncrease * 10000; // This bonus is specifically for otherMedicalChild
+    const rankExpenseBonus = rankIncrease * 10000;
 
-    const totalInsuranceCount = (gameState.medicalInsuranceCount || 0) + assets.filter(a => a.isInsured).length;
-    const insuranceCost = totalInsuranceCount * 2000;
+    // D. 保險費用 (每張 2000H)
+    const medicalInsuranceCount = gameState.medicalInsuranceCount || 0;
+    const houseInsuranceCount = assets.filter(a => a.type === '不動產' && a.isInsured).length;
+    // 飛行器保險 (若飛行器資產標註為已保險)
+    const aircraftInsuranceCount = assets.filter(a => (a.type as string) === '飛行器' && a.isInsured).length;
+    const insuranceCost = (medicalInsuranceCount + houseInsuranceCount + aircraftInsuranceCount) * 2000;
 
     const totalExpenses = taxExpense +
-                          basicLivingTotal +
-                          transportEduTotal +
-                          otherMedicalChildTotal +
-                          otherExpensesBonus +
-                          creditLoanInterest +
-                          aircraftLoanInterest +
-                          businessLoanInterest +
-                          realEstateLoanInterest +
-                          insuranceCost;
+        basicLivingTotal +
+        transportEduTotal +
+        otherMedicalChildTotal +
+        rankExpenseBonus +
+        creditLoanInterest +
+        aircraftLoanInterest +
+        businessLoanInterest +
+        realEstateLoanInterest +
+        insuranceCost;
 
     const totalAssets = assets.reduce((sum, a) => {
         if (a.type === '股票') {
-            const symbol = a.name.replace('股票 ', '');
+            const symMatch = a.name.match(/[A-Z]\d+/);
+            const symbol = symMatch ? symMatch[0] : a.name;
             const marketPrice = (gameState.marketPrices && gameState.marketPrices[symbol]) || a.lastPurchasePrice || 0;
             return sum + (a.quantity || 0) * marketPrice;
         }
-        return sum + a.cost;
-    }, 0) + (gameState.cash || 0);
+        return sum + (Number(a.cost) || 0);
+    }, 0) + (Number(gameState.cash) || 0);
+
+    const totalLiabilities = liabilities.reduce((sum, l) => sum + (Number(l.totalOwed) || 0), 0) + (Number(gameState.loans) || 0);
 
     return {
         totalIncome,
@@ -66,9 +83,35 @@ export const calculateFinancialSummary = (gameState: GameState): FinancialSummar
         monthlyCashflow: totalIncome - totalExpenses,
         passiveIncome,
         totalAssets,
-        totalLiabilities: liabilities.reduce((sum, l) => sum + (l.totalOwed || 0), 0) + (gameState.loans || 0),
+        totalLiabilities,
         payday: totalIncome - totalExpenses
     };
+};
+
+export const calculateScoreResult = (gameState: GameState, summary: FinancialSummary) => {
+    const h = gameState.happinessTotal || 0;
+    const reserve = (gameState.cash || 0) + (gameState.assets || []).filter(a => a.type === '定存').reduce((s, a) => s + (a.cost || 0), 0);
+    const isReserveOk = reserve > summary.totalExpenses;
+    const isInsured = (gameState.medicalInsuranceCount || 0) >= 1;
+    const isCashflowOk = summary.monthlyCashflow > 0;
+
+    const validInvestmentTypes = new Set(['股票', '不動產', '企業', '定存']);
+    const playerAssetTypes = new Set((gameState.assets || []).map(a => a.type).filter(t => validInvestmentTypes.has(t as string)));
+
+    const criteriaList = [
+        { label: '遊玩積分', points: 2, achieved: true },
+        { label: '幸福指數達 10', points: 1, achieved: h >= 10 },
+        { label: '幸福指數達 30', points: 1, achieved: h >= 30 },
+        { label: '幸福指數達 60', points: 2, achieved: h >= 60 },
+        { label: '幸福指數達 80', points: 3, achieved: h >= 80 },
+        { label: '幸福指數達 100', points: 5, achieved: h >= 100 },
+        { label: '達到財務安全 (預備金/保險/收支平衡)', points: 1, achieved: isReserveOk && isInsured && isCashflowOk },
+        { label: '達到財務寬裕 (擁有多種資產)', points: 2, achieved: playerAssetTypes.size >= 2 },
+        { label: '達到財務自由 (理財收入 > 總支出)', points: 3, achieved: summary.passiveIncome > summary.totalExpenses },
+    ];
+
+    const totalScore = criteriaList.reduce((sum, c) => sum + (c.achieved ? c.points : 0), 0);
+    return { totalScore, details: criteriaList };
 };
 
 export const formatMoney = (amount: number) => {

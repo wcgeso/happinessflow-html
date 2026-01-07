@@ -20,7 +20,11 @@ export const DividendForm: React.FC<DividendFormProps> = ({ divMode, setDivMode,
                     <button onClick={() => { setDivMode('stock'); setDivInputs({}); }} className={`flex-1 py-1 text-xs font-bold rounded transition-colors ${divMode === 'stock' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400'}`}>領取配股股利</button>
                 </div>
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    {stockAssets.map(asset => {
+                    {[...stockAssets].sort((a, b) => {
+                        const symbolA = a.name.replace('股票 ', '');
+                        const symbolB = b.name.replace('股票 ', '');
+                        return symbolA.localeCompare(symbolB);
+                    }).map(asset => {
                         const symbol = asset.name.replace('股票 ', '');
                         const inputVal = Number(divInputs[asset.id] || 0);
                         

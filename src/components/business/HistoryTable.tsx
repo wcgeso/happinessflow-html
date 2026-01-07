@@ -8,11 +8,12 @@ interface HistoryTableProps {
     history: Transaction[];
     onDeleteTransaction?: (id: string) => void;
     reportName?: string;
+    disabled?: boolean;
 }
 
 const formatMoney = (amount: number) => `${amount.toLocaleString()} H`;
 
-export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTransaction, reportName }) => {
+export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTransaction, reportName, disabled = false }) => {
     const [confirmId, setConfirmId] = useState<string | null>(null);
 
     const handleDeleteClick = (id: string) => {
@@ -38,9 +39,8 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTra
                     <table className="w-full text-xs table-fixed">
                         <thead className="bg-slate-900/50 border-b border-slate-700">
                             <tr>
-                                <th className="px-2 py-3 text-left font-bold text-slate-400 w-10">回合</th>
                                 <th className="px-2 py-3 text-left font-bold text-slate-400">交易詳情</th>
-                                <th className="px-2 py-3 text-right font-bold text-slate-400 w-24">現金變動</th>
+                                <th className="px-2 py-3 text-right font-bold text-slate-400 w-32">現金變動</th>
                                 {onDeleteTransaction && (
                                     <th className="px-1 py-3 text-center font-bold text-slate-400 w-8"></th>
                                 )}
@@ -49,7 +49,7 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTra
                         <tbody className="divide-y divide-slate-700/50">
                             {history.length === 0 ? (
                                 <tr>
-                                    <td colSpan={onDeleteTransaction ? 4 : 3} className="px-4 py-8 text-center text-slate-500">
+                                    <td colSpan={onDeleteTransaction ? 3 : 2} className="px-4 py-8 text-center text-slate-500">
                                         尚無交易記錄
                                     </td>
                                 </tr>
@@ -57,18 +57,19 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTra
                                 [...history].reverse().map((tx) => {
                                     return (
                                         <tr key={tx.id} className="hover:bg-slate-700/30 transition-colors">
-                                            <td className="px-2 py-3 text-slate-300 font-mono">R{tx.round}</td>
                                             <td className="px-2 py-3">
-                                                <div className="text-slate-200 font-medium text-xs break-words" title={tx.name}>{tx.name}</div>
-                                                <div className="text-[10px] font-bold text-blue-400/80 uppercase tracking-tight break-words">
-                                                    {tx.sourceLabel} → {tx.usageLabel}
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-[10px] font-bold text-blue-400/80 uppercase tracking-tight break-words">
+                                                        {tx.sourceLabel} → {tx.usageLabel}
+                                                    </div>
+                                                    <div className="text-slate-200 font-bold text-xs leading-relaxed break-words" title={tx.name}>{tx.name}</div>
                                                 </div>
                                             </td>
-                                            <td className={`px-2 py-3 text-right font-mono font-bold ${tx.cashChange > 0 ? 'text-emerald-400' : tx.cashChange < 0 ? 'text-rose-400' : 'text-slate-400'
+                                            <td className={`px-2 py-3 text-right font-mono font-bold whitespace-nowrap ${tx.cashChange > 0 ? 'text-emerald-400' : tx.cashChange < 0 ? 'text-rose-400' : 'text-slate-400'
                                                 }`}>
                                                 {tx.cashChange > 0 ? '+' : ''}{formatMoney(tx.cashChange)}
                                             </td>
-                                            {onDeleteTransaction && (
+                                            {onDeleteTransaction && !disabled && (
                                                 <td className="px-1 py-3 text-center">
                                                     <button
                                                         onClick={() => handleDeleteClick(tx.id)}

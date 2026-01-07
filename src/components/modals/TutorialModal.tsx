@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  X, ChevronRight, ChevronLeft, Target, MousePointer2, 
-  BarChart3, Heart, Lightbulb, Wallet, HelpCircle, 
+import {
+  X, ChevronRight, ChevronLeft, Target, MousePointer2,
+  BarChart3, Heart, Lightbulb, Wallet, HelpCircle,
   CheckCircle2, Plus, PieChart, TrendingUp, TrendingDown,
   ArrowRightLeft, FileSearch, Star, ChevronDown
 } from 'lucide-react';
@@ -15,7 +15,7 @@ const MockGameStats = () => (
     <Card className="p-6 relative overflow-hidden bg-slate-900 border-slate-700 min-h-[140px]">
       <div className="relative z-10 flex flex-col justify-between h-full">
         <div>
-          <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mb-3 flex items-center gap-2"> 
+          <h3 className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
             <Heart size={14} className="text-pink-500" />
             幸福指數
           </h3>
@@ -58,7 +58,7 @@ const MockFinancialStatement = () => (
         </div>
         <ChevronDown size={18} className="text-slate-500" />
       </div>
-      
+
       <div className="grid grid-cols-2 bg-slate-900">
         {/* Assets Side */}
         <div className="p-4 border-r border-slate-800">
@@ -142,7 +142,7 @@ const MockTransactionForm = () => (
           </div>
         ))}
       </div>
-      
+
       <div className="space-y-2">
         <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest pl-1">一般資產 / 保險</label>
         <div className="grid grid-cols-3 gap-2">
@@ -218,7 +218,7 @@ const MockFinancialCheckBoard = () => (
       </h3>
       <span className="text-xs text-slate-500 font-bold">取消</span>
     </div>
-    
+
     <div className="p-4 space-y-4">
       <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800 text-center">
         <p className="text-slate-400 text-sm font-bold">請問此筆交易如何影響財務報表？</p>
@@ -436,10 +436,10 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
-      <Card className="w-full max-w-5xl bg-slate-900 border-slate-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <Card className="w-full max-w-5xl bg-slate-900 border-slate-700 shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-[680px] max-h-[90vh]">
         {/* Progress Bar */}
         <div className="h-1.5 w-full bg-slate-800 shrink-0">
-          <div 
+          <div
             className="h-full bg-blue-500 transition-all duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
@@ -454,21 +454,20 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
             <div>
               <h2 className="text-xl font-bold text-white">{step.title}</h2>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${
-                  step.category === 'basic' ? 'bg-blue-500/20 text-blue-400' :
+                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${step.category === 'basic' ? 'bg-blue-500/20 text-blue-400' :
                   step.category === 'transaction' ? 'bg-emerald-500/20 text-emerald-400' :
-                  step.category === 'audit' ? 'bg-yellow-500/20 text-yellow-400' :
-                  'bg-purple-500/20 text-purple-400'
-                }`}>
-                  {step.category === 'basic' ? '基礎教學' : 
-                   step.category === 'transaction' ? '交易操作' :
-                   step.category === 'audit' ? '財務檢核' : '進階概念'}
+                    step.category === 'audit' ? 'bg-yellow-500/20 text-yellow-400' :
+                      'bg-purple-500/20 text-purple-400'
+                  }`}>
+                  {step.category === 'basic' ? '基礎教學' :
+                    step.category === 'transaction' ? '交易操作' :
+                      step.category === 'audit' ? '財務檢核' : '進階概念'}
                 </span>
                 <span className="text-slate-500 text-xs font-mono">STEP {currentStep + 1}/{tutorialSteps.length}</span>
               </div>
             </div>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-full transition-colors"
           >
@@ -479,12 +478,12 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
         {/* Content & Preview Container */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col lg:flex-row gap-6 lg:gap-8 min-h-0">
           {/* Left Side: Content */}
-          <div className={cn("space-y-4 sm:space-y-6 flex-1", step.uiPreview ? "lg:max-w-[45%]" : "w-full")}>
+          <div className={cn("space-y-4 sm:space-y-6 flex-1 transition-all duration-300", step.uiPreview ? "lg:max-w-[45%]" : "lg:max-w-[700px] mx-auto")}>
             <div className="text-slate-300 leading-relaxed text-base sm:text-lg whitespace-pre-wrap">
               {step.content}
             </div>
           </div>
-          
+
           {/* Right Side: UI Preview */}
           {step.uiPreview && (
             <div className="flex-[1.5] animate-in fade-in slide-in-from-right-4 duration-500 delay-200 min-w-0">

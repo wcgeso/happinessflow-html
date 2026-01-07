@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { 
-    doc, 
-    setDoc, 
-    getDoc, 
-    updateDoc, 
-    onSnapshot, 
-    collection, 
-    query, 
-    where, 
+import {
+    doc,
+    setDoc,
+    getDoc,
+    updateDoc,
+    onSnapshot,
+    collection,
+    query,
+    where,
     getDocs,
     deleteDoc,
     serverTimestamp,
@@ -26,7 +26,7 @@ interface RoomMember {
     email?: string;
     title?: string;
     experience?: number;
-    role: 'coach' | 'player';
+    role: 'coach' | 'player' | 'gm';
     joinedAt: any;
     isLeft?: boolean;
     photoPosition?: string;
@@ -45,6 +45,16 @@ interface Room {
     gameTimeLeft?: number; // 剩餘秒數
     isTimerPaused?: boolean; // 計時器是否暫停
     playerStates?: Record<string, GameState>; // 直接存放在房間文件內，確保執行師有權限讀取
+    startedAt?: number; // 遊戲開始時間戳
+    sessionId?: string; // 穩定的遊戲場次 ID
+    marketPrices?: Record<string, number>; // 股市價格
+    previousMarketPrices?: Record<string, number>; // 前一次股市價格
+    marketUpdates?: {
+        updates: Record<string, number>;
+        code: string;
+        isBubble: boolean;
+        timestamp: number;
+    };
 }
 
 interface RoomContextValue {
@@ -75,57 +85,61 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         if (!user) return;
 
-        // 如果目前沒有 room.id，嘗試從 localStorage 恢復（針對斷線重連）
-        let activeRoomId = room?.id;
-        if (!activeRoomId && user.role === 'player') {
-            const savedRoomId = localStorage.getItem(`active_room_${user.uid}`);
-            if (savedRoomId) {
-                activeRoomId = savedRoomId;
-                // 這裡我們先不 setRoom，等 snapshot 確定房間還在再說
-            }
+        // 優先從目前 room 狀態拿 ID，若無則從 localStorage 拿
+        const targetRoomId = room?.id || localStorage.getItem(`active_room_${user.uid}`);
+
+        if (!targetRoomId) {
+            // 如果連 localStorage 都沒 ID，確保 room 狀態也是 null
+            if (room) setRoom(null);
+            return;
         }
 
-        if (!activeRoomId) return;
-
-        console.log('開始監聽房間:', activeRoomId);
-        const unsubscribe = onSnapshot(doc(db, 'rooms', activeRoomId), (snapshot) => {
+        console.log('開始監聽房間:', targetRoomId);
+        const unsubscribe = onSnapshot(doc(db, 'rooms', targetRoomId), (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data() as Room;
-                console.log('房間數據更新:', data.id, '狀態:', data.status);
+                console.log('房間數據更新:', data.id, '狀態:', data.status, '成員數:', data.members?.length);
+
+                // 檢查自己是否還在成員名單中
+                const isHost = data.hostId === user.uid;
+                const stillMember = data.members?.some(m => m.uid === user.uid);
+
+                if (!stillMember && !isHost) {
+                    console.log('檢測到用戶已不在成員名單中，自動清除狀態');
+                    setRoom(null);
+                    localStorage.removeItem(`active_room_${user.uid}`);
+                    return;
+                }
+
                 setRoom(data);
-                
-                // 如果是執行師，同步更新 playerStates
-                if (user.role === 'coach' && data.playerStates) {
+
+                // 如果是房主，同步更新 playerStates
+                if (isHost && data.playerStates) {
                     setPlayerStates(data.playerStates);
                 }
 
                 // 儲存目前房間 ID 到 localStorage
-                if (user.role === 'player') {
-                    localStorage.setItem(`active_room_${user.uid}`, data.id);
-                }
+                localStorage.setItem(`active_room_${user.uid}`, data.id);
             } else {
                 console.log('房間不存在或已被關閉');
                 setRoom(null);
-                if (user.role === 'player') {
-                    localStorage.removeItem(`active_room_${user.uid}`);
-                }
+                localStorage.removeItem(`active_room_${user.uid}`);
             }
         }, (err) => {
             console.error('監聽房間失敗:', err);
             if (err.code === 'permission-denied') {
                 setError('權限不足，請檢查 Firebase Firestore Rules 設定');
             }
-            // 如果報錯且是找不到文件，也清除 localStorage
             if (err.code === 'not-found') {
                 localStorage.removeItem(`active_room_${user.uid}`);
             }
         });
 
         return () => {
-            console.log('停止監聽房間:', activeRoomId);
+            console.log('停止監聽房間:', targetRoomId);
             unsubscribe();
         };
-    }, [user?.uid, room?.id]); // 保持監聽 room.id 的變化，或者 user 切換
+    }, [user?.uid, room?.id]); // 監聽 room.id 變化，確保切換房間時能重新綁定監聽器
 
     // 移除舊的獨立監聽器，改為統一由房間狀態驅動
 
@@ -161,7 +175,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const createRoom = useCallback(async (settings?: { name: string; maxPlayers: number; duration: number }) => {
         if (!user) throw new Error('請先登入');
         if (user.role !== 'coach') throw new Error('只有執行師可以開房');
-        
+
         setIsLoadingRoom(true);
         setError(null);
         try {
@@ -187,7 +201,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 maxPlayers: settings?.maxPlayers || 6,
                 duration: settings?.duration || 60,
                 gameTimeLeft: (settings?.duration || 60) * 60,
-                isTimerPaused: true
+                isTimerPaused: true,
+                sessionId: `${roomCode}_${Date.now()}`
             };
             const cleanedRoom = cleanObject(newRoom);
             await setDoc(doc(db, 'rooms', roomCode), cleanedRoom);
@@ -195,8 +210,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return roomCode;
         } catch (err: any) {
             console.error('建立房間失敗:', err);
-            const errMsg = err.code === 'permission-denied' 
-                ? '權限不足，請檢查 Firebase Firestore Rules 設定' 
+            const errMsg = err.code === 'permission-denied'
+                ? '權限不足，請檢查 Firebase Firestore Rules 設定'
                 : (err.message || '建立房間時發生錯誤');
             setError(errMsg);
             throw new Error(errMsg);
@@ -212,20 +227,21 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const roomRef = doc(db, 'rooms', roomCode);
             const roomDoc = await getDoc(roomRef);
-            
+
             if (!roomDoc.exists()) throw new Error('找不到此房間');
-            
+
             const roomData = roomDoc.data() as Room;
-            
+
             // 檢查是否已在房間內（支援斷線重連，不論房間狀態）
             const existingMember = roomData.members.find(m => m.uid === user.uid);
             if (existingMember) {
                 setRoom(roomData);
+                localStorage.setItem(`active_room_${user.uid}`, roomCode);
                 return;
             }
 
             if (roomData.status !== 'waiting') throw new Error('遊戲已開始或已結束');
-            
+
             // 檢查人數限制 (排除教練)
             const playerMembers = roomData.members.filter(m => m.role === 'player');
             if (playerMembers.length >= roomData.maxPlayers) throw new Error('房間已滿');
@@ -244,14 +260,26 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
 
             const cleanedMember = cleanObject(newMember);
+
+            // 使用同步更新確保本地狀態第一時間反映
+            setRoom(prev => {
+                if (!prev || prev.id !== roomCode) return prev;
+                // 避免重複添加
+                const exists = prev.members.some(m => m.uid === user.uid);
+                if (exists) return prev;
+                return {
+                    ...prev,
+                    members: [...prev.members, cleanedMember]
+                };
+            });
+
             await updateDoc(roomRef, {
                 members: arrayUnion(cleanedMember)
             });
-            
-            setRoom({
-                ...roomData,
-                members: [...roomData.members, cleanedMember]
-            });
+
+            // 存入 localStorage 並手動更新 room ID 觸發監聽器
+            localStorage.setItem(`active_room_${user.uid}`, roomCode);
+            setRoom(prev => (prev?.id === roomCode ? prev : { id: roomCode, members: [], hostId: '', status: 'waiting', name: '' } as any));
         } catch (err: any) {
             setError(err.message);
             throw err;
@@ -262,19 +290,20 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const leaveRoom = async () => {
         if (!user || !room) return;
+        const roomId = room.id;
         try {
-            const roomRef = doc(db, 'rooms', room.id);
+            const roomRef = doc(db, 'rooms', roomId);
             const memberToRemove = room.members.find(m => m.uid === user.uid);
+
+            // 先清除本地狀態，防止 UI 閃爍或重連
+            setRoom(null);
+            localStorage.removeItem(`active_room_${user.uid}`);
+
             if (memberToRemove) {
                 await updateDoc(roomRef, {
                     members: arrayRemove(memberToRemove)
                 });
             }
-            // 玩家主動離開房間，清除 localStorage 紀錄，不再顯示「繼續遊戲」
-            if (user.role === 'player') {
-                localStorage.removeItem(`active_room_${user.uid}`);
-            }
-            setRoom(null);
         } catch (err: any) {
             console.error('離開房間失敗:', err);
         }
@@ -284,7 +313,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!room || user?.uid !== room.hostId) return;
         try {
             await updateDoc(doc(db, 'rooms', room.id), {
-                status: 'playing'
+                status: 'playing',
+                playerStates: {}, // 清空舊的玩家狀態
+                startedAt: Date.now() // 新增開始時間戳，用來觸發玩家重設狀態
             });
         } catch (err: any) {
             setError(err.message);
@@ -304,9 +335,13 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const closeRoom = async () => {
         if (!room || user?.uid !== room.hostId) return;
+        const roomId = room.id;
         try {
-            await deleteDoc(doc(db, 'rooms', room.id));
+            // 先清除本地狀態
             setRoom(null);
+            localStorage.removeItem(`active_room_${user.uid}`);
+
+            await deleteDoc(doc(db, 'rooms', roomId));
         } catch (err: any) {
             setError(err.message);
         }
@@ -316,13 +351,20 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!room || user?.role !== 'coach') return;
         try {
             const roomRef = doc(db, 'rooms', room.id);
+            // 先獲取當前的 marketPrices 作為 previousMarketPrices
+            const currentPrices = room.marketPrices || {};
+
             await updateDoc(roomRef, {
                 marketUpdates: {
                     updates,
                     code,
                     isBubble,
                     timestamp: Date.now()
-                }
+                },
+                // 保存前一次的價格
+                previousMarketPrices: currentPrices,
+                // 更新為新的價格
+                marketPrices: updates
             });
         } catch (err: any) {
             console.error('更新行情失敗:', err);
@@ -345,15 +387,15 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <RoomContext.Provider value={{ 
-            room, 
-            isLoadingRoom, 
-            error, 
+        <RoomContext.Provider value={{
+            room,
+            isLoadingRoom,
+            error,
             playerStates,
-            createRoom, 
-            joinRoom, 
-            leaveRoom, 
-            startRoomGame, 
+            createRoom,
+            joinRoom,
+            leaveRoom,
+            startRoomGame,
             finishRoomGame,
             closeRoom,
             updateMarket,

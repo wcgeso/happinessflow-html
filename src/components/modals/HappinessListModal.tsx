@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Bell } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { Button } from '../ui/ui';
 import { HappinessPanel } from '../business/HappinessPanel';
 
@@ -10,6 +10,7 @@ interface HappinessListModalProps {
     onAdd: (name: string, points: number) => void;
     onRemove: (id: string) => void;
     onClose: () => void;
+    disabled?: boolean;
 }
 
 export const HappinessListModal: React.FC<HappinessListModalProps> = ({
@@ -18,7 +19,8 @@ export const HappinessListModal: React.FC<HappinessListModalProps> = ({
     onToggle,
     onAdd,
     onRemove,
-    onClose
+    onClose,
+    disabled = false
 }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -28,9 +30,6 @@ export const HappinessListModal: React.FC<HappinessListModalProps> = ({
                         <Heart className="text-pink-400 fill-pink-400" size={18} />
                         幸福指數清單
                     </h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white">
-                        <Bell size={20} />
-                    </button>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     <HappinessPanel
@@ -39,6 +38,7 @@ export const HappinessListModal: React.FC<HappinessListModalProps> = ({
                         onToggle={onToggle}
                         onAddCustomItem={onAdd}
                         onRemoveCustomItem={onRemove}
+                        disabled={disabled}
                     />
                 </div>
                 <div className="p-3 bg-slate-800 border-t border-slate-700 text-center shrink-0">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ArrowUpCircle, Dice5, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/ui';
 import { Asset } from '../../types';
@@ -40,11 +41,12 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
         onClose();
     };
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
+
+    const modalContent = (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-slate-900 border-2 border-slate-700 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col relative">
                 {/* Close Button */}
-                <button 
+                <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors z-10"
                 >
@@ -55,7 +57,7 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
                     {/* Header Icon */}
                     <div className={cn(
                         "w-20 h-20 rounded-full flex items-center justify-center transition-colors duration-500",
-                        step === 'result' 
+                        step === 'result'
                             ? (isSuccess ? "bg-emerald-500/20 text-emerald-500" : "bg-rose-500/20 text-rose-500")
                             : "bg-amber-500/20 text-amber-500"
                     )}>
@@ -91,7 +93,7 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
                                         </li>
                                         <li className="flex items-center gap-2">
                                             <div className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
-                                            <span>企業收入增加 (骰子點數 × 10,000 H)</span>
+                                            <span className="whitespace-nowrap">企業收入增加 (骰子點數 × 10,000 H)</span>
                                         </li>
                                     </ul>
                                 </div>
@@ -100,10 +102,10 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
 
                         {(step === 'rolling' || step === 'result') && (
                             <div className="flex flex-col items-center justify-center py-4 space-y-6">
-                                <DiceFace 
-                                    value={diceValue} 
-                                    rolling={step === 'rolling'} 
-                                    size="lg" 
+                                <DiceFace
+                                    value={diceValue}
+                                    rolling={step === 'rolling'}
+                                    size="lg"
                                 />
                                 {step === 'result' && (
                                     <div className={cn(
@@ -120,7 +122,7 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
                     {/* Action Buttons */}
                     <div className="w-full pt-2">
                         {step === 'intro' && (
-                            <Button 
+                            <Button
                                 onClick={handleStartRoll}
                                 className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-2xl shadow-lg shadow-emerald-900/40 transition-all active:scale-95"
                             >
@@ -128,12 +130,12 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
                             </Button>
                         )}
                         {step === 'result' && (
-                            <Button 
+                            <Button
                                 onClick={handleConfirm}
                                 className={cn(
                                     "w-full py-4 text-white font-black text-lg rounded-2xl shadow-lg transition-all active:scale-95",
-                                    isSuccess 
-                                        ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/40" 
+                                    isSuccess
+                                        ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/40"
                                         : "bg-slate-700 hover:bg-slate-600 shadow-slate-900/40"
                                 )}
                             >
@@ -145,4 +147,6 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 };

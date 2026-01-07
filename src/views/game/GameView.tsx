@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
 import { useGameLogic } from '../../hooks/useGameLogic';
-import { AlertCircle, CheckCircle2, Bell } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Bell, LogOut } from 'lucide-react';
 import { useRoom } from '../../context/RoomContext';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
 import { HappinessPanel } from '../../components/business/HappinessPanel';
@@ -27,13 +27,71 @@ import { formatMoney } from '../../utils/gameUtils';
 export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFinishGame }) => {
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room } = useRoom();
+    const { room, leaveRoom } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
             setShowScoreView(true);
         }
     }, [room?.status]);
+
+    // 監控房間的市場價格更新
+    useEffect(() => {
+        let shouldUpdateState = false;
+        let newState = {};
+
+        // 1. 同步價格
+        if (room?.marketPrices && Object.keys(room.marketPrices).length > 0) {
+            // 檢查是否需要更新價格（避免無效渲染）
+            const pricesChanged = JSON.stringify(room.marketPrices) !== JSON.stringify(gameState.marketPrices);
+
+            if (pricesChanged) {
+                shouldUpdateState = true;
+                newState = {
+                    ...newState,
+                    previousMarketPrices: room.previousMarketPrices || gameState.previousMarketPrices,
+                    marketPrices: { ...room.marketPrices }
+                };
+            }
+        }
+
+        // 2. 處理行情通知
+        if (room?.marketUpdates && room.marketUpdates.timestamp !== gameState.lastMarketUpdateTimestamp) {
+            const { code, isBubble, timestamp } = room.marketUpdates;
+
+            shouldUpdateState = true;
+            newState = {
+                ...newState,
+                lastMarketUpdateTimestamp: timestamp,
+                lastPublishedCode: code
+            };
+
+            // 只有在遊戲進行中且是最近的更新才顯示通知 (避免重新整理時跳出)
+            const isRecent = (Date.now() - timestamp) < 10000; // 10秒內的更新
+
+            if (isRecent) {
+                if (isBubble) {
+                    showAlert(`⚠️ 股市泡沫破裂！\n代碼: ${code}\n所有股價大幅下跌`, 'error', false);
+                } else {
+                    showAlert(`📈 股市行情更新\n代碼: ${code}`, 'success', false);
+                }
+            }
+        }
+
+        if (shouldUpdateState) {
+            setGameState(prev => ({
+                ...prev,
+                ...newState
+            }));
+        }
+    }, [room?.marketPrices, room?.previousMarketPrices, room?.marketUpdates, gameState.lastMarketUpdateTimestamp, gameState.marketPrices, setGameState, showAlert]);
+
+    // 監控遊戲時間結束
+    useEffect(() => {
+        if (room?.status === 'playing' && room?.gameTimeLeft === 0) {
+            showAlert('⌛ 遊戲時間已到！\n請等待執行師進行結算。', 'info', true);
+        }
+    }, [room?.gameTimeLeft, room?.status, showAlert]);
 
     const {
         handleDeleteTransactionRecord,
@@ -66,6 +124,9 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
     const [showTutorial, setShowTutorial] = useState(false);
     const [showWinAnimation, setShowWinAnimation] = useState(false);
     const [showScoreView, setShowScoreView] = useState(false);
+    const [isSettlement, setIsSettlement] = useState(false); // 追蹤是否是結算時打開
+    const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+    const [isLeaving, setIsLeaving] = useState(false);
 
     const [promotionType, setPromotionType] = useState<PromotionType | null>(null);
 
@@ -87,6 +148,58 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
     const handleCloseTutorial = () => {
         localStorage.setItem('happiness_flow_tutorial_seen', 'true');
         setShowTutorial(false);
+    };
+
+    const handleLeaveRoom = async () => {
+        setIsLeaving(true);
+        try {
+            // 1. 執行離開房間邏輯 (從 Firestore 移除成員並清理 localStorage 的 active_room)
+            await leaveRoom();
+
+            // 2. 清理本地遊戲狀態，確保下次進入時是乾淨的
+            localStorage.removeItem('happiness_game_state');
+            setGameState({
+                profession: null,
+                selectedEnterprise: null,
+                selectedDream: null,
+                expenses: {},
+                income: {},
+                currentRankTitle: '',
+                currentRankLevel: 1,
+                cash: 0,
+                children: 0,
+                medicalInsuranceCount: 0,
+                assets: [],
+                liabilities: [],
+                loans: 0,
+                isSetup: false,
+                selectionStep: null,
+                history: [],
+                happiness: [],
+                happinessTotal: 0,
+                marketPrices: {},
+                previousMarketPrices: {},
+                lastPublishedCode: '',
+                lastMarketUpdateTimestamp: 0,
+                abilities: {
+                    stockAbilityCount: 0,
+                    realEstateAbilityCount: 0,
+                    professionAbilityCount: 0,
+                },
+                completedHappinessEvents: [],
+                playerName: '',
+                reportName: ''
+            } as any);
+
+            // 3. 回到大廳
+            onFinishGame(null);
+        } catch (err) {
+            console.error('離開房間失敗:', err);
+            showAlert('離開失敗，請稍後再試', 'error');
+        } finally {
+            setIsLeaving(false);
+            setShowLeaveConfirm(false);
+        }
     };
 
     const handleTransaction = (data: any) => {
@@ -145,7 +258,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
 
     const handleDiceModalClose = () => {
         setShowDiceModal(false);
-        
+
         // 如果是終身學習且成功，在此時顯示 Alert
         if (lastDiceSuccess && promotionType && promotionType !== 'normal') {
             const messages: Record<string, string> = {
@@ -155,7 +268,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
             };
             showAlert(`🎉 ${messages[promotionType as string] || '學習成功！'}`, 'success');
         }
-        
+
         // 重置成功狀態
         setLastDiceSuccess(false);
     };
@@ -164,46 +277,92 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
         <div className="h-[100dvh] bg-slate-950 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500">
             {showScoreView && (
                 <div className="fixed inset-0 z-[10000]">
-                    <ScoreView 
-                        playerName={user?.name || 'Player'} 
-                        onClose={() => setShowScoreView(false)}
+                    <ScoreView
+                        playerName={user?.name || 'Player'}
+                        onClose={() => {
+                            setShowScoreView(false);
+                            setIsSettlement(false);
+                        }}
+                        showAchievements={isSettlement}
                     />
                 </div>
             )}
             {/* Alert System */}
             {alertInfo && (
-                <div className={`fixed bottom-36 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-4 border max-w-[90vw] w-max ${alertInfo.type === 'error' ? 'bg-rose-900 border-rose-500 text-rose-100' :
-                    alertInfo.type === 'success' ? 'bg-emerald-900 border-emerald-500 text-emerald-100' :
-                        'bg-slate-800 border-slate-600 text-white'
+                <div className={`fixed left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 shadow-xl flex items-center gap-3 animate-in zoom-in-95 duration-300 border backdrop-blur-md transition-all ${alertInfo.persist
+                    ? "top-1/2 -translate-y-1/2 w-[85vw] max-w-xs text-center flex-col py-6 rounded-2xl bg-slate-900/95 border-slate-700/50 shadow-2xl"
+                    : "bottom-32 w-max max-w-[90vw] flex-row rounded-full bg-slate-900/90 border-slate-700/50 shadow-lg"
+                    } ${alertInfo.type === 'error' ? 'border-rose-500/50' :
+                        alertInfo.type === 'success' ? 'border-emerald-500/50' :
+                            'border-slate-700/50'
                     }`}>
-                    <div className="shrink-0">
+                    <div className={`shrink-0 p-2 rounded-xl ${alertInfo.type === 'error' ? 'bg-rose-500/10 text-rose-400' :
+                        alertInfo.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
+                            'bg-blue-500/10 text-blue-400'
+                        }`}>
                         {alertInfo.type === 'error' ? <AlertCircle size={20} /> : alertInfo.type === 'success' ? <CheckCircle2 size={20} /> : <Bell size={20} />}
                     </div>
-                    <div className="flex flex-col gap-2">
-                        <span className="font-bold text-sm leading-tight whitespace-pre-line">
+                    <div className="flex flex-col gap-3 w-full">
+                        <span className={`font-bold leading-snug whitespace-pre-line tracking-tight text-white ${alertInfo.persist ? "text-lg" : "text-sm px-1"
+                            }`}>
                             {alertInfo.message}
                         </span>
                         {alertInfo.persist && (
-                            <button 
+                            <button
                                 onClick={hideAlert}
-                                className="mt-1 self-end px-4 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-black transition-colors border border-white/20"
+                                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-black transition-all active:scale-95 shadow-lg shadow-blue-900/20 mt-1"
                             >
-                                確認
+                                我知道了
                             </button>
                         )}
                     </div>
                 </div>
             )}
 
-            <GameHeader 
-                gameState={gameState} 
+            <GameHeader
+                gameState={gameState}
                 summary={summary}
-                onShowRankList={() => setShowRankListModal(true)} 
+                onShowRankList={() => setShowRankListModal(true)}
                 onShowPromotion={() => setShowPromotionModal(true)}
                 onFinishGame={() => setShowScoreView(true)}
                 onShowStockMarket={() => setShowStockMarketModal(true)}
                 onShowTutorial={() => setShowTutorial(true)}
+                onLeaveRoom={() => setShowLeaveConfirm(true)}
             />
+
+            {showLeaveConfirm && (
+                <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-[32px] p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="flex flex-col items-center text-center gap-4">
+                            <div className="p-4 bg-rose-500/20 text-rose-400 rounded-3xl">
+                                <LogOut size={40} />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-2xl font-black text-white">確定要離開房間？</h3>
+                                <p className="text-slate-400 font-medium">離開後將無法繼續目前的遊戲，且資料將不會被儲存。</p>
+                            </div>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={handleLeaveRoom}
+                                disabled={isLeaving}
+                                className="w-full py-4 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white rounded-2xl text-lg font-black transition-all active:scale-95 shadow-lg shadow-rose-900/40 flex items-center justify-center gap-2"
+                            >
+                                {isLeaving ? (
+                                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : '確定離開'}
+                            </button>
+                            <button
+                                onClick={() => setShowLeaveConfirm(false)}
+                                disabled={isLeaving}
+                                className="w-full py-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 rounded-2xl text-lg font-black transition-all active:scale-95"
+                            >
+                                取消
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showWinAnimation && (
                 <HappinessWinAnimation onComplete={() => setShowWinAnimation(false)} />
@@ -219,7 +378,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                 />
             )}
 
-            <main className="flex-1 overflow-y-auto no-scrollbar px-4 pt-44 pb-32 space-y-8 touch-pan-y">
+            <main className="flex-1 overflow-y-auto no-scrollbar px-4 pt-48 pb-48 space-y-8 touch-pan-y">
                 <div className="max-w-7xl mx-auto w-full space-y-6">
                     <GameStats
                         gameState={gameState}
@@ -236,6 +395,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                             onShowAlert={showAlert}
                             onDeleteTransaction={handleDeleteTransactionRecord}
                             onUpgradeBiz={handleBizUpgrade}
+                            disabled={room?.status === 'finished'}
                         />
                     </div>
                 </div>
@@ -246,6 +406,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                         onToggle={handleToggleHappiness}
                         onAddCustomItem={handleAddHappinessItem}
                         onRemoveCustomItem={handleRemoveHappinessItem}
+                        disabled={room?.status === 'finished'}
                     />
                 </div>
             </main>
@@ -254,7 +415,11 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                 onShowMedical={() => setShowMedicalClaimModal(true)}
                 onShowTransaction={() => setShowTransactionModal(true)}
                 onShowPayday={() => setShowPaydayModal(true)}
-                onShowSettlement={() => setShowScoreView(true)}
+                onShowSettlement={() => {
+                    setShowScoreView(true);
+                    setIsSettlement(true);
+                }}
+                disabled={room?.status === 'finished'}
             />
 
             {/* Modals */}
@@ -276,6 +441,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                         setHappinessSubMode={setHappinessSubMode}
                         onTransaction={handleTransaction}
                         onCancel={() => setShowTransactionModal(false)}
+                        disabled={room?.status === 'finished'}
                         onShowMarket={() => {
                             setShowTransactionModal(false);
                             setShowStockMarketModal(true);
@@ -293,6 +459,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                     onClose={() => setShowRankListModal(false)}
                     onShowPromotion={() => setShowPromotionModal(true)}
                     onShowLifelong={() => setShowLifelongModal(true)}
+                    disabled={room?.status === 'finished'}
                 />
             )}
 
@@ -306,6 +473,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                     }}
                     onConfirm={onLifelongConfirm}
                     gameState={gameState}
+                    disabled={room?.status === 'finished'}
                 />
             )}
 
@@ -316,6 +484,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                     formatMoney={formatMoney}
                     onConfirm={onModalPaydayConfirm}
                     onClose={() => setShowPaydayModal(false)}
+                    disabled={room?.status === 'finished'}
                 />
             )}
 
@@ -327,6 +496,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                     formatMoney={formatMoney}
                     onConfirm={onModalMedicalConfirm}
                     onClose={() => setShowMedicalClaimModal(false)}
+                    disabled={room?.status === 'finished'}
                 />
             )}
 
@@ -340,16 +510,17 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                         setShowRankListModal(true);
                     }}
                     currentRankLevel={gameState.currentRankLevel}
+                    disabled={room?.status === 'finished'}
                 />
             )}
 
             {showDiceModal && (
-                <DiceRollContainer 
-                isOpen={showDiceModal} 
-                onClose={handleDiceModalClose}
-                onResult={onDiceComplete}
-                promotionType={promotionType}
-            />
+                <DiceRollContainer
+                    isOpen={showDiceModal}
+                    onClose={handleDiceModalClose}
+                    onResult={onDiceComplete}
+                    promotionType={promotionType}
+                />
             )}
 
             {showHappinessModal && (
@@ -360,6 +531,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                     onAdd={handleAddHappinessItem}
                     onRemove={handleRemoveHappinessItem}
                     onClose={() => setShowHappinessModal(false)}
+                    disabled={room?.status === 'finished'}
                 />
             )}
 
@@ -373,8 +545,8 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                 />
             )}
 
-            <TutorialModal 
-                isOpen={showTutorial} 
+            <TutorialModal
+                isOpen={showTutorial}
                 onClose={handleCloseTutorial}
                 showSkip={true}
             />

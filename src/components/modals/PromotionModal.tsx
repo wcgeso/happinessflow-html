@@ -9,6 +9,7 @@ interface PromotionModalProps {
     onBack: () => void;
     onConfirm: (type: 'normal' | 'lifelong') => void;
     currentRankLevel: number;
+    disabled?: boolean;
 }
 
 export const PromotionModal: React.FC<PromotionModalProps> = ({
@@ -16,7 +17,8 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
     onClose,
     onBack,
     onConfirm,
-    currentRankLevel
+    currentRankLevel,
+    disabled = false
 }) => {
     if (!isOpen) return null;
 
@@ -67,10 +69,11 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
                     <div className="flex flex-col gap-3 pt-2">
                         <Button
                             onClick={() => onConfirm('normal')}
-                            className="w-full py-4 rounded-2xl font-black text-lg transition-all shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white shadow-amber-900/40"
+                            disabled={disabled}
+                            className="w-full py-4 rounded-2xl font-black text-lg transition-all shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white shadow-amber-900/40 disabled:opacity-50"
                         >
-                            <span>確認報名</span>
-                            <ChevronRight size={20} className="animate-in slide-in-from-left-2" />
+                            <span>{disabled ? '遊戲已結算' : '確認報名'}</span>
+                            {!disabled && <ChevronRight size={20} className="animate-in slide-in-from-left-2" />}
                         </Button>
                         <Button
                             variant="secondary"

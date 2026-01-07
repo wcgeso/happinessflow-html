@@ -10,6 +10,7 @@ interface HappinessPanelProps {
   onToggle: (id: string) => void;
   onAddCustomItem?: (label: string, points: number) => void;
   onRemoveCustomItem?: (id: string) => void;
+  disabled?: boolean;
 }
 
 export const HappinessPanel: React.FC<HappinessPanelProps> = ({
@@ -17,7 +18,8 @@ export const HappinessPanel: React.FC<HappinessPanelProps> = ({
   total,
   onToggle,
   onAddCustomItem,
-  onRemoveCustomItem
+  onRemoveCustomItem,
+  disabled = false
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newItemName, setNewItemName] = useState('');
@@ -73,13 +75,13 @@ export const HappinessPanel: React.FC<HappinessPanelProps> = ({
               onMouseLeave={handleTouchEnd}
               onTouchStart={() => handleTouchStart(item.id)}
               onTouchEnd={handleTouchEnd}
-              onClick={() => !item.readOnly && onToggle(item.id)}
+              onClick={() => !item.readOnly && !disabled && onToggle(item.id)}
               className={`
               flex items-center gap-3 p-3 mb-2 rounded-lg border transition-all relative group select-none
               ${item.checked
                   ? 'bg-pink-900/20 border-pink-600/50 text-pink-100'
                   : 'bg-slate-800 border-slate-700 text-slate-400'}
-              ${!item.readOnly ? 'cursor-pointer hover:bg-slate-800/80' : 'cursor-default opacity-80'}
+              ${!item.readOnly && !disabled ? 'cursor-pointer hover:bg-slate-800/80' : 'cursor-default opacity-80'}
               ${item.parentId ? 'ml-6 border-l-2 border-l-slate-600 pl-3 scale-95' : ''}
             `}
             >
@@ -109,7 +111,7 @@ export const HappinessPanel: React.FC<HappinessPanelProps> = ({
               </div>
 
               {/* Remove Custom Item Button */}
-              {item.isCustom && onRemoveCustomItem && (
+              {item.isCustom && onRemoveCustomItem && !disabled && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -137,15 +139,17 @@ export const HappinessPanel: React.FC<HappinessPanelProps> = ({
         </div>
 
         {/* Footer - Add Custom Item */}
-        <div className="p-3 border-t border-slate-700 bg-slate-800 shrink-0">
-          <Button
-            variant="secondary"
-            className="w-full border-dashed border-2 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500"
-            onClick={() => setShowAddModal(true)}
-          >
-            <Plus size={16} /> 自訂幸福項目
-          </Button>
-        </div>
+        {!disabled && onAddCustomItem && (
+          <div className="p-3 border-t border-slate-700 bg-slate-800 shrink-0">
+            <Button
+              variant="secondary"
+              className="w-full border-dashed border-2 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500"
+              onClick={() => setShowAddModal(true)}
+            >
+              <Plus size={16} /> 自訂幸福項目
+            </Button>
+          </div>
+        )}
       </Card>
 
       {/* Floating Modal for Adding Custom Item */}

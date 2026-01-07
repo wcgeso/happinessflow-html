@@ -56,18 +56,19 @@ export const STOCK_NAMES: Record<string, string> = {
   'B80': '紫花銀行'
 };
 
-export const REAL_ESTATE_PRESETS: Record<string, { 
-  name: string; 
-  cost: number; 
-  downPayment: number; 
-  loanAmount: number; 
-  loanInterest: number; 
-  cashflow: number; 
+export const REAL_ESTATE_PRESETS: Record<string, {
+  name: string;
+  cost: number;
+  downPayment: number;
+  loanAmount: number;
+  loanInterest: number;
+  cashflow: number;
   happyPoints?: number;
 }> = {
   'N029': { name: '單間小套房 (N029)', cost: 1100000, downPayment: 100000, loanAmount: 1000000, loanInterest: 5000, cashflow: 1500, happyPoints: 2 },
   'N030': { name: '單間小套房 (N030)', cost: 1050000, downPayment: 50000, loanAmount: 1000000, loanInterest: 5000, cashflow: 2000, happyPoints: 2 },
   'N031': { name: '單間小套房 (N031)', cost: 1000000, downPayment: 100000, loanAmount: 900000, loanInterest: 4500, cashflow: 1000, happyPoints: 2 },
+  'N032': { name: '單間小套房 (N032)', cost: 1200000, downPayment: 200000, loanAmount: 1000000, loanInterest: 5000, cashflow: 5000, happyPoints: 2 },
   'N033': { name: '單間小套房 (N033)', cost: 1800000, downPayment: 300000, loanAmount: 1500000, loanInterest: 7500, cashflow: 2500, happyPoints: 2 },
   'N034': { name: '單間小套房 (N034)', cost: 1500000, downPayment: 200000, loanAmount: 1300000, loanInterest: 6500, cashflow: 500, happyPoints: 2 },
   'N035': { name: '兩室一廳住宅 (N035)', cost: 3000000, downPayment: 600000, loanAmount: 2400000, loanInterest: 12000, cashflow: 2000, happyPoints: 4 },
@@ -85,7 +86,9 @@ export const REAL_ESTATE_PRESETS: Record<string, {
   'N047': { name: '小型店面 (N047)', cost: 1200000, downPayment: 120000, loanAmount: 1080000, loanInterest: 5400, cashflow: 9600 },
   'N048': { name: '小型店面 (N048)', cost: 1800000, downPayment: 180000, loanAmount: 1620000, loanInterest: 8100, cashflow: 11900 },
   'N049': { name: '小型店面 (N049)', cost: 1000000, downPayment: 80000, loanAmount: 920000, loanInterest: 4600, cashflow: 5400 },
+  'N050': { name: '小型店面 (N050)', cost: 2000000, downPayment: 400000, loanAmount: 1600000, loanInterest: 8000, cashflow: 14000 },
   'N051': { name: '中型店面 (N051)', cost: 5000000, downPayment: 1000000, loanAmount: 4000000, loanInterest: 20000, cashflow: 20000 },
+  'N052': { name: '中型店面 (N052)', cost: 6000000, downPayment: 3000000, loanAmount: 3000000, loanInterest: 15000, cashflow: 45000 },
   'N053': { name: '大型店面 (N053)', cost: 12000000, downPayment: 4000000, loanAmount: 8000000, loanInterest: 40000, cashflow: 110000 },
   'N054': { name: '大型店面 (N054)', cost: 16000000, downPayment: 6000000, loanAmount: 10000000, loanInterest: 50000, cashflow: 150000 },
 };

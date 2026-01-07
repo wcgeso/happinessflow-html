@@ -12,6 +12,7 @@ export interface Asset {
   isInsured?: boolean;
   isUpgraded?: boolean; // New: for enterprise upgrade
   lastPurchasePrice?: number; // New: To track latest purchase price instead of average cost
+  marketValue?: number; // New: For settlement display
 }
 
 export interface Liability {
@@ -142,6 +143,7 @@ export interface GameState {
   liabilities: Liability[];
   loans: number;
   isSetup: boolean;
+  selectionStep?: 'profession' | 'enterprise' | 'dream' | 'completed';
   history: Transaction[];
   happiness: HappinessItem[];
   happinessTotal: number;
@@ -179,6 +181,7 @@ export interface GameRecord {
   maxRankLevel?: number;
   isWin?: boolean;
   financialSummary: FinancialSummary;
+  professionData?: Profession; // New: for full report restore
   gameStateSnapshot: {
     assets: Asset[];
     liabilities: Liability[];
@@ -189,6 +192,53 @@ export interface GameRecord {
     cash: number;
     loans: number;
   };
+  allPlayers?: {
+    name: string;
+    happiness: number;
+    totalScore: number;
+    profession: string;
+  }[];
+}
+
+export interface CoachRecord {
+  id: string;
+  date: string;
+  roomCode: string;
+  roomName?: string;
+  playerCount: number;
+  playTime: number; // in minutes
+  totalRounds: number;
+  duration?: number;
+  coachId: string;
+  coachName: string;
+  timestamp: number;
+  players?: {
+    name: string;
+    profession: string;
+    happiness: number;
+    score: number;
+    isWin?: boolean;
+  }[];
+}
+
+export interface Friendship {
+  id: string;
+  requesterId: string;
+  receiverId: string;
+  status: 'pending' | 'accepted';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserPublicInfo {
+  uid: string;
+  name: string;
+  photoURL?: string;
+  photoPosition?: string;
+  photoScale?: string;
+  title?: string;
+  experience?: number;
+  status?: 'online' | 'offline' | 'playing';
 }
 
 export interface GameSessionMeta {
@@ -230,6 +280,7 @@ export interface TransactionData {
     loanInterest?: number;
     isSelfUse?: boolean;
     houseType?: string;
+    happyPoints?: number;
   };
   liabilityId?: string;
   relatedAssetId?: string;

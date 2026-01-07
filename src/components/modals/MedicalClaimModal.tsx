@@ -9,6 +9,7 @@ interface MedicalClaimModalProps {
     insuranceCount: number;
     hasInsuredAircraft: boolean;
     formatMoney: (amount: number) => string;
+    disabled?: boolean;
 }
 
 export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
@@ -17,7 +18,8 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
     onConfirm,
     insuranceCount,
     hasInsuredAircraft,
-    formatMoney
+    formatMoney,
+    disabled = false
 }) => {
     const [claimType, setClaimType] = useState<'medical' | 'aircraft'>('medical');
 
@@ -80,9 +82,9 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
                     <Button 
                         className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold" 
                         onClick={() => onConfirm(claimType)}
-                        disabled={claimType === 'medical' ? insuranceCount <= 0 : !hasInsuredAircraft}
+                        disabled={disabled || (claimType === 'medical' ? insuranceCount <= 0 : !hasInsuredAircraft)}
                     >
-                        確認申請
+                        {disabled ? '遊戲已結算' : '確認申請'}
                     </Button>
                 </div>
             </Card>

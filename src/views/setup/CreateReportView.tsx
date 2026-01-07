@@ -14,8 +14,9 @@ export const CreateReportView: React.FC<CreateReportViewProps> = ({ defaultName,
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        const defaultNameFormat = `執行日記 ${new Date().toLocaleDateString('zh-TW')}`;
         onComplete({
-            reportName: reportName || `${new Date().toLocaleDateString()} 的覺察報表`,
+            reportName: reportName.trim() || defaultNameFormat,
             playerName: defaultName || 'Player',
             createdAt: new Date().toISOString()
         });

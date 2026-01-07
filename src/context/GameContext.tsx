@@ -1,14 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-    doc, 
-    updateDoc, 
-    onSnapshot 
+import {
+    doc,
+    updateDoc,
+    onSnapshot,
+    collection,
+    query,
+    where,
+    orderBy
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAuth } from './AuthContext';
 import { useRoom } from './RoomContext';
 import { GameState, GameRecord, FinancialSummary } from '../types';
-import { calculateFinancialSummary } from '../utils/gameUtils';
+import { calculateFinancialSummary, calculateScoreResult } from '../utils/gameUtils';
 import { cleanObject } from '../utils/utils';
 
 interface GameContextValue {
@@ -55,6 +59,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             liabilities: [],
             loans: 0,
             isSetup: false,
+            selectionStep: null,
             history: [],
             happiness: [],
             happinessTotal: 0,
@@ -77,14 +82,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 自動保存到 localStorage
     useEffect(() => {
-        if (gameState.isSetup) {
+        if (gameState.isSetup || gameState.selectionStep) {
             localStorage.setItem('happiness_game_state', JSON.stringify(gameState));
         }
     }, [gameState]);
 
     // 自動同步到房間文件 (供執行師監控)
     useEffect(() => {
-        if (!room?.id || user?.role !== 'player' || !gameState.isSetup) return;
+        // 只要不是房主，且 (已完成初始設定 或 正在進行選擇步驟)，就同步狀態
+        if (!room?.id || !user || user.uid === room.hostId) return;
+        if (!gameState.isSetup && !gameState.selectionStep) return;
 
         const timeoutId = setTimeout(async () => {
             try {
@@ -115,30 +122,119 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const summary = useMemo(() => calculateFinancialSummary(gameState), [gameState]);
 
     const scoreResult = useMemo(() => {
-        const h = gameState.happinessTotal || 0;
-        const reserve = (gameState.cash || 0) + (gameState.assets || []).filter(a => a.type === '定存').reduce((s, a) => s + (a.cost || 0), 0);
-        const isReserveOk = reserve > summary.totalExpenses;
-        const isInsured = (gameState.medicalInsuranceCount || 0) >= 1; 
-        const isCashflowOk = summary.monthlyCashflow > 0;
-        
-        const validInvestmentTypes = new Set(['股票', '不動產', '企業', '定存']);
-        const playerAssetTypes = new Set((gameState.assets || []).map(a => a.type).filter(t => validInvestmentTypes.has(t as string)));
-        
-        const criteriaList = [
-            { label: '遊玩積分', points: 2, achieved: true },
-            { label: '幸福指數達 10', points: 1, achieved: h >= 10 },
-            { label: '幸福指數達 30', points: 1, achieved: h >= 30 },
-            { label: '幸福指數達 60', points: 2, achieved: h >= 60 },
-            { label: '幸福指數達 80', points: 3, achieved: h >= 80 },
-            { label: '幸福指數達 100', points: 5, achieved: h >= 100 },
-            { label: '達到財務安全 (預備金/保險/收支平衡)', points: 1, achieved: isReserveOk && isInsured && isCashflowOk },
-            { label: '達到財務寬裕 (擁有多種資產)', points: 2, achieved: playerAssetTypes.size >= 2 },
-            { label: '達到財務自由 (資產收入 > 總支出)', points: 3, achieved: summary.passiveIncome > summary.totalExpenses },
-        ];
-
-        const totalScore = criteriaList.reduce((sum, c) => sum + (c.achieved ? c.points : 0), 0);
-        return { totalScore, details: criteriaList };
+        return calculateScoreResult(gameState, summary);
     }, [gameState, summary]);
+
+    // 獲取個人歷史紀錄
+    useEffect(() => {
+        if (!user) {
+            setGameHistory([]);
+            return;
+        }
+
+        console.log(`[GameContext] 開始獲取用戶 ${user.uid} 的歷史紀錄... 路徑: score_records/S1/records`);
+        console.log(`[GameContext] 查詢條件: playerUids array-contains ${user.uid}`);
+
+        const q = query(
+            collection(db, 'score_records', 'S1', 'records'),
+            where('playerUids', 'array-contains', user.uid)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            console.log(`[GameContext] 收到 Snapshot, 文件數量: ${snapshot.size}`);
+            console.log(`[GameContext] Snapshot metadata:`, snapshot.metadata);
+
+            if (snapshot.empty) {
+                console.log(`[GameContext] Snapshot 為空，用戶 ${user.uid} 可能還沒有任何遊戲紀錄`);
+                console.log(`[GameContext] 嘗試查看所有文檔（測試用）...`);
+            }
+
+            const history: GameRecord[] = [];
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                console.log(`[GameContext] 處理紀錄: ${doc.id}`, {
+                    playerUids: data.playerUids,
+                    playersCount: data.players?.length,
+                    settledAt: data.settledAt,
+                    isFinal: data.isFinal
+                });
+
+                // 檢查 players 陣列是否存在且包含用戶
+                if (!data.players || !Array.isArray(data.players)) {
+                    console.log(`[GameContext] 紀錄 ${doc.id} 的 players 欄位格式錯誤:`, data.players);
+                    return;
+                }
+
+                const playerData = data.players.find((p: any) => p.uid === user.uid);
+
+                if (playerData) {
+                    console.log(`[GameContext] 找到用戶 ${user.uid} 在紀錄 ${doc.id} 中的數據:`, {
+                        name: playerData.name,
+                        profession: playerData.profession,
+                        totalScore: playerData.totalScore,
+                        happiness: playerData.happiness
+                    });
+                    history.push({
+                        id: doc.id,
+                        date: data.settledAt?.toDate ? data.settledAt.toDate().toISOString() :
+                            (data.settledAt ? new Date(data.settledAt).toISOString() : new Date().toISOString()),
+                        playerName: playerData.name,
+                        reportName: data.roomName || `${playerData.name} 的財務報表`,
+                        profession: playerData.profession,
+                        finalScore: playerData.totalScore || 0,
+                        happinessScore: playerData.happiness || 0,
+                        isWin: playerData.happiness >= 100,
+                        financialSummary: playerData.summary || {
+                            totalIncome: 0,
+                            totalExpenses: 0,
+                            monthlyCashflow: 0,
+                            passiveIncome: 0,
+                            totalAssets: 0,
+                            totalLiabilities: 0,
+                            payday: 0
+                        },
+                        gameStateSnapshot: {
+                            assets: playerData.assets || [],
+                            liabilities: playerData.liabilities || [],
+                            income: playerData.income || {},
+                            expenses: playerData.expenses || {},
+                            history: playerData.history || [],
+                            happiness: playerData.happinessItems || [],
+                            cash: playerData.cash || 0,
+                            loans: playerData.loans || 0
+                        },
+                        allPlayers: (data.players || []).map((p: any) => ({
+                            name: p.name || '玩家',
+                            happiness: p.happiness ?? p.happinessTotal ?? 0,
+                            totalScore: p.totalScore ?? p.score ?? 0,
+                            profession: p.profession || '未知職業'
+                        }))
+                    });
+                } else {
+                    console.log(`[GameContext] 紀錄 ${doc.id} 的 players 陣列中未找到用戶 ${user.uid}`);
+                    console.log(`[GameContext] 該紀錄的所有玩家 UID:`, data.players.map((p: any) => p.uid));
+                }
+            });
+
+            // 手動排序
+            history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+            console.log(`[GameContext] 獲取到 ${history.length} 筆符合用戶的紀錄`);
+            if (history.length > 0) {
+                console.log(`[GameContext] 第一筆紀錄:`, history[0]);
+            }
+            setGameHistory(history);
+        }, (error) => {
+            console.error("[GameContext] 獲取歷史紀錄失敗:", error);
+            console.error("[GameContext] 錯誤詳情:", {
+                code: error.code,
+                message: error.message,
+                name: error.name
+            });
+        });
+
+        return () => unsubscribe();
+    }, [user]);
 
     const saveGameRecord = async (record: GameRecord) => {
         // 這裡可以實作保存到 Firebase 的邏輯
@@ -179,7 +275,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 監聽來自執行師的行情更新
     useEffect(() => {
-        if (!room?.id || user?.role !== 'player' || !gameState.isSetup) return;
+        // 只要不是房主（執行師本人），不論角色身份，都應該接收行情更新
+        if (!room?.id || user?.uid === room.hostId || !gameState.isSetup) return;
 
         const roomRef = doc(db, 'rooms', room.id);
         const unsubscribe = onSnapshot(roomRef, (snapshot) => {
@@ -187,7 +284,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const data = snapshot.data();
                 if (data.marketUpdates && data.marketUpdates.timestamp > (gameState.lastMarketUpdateTimestamp || 0)) {
                     const { updates, code, isBubble } = data.marketUpdates;
-                    
+
                     if (isBubble) {
                         bubbleBurst(code);
                         showAlert(`💥 股市泡沫破裂！代碼：${code}\n所有股票數量已減半。`, 'error', true);
@@ -195,7 +292,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         updateMarketPrices(updates, code);
                         showAlert(`📈 股市行情已更新！代碼：${code}\n請檢查股市面板查看最新價格。`, 'success', true);
                     }
-                    
+
                     // 記錄已處理的更新時間戳，避免重複處理
                     setGameState(prev => ({
                         ...prev,
@@ -206,7 +303,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         return () => unsubscribe();
-    }, [room?.id, user?.role, gameState.isSetup, gameState.lastMarketUpdateTimestamp, bubbleBurst, updateMarketPrices]);
+    }, [room?.id, user?.uid, room?.hostId, gameState.isSetup, gameState.lastMarketUpdateTimestamp, bubbleBurst, updateMarketPrices]);
 
     return (
         <GameContext.Provider value={{

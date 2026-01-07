@@ -18,7 +18,7 @@ interface User {
     uid: string;
     email: string;
     name: string;
-    role: 'coach' | 'player';
+    role: 'coach' | 'player' | 'gm';
     photoURL?: string;
     photoPosition?: string;
     photoScale?: string;
@@ -27,7 +27,12 @@ interface User {
     experience?: number; // 場次或積分
 }
 
-export const getUserTitle = (user: User | null): string => {
+export const isGM = (user: User | null): boolean => {
+    if (!user) return false;
+    return user.role === 'gm' || getUserTitle(user) === '遊戲管理員';
+};
+
+export const getUserTitle = (user: User | null, roleOverride?: 'coach' | 'player' | 'gm'): string => {
     if (!user) return '';
     
     // 優先判斷特殊唯一稱號
@@ -38,11 +43,19 @@ export const getUserTitle = (user: User | null): string => {
         user.title === '管理員' || 
         email === 'gm0221@happinessflow.com' ||
         name === 'GM' ||
-        name === 'GM0221'
+        name === 'GM0221' ||
+        roleOverride === 'gm'
     ) return '遊戲管理員';
     if (user.title === '幸福實踐家') return '幸福實踐家';
 
-    if (user.role === 'coach') {
+    let currentRole: 'coach' | 'player' | 'gm' = user.role;
+    if (roleOverride === 'coach') currentRole = 'coach';
+    else if (roleOverride === 'player') currentRole = 'player';
+    else if (roleOverride === 'gm') currentRole = 'gm';
+
+    if (currentRole === 'gm') return '遊戲管理員';
+
+    if (currentRole === 'coach') {
         const exp = user.experience || 0;
         if (exp >= 40) return '傳奇執行師';
         if (exp >= 20) return '資深執行師';
@@ -57,12 +70,14 @@ export const getUserTitle = (user: User | null): string => {
     }
 };
 
-export const getTitleColor = (user: User | null): string => {
+export const getTitleColor = (user: User | null, roleOverride?: 'coach' | 'player' | 'gm'): string => {
     if (!user) return 'text-slate-400';
     
-    const title = getUserTitle(user);
+    const title = getUserTitle(user, roleOverride);
     if (title === '遊戲管理員') return 'text-indigo-400';
-    if (user.role === 'coach') return 'text-amber-500';
+    
+    const currentRole = (roleOverride === 'gm' ? 'coach' : (roleOverride || user.role)) as 'coach' | 'player';
+    if (currentRole === 'coach') return 'text-amber-500';
     
     // 玩家根據稱號有不同顏色
     switch (title) {
@@ -75,17 +90,18 @@ export const getTitleColor = (user: User | null): string => {
     }
 };
 
-export const getAvatarBorderStyle = (user: User | null): string => {
+export const getAvatarBorderStyle = (user: User | null, roleOverride?: 'coach' | 'player' | 'gm'): string => {
     if (!user) return 'border-slate-700';
     
-    const title = getUserTitle(user);
+    const title = getUserTitle(user, roleOverride);
     
     if (title === '遊戲管理員') {
         return 'border-2 animate-gm-border ring-1 ring-white/20';
     }
 
     // 執行師特殊邊框
-    if (user.role === 'coach') {
+    const currentRole = (roleOverride === 'gm' ? 'coach' : (roleOverride || user.role)) as 'coach' | 'player';
+    if (currentRole === 'coach') {
         return 'border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.3)]';
     }
 
@@ -106,37 +122,39 @@ export const getAvatarBorderStyle = (user: User | null): string => {
     }
 };
 
-export const getBadgeGlowStyle = (user: User | null): string => {
+export const getBadgeGlowStyle = (user: User | null, roleOverride?: 'coach' | 'player' | 'gm'): string => {
     if (!user) return '';
-    const title = getUserTitle(user);
+    const title = getUserTitle(user, roleOverride);
     if (title === '幸福實踐家') return 'drop-shadow-[0_0_8px_rgba(244,63,94,0.6)]';
     if (title === '蜂后傳奇') return 'drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]';
     if (title === '蜂饒大師') return 'drop-shadow-[0_0_8px_rgba(192,132,252,0.5)]';
-    if (user.role === 'coach' || title === '遊戲管理員') return 'drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]';
+    
+    const currentRole = (roleOverride === 'gm' ? 'coach' : (roleOverride || user.role)) as 'coach' | 'player';
+    if (currentRole === 'coach' || title === '遊戲管理員') return 'drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]';
     return '';
 };
 
-export const getCoachBadge = (user: User | null): string => {
+export const getCoachBadge = (user: User | null, roleOverride?: 'coach' | 'player' | 'gm'): string => {
     if (!user) return '';
-    const title = getUserTitle(user);
+    const title = getUserTitle(user, roleOverride);
     // GM 帳號優先判斷
     if (title === '遊戲管理員' || user.email?.toLowerCase() === 'gm0221@happinessflow.com') return '/assets/badges/傳奇執行師-去背.png';
     
-    if (user.role !== 'coach') return '';
+    const currentRole = (roleOverride === 'gm' ? 'coach' : (roleOverride || user.role)) as 'coach' | 'player';
+    if (currentRole !== 'coach') return '';
     
     if (title === '傳奇執行師') return '/assets/badges/傳奇執行師-去背.png';
     if (title === '資深執行師') return '/assets/badges/資深執行師-去背.png';
     return '/assets/badges/蜂富執行師-去背.png';
 };
 
-export const getPlayerBadge = (user: User | null): string => {
+export const getPlayerBadge = (user: User | null, roleOverride?: 'coach' | 'player' | 'gm'): string => {
     if (!user) return '';
-    const title = getUserTitle(user);
+    const title = getUserTitle(user, roleOverride);
     // GM 帳號優先判斷
     if (title === '遊戲管理員' || user.email?.toLowerCase() === 'gm0221@happinessflow.com') return '/assets/badges/傳奇執行師-去背.png';
 
-    if (user.role !== 'player') return '';
-    
+    // 移除 role !== 'player' 的限制，讓執行師以玩家身份進入時也能顯示玩家徽章
     switch (title) {
         case '幸福實踐家': return '/assets/badges/幸福實踐家-去背.png';
         case '蜂后傳奇': return '/assets/badges/蜂后傳奇-去背.png';
@@ -213,19 +231,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         if (data.photoURL) basicUserInfo.photoURL = data.photoURL;
                         if (data.photoPosition) basicUserInfo.photoPosition = data.photoPosition;
                         if (data.photoScale) basicUserInfo.photoScale = data.photoScale;
-                    } else if (basicUserInfo.role === 'coach') {
-                        // 如果是 GM 但 Firestore 還沒資料，先幫他建立
-                        await setDoc(doc(db, 'users', firebaseUser.uid), {
+                        if (data.title) basicUserInfo.title = data.title;
+                        if (data.experience !== undefined) basicUserInfo.experience = data.experience;
+                    } else {
+                        // 如果 Firestore 還沒資料（例如透過 Google/Apple 第三方登入），自動建立初始資料
+                        const isGM = firebaseUser.email?.toLowerCase() === 'gm0221@happinessflow.com';
+                        const initialRole: 'coach' | 'player' = isGM ? 'coach' : 'player';
+                        const initialData = {
                             uid: firebaseUser.uid,
                             email: firebaseUser.email,
                             name: basicUserInfo.name,
-                            role: 'coach',
-                            title: '遊戲管理員',
-                            photoURL: 'bee'
-                        }, { merge: true });
+                            role: initialRole,
+                            title: isGM ? '遊戲管理員' : '',
+                            photoURL: basicUserInfo.photoURL,
+                            createdAt: new Date().toISOString()
+                        };
+                        await setDoc(doc(db, 'users', firebaseUser.uid), initialData, { merge: true });
+                        
+                        // 更新本地狀態以匹配新建立的資料
+                        basicUserInfo.role = initialRole;
+                        basicUserInfo.title = initialData.title;
                     }
                 } catch (error) {
-                    console.error('獲取 Firestore 使用者資料失敗:', error);
+                    console.error('獲取或初始化 Firestore 使用者資料失敗:', error);
                 }
 
                 setUser(basicUserInfo);

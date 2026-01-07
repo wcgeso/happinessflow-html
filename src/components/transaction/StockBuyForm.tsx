@@ -1,6 +1,6 @@
 import React from 'react';
 import { Input, Button } from '../ui/ui';
-import { Asset, StockTransactionItem } from '../../types';
+import { Asset } from '../../types';
 import { STOCK_SYMBOLS, STOCK_NAMES } from '../../constants';
 import { TrendingUp } from 'lucide-react';
 
@@ -46,7 +46,7 @@ export const StockBuyForm: React.FC<StockBuyFormProps> = ({ stockInputs, setStoc
                         changePercent = ((currentPrice - prevPrice) / prevPrice) * 100;
                     }
 
-                    const holdingAsset = stockAssets.find(a => a.name === `股票 (${symbol})`);
+                    const holdingAsset = stockAssets.find(a => a.type === '股票' && a.name?.includes(symbol));
                     const holdingQty = holdingAsset?.quantity || 0;
                     
                     return (

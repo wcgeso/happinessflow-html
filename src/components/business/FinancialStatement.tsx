@@ -17,6 +17,7 @@ interface FinancialStatementProps {
   defaultShowDetails?: boolean;
   hideNav?: boolean;
   isMasked?: boolean;
+  disabled?: boolean;
 }
 
 const formatMoney = (amount: number, isMasked?: boolean) => {
@@ -39,33 +40,41 @@ const getAssetDisplayName = (asset: Asset) => {
     return `${symbol} (${reHouseTypeMap[asset.houseType] || asset.houseType})`;
   }
   if (asset.type === '企業') {
-      const match = asset.name.match(/[A-Z]\d+/);
-      const symbol = match ? match[0] : asset.name;
-      const isPartTime = (symbol === 'N056' || symbol === 'N058') && !asset.isUpgraded;
-      const bizTypeLabel = isPartTime ? '兼職工作室' : (asset.isUpgraded ? '小型企業' : '優質企業');
-      return (
-        <div className="flex items-center gap-1.5">
-          <span className="text-slate-200">{symbol}</span>
-          <span className={cn(
-            "text-[9px] font-bold px-1 rounded-sm",
-            isPartTime ? "bg-amber-900/30 text-amber-500/80" : "bg-emerald-900/30 text-emerald-500/80"
-          )}>
-            {bizTypeLabel}
-          </span>
-        </div>
-      );
+    const match = asset.name.match(/[A-Z]\d+/);
+
+    // 如果沒有代號（目標企業），直接顯示企業名稱，移除「企業」前綴
+    if (!match) {
+      const enterpriseName = asset.name.replace(/^企業\s*/, '');
+      return <span className="text-slate-200">{enterpriseName}</span>;
     }
-    if (asset.type === '股票') {
-      const match = asset.name.match(/([A-Z]\d+)/);
-      const symbol = match ? match[1] : asset.name;
-      const stockName = STOCK_NAMES[symbol] || '';
-      return (
-        <div className="flex items-center gap-1.5">
-          <span className="text-slate-200">{symbol}</span>
-          {stockName && <span className="text-[10px] text-slate-500 font-medium">{stockName}</span>}
-        </div>
-      );
-    }
+
+    // 有代號的企業（N056, N058等），顯示代號和類型標籤
+    const symbol = match[0];
+    const isPartTime = (symbol === 'N056' || symbol === 'N058') && !asset.isUpgraded;
+    const bizTypeLabel = isPartTime ? '兼職工作室' : (asset.isUpgraded ? '小型企業' : '優質企業');
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="text-slate-200">{symbol}</span>
+        <span className={cn(
+          "text-[9px] font-bold px-1 rounded-sm",
+          isPartTime ? "bg-amber-900/30 text-amber-500/80" : "bg-emerald-900/30 text-emerald-500/80"
+        )}>
+          {bizTypeLabel}
+        </span>
+      </div>
+    );
+  }
+  if (asset.type === '股票') {
+    const match = asset.name.match(/([A-Z]\d+)/);
+    const symbol = match ? match[1] : asset.name;
+    const stockName = STOCK_NAMES[symbol] || '';
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="text-slate-200">{symbol}</span>
+        {stockName && <span className="text-[10px] text-slate-500 font-medium">{stockName}</span>}
+      </div>
+    );
+  }
   return asset.name;
 };
 
@@ -110,6 +119,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   defaultShowDetails = false,
   hideNav = false,
   isMasked = false,
+  disabled = false,
 }) => {
   const [view, setView] = useState<'financial' | 'cashflow' | 'history'>('financial');
   const [isIncomeOpen, setIsIncomeOpen] = useState(defaultShowDetails);
@@ -120,7 +130,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   const realEstate = gameState.assets.filter(a => a.type === '不動產');
   const businesses = gameState.assets.filter(a => a.type === '企業');
   const stocks = gameState.assets.filter(a => a.type === '股票');
-  
+
   // 合併定存項目
   const rawCds = gameState.assets.filter(a => a.type === '定存');
   const cds: Asset[] = rawCds.length > 0 ? [{
@@ -184,7 +194,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-1">財務摘要</h3>
                   {gameState.reportName && <p className="text-[10px] text-emerald-500 font-bold">{gameState.reportName}</p>}
                 </div>
-                <button 
+                <button
                   onClick={() => setShowFullDetails(!showFullDetails)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-bold transition-all border border-emerald-500/20"
                 >
@@ -192,7 +202,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                   {showFullDetails ? '隱藏詳情' : '顯示詳情'}
                 </button>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center bg-slate-800/40 p-2.5 rounded-xl border border-slate-700/30">
@@ -243,11 +253,11 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                         <span className="shrink-0">金額</span>
                       </div>
                       <div className="space-y-4">
-                        <TAccountItem 
-                          label="工作收入" 
+                        <TAccountItem
+                          label="工作收入"
                           subLabel="(穩固的收入才是幸福人生的基礎)"
-                          value={gameState.profession?.salary || 0} 
-                          color="text-emerald-400" 
+                          value={gameState.profession?.salary || 0}
+                          color="text-emerald-400"
                           isMasked={isMasked}
                         />
                         <div className="pt-2 border-t border-slate-800/50 space-y-2">
@@ -270,7 +280,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                           {realEstate.length > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-blue-300">不動產租金</div>
-                              {realEstate.map(r => {
+                              {realEstate.filter(r => !r.isSelfUse && r.cashflow > 0).map(r => {
                                 const symbolMatch = r.name.match(/[A-Z]\d+/);
                                 const symbol = symbolMatch ? symbolMatch[0] : r.name;
                                 let income = r.cashflow;
@@ -306,11 +316,11 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                       <div className="space-y-3">
                         <TAccountItem label="餐飲、服飾、居住類" value={Math.max(0, (gameState.profession?.expenses.basicLiving || 0) + (gameState.expenses?.basicLiving || 0))} color="text-slate-300" isMasked={isMasked} />
                         <TAccountItem label="交通、教育、娛樂類" value={Math.max(0, (gameState.profession?.expenses.transportEdu || 0) + (gameState.expenses?.transportEdu || 0))} color="text-slate-300" isMasked={isMasked} />
-                        <TAccountItem 
-                          label="其他、醫療、育兒類" 
+                        <TAccountItem
+                          label="其他、醫療、育兒類"
                           subLabel="(職等每提升一級，增加10000H)"
-                          value={Math.max(0, (gameState.profession?.expenses.otherMedicalChild || 0) + (Math.max(0, gameState.currentRankLevel - 1) * 10000) + (gameState.expenses?.otherMedicalChild || 0))} 
-                          color="text-slate-300" 
+                          value={Math.max(0, (gameState.profession?.expenses.otherMedicalChild || 0) + (Math.max(0, gameState.currentRankLevel - 1) * 10000) + (gameState.expenses?.otherMedicalChild || 0))}
+                          color="text-slate-300"
                           isMasked={isMasked}
                         />
                         <div className="pt-2 border-t border-slate-800/50 space-y-2">
@@ -351,9 +361,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                           {(creditLoans.length > 0 || gameState.loans > 0) && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-orange-300">信用貸款</div>
-                              {creditLoans.map(l => (
-                                <TAccountSubItem key={l.id} label={l.name.match(/\(([^)]+)\)/)?.[1] || l.name} value={l.monthlyPayment} isMasked={isMasked} />
-                              ))}
+                              <TAccountSubItem label="信用貸款利息" value={creditLoans.reduce((sum, l) => sum + (l.monthlyPayment || 0), 0)} isMasked={isMasked} />
                               {gameState.loans > 0 && <TAccountSubItem label="銀行貸款利息" value={gameState.loans * 0.1} isMasked={isMasked} />}
                             </div>
                           )}
@@ -364,7 +372,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                                 const loanSymbol = l.name.match(/\(([^)]+)\)/)?.[1] || l.name;
                                 return (
                                   <TAccountSubItem key={l.id} label={
-                                      <span className="text-[10px] text-slate-500 leading-tight">{loanSymbol}</span>
+                                    <span className="text-[10px] text-slate-500 leading-tight">{loanSymbol}</span>
                                   } value={l.monthlyPayment} isMasked={isMasked} />
                                 );
                               })}
@@ -383,11 +391,11 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                             </div>
                           )}
                         </div>
-                        <TAccountItem 
-                          label="所得稅務" 
+                        <TAccountItem
+                          label="所得稅務"
                           subLabel="(勞務收入x5%)"
-                          value={Math.floor((gameState.profession?.salary || 0) * 0.05)} 
-                          color="text-slate-400" 
+                          value={Math.floor((gameState.profession?.salary || 0) * 0.05)}
+                          color="text-slate-400"
                         />
                       </div>
                     </div>
@@ -408,12 +416,12 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                   </div>
                   <div className="p-2.5 bg-slate-900/60 flex justify-between items-center border-t border-slate-700/30">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">月結餘 (總收入-總支出)</span>
-                    <NumericalValue 
-                      value={summary.monthlyCashflow} 
+                    <NumericalValue
+                      value={summary.monthlyCashflow}
                       colorClass={cn(
                         "text-xs font-black",
                         summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-orange-400"
-                      )} 
+                      )}
                       prefix={summary.monthlyCashflow >= 0 ? "+" : ""}
                     />
                   </div>
@@ -444,17 +452,19 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                       </div>
                       <div className="space-y-4">
                         <TAccountItem label="現金" value={gameState.cash} color="text-emerald-400" />
-                        {cds.length > 0 && <AssetCategoryList title="定存" items={cds} color="text-orange-300" />}
-                        {stocks.length > 0 && <AssetCategoryList title="股票" items={stocks} color="text-yellow-300" isStock marketPrices={gameState.marketPrices} previousMarketPrices={gameState.previousMarketPrices} />}
+                        {cds.length > 0 && <AssetCategoryList title="定存" items={cds} color="text-orange-300" disabled={disabled} />}
+                        {stocks.length > 0 && <AssetCategoryList title="股票" items={stocks} color="text-yellow-300" isStock marketPrices={gameState.marketPrices} previousMarketPrices={gameState.previousMarketPrices} disabled={disabled} />}
                         {businesses.length > 0 && (
-                          <AssetCategoryList 
-                            title="企業" 
-                            items={businesses} 
-                            color="text-purple-300" 
-                            onUpgradeClick={(asset: Asset) => setUpgradingAsset(asset)}
+                          <AssetCategoryList
+                            title="企業"
+                            items={businesses}
+                            color="text-emerald-300"
+                            onUpgradeClick={setUpgradingAsset}
+                            onShowAlert={onShowAlert}
+                            disabled={disabled}
                           />
                         )}
-                        {realEstate.length > 0 && <AssetCategoryList title="不動產" items={realEstate} color="text-blue-300" onShowAlert={onShowAlert} />}
+                        {realEstate.length > 0 && <AssetCategoryList title="不動產" items={realEstate} color="text-blue-300" onShowAlert={onShowAlert} disabled={disabled} />}
                       </div>
                     </div>
                     {/* Right: Liabilities */}
@@ -467,7 +477,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                         {(creditLoans.length > 0 || gameState.loans > 0) && (
                           <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                             <div className="text-[9px] font-black uppercase tracking-widest text-orange-300">信用貸款</div>
-                            {creditLoans.map(l => <TAccountSubItem key={l.id} label={l.name.match(/\(([^)]+)\)/)?.[1] || l.name} value={l.totalOwed} />)}
+                            <TAccountSubItem label="信用貸款總額" value={creditLoans.reduce((sum, l) => sum + l.totalOwed, 0)} />
                             {gameState.loans > 0 && <TAccountSubItem label="銀行貸款" value={gameState.loans} />}
                           </div>
                         )}
@@ -475,13 +485,13 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                           <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                             <div className="text-[9px] font-black uppercase tracking-widest text-blue-300">不動產貸款</div>
                             {realEstateLoans.map(l => {
-                                const loanSymbol = l.name.match(/\(([^)]+)\)/)?.[1] || l.name;
-                                return (
-                                  <TAccountSubItem key={l.id} label={
-                                      <span className="text-[10px] text-slate-500 leading-tight">{loanSymbol}</span>
-                                  } value={l.totalOwed} />
-                                );
-                              })}
+                              const loanSymbol = l.name.match(/\(([^)]+)\)/)?.[1] || l.name;
+                              return (
+                                <TAccountSubItem key={l.id} label={
+                                  <span className="text-[10px] text-slate-500 leading-tight">{loanSymbol}</span>
+                                } value={l.totalOwed} />
+                              );
+                            })}
                           </div>
                         )}
                         {businessLoans.length > 0 && (
@@ -520,12 +530,12 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                   </div>
                   <div className="p-2.5 bg-slate-900/60 flex justify-between items-center border-t border-slate-700/30">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] pl-1">淨資產 (總資產-總負債)</span>
-                    <NumericalValue 
-                      value={summary.totalAssets - summary.totalLiabilities} 
+                    <NumericalValue
+                      value={summary.totalAssets - summary.totalLiabilities}
                       colorClass={cn(
                         "text-xs font-black",
                         (summary.totalAssets - summary.totalLiabilities) >= 0 ? "text-blue-400" : "text-rose-400"
-                      )} 
+                      )}
                       isMasked={isMasked}
                     />
                   </div>
@@ -542,6 +552,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
           <HistoryTable
             history={gameState.history}
             onDeleteTransaction={onDeleteTransaction}
+            disabled={disabled}
           />
         </div>
       )}
@@ -578,7 +589,7 @@ const TAccountSubItem = ({ label, value, isMasked = false }: { label: React.Reac
   </div>
 );
 
-const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices = {}, previousMarketPrices = {}, onUpgradeClick, onShowAlert, isMasked = false }: any) => (
+const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices = {}, previousMarketPrices = {}, onUpgradeClick, onShowAlert, isMasked = false, disabled = false }: any) => (
   <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
     <div className={cn("text-[9px] font-black uppercase tracking-widest", color)}>{title}</div>
     {items.map((item: any) => {
@@ -614,42 +625,49 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
                     <span className="text-[10px] text-slate-400 font-medium">
                       ({reHouseTypeMap[item.houseType] || item.houseType})
                     </span>
+                    {item.isSelfUse && <span className="text-[10px] text-yellow-400 font-bold">自住</span>}
                     {item.isInsured && <ShieldCheck size={10} className="text-emerald-400 shrink-0" />}
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="flex items-center gap-1.5 w-full">
-                    <span className="text-[11px] text-slate-200 font-bold">{getAssetDisplayName(item)}</span>
-                    {isStock && (
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium flex-1">
-                        <span>{item.quantity} 張</span>
-                        <span className="ml-auto">價格 {formatMoney(currentPrice, isMasked)}</span>
+                  {isStock ? (
+                    <div className="flex justify-between items-start w-full">
+                      <div className="mt-0.5">
+                        <span className="text-[11px] text-slate-200 font-bold">{getAssetDisplayName(item)}</span>
                       </div>
-                    )}
-                    {item.isInsured && <ShieldCheck size={10} className="text-emerald-400 shrink-0" />}
-                    {isEligibleForUpgrade && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onUpgradeClick?.(item);
-                        }}
-                        className="p-1 rounded-full hover:bg-emerald-500/20 text-emerald-500 transition-colors group/upgrade"
-                        title="升級企業"
-                      >
-                        <ArrowUpCircle size={14} className="group-hover/upgrade:scale-110 transition-transform" />
-                      </button>
-                    )}
-                  </div>
+
+                      <div className="flex flex-col items-end gap-0.5 text-right">
+                        <span className="text-[10px] text-slate-500 font-medium">{item.quantity} 張</span>
+                        <span className="text-[10px] text-slate-500 font-medium">{formatMoney(currentPrice, isMasked)}</span>
+                        <NumericalValue value={displayValue} colorClass="text-[12px] text-white" isMasked={isMasked} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 w-full">
+                      <span className="text-[11px] text-slate-200 font-bold">{getAssetDisplayName(item)}</span>
+                      {item.isInsured && <ShieldCheck size={10} className="text-emerald-400 shrink-0" />}
+                      {isEligibleForUpgrade && !disabled && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onUpgradeClick?.(item);
+                          }}
+                          className="p-1 rounded-full hover:bg-emerald-500/20 text-emerald-500 transition-colors group/upgrade"
+                          title="升級企業"
+                        >
+                          <ArrowUpCircle size={14} className="group-hover/upgrade:scale-110 transition-transform" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </div>
-            <div className="text-right"><NumericalValue value={displayValue} colorClass="text-[12px] text-white" isMasked={isMasked} /></div>
           </div>
+          {!isStock && <div className="text-right"><NumericalValue value={displayValue} colorClass="text-[12px] text-white" isMasked={isMasked} /></div>}
         </div>
       );
     })}
-  </div>
+  </div >
 );
-
-

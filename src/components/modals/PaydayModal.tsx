@@ -8,6 +8,7 @@ interface PaydayModalProps {
     onConfirm: () => void;
     monthlyCashflow: number;
     formatMoney: (amount: number) => string;
+    disabled?: boolean;
 }
 
 export const PaydayModal: React.FC<PaydayModalProps> = ({
@@ -15,7 +16,8 @@ export const PaydayModal: React.FC<PaydayModalProps> = ({
     onClose,
     onConfirm,
     monthlyCashflow,
-    formatMoney
+    formatMoney,
+    disabled = false
 }) => {
     if (!isOpen) return null;
 
@@ -43,8 +45,9 @@ export const PaydayModal: React.FC<PaydayModalProps> = ({
                     <Button
                         className={`flex-1 text-white ${isPositive ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-rose-600 hover:bg-rose-500'}`}
                         onClick={onConfirm}
+                        disabled={disabled}
                     >
-                        確認{isPositive ? '領取' : '支付'}
+                        {disabled ? '遊戲已結算' : `確認${isPositive ? '領取' : '支付'}`}
                     </Button>
                 </div>
             </Card>

@@ -4,7 +4,7 @@ import {
     Mode, AssetType, TransactionData, StockTransactionItem, BatchSellItem,
     AccountEntry, AccountCategory, ChangeDirection
 } from '../types';
-import { STOCK_SYMBOLS, REAL_ESTATE_SYMBOLS, BUSINESS_SYMBOLS } from '../constants';
+import { STOCK_SYMBOLS, REAL_ESTATE_SYMBOLS, REAL_ESTATE_PRESETS, BUSINESS_SYMBOLS } from '../constants';
 
 const formatMoney = (amount: number) => {
     const num = Number(amount);
@@ -216,10 +216,33 @@ export const useTransactionLogic = ({
                 if (!reDownPayment) { showError("請輸入頭期款"); return; }
                 const down = Number(reDownPayment), loan = Number(reLoan), inc = Number(reIncome), inter = Number(reInterest);
                 if (down > cash) { showError("現金不足"); return; }
-                txData = { name: `買入不動產 ${reSymbol} ${reSelfUse ? '(自用)' : ''}`, amount: down + loan, cashChange: -down, source: loan > 0 ? 'loan' : 'cash', usage: 'asset', assetDetails: { type: '不動產', cashflow: reSelfUse ? 0 : inc, downPayment: down, loanAmount: loan, loanInterest: inter, symbol: reSymbol, isSelfUse: reSelfUse, houseType: reHouseType } };
+
+                const happyPoints = (reSelfUse && REAL_ESTATE_PRESETS[reSymbol]?.happyPoints) || 0;
+
+                txData = {
+                    name: `買入不動產 ${reSymbol} ${reSelfUse ? '(自用)' : ''}`,
+                    amount: down + loan,
+                    cashChange: -down,
+                    source: loan > 0 ? 'loan' : 'cash',
+                    usage: 'asset',
+                    assetDetails: {
+                        type: '不動產',
+                        cashflow: reSelfUse ? 0 : inc,
+                        downPayment: down,
+                        loanAmount: loan,
+                        loanInterest: inter,
+                        symbol: reSymbol,
+                        isSelfUse: reSelfUse,
+                        houseType: reHouseType,
+                        happyPoints: happyPoints
+                    }
+                };
+
                 impactList.push(`現金 -${formatMoney(down)}`, `不動產 (${reSymbol}) +${formatMoney(down + loan)}`);
                 if (loan > 0) { impactList.push(`不動產貸款 +${formatMoney(loan)}`, `貸款利息(月) +${formatMoney(inter)}`); }
                 if (!reSelfUse && inc > 0) { impactList.push(`租金收入(月) +${formatMoney(inc)}`); }
+                if (happyPoints > 0) { impactList.push(`幸福點數 +${happyPoints} 點`); }
+
                 expectedEntries.push({ category: 'Assets', name: `不動產 (${reSymbol})`, direction: 'Increase' });
                 if (down > 0) expectedEntries.push({ category: 'Assets', name: '現金', direction: 'Decrease' });
                 if (loan > 0) { expectedEntries.push({ category: 'Liabilities', name: '不動產貸款', direction: 'Increase' }, { category: 'Expenses', name: '不動產貸款利息', direction: 'Increase' }); }
@@ -230,22 +253,22 @@ export const useTransactionLogic = ({
                 const existing = assets.find(a => a.type === '企業' && a.name?.includes(bizSymbol));
                 if (existing) { showError(`您已經擁有 ${bizSymbol} 企業，無法重複買入`); return; }
                 if (down < 0) { showError("請輸入有效的投資金額"); return; }
-                
+
                 if (down > cash) { showError("現金不足支付投資金額"); return; }
-                txData = { 
-                    name: `買入企業 ${bizSymbol}`, 
-                    amount: down, 
-                    cashChange: -down, 
-                    source: loan > 0 ? 'loan' : 'cash', 
-                    usage: 'asset', 
-                    assetDetails: { 
-                        type: '企業', 
-                        cashflow: inc, 
-                        downPayment: down, 
-                        loanAmount: loan, 
-                        loanInterest: inter, 
-                        symbol: bizSymbol 
-                    } 
+                txData = {
+                    name: `買入企業 ${bizSymbol}`,
+                    amount: down,
+                    cashChange: -down + loan,
+                    source: loan > 0 ? 'loan' : 'cash',
+                    usage: 'asset',
+                    assetDetails: {
+                        type: '企業',
+                        cashflow: inc,
+                        downPayment: down,
+                        loanAmount: loan,
+                        loanInterest: inter,
+                        symbol: bizSymbol
+                    }
                 };
                 // 根據用戶要求，企業在資產負債表中的價值為投資總額（downPayment），不包含貸款
                 impactList.push(`現金 -${formatMoney(down)}`, `企業 (${bizSymbol}) +${formatMoney(down)}`);
@@ -327,19 +350,19 @@ export const useTransactionLogic = ({
             } else {
                 const entries = Object.entries(repayInputs).filter(([_, v]) => Number(v) > 0);
                 if (entries.length === 0) { showError("請輸入售價"); return; }
-                
+
                 const batchList: BatchSellItem[] = [];
                 let totalSellPrice = 0;
                 let totalLoanBalance = 0;
                 let totalCashChange = 0;
-                
+
                 for (const [id, price] of entries) {
-                    const asset = assets.find(a => a.id === id); 
+                    const asset = assets.find(a => a.id === id);
                     if (!asset) continue;
 
                     // 查找該資產對應的貸款
                     const assetSymbol = asset.name.match(/[A-Z]\d+/)?.[0];
-                    const relatedLoan = liabilities.find(l => 
+                    const relatedLoan = liabilities.find(l =>
                         (asset.type === '不動產' && l.type === '不動產貸款' && assetSymbol && l.name.includes(assetSymbol)) ||
                         (asset.type === '企業' && l.type === '企業貸款' && assetSymbol && l.name.includes(assetSymbol)) ||
                         (asset.type === '飛行器' && l.type === '飛行器貸款')
@@ -347,25 +370,25 @@ export const useTransactionLogic = ({
 
                     const sellPrice = Number(price);
                     const loanBalance = relatedLoan ? relatedLoan.totalOwed : 0;
-                    
+
                     if (sellPrice <= loanBalance) {
                         showError(`${asset.name} 的售價 (${formatMoney(sellPrice)}) 必須大於貸款金額 (${formatMoney(loanBalance)})`);
                         return;
                     }
-                    
-                    batchList.push({
-                asset: asset,
-                price: sellPrice,
-                liability: relatedLoan
-            });
 
-            totalSellPrice += sellPrice;
-            totalLoanBalance += loanBalance;
-            
-            const assetImpactName = asset.name;
-            impactList.push(`賣出 ${assetImpactName}: +${formatMoney(sellPrice)}`);
-            impactList.push(`${assetImpactName} 資產減少: -${formatMoney(asset.cost)}`);
-                    
+                    batchList.push({
+                        asset: asset,
+                        price: sellPrice,
+                        liability: relatedLoan
+                    });
+
+                    totalSellPrice += sellPrice;
+                    totalLoanBalance += loanBalance;
+
+                    const assetImpactName = asset.name;
+                    impactList.push(`賣出 ${assetImpactName}: +${formatMoney(sellPrice)}`);
+                    impactList.push(`${assetImpactName} 資產減少: -${formatMoney(asset.cost)}`);
+
                     // 移除償還貸款的提示訊息
 
                     // 1. 資產減少 (企業或不動產)
@@ -378,10 +401,10 @@ export const useTransactionLogic = ({
                     if (loanBalance > 0) {
                         const loanName = asset.type === '不動產' ? '不動產貸款' : asset.type === '企業' ? '企業貸款' : asset.type === '飛行器' ? '飛行器貸款' : (relatedLoan?.name || '貸款');
                         const interestName = asset.type === '不動產' ? '不動產貸款利息' : asset.type === '企業' ? '企業貸款利息' : asset.type === '飛行器' ? '飛行器貸款利息' : '貸款利息';
-                        
+
                         expectedEntries.push({ category: 'Liabilities', name: loanName, direction: 'Decrease' });
                         expectedEntries.push({ category: 'Expenses', name: interestName, direction: 'Decrease' });
-                        
+
                         impactList.push(`${loanName} 減少: -${formatMoney(loanBalance)}`);
                         impactList.push(`${interestName} 減少`);
                     }
@@ -396,22 +419,22 @@ export const useTransactionLogic = ({
                 }
 
                 totalCashChange = totalSellPrice - totalLoanBalance;
-                
+
                 if (totalCashChange !== 0) {
-                    expectedEntries.push({ 
-                        category: 'Assets', 
-                        name: '現金', 
-                        direction: totalCashChange > 0 ? 'Increase' : 'Decrease' 
+                    expectedEntries.push({
+                        category: 'Assets',
+                        name: '現金',
+                        direction: totalCashChange > 0 ? 'Increase' : 'Decrease'
                     });
                 }
-                
+
                 const assetNames = batchList.map(i => i.asset.name).join(', ');
-                txData = { 
-                    name: `賣出資產 (${assetNames})`, 
-                    amount: totalSellPrice, 
-                    cashChange: totalCashChange, 
-                    source: 'income', 
-                    usage: 'cash', 
+                txData = {
+                    name: `賣出資產 (${assetNames})`,
+                    amount: totalSellPrice,
+                    cashChange: totalCashChange,
+                    source: 'income',
+                    usage: 'cash',
                     batchSellList: batchList
                 };
 
@@ -430,16 +453,38 @@ export const useTransactionLogic = ({
                     const amt = Number(repayAmount);
                     if (!amt) { showError("請輸入還款金額"); return; }
                     if (amt > cash) { showError("現金不足"); return; }
-                    
-                    // 優先還 `liabilities` 中的信用貸款，其次才是 `loans`
-                    const creditLiab = liabilities.find(l => l.type === '信用貸款');
-                    txData = { 
-                        name: `償還 信用貸款`, 
-                        amount: amt, 
-                        cashChange: -amt, 
-                        source: 'cash', 
-                        usage: 'liability', 
-                        liabilityId: creditLiab ? creditLiab.id : 'bank_loan' 
+
+
+                    // 檢查是否有信用貸款並計算總額
+                    const creditLiabilities = liabilities.filter(l => l.type === '信用貸款');
+                    const legacyLoan = liabilities.find(l => l.id === 'bank_loan')?.totalOwed || 0; // Legacy support if needed, though mostly using '信用貸款' type now
+                    const totalCreditDebt = creditLiabilities.reduce((sum, l) => sum + l.totalOwed, 0) + (liabilities.some(l => l.id === 'bank_loan') ? 0 : 0); // Assuming legacy bank_loan is already in liabilities if migrated, otherwise checking loans state directly if accessible, but here relying on liabilities prop. Wait, useTransactionLogic receives liabilities. 
+
+                    // Correct calculation:
+                    // The component receives `liabilities`.
+                    // We also need to check `loans` from props if it's passed separately, but `useTransactionLogic` doesn't seem to have `loans` in props destructuring in the snippet, 
+                    // However, useTransactionLogic DOES NOT have `loans` in props. It has `liabilities`. 
+                    // Let's trust `liabilities` contains all credit loans as per recent refactors.
+                    // But wait, in `useGameLogic`, `bank_loan` updates `newState.loans`. 
+                    // Does `useTransactionLogic` receive `loans`?
+                    // Looking at lines 33-48, `loans` is NOT in props.
+                    // However, `liabilities` is passed.
+                    // Let's assume all credit loans are in `liabilities`.
+
+                    const totalCreditLoan = liabilities
+                        .filter(l => l.type === '信用貸款')
+                        .reduce((sum, l) => sum + l.totalOwed, 0);
+
+                    if (totalCreditLoan <= 0) { showError("目前沒有任何信用貸款"); return; }
+                    if (amt > totalCreditLoan) { showError(`還款金額不可超過信用貸款總額 (${formatMoney(totalCreditLoan)})`); return; }
+
+                    txData = {
+                        name: `償還 信用貸款`,
+                        amount: amt,
+                        cashChange: -amt,
+                        source: 'cash',
+                        usage: 'liability',
+                        liabilityId: 'multiple_credit_loans'
                     };
                     impactList = [`現金 -${formatMoney(amt)}`, `信用貸款 -${formatMoney(amt)}`, `信貸利息 減少`];
                     expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Decrease' }, { category: 'Liabilities', name: '信用貸款', direction: 'Decrease' }, { category: 'Expenses', name: '信貸利息', direction: 'Decrease' }];
@@ -500,7 +545,7 @@ export const useTransactionLogic = ({
             } else {
                 // Happiness Event
                 let effectiveSubMode = happinessSubMode;
-                
+
                 // If in history mode, determine the real mode based on selected milestone
                 if (happinessSubMode === 'history') {
                     const milestones = [
@@ -512,17 +557,17 @@ export const useTransactionLogic = ({
                     ];
                     const selected = milestones.find(m => m.name === eventCustomName);
                     if (selected) {
-                        const isAlreadyCompleted = completedHappinessEvents.includes(selected.id) || 
-                                                 happiness.some(h => {
-                                                     const mapping: Record<string, string> = {
-                                                         'date': 'h_date',
-                                                         'propose': 'h_proposal',
-                                                         'wedding': 'h_wedding',
-                                                         'child1': 'h_child1',
-                                                         'child2': 'h_child2'
-                                                     };
-                                                     return h.id === mapping[selected.id] && h.checked;
-                                                 });
+                        const isAlreadyCompleted = completedHappinessEvents.includes(selected.id) ||
+                            happiness.some(h => {
+                                const mapping: Record<string, string> = {
+                                    'date': 'h_date',
+                                    'propose': 'h_proposal',
+                                    'wedding': 'h_wedding',
+                                    'child1': 'h_child1',
+                                    'child2': 'h_child2'
+                                };
+                                return h.id === mapping[selected.id] && h.checked;
+                            });
                         if (isAlreadyCompleted) {
                             showError("此幸福歷程已達成，不能重複執行");
                             return;
@@ -540,7 +585,7 @@ export const useTransactionLogic = ({
                     if (!amt) { showError("請輸入支付金額"); return; }
                     if (amt > cash) { showError("現金不足"); return; }
                     const name = eventCustomName || '幸福支出';
-                    
+
                     // Check if it's one of the special milestones for points
                     let points = 2;
                     let milestoneId = `custom_pay_${Date.now()}`;
@@ -548,11 +593,11 @@ export const useTransactionLogic = ({
                     else if (name === '第一次約會') { milestoneId = 'date'; }
                     else if (name === '難忘的求婚') { milestoneId = 'propose'; }
 
-                    txData = { 
-                        name: `幸福支出：${name}`, 
-                        amount: amt, 
-                        cashChange: -amt, 
-                        source: 'cash', 
+                    txData = {
+                        name: `幸福支出：${name}`,
+                        amount: amt,
+                        cashChange: -amt,
+                        source: 'cash',
                         usage: 'happiness_event',
                         happinessEventPayload: {
                             id: milestoneId,
@@ -570,18 +615,18 @@ export const useTransactionLogic = ({
                     const name = eventCustomName || '幸福生活升級';
                     const category = eventExpCategory || 'otherMedicalChild';
                     const categoryName = category === 'basicLiving' ? '餐飲、服飾、居住類' : category === 'transportEdu' ? '交通、教育、娛樂類' : '其他、醫療、育兒類';
-                    
+
                     // Check if it's one of the special milestones for points
                     let points = 2;
                     let milestoneId = `custom_exp_${Date.now()}`;
                     if (name === '擁有第一個孩子') { points = 4; milestoneId = 'child1'; }
                     else if (name === '擁有第二個孩子') { points = 4; milestoneId = 'child2'; }
 
-                    txData = { 
-                        name: `幸福生活升級：${name}`, 
-                        amount: 0, 
-                        cashChange: 0, 
-                        source: 'income', 
+                    txData = {
+                        name: `幸福生活升級：${name}`,
+                        amount: 0,
+                        cashChange: 0,
+                        source: 'income',
                         usage: 'happiness_event',
                         happinessEventPayload: {
                             id: milestoneId,
@@ -667,6 +712,6 @@ export const useTransactionLogic = ({
         userEntries, setUserEntries, errorMessage, setErrorMessage, pendingTx, correctEntries,
         stockAssets, cdTotal, uninsuredHouses, hasAircraftAsset,
         handlePhase1Submit, checkAnswers, completeTransaction, toggleEntry, formatMoney,
-    resetFormStates
+        resetFormStates
     };
 };

@@ -48,43 +48,43 @@ export const CashFlowLog: React.FC<CashFlowLogProps> = ({ history }) => {
                     <table className="w-full text-xs table-fixed">
                         <thead className="bg-slate-900/50 border-b border-slate-700">
                             <tr>
-                                <th className="px-2 py-3 text-left font-bold text-slate-400 w-10">回合</th>
                                 <th className="px-2 py-3 text-left font-bold text-slate-400">分類 / 詳情</th>
-                                <th className="px-2 py-3 text-right font-bold text-slate-400 w-24">現金餘額</th>
+                                <th className="px-2 py-3 text-right font-bold text-slate-400 w-32">現金餘額</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-700/50">
                             {cashFlowData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
+                                    <td colSpan={2} className="px-4 py-8 text-center text-slate-500">
                                         尚無交易記錄
                                     </td>
                                 </tr>
                             ) : (
                                 cashFlowData.slice().reverse().map((item, index) => (
                                     <tr key={index} className="hover:bg-slate-700/30 transition-colors">
-                                        <td className="px-2 py-3 text-slate-300 font-mono">R{item.round}</td>
                                         <td className="px-2 py-3">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                {item.flowType && (
-                                                     <span className={cn(
-                                                         "px-1 py-0.5 text-[9px] rounded font-bold",
-                                                         item.flowType === '生活' ? "bg-blue-900/40 text-blue-400 border border-blue-800/50" :
-                                                         item.flowType === '投資' ? "bg-purple-900/40 text-purple-400 border border-purple-800/50" :
-                                                         item.flowType === '融資' ? "bg-orange-900/40 text-orange-400 border border-orange-800/50" :
-                                                         "bg-slate-700 text-slate-400"
-                                                     )}>
-                                                         {item.flowType}
-                                                     </span>
-                                                 )}
-                                                <div className="text-slate-200 font-medium truncate" title={item.name}>{item.name}</div>
-                                            </div>
-                                            <div className={`text-[10px] font-bold ${item.cashChange > 0 ? 'text-emerald-400' : item.cashChange < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                            <div className="text-slate-200 font-bold text-xs leading-relaxed mb-1" title={item.name}>{item.name}</div>
+                                            <div className={`text-[10px] font-bold whitespace-nowrap ${item.cashChange > 0 ? 'text-emerald-400' : item.cashChange < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
                                                 {item.cashChange > 0 ? '+' : ''}{formatMoney(item.cashChange)}
                                             </div>
                                         </td>
-                                        <td className="px-2 py-3 text-right font-mono font-bold text-white">
-                                            {formatMoney(item.balance)}
+                                        <td className="px-2 py-3 text-right align-top">
+                                            <div className="flex flex-col items-end gap-1.5">
+                                                <div className="font-mono font-bold text-white whitespace-nowrap">
+                                                    {formatMoney(item.balance)}
+                                                </div>
+                                                {item.flowType && (
+                                                    <span className={cn(
+                                                        "px-1.5 py-0.5 text-[9px] rounded font-bold leading-none",
+                                                        item.flowType === '生活' ? "bg-blue-900/40 text-blue-400 border border-blue-800/50" :
+                                                            item.flowType === '投資' ? "bg-purple-900/40 text-purple-400 border border-purple-800/50" :
+                                                                item.flowType === '融資' ? "bg-orange-900/40 text-orange-400 border border-orange-800/50" :
+                                                                    "bg-slate-700 text-slate-400"
+                                                    )}>
+                                                        {item.flowType}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

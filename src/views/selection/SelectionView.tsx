@@ -7,14 +7,21 @@ import { formatMoney } from '../../utils/gameUtils';
 
 interface SelectionViewProps {
     sessionMeta: GameSessionMeta;
+    initialStep?: 'profession' | 'enterprise' | 'dream';
     onComplete: (data: { professionId: string; enterpriseId: string; dreamId: string }) => void;
     onBackToLobby: () => void;
+    onStepChange?: (step: 'profession' | 'enterprise' | 'dream') => void;
 }
 
 type SelectionStep = 'profession' | 'enterprise' | 'dream';
 
-export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, onComplete, onBackToLobby }) => {
-    const [currentStep, setCurrentStep] = useState<SelectionStep>('profession');
+export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, initialStep, onComplete, onBackToLobby, onStepChange }) => {
+    const [currentStep, setCurrentStep] = useState<SelectionStep>(initialStep || 'profession');
+
+    // 當步驟改變時通知父組件
+    React.useEffect(() => {
+        onStepChange?.(currentStep);
+    }, [currentStep, onStepChange]);
 
     // Local state for selections
     const [selectedProfessionId, setSelectedProfessionId] = useState<string | null>(null);
@@ -114,35 +121,32 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, onCom
         );
     }
 
-    if (currentStep === 'dream') {
-        return (
-            <SelectionCarousel
-                title="選擇夢想"
-                headerText="請選擇心儀的夢想"
-                subtitle="請選擇您的夢想"
-                btnLabel="確認選擇並開始遊戲"
-                items={DREAMS}
-                selectedId={selectedDreamId}
-                onSelect={setSelectedDreamId}
-                onNext={handleDreamSelect}
-                onBack={() => setCurrentStep('enterprise')}
-                sessionMeta={sessionMeta}
-                renderItem={(d: Dream, isSelected: boolean) => (
-                    <>
-                        <div className={`shrink-0 w-20 h-20 rounded-full flex items-center justify-center border-4 transition-colors duration-150 ${isSelected ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-slate-800 border-slate-600 text-slate-500'}`}>
-                            {getDreamIcon(d.id, { size: 40 })}
-                        </div>
-                        <h3 className="text-xl font-bold text-white flex flex-col gap-1"> <span>{d.name}</span> <span className="text-sm font-mono text-slate-500">{d.id}</span> </h3>
-                        {d.description && <p className="text-slate-400 text-sm italic">{d.description}</p>}
-                        <div className="w-full bg-slate-800/50 rounded-xl p-4 flex flex-col gap-3 border border-slate-700/50 text-sm mt-4">
-                            <div className="flex justify-between"> <span className="text-slate-400">花費</span> <span className="text-rose-400 font-mono">{formatMoney(d.cost)}</span> </div>
-                            <div className="flex justify-between items-center pt-2 border-t border-slate-700 mt-2"> <span className="text-slate-400">幸福點數</span> <span className="text-pink-400 font-bold">+{d.happyPoints}</span> </div>
-                        </div>
-                    </>
-                )}
-            />
-        );
-    }
-
-    return null;
+    // Default to dream or profession if somehow currentStep is invalid
+    return (
+        <SelectionCarousel
+            title="選擇夢想"
+            headerText="請選擇心儀的夢想"
+            subtitle="請選擇您的夢想"
+            btnLabel="確認選擇並開始遊戲"
+            items={DREAMS}
+            selectedId={selectedDreamId}
+            onSelect={setSelectedDreamId}
+            onNext={handleDreamSelect}
+            onBack={() => setCurrentStep('enterprise')}
+            sessionMeta={sessionMeta}
+            renderItem={(d: Dream, isSelected: boolean) => (
+                <>
+                    <div className={`shrink-0 w-20 h-20 rounded-full flex items-center justify-center border-4 transition-colors duration-150 ${isSelected ? 'bg-amber-500/10 border-amber-500 text-amber-500' : 'bg-slate-800 border-slate-600 text-slate-500'}`}>
+                        {getDreamIcon(d.id, { size: 40 })}
+                    </div>
+                    <h3 className="text-xl font-bold text-white flex flex-col gap-1"> <span>{d.name}</span> <span className="text-sm font-mono text-slate-500">{d.id}</span> </h3>
+                    {d.description && <p className="text-slate-400 text-sm italic">{d.description}</p>}
+                    <div className="w-full bg-slate-800/50 rounded-xl p-4 flex flex-col gap-3 border border-slate-700/50 text-sm mt-4">
+                        <div className="flex justify-between"> <span className="text-slate-400">花費</span> <span className="text-rose-400 font-mono">{formatMoney(d.cost)}</span> </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-slate-700 mt-2"> <span className="text-slate-400">幸福點數</span> <span className="text-pink-400 font-bold">+{d.happyPoints}</span> </div>
+                    </div>
+                </>
+            )}
+        />
+    );
 };

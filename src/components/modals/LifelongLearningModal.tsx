@@ -10,6 +10,7 @@ interface LifelongLearningModalProps {
     onBack: () => void;
     onConfirm: (type: string, cost: number) => void;
     gameState: GameState;
+    disabled?: boolean;
 }
 
 export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
@@ -17,7 +18,8 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
     onClose,
     onBack,
     onConfirm,
-    gameState
+    gameState,
+    disabled = false
 }) => {
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -154,12 +156,12 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
 
                     <div className="flex flex-col gap-2 pt-1">
                         <Button
-                            disabled={!selectedId}
+                            disabled={!selectedId || disabled}
                             onClick={handleConfirm}
                             className="w-full py-3 rounded-xl font-black text-base transition-all shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white shadow-amber-900/40 disabled:opacity-50 disabled:shadow-none"
                         >
-                            <span>確認學習</span>
-                            <ChevronRight size={18} className="animate-in slide-in-from-left-2" />
+                            <span>{disabled ? '遊戲已結算' : '確認學習'}</span>
+                            {!disabled && <ChevronRight size={18} className="animate-in slide-in-from-left-2" />}
                         </Button>
                         <Button
                             variant="secondary"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Star, Plane, GraduationCap, Trophy, TrendingUp, Wallet, BarChart3, PieChart, Landmark, HelpCircle, ChevronDown, Clock, Users, Home, Heart } from 'lucide-react';
+import { Star, Plane, GraduationCap, Trophy, TrendingUp, Wallet, BarChart3, PieChart, Landmark, HelpCircle, ChevronDown, Clock, Users, Home, Heart, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../ui/ui';
 import { getProfessionIcon } from '../common/IconHelpers';
@@ -15,6 +15,7 @@ interface GameHeaderProps {
     onFinishGame: () => void;
     onShowStockMarket: () => void;
     onShowTutorial: () => void;
+    onLeaveRoom: () => void;
 }
 
 export const GameHeader: React.FC<GameHeaderProps> = ({ 
@@ -24,7 +25,8 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
     onShowPromotion, 
     onFinishGame,
     onShowStockMarket,
-    onShowTutorial
+    onShowTutorial,
+    onLeaveRoom
 }) => {
     const { room, playerStates } = useRoom();
     const [showAircraftTooltip, setShowAircraftTooltip] = useState(false);
@@ -67,15 +69,70 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
     }, [room?.gameTimeLeft, room?.isTimerPaused]);
 
     const sortedPlayers = useMemo(() => {
-        if (!room) return [];
-        return room.members
-            .filter(m => m.role === 'player')
-            .map(m => ({
-                ...m,
-                happiness: playerStates[m.uid]?.happinessTotal || 0
-            }))
-            .sort((a, b) => b.happiness - a.happiness);
+        if (!room || !room.members) return [];
+        
+        // 取得所有成員，只要不是房主都視為玩家
+        // 增加更嚴謹的過濾，確保成員有 uid
+        const playersOnly = room.members.filter(m => m && m.uid && m.uid !== room.hostId);
+        
+        // 優先使用 room.playerStates，因為這是在 Firestore 中同步的
+        const states = room.playerStates || playerStates || {};
+        
+        return playersOnly.map(m => ({
+            ...m,
+            happiness: states[m.uid]?.happinessTotal || 0
+        }))
+        .sort((a, b) => b.happiness - a.happiness);
     }, [room, playerStates]);
+
+    const displayRoomName = useMemo(() => {
+        if (room?.name) return room.name;
+        const now = new Date();
+        const yy = String(now.getFullYear()).slice(-2);
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        return `執行日記${yy}${mm}${dd}`;
+    }, [room?.name]);
+
+    const renderPlayerAvatar = (player: any) => {
+        if (!player) return <Users size={16} className="text-slate-500" />;
+        
+        const isCustom = player.photoURL && (player.photoURL.startsWith('http') || player.photoURL.startsWith('data:image'));
+        
+        if (isCustom) {
+            let position = { x: 50, y: 50 };
+            let scale = 1;
+            
+            if (player.photoPosition) {
+                try {
+                    position = JSON.parse(player.photoPosition);
+                } catch (e) {
+                    position = { x: 50, y: parseInt(player.photoPosition) || 50 };
+                }
+            }
+            if (player.photoScale) {
+                scale = parseFloat(player.photoScale) || 1;
+            }
+
+            return (
+                <img 
+                    src={player.photoURL} 
+                    className="w-full h-full object-cover" 
+                    alt={player.name}
+                    style={{ 
+                        objectPosition: `${position.x}% ${position.y}%`,
+                        transform: `scale(${scale})`
+                    }}
+                />
+            );
+        }
+
+        return (
+             <span className="text-xl">
+                 {(!player.photoURL || player.photoURL === 'bee') ? '🐝' : '👤'}
+             </span>
+         );
+     };
 
     return (
         <header className="fixed top-0 left-0 right-0 z-40 flex flex-col">
@@ -107,14 +164,14 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                         )}
                     </div>
 
-                    <div className="flex gap-1 items-center h-8">
-                        <Button
-                            onClick={onShowTutorial}
-                            className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-500 text-white border-none shadow-lg shadow-blue-900/40 flex items-center justify-center shrink-0 transition-all active:scale-95"
-                            title="遊戲教學"
+                    <div className="flex gap-1.5 items-center h-8">
+                        <button 
+                            onClick={onFinishGame} 
+                            className="h-8 bg-amber-600 hover:bg-amber-500 text-white text-[10px] px-2.5 flex items-center gap-1.5 shrink-0 shadow-lg shadow-amber-900/20 rounded-lg border border-amber-500/50 transition-all active:scale-95"
                         >
-                            <span className="text-lg font-black leading-none select-none">?</span>
-                        </Button>
+                            <Trophy size={14} />
+                            <span className="font-black whitespace-nowrap uppercase tracking-wider">評分</span>
+                        </button>
                         <div className="relative h-8 w-8 cursor-pointer hover:scale-105 transition-transform shrink-0">
                             <div
                                 className={cn("w-full h-full flex items-center justify-center rounded-lg shadow-lg transition-colors text-white shadow-indigo-500/20", hasAircraft ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-600 hover:bg-slate-500')}
@@ -139,14 +196,17 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                             <TrendingUp size={12} className="text-emerald-400" />
                             <span className="font-bold whitespace-nowrap">股市</span>
                         </button>
-                        <Button onClick={onFinishGame} className="h-8 bg-yellow-600 hover:bg-yellow-500 text-white text-[10px] px-2 flex items-center gap-1 shrink-0 shadow-lg shadow-yellow-900/20">
-                            <Trophy size={12} />
-                            <span className="font-bold whitespace-nowrap">評分</span>
-                        </Button>
+                        <button
+                            onClick={onLeaveRoom}
+                            className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl transition-all border border-rose-500/20 active:scale-95 ml-1"
+                            title="離開房間"
+                        >
+                            <LogOut size={18} />
+                        </button>
                     </div>
                 </div>
 
-                {/* 懸掛式倒數計時器 - 移至最外層容器並精確貼齊下緣 */}
+                {/* 懸掛式倒數計時器 (同步玩家畫面風格) */}
                 <div className="absolute left-1/2 -translate-x-1/2 top-full flex items-center justify-center z-30">
                     <button
                         onClick={() => setShowRoomInfo(!showRoomInfo)}
@@ -159,23 +219,27 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                     : "bg-slate-900/90 backdrop-blur-sm border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
                         )}
                     >
-                        <Clock size={9} className={cn(showRoomInfo || !room?.isTimerPaused ? "text-white" : "text-slate-500")} />
-                        <span className="text-[9px] font-black tracking-wider tabular-nums">{timeLeft}</span>
-                        <ChevronDown size={9} className={cn("transition-transform duration-300 opacity-60", showRoomInfo && "rotate-180 opacity-100")} />
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-black tracking-widest text-white/60">房號 {room?.id}</span>
+                            <div className="w-px h-2.5 bg-white/20" />
+                            <Clock size={10} className={cn(showRoomInfo || !room?.isTimerPaused ? "text-white" : "text-slate-500")} />
+                            <span className="text-[9px] font-black tracking-wider tabular-nums">{timeLeft}</span>
+                        </div>
+                        <ChevronDown size={10} className={cn("transition-transform duration-300 opacity-60", showRoomInfo && "rotate-180 opacity-100")} />
                     </button>
                 </div>
 
-                {/* 下拉房間資訊面板 - 使用 Framer Motion 實現真實捲軸效果 */}
+                {/* 下拉房間資訊面板 (懸浮式設計) */}
                 <AnimatePresence>
                     {showRoomInfo && (
                         <motion.div 
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                            className="absolute top-full left-1/2 -translate-x-1/2 w-[calc(100%-24px)] max-w-md z-[50] overflow-hidden"
+                            initial={{ height: 0, opacity: 0, y: 12 }}
+                            animate={{ height: 'auto', opacity: 1, y: 28 }}
+                            exit={{ height: 0, opacity: 0, y: 12 }}
+                            transition={{ duration: 0.3, ease: "easeInOut" }}
+                            className="fixed top-16 left-0 right-0 flex justify-center z-[100] px-3 pointer-events-none"
                         >
-                            <div className="bg-slate-900 border-x border-b border-blue-500/30 rounded-b-[2rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7)] ring-1 ring-white/5 overflow-hidden">
+                            <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-[0_30px_70px_-15px_rgba(0,0,0,0.8)] ring-1 ring-white/5 overflow-hidden pointer-events-auto">
                                 <div className="p-5 space-y-5">
                                     {/* 房間基本資訊 - 更加精緻的卡片感 */}
                                     <div className="flex items-center justify-between bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700/50">
@@ -184,8 +248,9 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                                 <Home size={18} className="text-white" />
                                             </div>
                                             <div>
-                                                <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-0.5">ROOM NAME</div>
-                                                <div className="text-sm font-black text-white tracking-wide">{room?.name || '幸福流挑戰賽'}</div>
+                                                <div className="text-sm font-black text-white tracking-wide">
+                                                    {displayRoomName}
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="text-right bg-slate-900/80 px-3 py-2.5 rounded-lg border border-slate-700/50 flex items-center justify-center">
@@ -202,26 +267,55 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                             </div>
                                             <span className="text-[9px] text-slate-600 font-bold bg-slate-800 px-2 py-0.5 rounded-full">{sortedPlayers.length} 位玩家</span>
                                         </div>
-                                        <div className="grid gap-2">
-                                            {sortedPlayers.map((player, index) => (
-                                                <div key={player.uid} className="group flex items-center justify-between p-2.5 rounded-2xl border bg-slate-800/30 border-slate-700/30 hover:bg-slate-800/60 transition-all duration-300">
+                                        <div className="grid gap-2 max-h-[320px] overflow-y-auto pr-1 no-scrollbar">
+                                            {sortedPlayers.map((player) => (
+                                                <div 
+                                                    key={player.uid} 
+                                                    className={cn(
+                                                        "group flex items-center justify-between p-2.5 rounded-2xl border transition-all duration-300",
+                                                        player.isLeft 
+                                                            ? "bg-slate-900/40 border-slate-800/50 opacity-60 grayscale-[0.5]" 
+                                                            : "bg-slate-800/30 border-slate-700/30 hover:bg-slate-800/60"
+                                                    )}
+                                                >
                                                     <div className="flex items-center gap-3">
                                                         <div className="relative">
-                                                            <div className="w-9 h-9 rounded-xl border-2 border-slate-700 bg-slate-800 flex items-center justify-center overflow-hidden shadow-inner">
-                                                                {player.photoURL ? (
-                                                                    <img src={player.photoURL} alt={player.name} className="w-full h-full object-cover" />
-                                                                ) : (
-                                                                    <Users size={16} className="text-slate-500" />
+                                                            <div className={cn(
+                                                                "w-9 h-9 rounded-xl border-2 bg-slate-800 flex items-center justify-center overflow-hidden shadow-inner",
+                                                                player.isLeft ? "border-slate-800" : "border-slate-700"
+                                                            )}>
+                                                                {renderPlayerAvatar(player)}
+                                                            </div>
+                                                            {player.isLeft && (
+                                                                <div className="absolute inset-0 bg-slate-950/40 flex items-center justify-center">
+                                                                    <div className="w-full h-full bg-slate-900/20 backdrop-blur-[1px]" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={cn(
+                                                                    "text-xs font-black transition-colors",
+                                                                    player.isLeft ? "text-slate-500" : "text-slate-200 group-hover:text-white"
+                                                                )}>
+                                                                    {player.name}
+                                                                </span>
+                                                                {player.isLeft && (
+                                                                    <span className="text-[9px] font-bold px-1.5 py-0.5 bg-slate-800 text-slate-500 rounded-md border border-slate-700/50">
+                                                                        已離開
+                                                                    </span>
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-xs font-black text-slate-200 group-hover:text-white transition-colors">{player.name}</span>
-                                                        </div>
                                                     </div>
                                                     <div className="flex items-center gap-1.5">
-                                                        <Heart size={12} className="text-pink-500" fill="currentColor" />
-                                                        <div className="px-2.5 py-0.5 rounded-full text-[11px] font-black tabular-nums shadow-sm bg-pink-500/10 text-pink-500 border border-pink-500/20">
+                                                        <Heart size={12} className={player.isLeft ? "text-slate-600" : "text-pink-500"} fill="currentColor" />
+                                                        <div className={cn(
+                                                            "px-2.5 py-0.5 rounded-full text-[11px] font-black tabular-nums shadow-sm border",
+                                                            player.isLeft 
+                                                                ? "bg-slate-800/50 text-slate-500 border-slate-700/30" 
+                                                                : "bg-pink-500/10 text-pink-500 border-pink-500/20"
+                                                        )}>
                                                             {player.happiness}
                                                         </div>
                                                     </div>
