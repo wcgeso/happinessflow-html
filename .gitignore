@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Production
+dist/
+temp_deploy/
+
+# Zips/Backups
+*.zip
+*.bak
+*.backup*
+開發檔_*.tsx
+
+# Env
+.env*.local
+.env
+
+# OS
+.DS_Store
