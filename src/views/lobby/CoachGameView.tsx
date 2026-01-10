@@ -25,11 +25,12 @@ import {
     ChevronDown,
     Home,
     Heart,
-    Settings
+    Settings,
+    Rocket
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../services/firebase';
-import { setDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { setDoc, serverTimestamp, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { STOCK_DATA, BUBBLE_BURST_CODES, STOCK_NAMES } from '../../constants';
 
 export const CoachGameView: React.FC = () => {
@@ -300,27 +301,36 @@ export const CoachGameView: React.FC = () => {
         try {
             // 整理所有玩家的積分數據
             const playersData = players.map(player => {
-                const state = playerStates[player.uid];
-                if (!state) return null;
-                const summary = calculateFinancialSummary(state);
-                const result = calculateScoreResult(state, summary);
-                return {
-                    uid: player.uid,
-                    name: player.name,
-                    profession: state.currentRankTitle || state.profession?.title || 'Unknown',
-                    happiness: state.happinessTotal,
-                    cash: state.cash,
-                    assets: state.assets || [],
-                    liabilities: state.liabilities || [],
-                    income: state.income,
-                    expenses: state.expenses,
-                    history: state.history || [],
-                    happinessItems: state.happiness || [],
-                    loans: state.loans || 0,
-                    totalScore: result.totalScore,
-                    summary: summary // 儲存結算時的財務摘要
-                };
-            }).filter(Boolean);
+            const state = playerStates[player.uid];
+            if (!state) return null;
+
+            const summary = calculateFinancialSummary(state);
+            const result = calculateScoreResult(state, summary);
+
+            // 確保 income 中包含 salary 欄位
+            const income = { ...state.income };
+            if (!income.salary && state.profession) {
+                income.salary = state.profession.salary;
+            }
+
+            return {
+                uid: player.uid,
+                name: player.name,
+                profession: state.currentRankTitle || state.profession?.title || 'Unknown',
+                professionData: state.profession, // 儲存完整的職業對象供歷史紀錄還原
+                happiness: state.happinessTotal,
+                cash: state.cash,
+                assets: state.assets || [],
+                liabilities: state.liabilities || [],
+                income: income,
+                expenses: state.expenses || {},
+                history: state.history || [],
+                happinessItems: state.happiness || [],
+                loans: state.loans || 0,
+                totalScore: result.totalScore,
+                summary: summary // 儲存結算時的財務摘要
+            };
+        }).filter(Boolean);
 
             // 使用房間 sessionId 作為唯一紀錄 ID，確保同一個房間 session 覆蓋更新
             const recordId = room.sessionId || `${room.id}_${room.createdAt?.seconds || Math.floor(Date.now() / 1000)}`;
@@ -364,7 +374,25 @@ export const CoachGameView: React.FC = () => {
             };
             await setDoc(doc(db, 'coach_records', recordId), coachRecord);
 
-            setUploadStatus('success');
+            // 3. 更新每位玩家的累計積分 (experience) - 僅在最終結算時
+            if (isFinal) {
+                await Promise.all(playersData.map(async (player) => {
+                    if (!player.uid) return;
+                    const userRef = doc(db, 'users', player.uid);
+                    try {
+                        await updateDoc(userRef, {
+                            experience: increment(player.totalScore)
+                        });
+                    } catch (e) {
+                        console.error(`Failed to update experience for user ${player.uid}`, e);
+                    }
+                }));
+            }
+
+            if (!isSilent) {
+                setUploadStatus('success');
+            }
+            
             if (room.id && isFinal) {
                 localStorage.setItem(`score_recorded_${room.id}`, 'true');
             }
@@ -398,11 +426,11 @@ export const CoachGameView: React.FC = () => {
             saveRecords(false, true);
         }
 
-        // 2. 每五分鐘定時存檔
+        // 2. 每兩分鐘定時存檔
         const interval = setInterval(() => {
-            console.log('[自動存檔] 五分鐘定時存檔觸發');
+            console.log('[自動存檔] 兩分鐘定時存檔觸發');
             saveRecords(false, true);
-        }, 5 * 60 * 1000);
+        }, 2 * 60 * 1000);
 
         return () => clearInterval(interval);
     }, [room?.status, room?.startedAt, user?.uid, room?.hostId]);
@@ -551,6 +579,7 @@ export const CoachGameView: React.FC = () => {
             type: 'warning',
             onConfirm: async () => {
                 // 不自動存檔，改由執行師手動觸發
+                setUploadStatus('idle'); // 重置上傳狀態，確保出現儲存按鈕
                 await finishRoomGame();
                 setGenericConfirm(null);
             }
@@ -643,6 +672,9 @@ export const CoachGameView: React.FC = () => {
             const publishedCode = confirmPublishData?.code || '';
             await updateMarket(confirmPublishData.updates, confirmPublishData.code, confirmPublishData.isBubble);
 
+            // 股市更新後立即自動存檔，確保歷史紀錄捕捉到資產變動
+            saveRecords(false, true);
+
             setStockCode('');
             setConfirmPublishData(null);
             setIsStockModalOpen(false);
@@ -704,8 +736,13 @@ export const CoachGameView: React.FC = () => {
                     <div>
                         <div className="flex items-center gap-2">
                             <h1 className="text-lg font-black tracking-tight">{displayTitle}</h1>
-                            <span className={`w-1.5 h-1.5 rounded-full ml-1 ${room?.status === 'playing' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{room?.status === 'playing' ? '進行中' : '已結束'}</span>
+                            <span className={cn(
+                                "w-1.5 h-1.5 rounded-full ml-1 transition-all duration-500",
+                                (room?.status === 'playing' && !isPaused) ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-slate-500"
+                            )} />
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                {room?.status === 'playing' ? (isPaused ? '計時暫停' : '正在計時') : '已結束'}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -738,19 +775,37 @@ export const CoachGameView: React.FC = () => {
                     <button
                         onClick={() => setShowRoomInfo(!showRoomInfo)}
                         className={cn(
-                            "flex items-center gap-1 px-2.5 py-0.5 rounded-b-lg border-x border-b transition-all duration-300 active:scale-95 shadow-xl",
-                            showRoomInfo
-                                ? "bg-blue-600 border-blue-400 text-white shadow-blue-900/40"
-                                : "bg-slate-900/90 backdrop-blur-sm border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                            "flex items-center gap-1 px-3 py-1 rounded-b-xl border-x border-b transition-all duration-500 active:scale-95 shadow-[0_10px_30px_-5px_rgba(0,0,0,0.5)]",
+                            (!isPaused && timeLeft > 0)
+                                ? "bg-emerald-500 border-emerald-400 text-white"
+                                : showRoomInfo
+                                    ? "bg-blue-600 border-blue-400 text-white shadow-blue-900/40"
+                                    : "bg-slate-900/90 backdrop-blur-sm border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
                         )}
                     >
                         <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-black tracking-widest text-white/60">房號 {room?.id}</span>
-                            <div className="w-px h-2.5 bg-white/20" />
-                            <Clock size={10} className={cn(showRoomInfo ? "text-white" : "text-slate-500")} />
-                            <span className="text-[9px] font-black tracking-wider tabular-nums">{formatTime(timeLeft)}</span>
+                            <span className={cn(
+                                "text-[10px] font-black tracking-widest transition-colors duration-300",
+                                (!isPaused && timeLeft > 0) ? "text-white/90" : "text-white/60"
+                            )}>
+                                房號 {room?.id}
+                            </span>
+                            <div className={cn(
+                                "w-px h-2.5 transition-colors duration-300",
+                                (!isPaused && timeLeft > 0) ? "bg-white/40" : "bg-white/20"
+                            )} />
+                            <Clock size={11} className={cn(
+                                "transition-colors duration-300",
+                                (!isPaused && timeLeft > 0) ? "text-white" : showRoomInfo ? "text-white" : "text-slate-500"
+                            )} />
+                            <span className={cn(
+                                "text-[10px] font-black tracking-wider tabular-nums transition-colors duration-300",
+                                (!isPaused && timeLeft > 0) ? "text-white" : (showRoomInfo ? "text-white" : "text-slate-400")
+                            )}>
+                                {formatTime(timeLeft)}
+                            </span>
                         </div>
-                        <ChevronDown size={10} className={cn("transition-transform duration-300 opacity-60", showRoomInfo && "rotate-180 opacity-100")} />
+                        <ChevronDown size={11} className={cn("transition-transform duration-300", showRoomInfo && "rotate-180")} />
                     </button>
                 </div>
 
@@ -782,9 +837,15 @@ export const CoachGameView: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">時間控制</span>
                                         <div className="flex items-center gap-1">
-                                            <div className={cn("w-1.5 h-1.5 rounded-full", isPaused ? "bg-slate-500" : "bg-emerald-500")} />
-                                            <span className="text-[10px] text-slate-500 font-bold uppercase">
-                                                {isPaused ? '已暫停' : '正在計時'}
+                                            <div className={cn(
+                                                "w-1.5 h-1.5 rounded-full transition-all duration-500",
+                                                !isPaused ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-slate-500"
+                                            )} />
+                                            <span className={cn(
+                                                "text-[10px] font-bold uppercase tracking-wider",
+                                                !isPaused ? "text-emerald-400" : "text-slate-500"
+                                            )}>
+                                                {!isPaused ? '正在計時' : '已暫停'}
                                             </span>
                                         </div>
                                     </div>
@@ -1140,6 +1201,31 @@ export const CoachGameView: React.FC = () => {
                     )}
 
                     <div className="flex-1 flex min-h-0 relative">
+                        {/* 遊戲尚未開始時的中央開始按鈕 (僅在初始時間且暫停時顯示) */}
+                        {allPlayersReady && room?.status === 'playing' && isPaused && timeLeft > 0 && timeLeft === (room?.duration || 0) * 60 && (
+                            <div className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-950/40 backdrop-blur-[2px]">
+                                <motion.div
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    className="bg-slate-900/90 border border-amber-500/30 p-8 rounded-[40px] shadow-[0_0_50px_rgba(245,158,11,0.2)] flex flex-col items-center gap-6"
+                                >
+                                    <div className="w-20 h-20 bg-amber-500 rounded-3xl flex items-center justify-center shadow-lg shadow-amber-600/20 animate-pulse">
+                                        <Rocket size={40} className="text-slate-900 fill-current" />
+                                    </div>
+                                    <div className="text-center">
+                                        <h2 className="text-2xl font-black text-white mb-2">所有玩家已準備就緒</h2>
+                                        <p className="text-slate-400 text-sm">點擊按鈕開始遊戲倒數計時</p>
+                                    </div>
+                                    <button
+                                        onClick={handleToggleTimer}
+                                        className="px-12 py-4 bg-amber-500 hover:bg-amber-400 text-slate-900 text-xl font-black rounded-2xl shadow-xl shadow-amber-900/40 transition-all active:scale-95 group"
+                                    >
+                                        開始遊戲
+                                    </button>
+                                </motion.div>
+                            </div>
+                        )}
+
                         {/* Main Area: Financial Statement */}
                         <div className="flex-1 flex flex-col bg-slate-950 relative min-w-0">
                             {/* Floating Avatar Menu - Mobile */}

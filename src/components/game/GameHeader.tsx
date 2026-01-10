@@ -211,21 +211,37 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                     <button
                         onClick={() => setShowRoomInfo(!showRoomInfo)}
                         className={cn(
-                            "flex items-center gap-1 px-2.5 py-0.5 rounded-b-lg border-x border-b transition-all duration-300 active:scale-95 shadow-xl",
+                            "flex items-center gap-1 px-3 py-1 rounded-b-xl border-x border-b transition-all duration-500 active:scale-95 shadow-[0_10px_30px_-5px_rgba(0,0,0,0.5)]",
                             showRoomInfo 
                                 ? "bg-blue-600 border-blue-400 text-white shadow-blue-900/40" 
                                 : !room?.isTimerPaused 
-                                    ? "bg-emerald-600/90 border-emerald-500 text-white animate-pulse"
+                                    ? "bg-emerald-500 border-emerald-400 text-white"
                                     : "bg-slate-900/90 backdrop-blur-sm border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
                         )}
                     >
                         <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-black tracking-widest text-white/60">房號 {room?.id}</span>
-                            <div className="w-px h-2.5 bg-white/20" />
-                            <Clock size={10} className={cn(showRoomInfo || !room?.isTimerPaused ? "text-white" : "text-slate-500")} />
-                            <span className="text-[9px] font-black tracking-wider tabular-nums">{timeLeft}</span>
+                            <span className={cn(
+                                "text-[10px] font-black tracking-widest transition-colors duration-300",
+                                (!room?.isTimerPaused) ? "text-white/90" : "text-white/60"
+                            )}>
+                                房號 {room?.id}
+                            </span>
+                            <div className={cn(
+                                "w-px h-2.5 transition-colors duration-300",
+                                (!room?.isTimerPaused) ? "bg-white/40" : "bg-white/20"
+                            )} />
+                            <Clock size={11} className={cn(
+                                "transition-colors duration-300",
+                                (!room?.isTimerPaused) ? "text-white" : showRoomInfo ? "text-white" : "text-slate-500"
+                            )} />
+                            <span className={cn(
+                                "text-[10px] font-black tracking-wider tabular-nums transition-colors duration-300",
+                                (!room?.isTimerPaused) ? "text-white" : (showRoomInfo ? "text-white" : "text-slate-400")
+                            )}>
+                                {timeLeft}
+                            </span>
                         </div>
-                        <ChevronDown size={10} className={cn("transition-transform duration-300 opacity-60", showRoomInfo && "rotate-180 opacity-100")} />
+                        <ChevronDown size={11} className={cn("transition-transform duration-300", showRoomInfo && "rotate-180")} />
                     </button>
                 </div>
 

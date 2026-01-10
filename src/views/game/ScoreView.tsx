@@ -160,7 +160,29 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                 // 將資料儲存至 score_records/S1/records 集合中
                 await setDoc(doc(db, 'score_records', 'S1', 'records', recordId), scoreData);
 
-                // 更新每位玩家的累計積分 (experience)
+                // 2. 儲存執行師帶領紀錄 (coach_records)
+                const coachRecord = {
+                    date: new Date().toISOString(),
+                    roomCode: room.id || 'UNKNOWN',
+                    roomName: room.name || '未命名房間',
+                    playerCount: playersData.length,
+                    duration: room.duration || 0,
+                    coachId: user?.uid || '',
+                    coachName: user?.name || 'Unknown',
+                    timestamp: Date.now(),
+                    isFinal: true,
+                    players: playersData.map(p => ({
+                        name: p.name,
+                        profession: p.profession,
+                        happiness: p.happiness,
+                        score: p.totalScore,
+                        isWin: p.happiness >= 100
+                    })),
+                    updatedAt: serverTimestamp()
+                };
+                await setDoc(doc(db, 'coach_records', recordId), coachRecord);
+
+                // 3. 更新每位玩家的累計積分 (experience)
                 await Promise.all(playersData.map(async (player) => {
                     if (!player.uid) return;
                     const userRef = doc(db, 'users', player.uid);
