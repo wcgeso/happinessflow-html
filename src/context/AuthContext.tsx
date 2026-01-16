@@ -13,6 +13,7 @@ import {
 import { auth, googleProvider, appleProvider, storage, db } from '../../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { safeAsync } from '../utils/utils';
 
 interface User {
     uid: string;
@@ -193,7 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Handle redirect result
         const checkRedirect = async () => {
             try {
-                const result = await getRedirectResult(auth);
+                const result = await safeAsync(getRedirectResult(auth));
                 if (result?.user) {
                     // User signed in with redirect
                     console.log('Redirect sign-in success');
@@ -224,8 +225,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // 嘗試從 Firestore 獲取自定義資料
                 try {
-                    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-                    if (userDoc.exists()) {
+                    const userDoc = await safeAsync(getDoc(doc(db, 'users', firebaseUser.uid)));
+                    if (userDoc?.exists()) {
                         const data = userDoc.data();
                         if (data.role) basicUserInfo.role = data.role;
                         if (data.photoURL) basicUserInfo.photoURL = data.photoURL;
@@ -246,7 +247,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             photoURL: basicUserInfo.photoURL,
                             createdAt: new Date().toISOString()
                         };
-                        await setDoc(doc(db, 'users', firebaseUser.uid), initialData, { merge: true });
+                        await safeAsync(setDoc(doc(db, 'users', firebaseUser.uid), initialData, { merge: true }));
                         
                         // 更新本地狀態以匹配新建立的資料
                         basicUserInfo.role = initialRole;
@@ -269,7 +270,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const login = async (email: string, password: string) => {
         setIsLoadingAuth(true);
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            await safeAsync(signInWithEmailAndPassword(auth, email, password), null, (err) => { throw err; });
         } catch (error: any) {
             throw error;
         } finally {
@@ -280,7 +281,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loginWithGoogle = async () => {
         try {
             console.log('Attempting Google login with popup...');
-            await signInWithPopup(auth, googleProvider);
+            await safeAsync(signInWithPopup(auth, googleProvider), null, (err) => { throw err; });
         } catch (error: any) {
             console.error('Google Popup Error:', error.code, error.message);
             
@@ -288,7 +289,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
                 try {
                     console.log('Popup blocked, falling back to redirect...');
-                    await signInWithRedirect(auth, googleProvider);
+                    await safeAsync(signInWithRedirect(auth, googleProvider), null, (err) => { throw err; });
                 } catch (redirectError: any) {
                     console.error('Google Redirect Error:', redirectError);
                     throw redirectError;
@@ -302,7 +303,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loginWithApple = async () => {
         try {
             console.log('Attempting Apple login with popup...');
-            await signInWithPopup(auth, appleProvider);
+            await safeAsync(signInWithPopup(auth, appleProvider), null, (err) => { throw err; });
         } catch (error: any) {
             console.error('Apple Popup Error:', error.code, error.message);
             
@@ -310,7 +311,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
                 try {
                     console.log('Popup blocked, falling back to redirect...');
-                    await signInWithRedirect(auth, appleProvider);
+                    await safeAsync(signInWithRedirect(auth, appleProvider), null, (err) => { throw err; });
                 } catch (redirectError: any) {
                     console.error('Apple Redirect Error:', redirectError);
                     throw redirectError;
@@ -324,26 +325,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const register = async (email: string, password: string, playerName: string) => {
         setIsLoadingAuth(true);
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const userCredential = await safeAsync(createUserWithEmailAndPassword(auth, email, password), null, (err) => { throw err; });
+            if (!userCredential) return;
+            
             const nickname = playerName.trim() || email.split('@')[0];
             const isGM = email.toLowerCase() === 'gm0221@happinessflow.com';
             const role = isGM ? 'coach' : 'player';
             const title = isGM ? '遊戲管理員' : '';
             
-            await updateProfile(userCredential.user, { 
+            await safeAsync(updateProfile(userCredential.user, { 
                 displayName: nickname,
                 photoURL: 'bee'
-            });
+            }));
             
             // 在 Firestore 中建立使用者資料
-            await setDoc(doc(db, 'users', userCredential.user.uid), {
+            await safeAsync(setDoc(doc(db, 'users', userCredential.user.uid), {
                 uid: userCredential.user.uid,
                 email: userCredential.user.email,
                 name: nickname,
                 role: role,
                 title: title,
                 photoURL: 'bee'
-            }, { merge: true });
+            }, { merge: true }));
             
             setUser({
                 uid: userCredential.user.uid,
@@ -369,10 +372,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const isBase64 = photoURL?.startsWith('data:image');
             
             // 1. 更新 Firebase Auth Profile (僅限非 Base64 的短 URL)
-            await updateProfile(auth.currentUser, {
+            await safeAsync(updateProfile(auth.currentUser, {
                 displayName: name || auth.currentUser.displayName,
                 photoURL: isBase64 ? 'custom_avatar' : (photoURL || auth.currentUser.photoURL)
-            });
+            }));
             
             // 2. 更新 Firestore (儲存長 Base64 或一般資料)
             const userRef = doc(db, 'users', auth.currentUser.uid);
@@ -383,7 +386,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (photoScale) updateData.photoScale = photoScale;
             
             try {
-                await setDoc(userRef, updateData, { merge: true });
+                await safeAsync(setDoc(userRef, updateData, { merge: true }));
             } catch (fsError) {
                 console.error('Firestore 更新失敗:', fsError);
             }
@@ -431,7 +434,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const logout = async () => {
         try {
             if (auth) {
-                await signOut(auth);
+                await safeAsync(signOut(auth));
             }
             setUser(null);
         } catch (error) {

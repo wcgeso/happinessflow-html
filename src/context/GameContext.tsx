@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     doc,
     updateDoc,
@@ -13,7 +13,7 @@ import { useAuth } from './AuthContext';
 import { useRoom } from './RoomContext';
 import { GameState, GameRecord, FinancialSummary } from '../types';
 import { calculateFinancialSummary, calculateScoreResult } from '../utils/gameUtils';
-import { cleanObject } from '../utils/utils';
+import { cleanObject, safeAsync } from '../utils/utils';
 
 interface GameContextValue {
     gameState: GameState;
@@ -79,6 +79,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const [gameHistory, setGameHistory] = useState<GameRecord[]>([]);
     const [alertInfo, setAlertInfo] = useState<{ message: string; type: 'info' | 'error' | 'success'; persist?: boolean } | null>(null);
+    const alertTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // 清除 Alert Timeout
+    useEffect(() => {
+        return () => {
+            if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
+        };
+    }, []);
 
     // 自動保存到 localStorage
     useEffect(() => {
@@ -94,28 +102,36 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!gameState.isSetup && !gameState.selectionStep) return;
 
         const timeoutId = setTimeout(async () => {
-            try {
-                const roomRef = doc(db, 'rooms', room.id);
-                const cleanedState = cleanObject(gameState);
-                await updateDoc(roomRef, {
-                    [`playerStates.${user.uid}`]: cleanedState
-                });
-            } catch (err) {
-                console.error('同步玩家數據失敗:', err);
-            }
+            const roomRef = doc(db, 'rooms', room.id);
+            const cleanedState = cleanObject(gameState);
+            await safeAsync(updateDoc(roomRef, {
+                [`playerStates.${user.uid}`]: cleanedState
+            }));
         }, 800); // 800ms 延遲避免過度頻繁寫入
 
         return () => clearTimeout(timeoutId);
     }, [gameState, room?.id, user?.uid, user?.role]);
 
     const hideAlert = useCallback(() => {
+        if (alertTimeoutRef.current) {
+            clearTimeout(alertTimeoutRef.current);
+            alertTimeoutRef.current = null;
+        }
         setAlertInfo(null);
     }, []);
 
     const showAlert = useCallback((message: string, type: 'info' | 'error' | 'success' = 'info', persist: boolean = false) => {
+        if (alertTimeoutRef.current) {
+            clearTimeout(alertTimeoutRef.current);
+            alertTimeoutRef.current = null;
+        }
+
         setAlertInfo({ message, type, persist });
         if (!persist) {
-            setTimeout(() => setAlertInfo(null), 3000);
+            alertTimeoutRef.current = setTimeout(() => {
+                setAlertInfo(null);
+                alertTimeoutRef.current = null;
+            }, 3000);
         }
     }, []);
 
@@ -308,6 +324,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const saveGameRecord = async (record: GameRecord) => {
         // 這裡可以實作保存到 Firebase 的邏輯
+        // TODO: 將紀錄保存到 Firestore score_records
         setGameHistory(prev => [record, ...prev]);
         showAlert('遊戲紀錄已保存', 'success');
     };
@@ -370,6 +387,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }));
                 }
             }
+        }, (err) => {
+            console.error("[GameContext] 監聽房間行情失敗:", err);
         });
 
         return () => unsubscribe();

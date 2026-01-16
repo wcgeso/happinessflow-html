@@ -157,12 +157,12 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
     });
   };
 
-  const realEstate = gameState.assets.filter(a => a.type === '不動產');
-  const businesses = gameState.assets.filter(a => a.type === '企業');
-  const stocks = gameState.assets.filter(a => a.type === '股票');
+  const realEstate = (gameState.assets || []).filter(a => a.type === '不動產');
+  const businesses = (gameState.assets || []).filter(a => a.type === '企業');
+  const stocks = (gameState.assets || []).filter(a => a.type === '股票');
 
   // 合併定存項目
-  const rawCds = gameState.assets.filter(a => a.type === '定存');
+  const rawCds = (gameState.assets || []).filter(a => a.type === '定存');
   const cds: Asset[] = rawCds.length > 0 ? [{
     id: 'merged-cd',
     name: '定存總額',
@@ -173,21 +173,21 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
     isInsured: false
   }] : [];
 
-  const creditLoans = gameState.liabilities.filter(l => l.type === '信用貸款');
-  const realEstateLoans = gameState.liabilities.filter(l => l.type === '不動產貸款');
-  const businessLoans = gameState.liabilities.filter(l => l.type === '企業貸款');
-  const aircraftLoans = gameState.liabilities.filter(l => l.type === '飛行器貸款');
+  const creditLoans = (gameState.liabilities || []).filter(l => l.type === '信用貸款');
+  const realEstateLoans = (gameState.liabilities || []).filter(l => l.type === '不動產貸款');
+  const businessLoans = (gameState.liabilities || []).filter(l => l.type === '企業貸款');
+  const aircraftLoans = (gameState.liabilities || []).filter(l => l.type === '飛行器貸款');
 
-  const creditLoanInterest = (gameState.liabilities.filter(l => l.type === '信用貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0)) + (gameState.loans * 0.1);
-  const realEstateLoanInterest = gameState.liabilities.filter(l => l.type === '不動產貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
-  const businessLoanInterest = gameState.liabilities.filter(l => l.type === '企業貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
-  const aircraftLoanInterest = gameState.liabilities.filter(l => l.type === '飛行器貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+  const creditLoanInterest = ((gameState.liabilities || []).filter(l => l.type === '信用貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0)) + ((gameState.loans || 0) * 0.1);
+  const realEstateLoanInterest = (gameState.liabilities || []).filter(l => l.type === '不動產貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+  const businessLoanInterest = (gameState.liabilities || []).filter(l => l.type === '企業貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+  const aircraftLoanInterest = (gameState.liabilities || []).filter(l => l.type === '飛行器貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
 
   const totalMonthlyInterest = creditLoanInterest + realEstateLoanInterest + businessLoanInterest + aircraftLoanInterest;
 
   const medicalInsuranceCount = gameState.medicalInsuranceCount || 0;
-  const houseInsuranceCount = gameState.assets.filter(a => a.type === '不動產' && a.isInsured).length;
-  const aircraftInsuranceCount = gameState.assets.some(a => (a.type as any) === '飛行器' && a.isInsured) ? 1 : 0;
+  const houseInsuranceCount = (gameState.assets || []).filter(a => a.type === '不動產' && a.isInsured).length;
+  const aircraftInsuranceCount = (gameState.assets || []).some(a => (a.type as any) === '飛行器' && a.isInsured) ? 1 : 0;
 
   const medicalInsCost = medicalInsuranceCount * 2000;
   const houseInsCost = houseInsuranceCount * 2000;
@@ -369,7 +369,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                           {houseInsCost > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-blue-300">房屋保險</div>
-                              {gameState.assets.filter(a => a.type === '不動產' && a.isInsured).map(house => (
+                              {(gameState.assets || []).filter(a => a.type === '不動產' && a.isInsured).map(house => (
                                 <div key={house.id} className="flex items-center justify-between pl-2 border-l border-slate-700 mb-1">
                                   <span className="text-[10px] text-slate-500 leading-tight">
                                     {house.name.match(/[A-Z]\d+/)?.[0] || house.name}
@@ -388,11 +388,11 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                         </div>
                         <div className="pt-2 border-t border-slate-800/50 space-y-2">
                           <div className="text-xs text-slate-400 leading-tight break-all whitespace-nowrap text-left">貸款利息</div>
-                          {(creditLoans.length > 0 || gameState.loans > 0) && (
+                          {(creditLoans.length > 0 || (gameState.loans || 0) > 0) && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-orange-300">信用貸款</div>
                               <TAccountSubItem label="信用貸款利息" value={creditLoans.reduce((sum, l) => sum + (l.monthlyPayment || 0), 0)} isMasked={isMasked} />
-                              {gameState.loans > 0 && <TAccountSubItem label="銀行貸款利息" value={gameState.loans * 0.1} isMasked={isMasked} />}
+                              {(gameState.loans || 0) > 0 && <TAccountSubItem label="銀行貸款利息" value={(gameState.loans || 0) * 0.1} isMasked={isMasked} />}
                             </div>
                           )}
                           {realEstateLoans.length > 0 && (
@@ -481,9 +481,9 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                         <span className="shrink-0">價值</span>
                       </div>
                       <div className="space-y-4">
-                        <TAccountItem label="現金" value={gameState.cash} color="text-emerald-400" />
+                        <TAccountItem label="現金" value={gameState.cash || 0} color="text-emerald-400" />
                         {cds.length > 0 && <AssetCategoryList title="定存" items={cds} color="text-orange-300" disabled={disabled} />}
-                        {stocks.length > 0 && <AssetCategoryList title="股票" items={stocks} color="text-yellow-300" isStock marketPrices={gameState.marketPrices} previousMarketPrices={gameState.previousMarketPrices} disabled={disabled} />}
+                        {stocks.length > 0 && <AssetCategoryList title="股票" items={stocks} color="text-yellow-300" isStock marketPrices={gameState.marketPrices || {}} previousMarketPrices={gameState.previousMarketPrices || {}} disabled={disabled} />}
                         {businesses.length > 0 && (
                           <AssetCategoryList
                             title="企業"
@@ -504,11 +504,11 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                         <span className="shrink-0">餘額</span>
                       </div>
                       <div className="space-y-4">
-                        {(creditLoans.length > 0 || gameState.loans > 0) && (
+                        {(creditLoans.length > 0 || (gameState.loans || 0) > 0) && (
                           <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                             <div className="text-[9px] font-black uppercase tracking-widest text-orange-300">信用貸款</div>
                             <TAccountSubItem label="信用貸款總額" value={creditLoans.reduce((sum, l) => sum + l.totalOwed, 0)} />
-                            {gameState.loans > 0 && <TAccountSubItem label="銀行貸款" value={gameState.loans} />}
+                            {(gameState.loans || 0) > 0 && <TAccountSubItem label="銀行貸款" value={gameState.loans || 0} />}
                           </div>
                         )}
                         {realEstateLoans.length > 0 && (
@@ -536,7 +536,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                             {aircraftLoans.map(l => <TAccountSubItem key={l.id} label="飛行器" value={l.totalOwed} />)}
                           </div>
                         )}
-                        {gameState.liabilities.length === 0 && gameState.loans === 0 && (
+                        {(gameState.liabilities || []).length === 0 && (gameState.loans || 0) === 0 && (
                           <div className="text-center py-8 text-slate-600 text-[10px] uppercase font-bold tracking-[0.2em] italic">
                             無任何負債
                           </div>
@@ -576,11 +576,11 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
         </div>
       )}
 
-      {view === 'cashflow' && <div className="animate-in fade-in zoom-in-95 duration-300"><CashFlowLog history={gameState.history} /></div>}
+      {view === 'cashflow' && <div className="animate-in fade-in zoom-in-95 duration-300"><CashFlowLog history={gameState.history || []} /></div>}
       {view === 'history' && (
         <div className="animate-in fade-in zoom-in-95 duration-300">
           <HistoryTable
-            history={gameState.history}
+            history={gameState.history || []}
             onDeleteTransaction={onDeleteTransaction}
             disabled={disabled}
           />

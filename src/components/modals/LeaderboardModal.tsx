@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trophy, Medal, Star, Target, Crown } from 'lucide-react';
+import SafeImage from '../common/SafeImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
+import { safeAsync } from '../../utils/utils';
 import { useAuth, getUserTitle } from '../../context/AuthContext';
 
 interface LeaderboardModalProps {
@@ -34,7 +36,12 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
         setLoading(true);
         const usersRef = collection(db, 'users');
         const q = query(usersRef, orderBy('experience', 'desc'), limit(50));
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await safeAsync(getDocs(q));
+
+        if (!querySnapshot) {
+          setRankings([]);
+          return;
+        }
 
         const fetchedRankings: RankingUser[] = [];
         let foundCurrentUser = false;
@@ -139,7 +146,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
                       {user.avatar === 'bee' ? (
                         <span className="text-2xl">🐝</span>
                       ) : user.avatar.startsWith('data:image') || user.avatar.startsWith('http') ? (
-                        <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                        <SafeImage src={user.avatar} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-2xl">{user.avatar}</span>
                       )}
@@ -183,7 +190,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
                 {currentUser?.photoURL === 'bee' ? (
                   <span className="text-xl">🐝</span>
                 ) : currentUser?.photoURL?.startsWith('data:image') || currentUser?.photoURL?.startsWith('http') ? (
-                  <img src={currentUser.photoURL} alt="" className="w-full h-full object-cover" />
+                  <SafeImage src={currentUser.photoURL} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-xl">👤</span>
                 )}

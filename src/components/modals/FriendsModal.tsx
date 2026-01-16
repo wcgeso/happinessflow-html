@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Users, UserPlus, Search, MessageSquare, Shield, Check, Clock, UserMinus, CheckCircle, AlertCircle, User as UserIcon } from 'lucide-react';
 import { ProfileModal } from './ProfileModal';
+import SafeImage from '../common/SafeImage';
+import { safeAsync } from '../../utils/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth, getCoachBadge, getPlayerBadge, getTitleColor } from '../../context/AuthContext';
 import { db } from '../../../services/firebase';
@@ -86,7 +88,8 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
         allDocs.map(async (d) => {
           const data = d.data() as Friendship;
           const friendId = data.requesterId === currentUser.uid ? data.receiverId : data.requesterId;
-          const userDoc = await getDoc(doc(db, 'users', friendId));
+          const userDoc = await safeAsync(getDoc(doc(db, 'users', friendId)));
+          if (!userDoc || !userDoc.exists()) return null;
           return {
             ...(userDoc.data() as UserPublicInfo),
             friendshipId: d.id,
@@ -95,7 +98,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
         })
       );
       // 去重
-      const uniqueFriends = Array.from(new Map(friendData.map(f => [f.uid, f])).values());
+      const uniqueFriends = Array.from(new Map(friendData.filter(f => f !== null).map(f => [f!.uid, f])).values()) as (UserPublicInfo & { friendshipId: string })[];
       setFriends(uniqueFriends.filter(f => f.name));
       setIsLoading(false);
     };
@@ -129,8 +132,8 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
           console.log('[好友系統] 處理請求:', d.id, '來自:', data.requesterId);
 
           try {
-            const userDoc = await getDoc(doc(db, 'users', data.requesterId));
-            if (!userDoc.exists()) {
+            const userDoc = await safeAsync(getDoc(doc(db, 'users', data.requesterId)));
+            if (!userDoc || !userDoc.exists()) {
               console.warn('[好友系統] 找不到發送者資料:', data.requesterId);
               return {
                 name: '未知使用者',
@@ -191,14 +194,14 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
             where('email', '==', searchQuery),
             limit(1)
           );
-          promises.push(getDocs(qEmail).then(snap => snap.docs));
+          promises.push(safeAsync(getDocs(qEmail)).then(snap => snap?.docs || []));
         }
 
         // 3. 搜尋 User ID (直接獲取文檔)
         // 只有當輸入長度足夠時才嘗試，避免無效讀取
         if (searchQuery.length >= 20) {
-          promises.push(getDoc(doc(db, 'users', searchQuery)).then(docSnap =>
-            docSnap.exists() ? [docSnap] : []
+          promises.push(safeAsync(getDoc(doc(db, 'users', searchQuery))).then(docSnap =>
+            (docSnap && docSnap.exists()) ? [docSnap] : []
           ));
         }
 
@@ -241,20 +244,23 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
         where('receiverId', '==', currentUser.uid)
       );
 
-      const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+      const [snap1, snap2] = await Promise.all([
+        safeAsync(getDocs(q1)),
+        safeAsync(getDocs(q2))
+      ]);
 
-      if (!snap1.empty || !snap2.empty) {
+      if ((snap1 && !snap1.empty) || (snap2 && !snap2.empty)) {
         showNotification('已經是好友或已發送請求', 'error');
         return;
       }
 
-      await addDoc(collection(db, 'friendships'), {
+      await safeAsync(addDoc(collection(db, 'friendships'), {
         requesterId: currentUser.uid,
         receiverId: targetUid,
         status: 'pending',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
+      }));
       showNotification('好友請求已發送', 'success');
     } catch (error) {
       console.error('Add friend error:', error);
@@ -265,10 +271,10 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
   // 接受好友請求
   const handleAcceptRequest = async (friendshipId: string) => {
     try {
-      await updateDoc(doc(db, 'friendships', friendshipId), {
+      await safeAsync(updateDoc(doc(db, 'friendships', friendshipId), {
         status: 'accepted',
         updatedAt: new Date().toISOString()
-      });
+      }));
     } catch (error) {
       console.error('Accept request error:', error);
     }
@@ -285,7 +291,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
     if (!name) {
       try {
         console.log('Directly deleting friendship (reject/cancel)');
-        await deleteDoc(doc(db, 'friendships', friendshipId));
+        await safeAsync(deleteDoc(doc(db, 'friendships', friendshipId)));
       } catch (error) {
         console.error('Delete friendship error:', error);
       }
@@ -299,7 +305,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
   const confirmDeleteFriend = async () => {
     if (!itemToDelete) return;
     try {
-      await deleteDoc(doc(db, 'friendships', itemToDelete.id));
+      await safeAsync(deleteDoc(doc(db, 'friendships', itemToDelete.id)));
       showNotification('已刪除好友', 'success');
       setItemToDelete(null);
     } catch (error) {
@@ -321,7 +327,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
       }
       const scale = parseFloat(u.photoScale || '1');
       return (
-        <img
+        <SafeImage
           src={u.photoURL}
           alt=""
           className="w-full h-full object-cover"
@@ -458,7 +464,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
                           <div className="flex-1 min-w-0">
                             <h3 className="text-base font-black text-white truncate">{friend.name}</h3>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              <img
+                              <SafeImage
                                 src={friend.title === '遊戲管理員' ? getCoachBadge(friend as any, 'gm') : getPlayerBadge(friend as any, 'player')}
                                 className="w-4 h-4 object-contain"
                                 alt=""
@@ -564,7 +570,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
                         <div className="flex-1">
                           <h3 className="text-base font-black text-white">{result.name}</h3>
                           <div className="flex items-center gap-1.5 mt-0.5">
-                            <img
+                            <SafeImage
                               src={(result as any).role === 'coach' ? getCoachBadge(result as any, 'coach') : getPlayerBadge(result as any, 'player')}
                               className="w-4 h-4 object-contain"
                               alt=""

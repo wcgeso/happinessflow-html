@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 
 export type PromotionType = 'normal' | 'lifelong' | 'enhance_profession' | 'stock_ability' | 'real_estate_ability';
@@ -13,6 +13,16 @@ export const useDiceRollLogic = (
     const [diceValue, setDiceValue] = useState(1);
     const [examResult, setExamResult] = useState<'idle' | 'success' | 'failure'>('idle');
     const [examLog, setExamLog] = useState<{ target: number, bonus: number, newTitle: string } | null>(null);
+    const rollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (rollIntervalRef.current) {
+                clearInterval(rollIntervalRef.current);
+            }
+        };
+    }, []);
 
     const handleDiceRoll = () => {
         if (isRolling || examResult !== 'idle') return;
@@ -22,10 +32,13 @@ export const useDiceRollLogic = (
         const interval = 100;
         const startTime = Date.now();
 
-        const rollInterval = setInterval(() => {
+        rollIntervalRef.current = setInterval(() => {
             const now = Date.now();
             if (now - startTime > duration) {
-                clearInterval(rollInterval);
+                if (rollIntervalRef.current) {
+                    clearInterval(rollIntervalRef.current);
+                    rollIntervalRef.current = null;
+                }
                 finishRoll();
             } else {
                 setDiceValue(Math.floor(Math.random() * 6) + 1);

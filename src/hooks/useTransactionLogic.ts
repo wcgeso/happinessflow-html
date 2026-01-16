@@ -402,8 +402,12 @@ export const useTransactionLogic = ({
                         const loanName = asset.type === '不動產' ? '不動產貸款' : asset.type === '企業' ? '企業貸款' : asset.type === '飛行器' ? '飛行器貸款' : (relatedLoan?.name || '貸款');
                         const interestName = asset.type === '不動產' ? '不動產貸款利息' : asset.type === '企業' ? '企業貸款利息' : asset.type === '飛行器' ? '飛行器貸款利息' : '貸款利息';
 
-                        expectedEntries.push({ category: 'Liabilities', name: loanName, direction: 'Decrease' });
-                        expectedEntries.push({ category: 'Expenses', name: interestName, direction: 'Decrease' });
+                        if (!expectedEntries.some(e => e.category === 'Liabilities' && e.name === loanName && e.direction === 'Decrease')) {
+                            expectedEntries.push({ category: 'Liabilities', name: loanName, direction: 'Decrease' });
+                        }
+                        if (!expectedEntries.some(e => e.category === 'Expenses' && e.name === interestName && e.direction === 'Decrease')) {
+                            expectedEntries.push({ category: 'Expenses', name: interestName, direction: 'Decrease' });
+                        }
 
                         impactList.push(`${loanName} 減少: -${formatMoney(loanBalance)}`);
                         impactList.push(`${interestName} 減少`);

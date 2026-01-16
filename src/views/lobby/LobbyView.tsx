@@ -3,6 +3,7 @@ import { useGame } from '../../context/GameContext';
 import { useAuth, isGM as authIsGM, getUserTitle, getCoachBadge, getPlayerBadge, getTitleColor, getAvatarBorderStyle, getBadgeGlowStyle } from '../../context/AuthContext';
 import { LogOut, Award, Play, History, BookOpen, Mail, Users, ShieldCheck, UserCircle, Trophy } from 'lucide-react';
 import { ProfileModal, TutorialModal, LetterToPlayersModal, CreateRoomModal, LeaderboardModal, FriendsModal } from '../../components/modals';
+import SafeImage from '../../components/common/SafeImage';
 import { RoomView } from './RoomView';
 import { CoachDashboard } from './CoachDashboard';
 import { DeveloperPortal } from './DeveloperPortal';
@@ -12,6 +13,7 @@ import { useRoom } from '../../context/RoomContext';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
 import { cn } from '../../utils/gameUtils';
+import { safeAsync } from '../../utils/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Terminal } from 'lucide-react';
 import { ACHIEVEMENTS } from '../../constants/achievements';
@@ -389,7 +391,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
       }
 
       return (
-        <img
+        <SafeImage
           src={user.photoURL}
           alt="Avatar"
           className="w-full h-full object-cover group-hover:scale-110 transition-transform"
@@ -416,7 +418,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
     const fetchSystemStats = async () => {
       try {
-        const usersSnap = await getDocs(collection(db, 'users'));
+        const usersSnap = await safeAsync(getDocs(collection(db, 'users')));
+        if (!usersSnap) return;
         const allUsers = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
 
         setSystemStats({
@@ -487,11 +490,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               <h2 className="text-base font-black text-white leading-tight">{user?.name || '幸福拓荒者'}</h2>
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <img
+              <SafeImage
                 src={viewMode === 'coach' ? getCoachBadge(user, viewMode) : getPlayerBadge(user, viewMode)}
                 className={`w-7 h-7 object-contain ${getBadgeGlowStyle(user, viewMode)}`}
                 alt=""
-                onError={(e) => e.currentTarget.style.display = 'none'}
               />
               <span className={`text-[11px] font-black tracking-wider ${getTitleColor(user, viewMode)}`}>
                 {getUserTitle(user, viewMode)}

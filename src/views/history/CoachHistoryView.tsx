@@ -6,16 +6,15 @@ import {
     Users,
     ChevronDown,
     ChevronUp,
-    Calendar,
-    LayoutDashboard,
-    TrendingUp,
     Trophy
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../../services/firebase';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { CoachRecord } from '../../types';
-import { cn } from '../../utils/utils';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { CoachRecord, GameState } from '../../types';
+import { cn, safeAsync } from '../../utils/utils';
+import { FinancialStatement } from '../../components/business/FinancialStatement';
+import { FileText, X } from 'lucide-react';
 
 const formatDate = (dateStr: string) => {
     if (!dateStr || dateStr === '未知日期') return '未知日期';
@@ -23,17 +22,130 @@ const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
         if (isNaN(date.getTime())) return dateStr;
 
-        return date.toLocaleString('zh-TW', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        }).replace(/\//g, '-');
+        // 如果包含 'T'，表示是完整的 ISO 字串，顯示日期與時間
+        if (dateStr.includes('T')) {
+            return date.toLocaleString('zh-TW', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).replace(/\//g, '-');
+        }
+        return dateStr;
     } catch (e) {
         return dateStr;
     }
+};
+
+const FullFinancialStatementModal: React.FC<{
+    playerData: any;
+    date: string;
+    roomName: string;
+    onClose: () => void;
+}> = ({ playerData, date, roomName, onClose }) => {
+    if (!playerData) return null;
+
+    // 還原薪資與支出邏輯 (參考 HistoryView.tsx)
+    const snapshot = playerData;
+    const summary = playerData.summary;
+
+    let restoredSalary = snapshot.income.salary || 0;
+    if (restoredSalary === 0 && summary.totalIncome > (summary.passiveIncome || 0)) {
+        restoredSalary = summary.totalIncome - (summary.passiveIncome || 0);
+    }
+
+    const dummyGameState: GameState = {
+        profession: snapshot.professionData || {
+            title: snapshot.profession,
+            salary: restoredSalary,
+            id: 'dummy',
+            initialRank: '',
+            savings: 0,
+            expenses: {
+                tax: snapshot.expenses.taxes || snapshot.expenses.tax || Math.floor(restoredSalary * 0.05),
+                basicLiving: snapshot.expenses.basicLiving || 0,
+                transportEdu: snapshot.expenses.transportEdu || 0,
+                otherMedicalChild: snapshot.expenses.otherMedicalChild || 0
+            },
+            mortgageTotal: 0,
+            businessLoanTotal: 0,
+            creditLoanTotal: 0,
+            promotions: []
+        },
+        selectedEnterprise: null,
+        selectedDream: null,
+        expenses: snapshot.expenses,
+        income: {
+            ...snapshot.income,
+            salary: restoredSalary
+        },
+        currentRankTitle: snapshot.profession,
+        currentRankLevel: 1,
+        cash: snapshot.cash,
+        children: 0,
+        medicalInsuranceCount: 0,
+        assets: snapshot.assets,
+        liabilities: snapshot.liabilities,
+        loans: snapshot.loans,
+        isSetup: true,
+        history: snapshot.history,
+        happiness: snapshot.happinessItems || snapshot.happiness || [],
+        happinessTotal: snapshot.happiness,
+        marketPrices: {},
+        previousMarketPrices: {},
+        lastPublishedCode: '',
+        abilities: {
+            stockAbilityCount: 0,
+            realEstateAbilityCount: 0,
+            professionAbilityCount: 0
+        },
+        completedHappinessEvents: [],
+        playerName: snapshot.name,
+        reportName: roomName
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
+            <div
+                className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-900/50">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+                            <FileText className="text-emerald-400" size={24} />
+                        </div>
+                        <div>
+                            <h3 className="text-2xl font-bold text-white leading-none">玩家財務報表</h3>
+                            <div className="text-slate-500 text-sm mt-1.5 flex flex-col gap-0.5">
+                                <span>{snapshot.name} • {roomName}</span>
+                                <span className="text-xs opacity-80">{formatDate(date)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"
+                    >
+                        <X size={24} />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 bg-slate-950/30">
+                    <FinancialStatement
+                        gameState={dummyGameState}
+                        summary={summary}
+                        hideSummary={true}
+                        defaultShowDetails={true}
+                        hideNav={false}
+                        disabled={true}
+                    />
+                </div>
+            </div>
+        </div>
+    );
 };
 
 interface CoachHistoryViewProps {
@@ -45,6 +157,9 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
     const [records, setRecords] = useState<CoachRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [selectedScoreRecord, setSelectedScoreRecord] = useState<any | null>(null);
+    const [viewingPlayerUid, setViewingPlayerUid] = useState<string | null>(null);
+    const [isFetchingDetail, setIsFetchingDetail] = useState(false);
 
     useEffect(() => {
         if (!user) return;
@@ -73,9 +188,34 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
         return () => unsubscribe();
     }, [user]);
 
-    const toggleExpand = (id: string) => {
-        setExpandedId(expandedId === id ? null : id);
+    const toggleExpand = async (id: string) => {
+        if (expandedId === id) {
+            setExpandedId(null);
+            setSelectedScoreRecord(null);
+            return;
+        }
+        
+        setExpandedId(id);
+        setIsFetchingDetail(true);
+        
+        // Fetch detailed score record
+        try {
+            const scoreDoc = await safeAsync(getDoc(doc(db, 'score_records', 'S1', 'records', id)));
+            if (scoreDoc && scoreDoc.exists()) {
+                setSelectedScoreRecord(scoreDoc.data());
+            }
+        } catch (error) {
+            console.error("Error fetching detailed score record:", error);
+        } finally {
+            setIsFetchingDetail(false);
+        }
     };
+
+    const handleViewStatement = (playerUid: string) => {
+        setViewingPlayerUid(playerUid);
+    };
+
+    const viewingPlayerData = viewingPlayerUid && selectedScoreRecord?.players?.find((p: any) => p.uid === viewingPlayerUid);
 
     return (
         <div className="h-[100dvh] bg-slate-950 flex flex-col overflow-hidden touch-none">
@@ -180,21 +320,44 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
                                                     <h3 className="text-base text-white font-bold">參與玩家</h3>
                                                 </div>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                    {record.players.map((player, idx) => (
-                                                        <div key={idx} className="bg-slate-800/40 border border-slate-700/50 p-3 rounded-xl flex items-center justify-between">
-                                                            <div>
-                                                                <div className="text-slate-200 font-bold text-sm flex items-center gap-2">
-                                                                    {player.name}
-                                                                    {player.isWin && <Trophy size={12} className="text-yellow-400" />}
+                                                    {record.players.map((player, idx) => {
+                                                        const pUid = (player as any).uid || (selectedScoreRecord?.players?.[idx]?.uid);
+                                                        return (
+                                                            <div key={idx} className="bg-slate-800/40 border border-slate-700/50 p-3 rounded-xl flex flex-col gap-3">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div>
+                                                                        <div className="text-slate-200 font-bold text-sm flex items-center gap-2">
+                                                                            {player.name}
+                                                                            {player.isWin && <Trophy size={12} className="text-yellow-400" />}
+                                                                        </div>
+                                                                        <div className="text-slate-500 text-xs">{player.profession}</div>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <div className="text-pink-500 font-black text-sm">{player.happiness} 幸福</div>
+                                                                        <div className="text-yellow-400 font-bold text-xs">{player.score} 分</div>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="text-slate-500 text-xs">{player.profession}</div>
+                                                                
+                                                                {pUid && (
+                                                                      <Button
+                                                                          variant="secondary"
+                                                                          onClick={(e) => {
+                                                                              e.stopPropagation();
+                                                                              handleViewStatement(pUid);
+                                                                          }}
+                                                                          disabled={isFetchingDetail || !selectedScoreRecord}
+                                                                          className="w-full bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 hover:text-white border border-slate-700/50 h-8 text-[10px] uppercase tracking-wider font-bold py-0"
+                                                                      >
+                                                                          {isFetchingDetail ? "載入中..." : (
+                                                                              <span className="flex items-center gap-2">
+                                                                                  <FileText size={14} /> 查看財務報表
+                                                                              </span>
+                                                                          )}
+                                                                      </Button>
+                                                                  )}
                                                             </div>
-                                                            <div className="text-right">
-                                                                <div className="text-pink-500 font-black text-sm">{player.happiness} 幸福</div>
-                                                                <div className="text-yellow-400 font-bold text-xs">{player.score} 分</div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </Card>
                                         </div>
@@ -205,6 +368,16 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
                     </div>
                 </div>
             </div>
+
+            {/* Financial Statement Modal */}
+            {viewingPlayerData && (
+                <FullFinancialStatementModal
+                    playerData={viewingPlayerData}
+                    date={selectedScoreRecord?.settledAt?.toDate?.()?.toISOString() || selectedScoreRecord?.settledAt || records.find(r => r.id === expandedId)?.date || ""}
+                    roomName={selectedScoreRecord?.roomName || records.find(r => r.id === expandedId)?.roomName || "遊戲紀錄"}
+                    onClose={() => setViewingPlayerUid(null)}
+                />
+            )}
         </div>
     );
 };

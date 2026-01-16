@@ -428,9 +428,24 @@ const MainRouting = ({
                 return;
             }
 
-            if (isHost && currentView !== 'coach_monitor') {
-                console.log('房主（執行師）跳轉到監控畫面');
-                setCurrentView('coach_monitor');
+            if (isHost) {
+                // 檢查是否所有玩家都已完成設定 (isSetup 為 true)
+                const allPlayersSetup = room.playerStates && 
+                    Object.values(room.playerStates).length > 0 &&
+                    Object.values(room.playerStates).every((ps: any) => ps.isSetup);
+
+                if (allPlayersSetup) {
+                    if (currentView !== 'coach_monitor') {
+                        console.log('所有玩家已完成設定，執行師跳轉到監控畫面');
+                        setCurrentView('coach_monitor');
+                    }
+                } else {
+                    if (currentView !== 'waiting_players' && currentView !== 'coach_monitor') {
+                        console.log('仍有玩家在選擇職業，執行師留在等待畫面');
+                        // 這裡我們暫時讓執行師停留在 coach_monitor，但 CoachGameView 內部會處理等待畫面
+                        setCurrentView('coach_monitor');
+                    }
+                }
             } else if (!isHost && currentView !== 'selection' && currentView !== 'game') {
                 console.log('玩家跳轉到遊戲或選擇畫面');
                 // 確保玩家有 sessionMeta

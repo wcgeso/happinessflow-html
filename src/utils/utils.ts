@@ -24,3 +24,21 @@ export const cleanObject = (obj: any): any => {
     });
     return cleanedObj;
 };
+
+/**
+ * Safely executes an async function with error handling and fallback value.
+ * Useful for preventing app crashes on mobile devices during network instability.
+ */
+export const safeAsync = async <T>(
+    promise: Promise<T>,
+    fallback: T | null = null,
+    onError?: (err: any) => void
+): Promise<T | null> => {
+    try {
+        return await promise;
+    } catch (err) {
+        console.error('SafeAsync error:', err);
+        if (onError) onError(err);
+        return fallback;
+    }
+};

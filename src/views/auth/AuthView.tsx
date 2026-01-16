@@ -3,6 +3,7 @@ import { Card, Button, Input } from '../../components/ui/ui';
 import { useAuth } from '../../context/AuthContext';
 import { ArrowRight, UserPlus, LogIn, AlertCircle } from 'lucide-react';
 import { VERSION_DISPLAY, IS_DEV_VERSION } from '../../constants/version';
+import SafeImage from '../../components/common/SafeImage';
 
 export const AuthView: React.FC = () => {
     const { login, register, loginWithGoogle, loginWithApple } = useAuth();
@@ -333,7 +334,7 @@ export const AuthView: React.FC = () => {
                                 {isGoogleLoading ? (
                                     <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
                                 ) : (
-                                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
+                                    <SafeImage src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
                                 )}
                                 {isGoogleLoading ? '跳轉中...' : '使用 Google 登入'}
                             </Button>

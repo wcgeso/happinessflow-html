@@ -17,7 +17,7 @@ import {
 import { db } from '../../services/firebase';
 import { useAuth } from './AuthContext';
 import { GameState } from '../types';
-import { cleanObject } from '../utils/utils';
+import { cleanObject, safeAsync } from '../utils/utils';
 
 interface RoomMember {
     uid: string;
@@ -153,15 +153,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         while (!isUnique && attempts < maxAttempts) {
             attempts++;
             code = Math.floor(100000 + Math.random() * 900000).toString();
-            try {
-                const roomDoc = await getDoc(doc(db, 'rooms', code));
-                if (!roomDoc.exists()) {
-                    isUnique = true;
-                }
-            } catch (err) {
-                console.error('檢查房間碼唯一性失敗:', err);
-                // 如果是權限問題或其他錯誤，我們還是繼續嘗試或拋出錯誤
-                throw new Error('無法檢查房間碼唯一性，請檢查網路連線');
+            const roomDoc = await safeAsync(getDoc(doc(db, 'rooms', code)));
+            if (!roomDoc || !roomDoc.exists()) {
+                isUnique = true;
             }
         }
 
@@ -205,7 +199,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 sessionId: `${roomCode}_${Date.now()}`
             };
             const cleanedRoom = cleanObject(newRoom);
-            await setDoc(doc(db, 'rooms', roomCode), cleanedRoom);
+            await safeAsync(setDoc(doc(db, 'rooms', roomCode), cleanedRoom));
             setRoom(cleanedRoom);
             return roomCode;
         } catch (err: any) {
@@ -226,9 +220,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setError(null);
         try {
             const roomRef = doc(db, 'rooms', roomCode);
-            const roomDoc = await getDoc(roomRef);
+            const roomDoc = await safeAsync(getDoc(roomRef));
 
-            if (!roomDoc.exists()) throw new Error('找不到此房間');
+            if (!roomDoc || !roomDoc.exists()) throw new Error('找不到此房間');
 
             const roomData = roomDoc.data() as Room;
 
@@ -281,9 +275,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
             });
 
-            await updateDoc(roomRef, {
+            await safeAsync(updateDoc(roomRef, {
                 members: arrayUnion(cleanedMember)
-            });
+            }));
 
             // 存入 localStorage 並手動更新 room ID 觸發監聽器
             localStorage.setItem(`active_room_${user.uid}`, roomCode);
@@ -308,9 +302,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.removeItem(`active_room_${user.uid}`);
 
             if (memberToRemove) {
-                await updateDoc(roomRef, {
+                await safeAsync(updateDoc(roomRef, {
                     members: arrayRemove(memberToRemove)
-                });
+                }));
             }
         } catch (err: any) {
             console.error('離開房間失敗:', err);
@@ -320,11 +314,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const startRoomGame = async () => {
         if (!room || user?.uid !== room.hostId) return;
         try {
-            await updateDoc(doc(db, 'rooms', room.id), {
+            await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
                 status: 'playing',
                 playerStates: {}, // 清空舊的玩家狀態
                 startedAt: Date.now() // 新增開始時間戳，用來觸發玩家重設狀態
-            });
+            }));
         } catch (err: any) {
             setError(err.message);
         }
@@ -333,9 +327,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const finishRoomGame = async () => {
         if (!room || user?.uid !== room.hostId) return;
         try {
-            await updateDoc(doc(db, 'rooms', room.id), {
+            await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
                 status: 'finished'
-            });
+            }));
         } catch (err: any) {
             setError(err.message);
         }
@@ -349,7 +343,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setRoom(null);
             localStorage.removeItem(`active_room_${user.uid}`);
 
-            await deleteDoc(doc(db, 'rooms', roomId));
+            await safeAsync(deleteDoc(doc(db, 'rooms', roomId)));
         } catch (err: any) {
             setError(err.message);
         }
@@ -362,7 +356,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // 先獲取當前的 marketPrices 作為 previousMarketPrices
             const currentPrices = room.marketPrices || {};
 
-            await updateDoc(roomRef, {
+            await safeAsync(updateDoc(roomRef, {
                 marketUpdates: {
                     updates,
                     code,
@@ -373,7 +367,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 previousMarketPrices: currentPrices,
                 // 更新為新的價格
                 marketPrices: updates
-            });
+            }));
         } catch (err: any) {
             console.error('更新行情失敗:', err);
             setError(err.message);
@@ -384,10 +378,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!room || user?.role !== 'coach') return;
         try {
             const roomRef = doc(db, 'rooms', room.id);
-            await updateDoc(roomRef, {
+            await safeAsync(updateDoc(roomRef, {
                 gameTimeLeft: timeLeft,
                 isTimerPaused: isPaused
-            });
+            }));
         } catch (err: any) {
             console.error('更新計時器失敗:', err);
             setError(err.message);

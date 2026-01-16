@@ -5,6 +5,7 @@ import { ProfileModal } from '../../components/modals/ProfileModal';
 import { useAuth, getUserTitle, getAvatarBorderStyle, getCoachBadge, getPlayerBadge, getTitleColor, getBadgeGlowStyle } from '../../context/AuthContext';
 import { Button } from '../../components/ui/ui';
 import { cn } from '../../utils/gameUtils';
+import SafeImage from '../../components/common/SafeImage';
 
 interface RoomViewProps {
     onBack: () => void;
@@ -220,7 +221,7 @@ const RoomContent: React.FC<{
             }
             if (member.photoScale) scale = parseFloat(member.photoScale) || 1;
             return (
-                <img
+                <SafeImage
                     src={member.photoURL}
                     className={isCoach ? "w-full h-full object-cover rounded-lg" : "w-full h-full object-cover"}
                     alt=""
@@ -335,13 +336,10 @@ const RoomContent: React.FC<{
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <img
+                                            <SafeImage
                                                 src={getMemberBadge(displayCoach as any)}
                                                 className={`w-12 h-12 object-contain shrink-0 ${getMemberBadgeStyle(displayCoach as any)}`}
                                                 alt={getMemberTitle(displayCoach as any)}
-                                                onError={(e) => {
-                                                    e.currentTarget.style.display = 'none';
-                                                }}
                                             />
                                             <span className={`text-xs font-black uppercase tracking-widest whitespace-nowrap px-3 py-1 rounded-full border ${isGM(displayCoach)
                                                 ? 'bg-indigo-500/10 border-indigo-500/20'
@@ -383,11 +381,10 @@ const RoomContent: React.FC<{
                                             </span>
                                             <div className="flex items-center justify-center gap-1 w-full mt-1">
                                                 <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                                                    <img
+                                                    <SafeImage
                                                         src={getMemberBadge(member as any)}
                                                         className={`w-full h-full object-contain ${getMemberBadgeStyle(member as any)}`}
                                                         alt=""
-                                                        onError={(e) => e.currentTarget.style.display = 'none'}
                                                     />
                                                 </div>
                                                 <span className={`text-[10px] font-black uppercase tracking-widest truncate ${getMemberTitleColor(member as any)}`}>

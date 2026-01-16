@@ -21,6 +21,7 @@ import { GameRecord, GameState } from '../../types';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
 import { ScoreView } from '../game/ScoreView';
 import { db } from '../../../services/firebase';
+import { safeAsync } from '../../utils/utils';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 const formatDate = (dateStr: string) => {
     if (!dateStr || dateStr === '未知日期') return '未知日期';
@@ -296,7 +297,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
                     collection(db, 'score_records', 'S1', 'records'),
                     where('playerUids', 'array-contains', targetUserId)
                 );
-                const querySnapshot = await getDocs(q);
+                const querySnapshot = await safeAsync(getDocs(q));
+
+                if (!querySnapshot) {
+                    setTargetHistory([]);
+                    return;
+                }
+
                 console.log('[HistoryView] Query result size:', querySnapshot.size);
 
                 const records: GameRecord[] = [];

@@ -4,9 +4,11 @@ import { useAuth, getPlayerBadge } from '../../context/AuthContext';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { calculateFinancialSummary, calculateScoreResult, formatMoney, cn } from '../../utils/gameUtils';
+import { safeAsync } from '../../utils/utils';
 import { ScoreView } from '../game/ScoreView';
 import { StockMarketModal } from '../../components/transaction/StockMarketModal';
 import { HappinessListModal } from '../../components/modals/HappinessListModal';
+import SafeImage from '../../components/common/SafeImage';
 import {
     Users,
     AlertCircle,
@@ -134,7 +136,7 @@ export const CoachGameView: React.FC = () => {
             // 如果需要更新房間狀態為 playing
             if (room.status === 'waiting') {
                 const roomRef = doc(db, 'rooms', room.id);
-                await setDoc(roomRef, { status: 'playing' }, { merge: true });
+                await safeAsync(setDoc(roomRef, { status: 'playing' }, { merge: true }));
             }
         } catch (error) {
             console.error('開始遊戲失敗:', error);
@@ -204,7 +206,7 @@ export const CoachGameView: React.FC = () => {
             }
 
             return (
-                <img
+                <SafeImage
                     src={player.photoURL}
                     className={className}
                     alt={player.name}
@@ -354,7 +356,7 @@ export const CoachGameView: React.FC = () => {
                 isFinal,
                 updatedAt: serverTimestamp()
             };
-            await setDoc(doc(db, 'score_records', 'S1', 'records', recordId), scoreData);
+            await safeAsync(setDoc(doc(db, 'score_records', 'S1', 'records', recordId), scoreData));
 
             // 2. 儲存執行師帶領紀錄 (coach_records)
             const coachRecord = {
@@ -376,7 +378,7 @@ export const CoachGameView: React.FC = () => {
                 })),
                 updatedAt: serverTimestamp()
             };
-            await setDoc(doc(db, 'coach_records', recordId), coachRecord);
+            await safeAsync(setDoc(doc(db, 'coach_records', recordId), coachRecord));
 
             // 3. 更新每位玩家的累計積分 (experience) - 僅在最終結算時
             if (isFinal) {
@@ -384,9 +386,9 @@ export const CoachGameView: React.FC = () => {
                     if (!player.uid) return;
                     const userRef = doc(db, 'users', player.uid);
                     try {
-                        await updateDoc(userRef, {
+                        await safeAsync(updateDoc(userRef, {
                             experience: increment(player.totalScore)
-                        });
+                        }));
                     } catch (e) {
                         console.error(`Failed to update experience for user ${player.uid}`, e);
                     }
@@ -416,7 +418,15 @@ export const CoachGameView: React.FC = () => {
         }
     };
 
-    // 遊戲自動存檔邏輯：開始時存一次，之後每五分鐘存一次
+    // 當房間狀態變更為 finished 時，執行師自動觸發存檔
+    useEffect(() => {
+        if (room?.status === 'finished' && user?.uid === room?.hostId && uploadStatus === 'idle') {
+            console.log('[自動存檔] 偵測到遊戲結束，執行最終存檔');
+            saveRecords(true, true);
+        }
+    }, [room?.status, user?.uid, room?.hostId, uploadStatus]);
+
+    // 遊戲自動存檔邏輯：開始時存一次，之後每兩分鐘存一次
     useEffect(() => {
         if (!room || room.status !== 'playing' || user?.uid !== room.hostId) return;
 
@@ -518,8 +528,8 @@ export const CoachGameView: React.FC = () => {
         try {
             // 手動觸發一次房間數據獲取
             if (room?.id) {
-                const roomDoc = await getDoc(doc(db, 'rooms', room.id));
-                if (roomDoc.exists()) {
+                const roomDoc = await safeAsync(getDoc(doc(db, 'rooms', room.id)));
+                if (roomDoc && roomDoc.exists()) {
                     // 這裡其實不需要手動 setRoom，因為 onSnapshot 會處理
                     // 但主動 getDoc 可以確保連線正常並觸發快取更新
                     console.log('手動重新整理房間數據成功');
@@ -585,6 +595,8 @@ export const CoachGameView: React.FC = () => {
                 // 不自動存檔，改由執行師手動觸發
                 setUploadStatus('idle'); // 重置上傳狀態，確保出現儲存按鈕
                 await finishRoomGame();
+                // 立即嘗試存檔一次，確保狀態有被捕捉
+                saveRecords(true, true);
                 setGenericConfirm(null);
             }
         });
@@ -1421,7 +1433,7 @@ export const CoachGameView: React.FC = () => {
                                                     <div className="flex items-center gap-1.5 text-slate-400 text-xs font-bold">
                                                         {getPlayerBadge(selectedPlayer as any) && (
                                                             <div className="w-6 h-6 flex items-center justify-center">
-                                                                <img
+                                                                <SafeImage
                                                                     src={getPlayerBadge(selectedPlayer as any)}
                                                                     className="w-full h-full object-contain drop-shadow-[0_0_5px_rgba(245,158,11,0.3)]"
                                                                     alt="Badge"

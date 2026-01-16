@@ -6,6 +6,7 @@ import { getProfessionIcon } from '../common/IconHelpers';
 import { cn, formatMoney } from '../../utils/gameUtils';
 import { StockMarketModal } from '../transaction/StockMarketModal';
 import { useRoom } from '../../context/RoomContext';
+import SafeImage from '../common/SafeImage';
 
 interface GameHeaderProps {
     gameState: any;
@@ -115,7 +116,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
             }
 
             return (
-                <img 
+                <SafeImage 
                     src={player.photoURL} 
                     className="w-full h-full object-cover" 
                     alt={player.name}

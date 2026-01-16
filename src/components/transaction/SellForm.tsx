@@ -143,7 +143,18 @@ export const SellForm: React.FC<SellFormProps> = ({
                 return (
                     <div key={asset.id} className="flex items-center justify-between bg-slate-900 p-3 rounded-lg border border-slate-700">
                         <div className="flex flex-col">
-                            <span className="text-sm font-bold text-white">{asset.name}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-white">{asset.name}</span>
+                                {asset.type === '不動產' && (
+                                     <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider shadow-sm ${
+                                         asset.isSelfUse 
+                                             ? 'bg-amber-500/20 text-amber-500 border border-amber-500/20' 
+                                             : 'bg-blue-500/20 text-blue-500 border border-blue-500/20'
+                                     }`}>
+                                         {asset.isSelfUse ? '自用' : '出租'}
+                                     </span>
+                                 )}
+                            </div>
                             <div className="flex flex-col gap-0.5 mt-1">
                                 <span className="text-[10px] text-slate-400">價值: {formatMoney(asset.cost)}</span>
                                 {asset.type === '企業' && asset.cashflow !== undefined && (

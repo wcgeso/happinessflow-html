@@ -4,7 +4,9 @@ import { db } from '../../../services/firebase';
 import { collection, query, getDocs, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth, isGM } from '../../context/AuthContext';
+import SafeImage from '../../components/common/SafeImage';
 import { Button, Input } from '../../components/ui/ui';
+import { safeAsync } from '../../utils/utils';
 
 interface CoachDashboardProps {
   onCreateGame: () => void;
@@ -46,7 +48,8 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   // 獲取統計數據
   const fetchStats = async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, 'users'));
+      const querySnapshot = await safeAsync(getDocs(collection(db, 'users')));
+      if (!querySnapshot) return;
       const users = querySnapshot.docs.map(doc => doc.data());
 
       const totalAdmins = users.filter(u => u.title === '遊戲管理員').length;
@@ -97,7 +100,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
       const uid = backfillUID.trim();
       const nickname = email.split('@')[0];
 
-      await setDoc(doc(db, 'users', uid), {
+      await safeAsync(setDoc(doc(db, 'users', uid), {
         uid: uid,
         email: email,
         name: nickname,
@@ -105,7 +108,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
         title: '',
         photoURL: 'bee',
         createdAt: new Date().toISOString()
-      }, { merge: true });
+      }, { merge: true }));
 
       showToast(`已成功補錄用戶：${email}`, 'success');
       setBackfillUID('');
@@ -131,8 +134,8 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
 
       // 1. 先嘗試 UID 精確搜尋
       const userDocRef = doc(db, 'users', searchTerm);
-      const userDocSnap = await getDoc(userDocRef);
-      if (userDocSnap.exists()) {
+      const userDocSnap = await safeAsync(getDoc(userDocRef));
+      if (userDocSnap?.exists()) {
         setSearchResult({ id: userDocSnap.id, ...userDocSnap.data() });
         setIsSearching(false);
         return;
@@ -140,7 +143,11 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
 
       // 2. 獲取所有使用者進行模糊匹配 (Email 或 名字)
       const allUsersQuery = query(collection(db, 'users'));
-      const allUsersSnapshot = await getDocs(allUsersQuery);
+      const allUsersSnapshot = await safeAsync(getDocs(allUsersQuery));
+      if (!allUsersSnapshot) {
+        setIsSearching(false);
+        return;
+      }
 
       const foundUsers = allUsersSnapshot.docs
         .map(doc => ({ id: doc.id, ...doc.data() as any }))
@@ -174,10 +181,10 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
       console.log(`Attempting to update user role to ${newRole}:`, searchResult.id);
       const userRef = doc(db, 'users', searchResult.id);
 
-      await setDoc(userRef, {
+      await safeAsync(setDoc(userRef, {
         role: newRole,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      }, { merge: true }));
 
       setSearchResult({ ...searchResult, role: newRole });
       fetchStats(); // 重新獲取統計數據
@@ -198,10 +205,10 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
       const userRef = doc(db, 'users', searchResult.id);
       const newTitle = isGM ? '遊戲管理員' : '';
 
-      await setDoc(userRef, {
+      await safeAsync(setDoc(userRef, {
         title: newTitle,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      }, { merge: true }));
 
       setSearchResult({ ...searchResult, title: newTitle });
       fetchStats(); // 重新獲取統計數據
@@ -227,7 +234,11 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
     try {
       // 1. 讀取所有遊戲紀錄
       const recordsRef = collection(db, 'score_records', 'S1', 'records');
-      const recordsSnap = await getDocs(recordsRef);
+      const recordsSnap = await safeAsync(getDocs(recordsRef));
+      if (!recordsSnap) {
+        setIsSyncing(false);
+        return;
+      }
 
       const playerScores: Record<string, number> = {};
       let totalGames = 0;
@@ -382,7 +393,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                         <div className="flex items-center gap-5">
                           <div className="w-20 h-20 bg-slate-800 rounded-3xl flex items-center justify-center text-3xl overflow-hidden border-2 border-indigo-500/20 shadow-inner relative group">
                             {searchResult.photoURL && (searchResult.photoURL.startsWith('http') || searchResult.photoURL.startsWith('data:image')) ? (
-                              <img
+                              <SafeImage
                                 src={searchResult.photoURL}
                                 alt=""
                                 className="w-full h-full object-cover"

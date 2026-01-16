@@ -8,6 +8,7 @@ import { Trophy, X, List, LogOut, Upload, CheckCircle2, AlertCircle, Check } fro
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../services/firebase';
 import { doc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { safeAsync } from '../../utils/utils';
 
 interface ScoreViewProps {
     playerName: string;
@@ -158,7 +159,7 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
         const attemptUpload = async (): Promise<boolean> => {
             try {
                 // 將資料儲存至 score_records/S1/records 集合中
-                await setDoc(doc(db, 'score_records', 'S1', 'records', recordId), scoreData);
+                await safeAsync(setDoc(doc(db, 'score_records', 'S1', 'records', recordId), scoreData));
 
                 // 2. 儲存執行師帶領紀錄 (coach_records)
                 const coachRecord = {
@@ -180,16 +181,16 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                     })),
                     updatedAt: serverTimestamp()
                 };
-                await setDoc(doc(db, 'coach_records', recordId), coachRecord);
+                await safeAsync(setDoc(doc(db, 'coach_records', recordId), coachRecord));
 
                 // 3. 更新每位玩家的累計積分 (experience)
                 await Promise.all(playersData.map(async (player) => {
                     if (!player.uid) return;
                     const userRef = doc(db, 'users', player.uid);
                     try {
-                        await updateDoc(userRef, {
+                        await safeAsync(updateDoc(userRef, {
                             experience: increment(player.totalScore)
-                        });
+                        }));
                     } catch (e) {
                         console.error(`Failed to update experience for user ${player.uid}`, e);
                         // 不阻擋主流程，僅記錄錯誤

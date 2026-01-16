@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Bug, Plane, Stethoscope, Palette, TreePine, Briefcase, Edit3, Calendar, Hash, Award, History, Play, X, Check, Upload, Image as ImageIcon, Move, Copy } from 'lucide-react';
 import { Button, Input, Slider } from '../ui/ui';
+import SafeImage from '../common/SafeImage';
 import { useAuth, getUserTitle, getCoachBadge, getPlayerBadge, getBadgeGlowStyle } from '../../context/AuthContext';
 import { useGame } from '../../context/GameContext';
 import { avatarOptions } from './AvatarModal';
@@ -256,7 +257,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
                         <div className="relative group">
                             <div className="w-24 h-24 rounded-2xl bg-slate-800 border-4 border-slate-900 flex items-center justify-center shadow-xl overflow-hidden">
                                 {isCustomAvatar ? (
-                                    <img
+                                    <SafeImage
                                         src={displayUser.photoURL}
                                         alt="Avatar"
                                         className="w-full h-full object-cover"
@@ -302,14 +303,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
                         >
                             <div className="relative group">
                                 <div className="absolute inset-0 bg-amber-500/10 blur-2xl rounded-full group-hover:bg-amber-500/30 transition-colors" />
-                                <img
+                                <SafeImage
                                     src={viewMode === 'coach' ? getCoachBadge(displayUser, viewMode) : getPlayerBadge(displayUser, viewMode)}
                                     alt={getUserTitle(displayUser, viewMode)}
                                     className={`relative w-32 h-32 object-contain transition-all duration-300 ${getBadgeGlowStyle(displayUser, viewMode)} ${isBadgeEnlarged ? 'scale-125' : 'hover:scale-110'
                                         }`}
-                                    onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                    }}
                                 />
                             </div>
                         </div>
@@ -445,7 +443,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
                                         onTouchEnd={handleDragEnd}
                                     >
                                         {isCustomAvatar ? (
-                                            <img
+                                            <SafeImage
                                                 src={displayUser.photoURL}
                                                 alt="Preview"
                                                 className="w-full h-full object-cover pointer-events-none"
