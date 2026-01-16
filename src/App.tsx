@@ -353,10 +353,15 @@ const MainRouting = ({
             return;
         }
 
-        if (!room) {
-            // 如果玩家不在房間中且當前處於與房間相關的畫面，跳回大廳
+        // 如果房間數據還沒加載完整（例如只有 ID 的初始狀態），先跳過路由判斷
+        // 避免因為 playerStates 還沒讀取到而誤觸狀態重設
+        if (!room || !room.hostId) {
             const roomViews = ['selection', 'game', 'score', 'coach_monitor'];
-            if (roomViews.includes(currentView)) {
+            if (room && room.id && roomViews.includes(currentView)) {
+                console.log('房間數據加載中，暫緩路由');
+                return;
+            }
+            if (!room && roomViews.includes(currentView)) {
                 console.log('不在房間中，跳回大廳');
                 setCurrentView('lobby');
             }
@@ -369,7 +374,10 @@ const MainRouting = ({
             const isHost = user?.uid === room.hostId;
 
             // 處理玩家重設狀態 (當偵測到新的開始時間戳時)
-            if (!isHost && room.startedAt && room.startedAt !== lastProcessedStartTime) {
+            // 如果玩家在雲端已經有狀態（斷線重連），則不應觸發重設
+            const hasCloudState = !isHost && room.playerStates && room.playerStates[user.uid];
+            
+            if (!isHost && room.startedAt && room.startedAt !== lastProcessedStartTime && !hasCloudState) {
                 console.log('偵測到新遊戲開始，重設玩家狀態');
                 setLastProcessedStartTime(room.startedAt);
 
@@ -438,6 +446,22 @@ const MainRouting = ({
                 if (gameState.isSetup || gameState.selectionStep === 'completed') {
                     console.log('玩家已完成設定，跳轉到遊戲畫面');
                     setCurrentView('game');
+                } else if (hasCloudState) {
+                    // 斷線重連：如果本地還沒同步雲端狀態，則從雲端恢復
+                    console.log('斷線重連：從雲端恢復玩家狀態');
+                    const cloudState = room.playerStates[user.uid];
+                    setGameState(cloudState);
+                    setSessionMeta({
+                        playerName: cloudState.playerName || user.name,
+                        reportName: cloudState.reportName || `執行日記 ${new Date().toLocaleDateString('zh-TW')}`,
+                        createdAt: new Date().toISOString()
+                    });
+                    
+                    if (cloudState.isSetup || cloudState.selectionStep === 'completed') {
+                        setCurrentView('game');
+                    } else {
+                        setCurrentView('selection');
+                    }
                 } else {
                     console.log('玩家尚未完成設定，跳轉到選擇畫面');
                     // 初始化選擇步驟 (僅在尚未設定且未完成時)

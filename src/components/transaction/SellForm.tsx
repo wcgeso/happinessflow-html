@@ -146,6 +146,11 @@ export const SellForm: React.FC<SellFormProps> = ({
                             <span className="text-sm font-bold text-white">{asset.name}</span>
                             <div className="flex flex-col gap-0.5 mt-1">
                                 <span className="text-[10px] text-slate-400">價值: {formatMoney(asset.cost)}</span>
+                                {asset.type === '企業' && asset.cashflow !== undefined && (
+                                    <span className="text-[10px] text-emerald-400 font-bold">
+                                        企業收益: +{formatMoney(asset.cashflow)} / 月
+                                    </span>
+                                )}
                                 {relatedLoan && (
                                     <span className="text-[10px] text-rose-400 font-medium">
                                         貸款金額: {formatMoney(relatedLoan.totalOwed)}

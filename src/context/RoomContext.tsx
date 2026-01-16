@@ -113,8 +113,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 setRoom(data);
 
-                // 如果是房主，同步更新 playerStates
-                if (isHost && data.playerStates) {
+                // 更新 playerStates (不論是否為房主，只要 data 內有就更新)
+                if (data.playerStates) {
                     setPlayerStates(data.playerStates);
                 }
 
@@ -232,15 +232,23 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             const roomData = roomDoc.data() as Room;
 
-            // 檢查是否已在房間內（支援斷線重連，不論房間狀態）
+            // 檢查是否已在房間內或已有存檔（支援斷線重連，不論房間狀態）
             const existingMember = roomData.members.find(m => m.uid === user.uid);
-            if (existingMember) {
-                setRoom(roomData);
-                localStorage.setItem(`active_room_${user.uid}`, roomCode);
-                return;
+            const hasCloudState = roomData.playerStates && roomData.playerStates[user.uid];
+            
+            if (existingMember || hasCloudState) {
+                // 如果已經在 members 裡面，直接進入
+                if (existingMember) {
+                    setRoom(roomData);
+                    localStorage.setItem(`active_room_${user.uid}`, roomCode);
+                    return;
+                }
+                
+                // 如果不在 members 但有 playerStates，表示是中途離開又回來的玩家，允許重新加入
+                console.log('偵測到雲端存檔，允許中途重新加入房間');
+            } else if (roomData.status !== 'waiting') {
+                throw new Error('遊戲已開始或已結束');
             }
-
-            if (roomData.status !== 'waiting') throw new Error('遊戲已開始或已結束');
 
             // 檢查人數限制 (排除教練)
             const playerMembers = roomData.members.filter(m => m.role === 'player');

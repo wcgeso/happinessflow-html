@@ -5,6 +5,8 @@ import { FinancialStatement } from '../../components/business/FinancialStatement
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { calculateFinancialSummary, calculateScoreResult, formatMoney, cn } from '../../utils/gameUtils';
 import { ScoreView } from '../game/ScoreView';
+import { StockMarketModal } from '../../components/transaction/StockMarketModal';
+import { HappinessListModal } from '../../components/modals/HappinessListModal';
 import {
     Users,
     AlertCircle,
@@ -45,6 +47,8 @@ export const CoachGameView: React.FC = () => {
     const [isSavingAll, setIsSavingAll] = useState(false);
     const [isPlayerListOpen, setIsPlayerListOpen] = useState(false); // 控制玩家列表收放
     const [isStockModalOpen, setIsStockModalOpen] = useState(false); // 控制股市面板
+    const [isMarketViewOpen, setIsMarketViewOpen] = useState(false); // 控制股市行情查看
+    const [isHappinessModalOpen, setIsHappinessModalOpen] = useState(false); // 控制幸福清單查看
     const [stockCode, setStockCode] = useState('');
     const [isUpdatingMarket, setIsUpdatingMarket] = useState(false);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
@@ -1105,7 +1109,7 @@ export const CoachGameView: React.FC = () => {
                 </AnimatePresence>
             </div>
 
-            {!allPlayersReady && room?.status !== 'finished' ? (
+            {room?.status === 'waiting' && !allPlayersReady ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-950 relative overflow-hidden">
                     {/* 背景裝飾 */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/5 rounded-full blur-[100px] animate-pulse" />
@@ -1430,7 +1434,10 @@ export const CoachGameView: React.FC = () => {
                                             </div>
 
                                             {/* 幸福指數 - 調整大小避免擠壓 */}
-                                            <div className="flex flex-col items-center justify-center px-4 py-2 bg-pink-500/5 rounded-xl border border-pink-500/20 shadow-inner shrink-0">
+                                            <button
+                                                onClick={() => setIsHappinessModalOpen(true)}
+                                                className="flex flex-col items-center justify-center px-4 py-2 bg-pink-500/5 hover:bg-pink-500/10 active:scale-95 transition-all rounded-xl border border-pink-500/20 shadow-inner shrink-0 cursor-pointer"
+                                            >
                                                 <div className="flex items-center gap-1.5 mb-0.5">
                                                     <Heart size={14} className="text-pink-500 fill-pink-500 animate-pulse" />
                                                     <span className="text-[9px] font-black text-pink-500/60 uppercase tracking-widest">Happiness</span>
@@ -1438,7 +1445,7 @@ export const CoachGameView: React.FC = () => {
                                                 <div className="text-3xl font-black text-pink-500 tabular-nums tracking-tighter drop-shadow-[0_0_10px_rgba(236,72,153,0.3)]">
                                                     {selectedPlayerState.happinessTotal}
                                                 </div>
-                                            </div>
+                                            </button>
                                         </div>
 
                                         <div
@@ -1640,6 +1647,32 @@ export const CoachGameView: React.FC = () => {
                 </div>
             )}
 
+            {/* 股市行情查看 */}
+            {isMarketViewOpen && (
+                <StockMarketModal
+                    onClose={() => setIsMarketViewOpen(false)}
+                    onOpenStockCodes={() => {
+                        setIsMarketViewOpen(false);
+                        setIsStockModalOpen(true);
+                    }}
+                    marketPrices={room?.marketPrices}
+                    previousMarketPrices={room?.previousMarketPrices}
+                />
+            )}
+
+            {/* 幸福清單查看 */}
+            {isHappinessModalOpen && selectedPlayerState && (
+                <HappinessListModal
+                    items={selectedPlayerState.happiness || []}
+                    total={selectedPlayerState.happinessTotal || 0}
+                    onToggle={() => { }} // 執行師僅供查看
+                    onAdd={() => { }}    // 執行師僅供查看
+                    onRemove={() => { }} // 執行師僅供查看
+                    onClose={() => setIsHappinessModalOpen(false)}
+                    disabled={true}     // 唯讀模式
+                />
+            )}
+
             {/* 行情發布成功彈窗 */}
             {showPublishSuccess && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300">
@@ -1779,11 +1812,11 @@ export const CoachGameView: React.FC = () => {
 
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => setIsStockModalOpen(true)}
-                        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-black text-xs transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-1.5"
+                        onClick={() => setIsMarketViewOpen(true)}
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-xs transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5"
                     >
-                        <LineChart size={14} />
-                        股市
+                        <TrendingUp size={14} />
+                        股市行情
                     </button>
                 </div>
             </div>

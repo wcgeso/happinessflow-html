@@ -2,7 +2,7 @@ import React from 'react';
 import { Input, Button } from '../ui/ui';
 import { Asset } from '../../types';
 import { STOCK_SYMBOLS, STOCK_NAMES } from '../../constants';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, PlusCircle } from 'lucide-react';
 
 interface StockBuyFormProps {
     stockInputs: Record<string, { price: string; qty: string }>;
@@ -14,10 +14,31 @@ interface StockBuyFormProps {
 }
 
 export const StockBuyForm: React.FC<StockBuyFormProps> = ({ stockInputs, setStockInputs, marketPrices, previousMarketPrices, stockAssets, onShowMarket }) => {
+    const handleBuyAllOne = () => {
+        const newInputs = { ...stockInputs };
+        STOCK_SYMBOLS.forEach(symbol => {
+            const currentQty = parseInt(newInputs[symbol]?.qty || '0');
+            const currentPrice = marketPrices?.[symbol] || 0;
+            newInputs[symbol] = {
+                price: currentPrice.toString(),
+                qty: (currentQty + 1).toString()
+            };
+        });
+        setStockInputs(newInputs);
+    };
+
     return (
         <div className="space-y-4">
-            {onShowMarket && (
-                <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+                <Button 
+                    onClick={handleBuyAllOne}
+                    className="h-8 py-0 px-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs rounded-lg shadow-lg shadow-indigo-900/40 transition-all active:scale-95 flex items-center gap-1.5"
+                >
+                    <PlusCircle size={14} />
+                    一鍵全買一張
+                </Button>
+                
+                {onShowMarket && (
                     <Button 
                         onClick={onShowMarket}
                         className="h-8 py-0 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-lg shadow-lg shadow-emerald-900/40 transition-all active:scale-95 flex items-center gap-1.5"
@@ -25,8 +46,8 @@ export const StockBuyForm: React.FC<StockBuyFormProps> = ({ stockInputs, setStoc
                         <TrendingUp size={14} />
                         查看行情
                     </Button>
-                </div>
-            )}
+                )}
+            </div>
             
             <div className="space-y-2">
                 <div className="grid grid-cols-4 gap-2 px-2 text-[10px] text-slate-500 font-bold uppercase tracking-wider">

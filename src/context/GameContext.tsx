@@ -125,6 +125,76 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return calculateScoreResult(gameState, summary);
     }, [gameState, summary]);
 
+    // 自動更新唯讀幸福項目
+    useEffect(() => {
+        if (!gameState.isSetup) return;
+
+        let updatedHappiness = [...gameState.happiness];
+        let changed = false;
+
+        // 1. 財務自由 (理財收入 > 總支出)
+        const isFinancialFree = summary.passiveIncome > summary.totalExpenses;
+        const financeItem = updatedHappiness.find(h => h.id === 'h_finance');
+        if (financeItem && financeItem.checked !== isFinancialFree) {
+            updatedHappiness = updatedHappiness.map(h => h.id === 'h_finance' ? { ...h, checked: isFinancialFree } : h);
+            changed = true;
+        }
+
+        // 2. 自住房相關
+        const houseSubIds: Record<string, string> = { '1room': 'h_house_1', '2room': 'h_house_2', '3room': 'h_house_3', '5room': 'h_house_5' };
+        const ownedHouseTypes = new Set(
+            gameState.assets
+                .filter(a => a.houseType && a.isSelfUse)
+                .map(a => a.houseType)
+        );
+
+        Object.entries(houseSubIds).forEach(([typeKey, itemId]) => {
+            const shouldBeChecked = ownedHouseTypes.has(typeKey);
+            const item = updatedHappiness.find(h => h.id === itemId);
+            if (item && item.checked !== shouldBeChecked) {
+                updatedHappiness = updatedHappiness.map(h => h.id === itemId ? { ...h, checked: shouldBeChecked } : h);
+                changed = true;
+            }
+        });
+
+        const hasAnySelfUseHouse = gameState.assets.some(a => a.type === '不動產' && a.houseType && a.isSelfUse);
+        const houseSelfItem = updatedHappiness.find(h => h.id === 'h_house_self');
+        if (houseSelfItem && houseSelfItem.checked !== hasAnySelfUseHouse) {
+            updatedHappiness = updatedHappiness.map(h => h.id === 'h_house_self' ? { ...h, checked: hasAnySelfUseHouse } : h);
+            changed = true;
+        }
+
+        // 3. 幸福家庭 (完成 5 項: 約會, 求婚, 婚禮, 孩子1, 自住房)
+        const hasDate = updatedHappiness.find(h => h.id === 'h_date')?.checked;
+        const hasProposal = updatedHappiness.find(h => h.id === 'h_proposal')?.checked;
+        const hasWedding = updatedHappiness.find(h => h.id === 'h_wedding')?.checked;
+        const hasChild1 = updatedHappiness.find(h => h.id === 'h_child1')?.checked;
+        const isFamilyComplete = !!(hasDate && hasProposal && hasWedding && hasChild1 && hasAnySelfUseHouse);
+
+        const familyItem = updatedHappiness.find(h => h.id === 'h_family');
+        if (familyItem && familyItem.checked !== isFamilyComplete) {
+            updatedHappiness = updatedHappiness.map(h => h.id === 'h_family' ? { ...h, checked: isFamilyComplete } : h);
+            changed = true;
+        }
+
+        // 4. 飛行器
+        const hasAircraft = gameState.assets.some(a => a.type === '飛行器');
+        const planeItem = updatedHappiness.find(h => h.id === 'h_plane');
+        if (planeItem && planeItem.checked !== hasAircraft) {
+            updatedHappiness = updatedHappiness.map(h => h.id === 'h_plane' ? { ...h, checked: hasAircraft } : h);
+            changed = true;
+        }
+
+        if (changed) {
+            const newTotal = updatedHappiness.reduce((sum, h) => sum + (h.checked ? h.points : 0), 0);
+            setGameState(prev => ({
+                ...prev,
+                happiness: updatedHappiness,
+                happinessTotal: newTotal
+            }));
+        }
+    }, [summary.passiveIncome, summary.totalExpenses, gameState.assets, gameState.isSetup, gameState.happiness]);
+
     // 獲取個人歷史紀錄
     useEffect(() => {
         if (!user) {

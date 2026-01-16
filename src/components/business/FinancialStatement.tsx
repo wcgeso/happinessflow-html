@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, FinancialSummary, Asset } from '../../types';
-import { STOCK_NAMES } from '../../constants';
+import { STOCK_NAMES, REAL_ESTATE_PRESETS } from '../../constants';
 import { TrendingUp, Building, ChevronDown, ShieldCheck, ArrowUpCircle, ExternalLink } from 'lucide-react';
 import { HistoryTable } from './HistoryTable';
 import { CashFlowLog } from './CashFlowLog';
 import { BizUpgradeModal } from '../modals/BizUpgradeModal';
+import { HouseConversionModal } from '../modals/HouseConversionModal';
 import { cn } from '../../utils/gameUtils';
+import { useGame } from '../../context/GameContext';
 
 interface FinancialStatementProps {
   gameState: GameState;
@@ -126,6 +128,34 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   const [isBalanceOpen, setIsBalanceOpen] = useState(defaultShowDetails);
   const [showFullDetails, setShowFullDetails] = useState(defaultShowDetails);
   const [upgradingAsset, setUpgradingAsset] = useState<Asset | null>(null);
+  const [convertingHouse, setConvertingHouse] = useState<Asset | null>(null);
+
+  const { setGameState } = useGame();
+
+  const handleHouseConversion = (assetId: string, toSelfUse: boolean) => {
+    setGameState(prev => {
+      const updatedAssets = prev.assets.map(asset => {
+        if (asset.id === assetId) {
+          const symbolMatch = asset.name.match(/[A-Z]\d+/);
+          const symbol = symbolMatch ? symbolMatch[0] : '';
+          const preset = REAL_ESTATE_PRESETS[symbol];
+
+          return {
+            ...asset,
+            isSelfUse: toSelfUse,
+            cashflow: toSelfUse ? 0 : (preset?.cashflow || 0),
+            conversionCount: (asset.conversionCount || 0) + 1
+          };
+        }
+        return asset;
+      });
+
+      return {
+        ...prev,
+        assets: updatedAssets
+      };
+    });
+  };
 
   const realEstate = gameState.assets.filter(a => a.type === '不動產');
   const businesses = gameState.assets.filter(a => a.type === '企業');
@@ -464,7 +494,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                             disabled={disabled}
                           />
                         )}
-                        {realEstate.length > 0 && <AssetCategoryList title="不動產" items={realEstate} color="text-blue-300" onShowAlert={onShowAlert} disabled={disabled} />}
+                        {realEstate.length > 0 && <AssetCategoryList title="不動產" items={realEstate} color="text-blue-300" onShowAlert={onShowAlert} onHouseClick={setConvertingHouse} disabled={disabled} />}
                       </div>
                     </div>
                     {/* Right: Liabilities */}
@@ -569,7 +599,14 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
         />
       )}
 
-
+      {convertingHouse && (
+        <HouseConversionModal
+          isOpen={!!convertingHouse}
+          onClose={() => setConvertingHouse(null)}
+          asset={convertingHouse}
+          onConvert={handleHouseConversion}
+        />
+      )}
     </div>
   );
 };
@@ -589,7 +626,7 @@ const TAccountSubItem = ({ label, value, isMasked = false }: { label: React.Reac
   </div>
 );
 
-const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices = {}, previousMarketPrices = {}, onUpgradeClick, onShowAlert, isMasked = false, disabled = false }: any) => (
+const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices = {}, previousMarketPrices = {}, onUpgradeClick, onHouseClick, onShowAlert, isMasked = false, disabled = false }: any) => (
   <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
     <div className={cn("text-[9px] font-black uppercase tracking-widest", color)}>{title}</div>
     {items.map((item: any) => {
@@ -625,7 +662,22 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
                     <span className="text-[10px] text-slate-400 font-medium">
                       ({reHouseTypeMap[item.houseType] || item.houseType})
                     </span>
-                    {item.isSelfUse && <span className="text-[10px] text-yellow-400 font-bold">自住</span>}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!disabled) onHouseClick?.(item);
+                      }}
+                      disabled={disabled}
+                      className={cn(
+                        "text-[9px] font-black px-1.5 py-0.5 rounded transition-all",
+                        item.isSelfUse
+                          ? "bg-amber-500/20 text-amber-500 border border-amber-500/30 hover:bg-amber-500/30"
+                          : "bg-blue-500/20 text-blue-500 border border-blue-500/30 hover:bg-blue-500/30",
+                        disabled && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      {item.isSelfUse ? "自用" : "出租"}
+                    </button>
                     {item.isInsured && <ShieldCheck size={10} className="text-emerald-400 shrink-0" />}
                   </div>
                 </>

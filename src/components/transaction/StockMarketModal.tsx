@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, TrendingUp, AlertCircle, ShoppingCart } from 'lucide-react';
+import { X, TrendingUp, AlertCircle, ShoppingCart, LineChart } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { STOCK_SYMBOLS, STOCK_NAMES } from '../../constants';
 import { Button } from '../ui/ui';
@@ -7,11 +7,24 @@ import { Button } from '../ui/ui';
 interface StockMarketModalProps {
     onClose: () => void;
     onOpenTrade?: () => void;
+    onOpenStockCodes?: () => void;
+    marketPrices?: Record<string, number>;
+    previousMarketPrices?: Record<string, number>;
 }
 
-export const StockMarketModal: React.FC<StockMarketModalProps> = ({ onClose, onOpenTrade }) => {
+export const StockMarketModal: React.FC<StockMarketModalProps> = ({ 
+    onClose, 
+    onOpenTrade, 
+    onOpenStockCodes,
+    marketPrices, 
+    previousMarketPrices 
+}) => {
     const { gameState } = useGame();
     const [showEventResult, setShowEventResult] = useState(false);
+
+    // 優先使用傳入的價格（執行師模式），否則使用 gameState（玩家模式）
+    const currentMarketPrices = marketPrices || gameState.marketPrices;
+    const currentPreviousMarketPrices = previousMarketPrices || gameState.previousMarketPrices;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
@@ -69,9 +82,20 @@ export const StockMarketModal: React.FC<StockMarketModalProps> = ({ onClose, onO
                         </div>
                         <h2 className="text-xl font-black text-white tracking-tight">股票市場行情</h2>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition-colors">
-                        <X size={20} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {onOpenStockCodes && (
+                            <button
+                                onClick={onOpenStockCodes}
+                                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-black text-xs transition-all flex items-center gap-1.5 shadow-lg shadow-blue-500/20"
+                            >
+                                <LineChart size={14} />
+                                股市代碼
+                            </button>
+                        )}
+                        <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
 
 
@@ -86,8 +110,8 @@ export const StockMarketModal: React.FC<StockMarketModalProps> = ({ onClose, onO
 
                     <div className="space-y-2">
                         {STOCK_SYMBOLS.map((symbol) => {
-                            const currentPrice = (gameState.marketPrices && gameState.marketPrices[symbol]) || 0;
-                            const prevPrice = (gameState.previousMarketPrices && gameState.previousMarketPrices[symbol]) || 0;
+                            const currentPrice = (currentMarketPrices && currentMarketPrices[symbol]) || 0;
+                            const prevPrice = (currentPreviousMarketPrices && currentPreviousMarketPrices[symbol]) || 0;
                             const isRise = currentPrice > prevPrice;
                             const isFall = currentPrice < prevPrice;
 

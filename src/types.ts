@@ -8,6 +8,7 @@ export interface Asset {
   type: '現金' | '定存' | '股票' | '企業' | '不動產' | '飛行器';
   isSelfUse?: boolean;
   houseType?: string;
+  conversionCount?: number; // New: tracking real estate conversion (max 1)
   quantity?: number;
   isInsured?: boolean;
   isUpgraded?: boolean; // New: for enterprise upgrade
