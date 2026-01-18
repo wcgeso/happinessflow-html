@@ -183,13 +183,16 @@ export const AuthView: React.FC = () => {
     };
 
     return (
-        <div className="min-h-[100dvh] bg-slate-950 flex flex-col items-center justify-center p-4 py-8 relative overflow-y-auto">
+        <div className="flex-1 w-full bg-slate-950 flex flex-col items-center p-4 relative overflow-y-auto no-scrollbar" style={{ 
+            paddingTop: 'calc(2rem + env(safe-area-inset-top))',
+            paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))'
+        }}>
             {/* Background Elements */}
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-950 to-black z-0"></div>
             <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full"></div>
             <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full"></div>
 
-            <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-700 my-auto">
+            <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-700 my-auto flex flex-col justify-center min-h-fit">
                 <div className="text-center mb-6 md:mb-10 pt-2">
                     {/* Circular Icon Container */}
                     <div className="inline-flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-b from-amber-300 to-amber-600 shadow-[0_0_40px_rgba(245,158,11,0.2)] mb-4 md:mb-6 relative group transition-transform hover:scale-105 duration-500">

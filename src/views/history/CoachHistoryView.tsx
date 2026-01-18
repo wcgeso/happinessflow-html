@@ -218,7 +218,7 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
     const viewingPlayerData = viewingPlayerUid && selectedScoreRecord?.players?.find((p: any) => p.uid === viewingPlayerUid);
 
     return (
-        <div className="h-[100dvh] bg-slate-950 flex flex-col overflow-hidden touch-none">
+        <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden touch-none">
             <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar touch-pan-y">
                 <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
                     {/* Header Section */}

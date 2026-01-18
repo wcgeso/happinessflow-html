@@ -91,7 +91,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="h-[100dvh] bg-slate-950 flex flex-col overflow-hidden"
+        className="h-full bg-slate-950 flex flex-col overflow-hidden"
       >
         {/* Header */}
         <div className="relative p-6 border-b border-slate-800 bg-slate-900/50">

@@ -372,7 +372,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({ onBack }) =>
   }, [activeCategory, unlockedStatus]);
 
   return (
-    <div className="h-[100dvh] bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none">
+    <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none">
       {/* Background Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-500 rounded-full blur-[120px]" />

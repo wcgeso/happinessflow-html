@@ -23,7 +23,7 @@ import { GameSessionMeta } from './types';
 
 // Mock Spinner
 const Spinner = () => (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950">
+    <div className="flex-1 flex items-center justify-center bg-slate-950">
         <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
     </div>
 );
@@ -82,7 +82,7 @@ const AppContent = () => {
     // 維護中頁面
     if (isMaintenance) {
         return (
-            <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 text-center">
+            <div className="flex-1 bg-slate-950 text-white flex flex-col items-center justify-center p-4 text-center">
                 <div className="w-24 h-24 rounded-full bg-amber-500/10 flex items-center justify-center mb-8 animate-pulse">
                     <span className="text-5xl">🐝</span>
                 </div>
@@ -698,14 +698,12 @@ export default function App() {
     useEffect(() => {
         // 防止行動端瀏覽器彈性滾動 (Elastic Scrolling)
         document.body.style.overflow = 'hidden';
-        document.body.style.position = 'fixed';
         document.body.style.width = '100%';
         document.body.style.height = '100%';
         document.body.style.touchAction = 'none';
 
         return () => {
             document.body.style.overflow = '';
-            document.body.style.position = '';
             document.body.style.width = '';
             document.body.style.height = '';
             document.body.style.touchAction = '';
@@ -716,7 +714,7 @@ export default function App() {
         <AuthProvider>
             <RoomProvider>
                 <GameProvider>
-                    <div className="fixed inset-0 overflow-hidden bg-slate-950 select-none touch-none">
+                    <div className="flex-1 w-full h-full overflow-hidden bg-slate-950 select-none touch-none flex flex-col">
                         <AppContent />
                     </div>
                 </GameProvider>

@@ -21,7 +21,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+    <div className="flex-1 bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-slate-900 rounded-lg shadow-lg p-8">
           <h2 className="text-2xl font-bold text-white mb-6 text-center">登入帳號</h2>

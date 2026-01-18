@@ -452,7 +452,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
   if (showRoomView || (room && room.status === 'waiting')) {
     return (
-      <div className="h-[100dvh] bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none">
+      <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none">
         <RoomView
           onBack={() => {
             setShowRoomView(false);
@@ -469,7 +469,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   }
 
   return (
-    <div className="h-[100dvh] bg-slate-950 flex flex-col relative overflow-hidden select-none">
+    <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none">
       {/* Background Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500 rounded-full blur-[120px]" />

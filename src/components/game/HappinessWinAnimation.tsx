@@ -92,7 +92,7 @@ export const HappinessWinAnimation: React.FC<HappinessWinAnimationProps> = ({ on
       </div>
 
       {/* 2. 核心內容層 - 調整 z-index */}
-      <div className="relative z-30 flex flex-col items-center max-w-full w-full px-4 text-center overflow-y-auto max-h-screen py-8 no-scrollbar transition-all duration-1000">
+      <div className="relative z-30 flex flex-col items-center max-w-full w-full px-4 text-center overflow-y-auto max-h-full py-8 no-scrollbar transition-all duration-1000">
         
         {/* 能量球鋪陳動畫 (The Core Orb) */}
         <div className="relative mb-6 md:mb-8 shrink-0 transition-all duration-1000">
