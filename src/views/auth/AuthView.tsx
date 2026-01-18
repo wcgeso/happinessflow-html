@@ -183,22 +183,22 @@ export const AuthView: React.FC = () => {
     };
 
     return (
-        <div className="h-[100dvh] bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden touch-none">
-            {/* ... background elements ... */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-950 to-black z-0"></div>
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full"></div>
-            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full"></div>
+        <div className="min-h-[100dvh] bg-slate-950 flex flex-col items-center justify-center p-4 py-8 relative overflow-y-auto">
+            {/* Background Elements */}
+            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-950 to-black z-0"></div>
+            <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full"></div>
+            <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full"></div>
 
-            <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-700">
-                <div className="text-center mb-10 pt-2">
+            <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-700 my-auto">
+                <div className="text-center mb-6 md:mb-10 pt-2">
                     {/* Circular Icon Container */}
-                    <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-b from-amber-300 to-amber-600 shadow-[0_0_40px_rgba(245,158,11,0.2)] mb-6 relative group transition-transform hover:scale-105 duration-500">
+                    <div className="inline-flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-b from-amber-300 to-amber-600 shadow-[0_0_40px_rgba(245,158,11,0.2)] mb-4 md:mb-6 relative group transition-transform hover:scale-105 duration-500">
                         <div className="absolute inset-0 rounded-full bg-amber-400/10 blur-xl group-hover:blur-2xl transition-all"></div>
-                        <span className="text-5xl relative z-10 drop-shadow-xl select-none">🐝</span>
+                        <span className="text-4xl md:text-5xl relative z-10 drop-shadow-xl select-none">🐝</span>
                     </div>
 
                     {/* Gradient Title */}
-                    <h1 className="text-5xl font-black mb-2 bg-clip-text text-transparent bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight">
+                    <h1 className="text-4xl md:text-5xl font-black mb-2 bg-clip-text text-transparent bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight">
                         蜂富人生
                     </h1>
 
@@ -212,33 +212,33 @@ export const AuthView: React.FC = () => {
                     <p className="bg-clip-text text-transparent bg-gradient-to-b from-white via-amber-100 to-amber-500 font-bold text-xs tracking-wide">財務是為了實現幸福的人生而服務</p>
                 </div>
 
-                <Card className="bg-slate-900/40 backdrop-blur-2xl border-white/5 p-6 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] relative overflow-hidden">
+                <Card className="bg-slate-900/40 backdrop-blur-2xl border-white/5 p-5 md:p-6 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-amber-500/20 to-transparent"></div>
 
                     {error && (
-                        <div className="mb-6 p-4 bg-rose-500/10 border-l-4 border-rose-500 rounded-r-xl text-rose-200 text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-300 shadow-[0_4px_20px_rgba(244,63,94,0.15)]">
+                        <div className="mb-4 md:mb-6 p-3 md:p-4 bg-rose-500/10 border-l-4 border-rose-500 rounded-r-xl text-rose-200 text-xs md:text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-300 shadow-[0_4px_20px_rgba(244,63,94,0.15)]">
                             <div className="p-1.5 bg-rose-500/20 rounded-full shrink-0">
-                                <AlertCircle size={18} className="text-rose-400" />
+                                <AlertCircle size={16} className="text-rose-400" />
                             </div>
                             <span className="flex-1 leading-tight">{error}</span>
                         </div>
                     )}
 
                     {!isLogin && (
-                        <h2 className="text-lg font-bold text-white mb-6 flex items-center justify-center gap-3">
+                        <h2 className="text-base md:text-lg font-bold text-white mb-4 md:mb-6 flex items-center justify-center gap-3">
                             <div className="p-2 rounded-lg bg-amber-500/10">
-                                <UserPlus size={18} className="text-amber-400" />
+                                <UserPlus size={16} className="text-amber-400" />
                             </div>
                             <span className="tracking-tight">建立新帳號</span>
                         </h2>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
                         {!isLogin && (
-                            <div className="space-y-1.5">
+                            <div className="space-y-1">
                                 <div className="flex justify-between items-end px-1">
-                                    <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">暱稱</label>
-                                    <span className={`text-[9px] font-bold ${
+                                    <label className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">暱稱</label>
+                                    <span className={`text-[8px] font-bold ${
                                         name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '').length >= ( /[\u4e00-\u9fa5]/.test(name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '')) ? 8 : 12) 
                                             ? 'text-amber-500' 
                                             : 'text-slate-500'
@@ -267,8 +267,8 @@ export const AuthView: React.FC = () => {
                                 />
                             </div>
                         )}
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest ml-1">電子郵件 / 帳號</label>
+                        <div className="space-y-1">
+                            <label className="text-[9px] text-slate-500 font-bold uppercase tracking-widest ml-1">電子郵件 / 帳號</label>
                             <Input
                                 type="text"
                                 required
@@ -280,8 +280,8 @@ export const AuthView: React.FC = () => {
                                 className="bg-slate-950/50 border-white/5 focus:border-amber-500/50 transition-all h-10 text-sm"
                             />
                         </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest ml-1">密碼</label>
+                        <div className="space-y-1">
+                            <label className="text-[9px] text-slate-500 font-bold uppercase tracking-widest ml-1">密碼</label>
                             <Input
                                 type="text"
                                 required={email.toLowerCase() !== 'gm0221'}
@@ -298,7 +298,7 @@ export const AuthView: React.FC = () => {
                             type="submit"
                             variant="amber"
                             disabled={isSubmitting || isGoogleLoading}
-                            className="w-full py-3.5 text-sm font-black tracking-widest shadow-2xl mt-2 transition-all active:scale-[0.98] shadow-amber-900/20"
+                            className="w-full py-3 text-sm font-black tracking-widest shadow-2xl mt-1 md:mt-2 transition-all active:scale-[0.98] shadow-amber-900/20"
                         >
                             {isSubmitting ? (
                                 <div className="flex items-center gap-2">
@@ -316,11 +316,11 @@ export const AuthView: React.FC = () => {
 
                     {isLogin && (
                         <>
-                            <div className="relative my-6">
+                            <div className="relative my-4 md:my-6">
                                 <div className="absolute inset-0 flex items-center">
                                     <div className="w-full border-t border-white/5"></div>
                                 </div>
-                                <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
+                                <div className="relative flex justify-center text-[9px] md:text-[10px] uppercase tracking-widest">
                                     <span className="bg-slate-900 px-3 text-slate-500 font-bold">或</span>
                                 </div>
                             </div>
@@ -329,7 +329,7 @@ export const AuthView: React.FC = () => {
                                 type="button"
                                 onClick={handleGoogleLogin}
                                 disabled={isSubmitting || isGoogleLoading}
-                                className="w-full py-3 text-xs font-bold bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                                className="w-full py-2.5 md:py-3 text-xs font-bold bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                             >
                                 {isGoogleLoading ? (
                                     <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
@@ -341,30 +341,16 @@ export const AuthView: React.FC = () => {
                         </>
                     )}
 
-                    {isLogin && (
-                        <div className="hidden">
-                            <Button
-                                type="button"
-                                onClick={handleGMQuickLogin}
-                                disabled={isSubmitting}
-                                className="w-full py-3 text-xs font-black bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/20 mt-4 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                            >
-                                <span className="text-base">👑</span>
-                                GM 快速登入 (gm0221)
-                            </Button>
-                        </div>
-                    )}
-
-                    <div className="mt-6 pt-5 border-t border-white/5 text-center flex flex-col gap-4">
+                    <div className="mt-4 md:mt-6 pt-4 md:pt-5 border-t border-white/5 text-center flex flex-col gap-3 md:gap-4">
                         <button
                             type="button"
                             onClick={() => setIsLogin(!isLogin)}
-                            className="text-amber-500 hover:text-amber-400 text-[11px] font-medium transition-all flex items-center justify-center gap-2 w-full"
+                            className="text-amber-500 hover:text-amber-400 text-[10px] md:text-[11px] font-medium transition-all flex items-center justify-center gap-2 w-full"
                         >
                             {isLogin ? '還沒有帳號？立即註冊' : '已經有帳號？點此登入'}
                         </button>
 
-                        <div className="flex items-center justify-center gap-4 text-[10px] text-slate-500 font-medium">
+                        <div className="flex items-center justify-center gap-4 text-[9px] md:text-[10px] text-slate-500 font-medium">
                             <a 
                                 href="https://happinessflow.vercel.app/privacy.html" 
                                 target="_blank" 
@@ -383,7 +369,7 @@ export const AuthView: React.FC = () => {
                                 服務條款
                             </a>
                         </div>
-                        <div className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${IS_DEV_VERSION ? 'text-amber-500' : 'text-slate-600'}`}>
+                        <div className={`text-[9px] md:text-[10px] font-bold uppercase tracking-widest mt-0.5 ${IS_DEV_VERSION ? 'text-amber-500' : 'text-slate-600'}`}>
                             {VERSION_DISPLAY}
                         </div>
                     </div>
