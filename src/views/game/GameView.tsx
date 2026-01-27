@@ -274,7 +274,10 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
     };
 
     return (
-        <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500">
+        <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500" style={{ 
+            paddingTop: 'env(safe-area-inset-top, 20px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 20px)'
+        }}>
             {showScoreView && (
                 <div className="fixed inset-0 z-[10000]">
                     <ScoreView

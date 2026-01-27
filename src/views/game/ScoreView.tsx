@@ -335,7 +335,10 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
     }
 
     return (
-        <div className="flex-1 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-hidden touch-none relative">
+        <div className="flex-1 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-hidden touch-none relative" style={{ 
+            paddingTop: 'env(safe-area-inset-top, 20px)',
+            paddingBottom: 'env(safe-area-inset-bottom, 20px)'
+        }}>
             {/* 成就達成通知隊列 */}
             <div className="fixed top-4 left-0 right-0 z-[1000] flex flex-col items-center gap-2 pointer-events-none">
                 <AnimatePresence mode="popLayout">
