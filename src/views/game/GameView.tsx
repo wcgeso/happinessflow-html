@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
 import { useGameLogic } from '../../hooks/useGameLogic';
-import { AlertCircle, CheckCircle2, Bell, LogOut } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Bell, LogOut, Loader2 } from 'lucide-react';
 import { useRoom } from '../../context/RoomContext';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
 import { HappinessPanel } from '../../components/business/HappinessPanel';
@@ -24,10 +24,13 @@ import { GameActions } from '../../components/game/GameActions';
 import { HappinessWinAnimation } from '../../components/game/HappinessWinAnimation';
 import { formatMoney } from '../../utils/gameUtils';
 
-export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFinishGame }) => {
+export const GameView: React.FC<{ 
+    onFinishGame: (meta: any) => void;
+    isDevMode?: boolean;
+}> = ({ onFinishGame, isDevMode = false }) => {
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, leaveRoom } = useRoom();
+    const { room, leaveRoom, clearRequest } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -97,17 +100,22 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
         handleDeleteTransactionRecord,
         handleTransactionSubmit,
         handlePaydayConfirm,
+        executePayday,
         confirmMedicalClaim,
+        executeMedicalClaim,
         confirmAircraftClaim,
+        executeAircraftClaim,
         addMoney,
         handleToggleHappiness,
         handleAddHappinessItem,
+        executeAddHappinessItem,
         handleRemoveHappinessItem,
         handlePromotionConfirm,
         handleBizUpgrade,
         handleLifelongConfirm,
         applyLifelongResult,
         applyExamResult,
+        handleFinishGame,
         happinessSubMode,
         setHappinessSubMode
     } = useGameLogic();
@@ -274,11 +282,68 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
         setLastDiceSuccess(false);
     };
 
+    const pendingRequest = room?.pendingRequests && user
+        ? Object.values(room.pendingRequests).find(r => r.uid === user.uid)
+        : null;
+
+    // 處理審核結果
+    useEffect(() => {
+        if (!pendingRequest || !user) return;
+
+        if (pendingRequest.status === 'approved') {
+            // 執行實際的操作
+            if (pendingRequest.type === 'payday') {
+                executePayday(pendingRequest.amount);
+                showAlert(`✅ 執行師已同意您的月結餘領取請求 (${formatMoney(pendingRequest.amount)})`, 'success');
+            } else if (pendingRequest.type === 'insurance') {
+                if (pendingRequest.insuranceType === 'medical') {
+                    executeMedicalClaim(pendingRequest.amount);
+                    showAlert(`✅ 執行師已同意您的醫療保險理賠請求 (${formatMoney(pendingRequest.amount)})`, 'success');
+                } else if (pendingRequest.insuranceType === 'aircraft') {
+                    executeAircraftClaim(pendingRequest.amount);
+                    showAlert(`✅ 執行師已同意您的飛行器保險理賠請求 (${formatMoney(pendingRequest.amount)})`, 'success');
+                }
+            } else if (pendingRequest.type === 'happiness') {
+                executeAddHappinessItem(pendingRequest.happinessLabel || '自訂幸福項目', pendingRequest.amount);
+                showAlert(`✅ 執行師已同意您的自訂幸福項目：${pendingRequest.happinessLabel}`, 'success');
+            }
+            // 清除請求
+            clearRequest(pendingRequest.id);
+        } else if (pendingRequest.status === 'rejected') {
+            const typeMap = {
+                'payday': '月結餘領取',
+                'insurance': '保險理賠',
+                'happiness': '新增幸福項目'
+            };
+            showAlert(`❌ 執行師拒絕了您的${typeMap[pendingRequest.type as keyof typeof typeMap] || '操作'}請求`, 'error');
+            // 清除請求
+            clearRequest(pendingRequest.id);
+        }
+    }, [pendingRequest?.status, user?.uid]);
+
     return (
-        <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500" style={{ 
-            paddingTop: 'env(safe-area-inset-top, 20px)',
-            paddingBottom: 'env(safe-area-inset-bottom, 20px)'
-        }}>
+        <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500 pb-safe">
+            {/* 審核中遮罩 */}
+            {pendingRequest && pendingRequest.status === 'pending' && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+                    <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in fade-in zoom-in duration-300">
+                        <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+                        </div>
+                        <h3 className="text-xl font-bold mb-2 text-white">等待審核中</h3>
+                        <p className="text-slate-400 mb-6">
+                            您的{
+                                pendingRequest.type === 'payday' ? '月結餘領取' : 
+                                pendingRequest.type === 'insurance' ? '保險理賠' : 
+                                '新增幸福項目'
+                            }請求已送出，請等待執行師審核。
+                        </p>
+                        <div className="text-sm font-medium text-blue-400 bg-blue-500/10 py-2 px-4 rounded-full inline-block">
+                            {pendingRequest.type === 'happiness' ? `幸福點數：+${pendingRequest.amount}` : `待領取金額：${formatMoney(pendingRequest.amount)}`}
+                        </div>
+                    </div>
+                </div>
+            )}
             {showScoreView && (
                 <div className="fixed inset-0 z-[10000]">
                     <ScoreView
@@ -333,6 +398,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                 onShowTutorial={() => setShowTutorial(true)}
                 onLeaveRoom={() => setShowLeaveConfirm(true)}
                 onAddMoney={addMoney}
+                isDevMode={isDevMode}
             />
 
             {showLeaveConfirm && (
@@ -396,6 +462,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                             gameState={gameState}
                             summary={summary}
                             hideSummary={true}
+                            showDashboard={false}
                             defaultShowDetails={true}
                             onShowAlert={showAlert}
                             onDeleteTransaction={handleDeleteTransactionRecord}

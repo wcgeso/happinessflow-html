@@ -6,6 +6,7 @@ import { getProfessionIcon } from '../common/IconHelpers';
 import { cn, formatMoney } from '../../utils/gameUtils';
 import { StockMarketModal } from '../transaction/StockMarketModal';
 import { useRoom } from '../../context/RoomContext';
+import { useAuth, isGM as checkIsGM } from '../../context/AuthContext';
 import SafeImage from '../common/SafeImage';
 import { IS_DEV_VERSION } from '../../constants/version';
 import { DevSettingsModal } from '../modals/DevSettingsModal';
@@ -20,6 +21,7 @@ interface GameHeaderProps {
     onShowTutorial: () => void;
     onLeaveRoom: () => void;
     onAddMoney?: (amount: number) => void;
+    isDevMode?: boolean;
 }
 
 export const GameHeader: React.FC<GameHeaderProps> = ({ 
@@ -31,13 +33,17 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
     onShowStockMarket,
     onShowTutorial,
     onLeaveRoom,
-    onAddMoney
+    onAddMoney,
+    isDevMode = false
 }) => {
+    const { user } = useAuth();
     const { room, playerStates } = useRoom();
     const [showAircraftTooltip, setShowAircraftTooltip] = useState(false);
     const [showRoomInfo, setShowRoomInfo] = useState(false);
     const [showDevSettings, setShowDevSettings] = useState(false);
     const [timeLeft, setTimeLeft] = useState<string>('--:--');
+
+    const isGM = user?.role === 'coach' || checkIsGM(user);
 
     const hasAircraft = gameState.assets.some((a: any) => a.type === '飛行器');
     const netAssets = summary.totalAssets - summary.totalLiabilities;
@@ -141,9 +147,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
      };
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-40 flex flex-col" style={{ 
-            paddingTop: 'env(safe-area-inset-top, 20px)'
-        }}>
+        <header className="fixed top-0 left-0 right-0 z-40 flex flex-col pt-safe">
             {/* Top Bar */}
             <div className="relative z-20 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-2.5 shadow-md">
                 <div className="max-w-7xl mx-auto flex items-center justify-between relative">
@@ -252,8 +256,8 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                         <ChevronDown size={11} className={cn("transition-transform duration-300", showRoomInfo && "rotate-180")} />
                     </button>
 
-                    {/* 開發者模式按鈕 */}
-                    {IS_DEV_VERSION && (
+                    {/* 開發者模式按鈕 (僅 GM/執行師 且在開發環境且開啟開發者模式顯示) */}
+                    {IS_DEV_VERSION && isGM && isDevMode && (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -267,8 +271,8 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                     )}
                 </div>
 
-                {/* 開發者設定面板 */}
-                {IS_DEV_VERSION && (
+                {/* 開發者設定面板 (僅 GM/執行師 且在開發環境且開啟開發者模式顯示) */}
+                {IS_DEV_VERSION && isGM && isDevMode && (
                     <DevSettingsModal
                         isOpen={showDevSettings}
                         onClose={() => setShowDevSettings(false)}

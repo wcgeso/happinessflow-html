@@ -678,6 +678,7 @@ const MainRouting = ({
             return (
                 <GameView
                     onFinishGame={handleGameFinish}
+                    isDevMode={isDevRouting}
                 />
             );
         case 'score':

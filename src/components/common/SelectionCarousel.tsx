@@ -97,10 +97,7 @@ export const SelectionCarousel: React.FC<SelectionCarouselProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-950 flex flex-col overflow-hidden animate-in fade-in duration-500 z-50 touch-none" style={{ 
-            paddingTop: 'env(safe-area-inset-top, 20px)',
-            paddingBottom: 'env(safe-area-inset-bottom, 20px)'
-        }}>
+        <div className="fixed inset-0 bg-slate-950 flex flex-col overflow-hidden animate-in fade-in duration-500 z-50 touch-none pt-safe">
             {/* Header */}
             <div className="relative shrink-0 px-6 py-4 md:py-6 border-b border-slate-800/50 flex items-center justify-between bg-slate-900/80 backdrop-blur-md z-50">
                 <div className="flex flex-col gap-0.5">
@@ -176,7 +173,7 @@ export const SelectionCarousel: React.FC<SelectionCarouselProps> = ({
                 )}
             </div>
 
-            <div className="shrink-0 p-4 border-t border-slate-800/50 bg-slate-900 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-40 safe-area-bottom">
+            <div className="shrink-0 p-4 border-t border-slate-800/50 bg-slate-900 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-40 pb-safe">
                 <Button
                     variant="primary"
                     disabled={!selectedId}

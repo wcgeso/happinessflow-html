@@ -2,6 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Safe Area Utilities */
+.pb-safe {
+  padding-bottom: var(--safe-bottom, 0px);
+}
+.pt-safe {
+  padding-top: var(--safe-top, 0px);
+}
+.pl-safe {
+  padding-left: var(--safe-left, 0px);
+}
+.pr-safe {
+  padding-right: var(--safe-right, 0px);
+}
+
+.mb-safe {
+  margin-bottom: var(--safe-bottom, 0px);
+}
+.mt-safe {
+  margin-top: var(--safe-top, 0px);
+}
+
+.bottom-safe {
+  bottom: var(--safe-bottom, 0px);
+}
+.top-safe {
+  top: var(--safe-top, 0px);
+}
+
 /* 添加自定義全局樣式 */
 html, body {
   height: 100%;
@@ -9,11 +37,13 @@ html, body {
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
+  background-color: #0f172a; /* Match index.html */
 }
 
 body {
   @apply bg-slate-950 text-white;
   -webkit-overflow-scrolling: touch;
+  touch-action: manipulation;
 }
 
 /* 自定義滾動條樣式 */

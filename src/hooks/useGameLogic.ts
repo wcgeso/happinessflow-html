@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useGame } from '../context/GameContext';
+import { useRoom } from '../context/RoomContext';
+import { useAuth } from '../context/AuthContext';
 import { GameRecord, Transaction, Asset, TransactionData, HappinessItem } from '../types';
 import { formatMoney } from '../utils/gameUtils';
 
@@ -10,6 +12,8 @@ import { REAL_ESTATE_TYPES } from '../constants';
 
 export const useGameLogic = () => {
     const { gameState, setGameState, gameHistory, setGameHistory, summary, scoreResult, alertInfo, showAlert, hideAlert, saveGameRecord } = useGame();
+    const { room, submitRequest } = useRoom();
+    const { user } = useAuth();
 
     const [happinessSubMode, setHappinessSubMode] = useState<'history' | 'pay' | 'inc_exp'>('history');
 
@@ -656,6 +660,26 @@ export const useGameLogic = () => {
 
     const handlePaydayConfirm = () => {
         const flow = summary.monthlyCashflow;
+
+        console.log('玩家點擊領取月結餘 - 房間:', !!room, '角色:', user?.role);
+
+        // 如果在房間中且是玩家，則送出審核請求
+        if (room && (user?.role === 'player' || user?.role === 'coach')) {
+            console.log('玩家送出審核請求:', user.name, flow);
+            submitRequest({
+                uid: user.uid,
+                playerName: user.name,
+                type: 'payday',
+                amount: flow
+            });
+            showAlert('已送出領取月結餘請求，請等待執行師審核', 'info');
+            return;
+        }
+
+        executePayday(flow);
+    };
+
+    const executePayday = (flow: number) => {
         setGameState(prev => {
             const newState = { ...prev, cash: prev.cash + flow };
             const newTx: Transaction = {
@@ -682,6 +706,24 @@ export const useGameLogic = () => {
             return;
         }
 
+        // 如果在房間中且是玩家，則送出審核請求
+        if (room && (user?.role === 'player' || user?.role === 'coach')) {
+            console.log('玩家送出醫療理賠審核請求:', user.name, claimAmount);
+            submitRequest({
+                uid: user.uid,
+                playerName: user.name,
+                type: 'insurance',
+                insuranceType: 'medical',
+                amount: claimAmount
+            });
+            showAlert('已送出理賠請求，請等待執行師審核', 'info');
+            return;
+        }
+
+        executeMedicalClaim(claimAmount);
+    };
+
+    const executeMedicalClaim = (claimAmount: number) => {
         setGameState(prev => {
             const newState = { ...prev, cash: prev.cash + claimAmount };
             const newTx: Transaction = {
@@ -710,6 +752,24 @@ export const useGameLogic = () => {
 
         const claimAmount = 400000; // 飛行器理賠為 500,000 H 的 80%
 
+        // 如果在房間中且是玩家，則送出審核請求
+        if (room && (user?.role === 'player' || user?.role === 'coach')) {
+            console.log('玩家送出飛行器理賠審核請求:', user.name, claimAmount);
+            submitRequest({
+                uid: user.uid,
+                playerName: user.name,
+                type: 'insurance',
+                insuranceType: 'aircraft',
+                amount: claimAmount
+            });
+            showAlert('已送出理賠請求，請等待執行師審核', 'info');
+            return;
+        }
+
+        executeAircraftClaim(claimAmount);
+    };
+
+    const executeAircraftClaim = (claimAmount: number) => {
         setGameState(prev => {
             const newState = { ...prev, cash: prev.cash + claimAmount };
             const newTx: Transaction = {
@@ -752,6 +812,23 @@ export const useGameLogic = () => {
     };
 
     const handleAddHappinessItem = (label: string, points: number) => {
+        // 如果在房間中且是玩家，則送出審核請求
+        if (room && (user?.role === 'player' || user?.role === 'coach')) {
+            submitRequest({
+                uid: user.uid,
+                playerName: user.name,
+                type: 'happiness',
+                amount: points,
+                happinessLabel: label
+            });
+            showAlert('已送出新增幸福項目請求，請等待執行師審核', 'info');
+            return;
+        }
+
+        executeAddHappinessItem(label, points);
+    };
+
+    const executeAddHappinessItem = (label: string, points: number) => {
         setGameState(prev => {
             const newItem = { id: generateId(), label, points, checked: true, isCustom: true };
             const newHappiness = [...prev.happiness, newItem];
@@ -1067,10 +1144,14 @@ export const useGameLogic = () => {
         handleDeleteTransactionRecord,
         handleTransactionSubmit,
         handlePaydayConfirm,
+        executePayday,
         confirmMedicalClaim,
+        executeMedicalClaim,
         confirmAircraftClaim,
+        executeAircraftClaim,
         handleToggleHappiness,
         handleAddHappinessItem,
+        executeAddHappinessItem,
         handleRemoveHappinessItem,
         handlePromotionConfirm,
         handleBizUpgrade,

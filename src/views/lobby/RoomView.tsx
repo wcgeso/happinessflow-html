@@ -237,10 +237,7 @@ const RoomContent: React.FC<{
     };
 
     return (
-        <div className="flex-1 flex flex-col p-6 animate-in fade-in duration-300" style={{ 
-            paddingTop: 'env(safe-area-inset-top, 24px)',
-            paddingBottom: 'env(safe-area-inset-bottom, 24px)'
-        }}>
+        <div className="flex-1 flex flex-col p-6 animate-in fade-in duration-300 pt-safe pb-safe">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div>

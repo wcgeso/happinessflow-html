@@ -190,10 +190,7 @@ export const AuthView: React.FC = () => {
             <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full"></div>
 
             {/* Scrollable Content Wrapper */}
-            <div className="absolute inset-0 overflow-y-auto no-scrollbar flex flex-col items-center px-4" style={{ 
-                paddingTop: 'env(safe-area-inset-top, 20px)',
-                paddingBottom: 'env(safe-area-inset-bottom, 20px)'
-            }}>
+            <div className="absolute inset-0 overflow-y-auto no-scrollbar flex flex-col items-center px-4 pt-safe pb-safe">
                 <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-700 my-auto py-10">
                     <div className="text-center mb-6 md:mb-10">
                     {/* Circular Icon Container */}

@@ -38,10 +38,10 @@ import { setDoc, serverTimestamp, doc, getDoc, updateDoc, increment } from 'fire
 import { STOCK_DATA, BUBBLE_BURST_CODES, STOCK_NAMES } from '../../constants';
 
 export const CoachGameView: React.FC = () => {
-    const { room, playerStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, updateRoomTimer } = useRoom();
+    const { room, playerStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, updateRoomTimer, approveRequest, rejectRequest } = useRoom();
     const { user } = useAuth();
 
-    console.log('CoachGameView 渲染 - 房間:', room?.id, '狀態:', room?.status, '玩家數:', Object.keys(playerStates).length);
+    console.log('CoachGameView 渲染 - 房間:', room?.id, '狀態:', room?.status, '待審核數:', room?.pendingRequests ? Object.keys(room.pendingRequests).length : 0);
 
     const [selectedPlayerUid, setSelectedPlayerUid] = useState<string | null>(null);
     const [direction, setDirection] = useState(0);
@@ -96,6 +96,20 @@ export const CoachGameView: React.FC = () => {
             setIsPaused(room.isTimerPaused);
         }
     }, [room?.gameTimeLeft, room?.isTimerPaused]);
+
+    // 取得當前待審核的請求
+    const pendingRequest = useMemo(() => {
+        if (!room?.pendingRequests) return null;
+        const requests = Object.values(room.pendingRequests)
+            .filter(r => r.status === 'pending')
+            .sort((a, b) => a.timestamp - b.timestamp);
+        
+        if (requests.length > 0) {
+            console.log('執行師端偵測到請求:', requests[0].playerName, requests[0].type, requests[0].amount);
+        }
+        
+        return requests[0];
+    }, [room?.pendingRequests]);
 
     // 倒數計時邏輯
     useEffect(() => {
@@ -742,7 +756,7 @@ export const CoachGameView: React.FC = () => {
     }, [room?.name, playerStates]);
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 text-white overflow-hidden relative">
+        <div className="flex flex-col h-full bg-slate-950 text-white overflow-hidden relative pt-safe pb-safe">
             {/* Header */}
             <div className="h-16 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-40">
                 <div className="flex items-center gap-3">
@@ -1121,7 +1135,7 @@ export const CoachGameView: React.FC = () => {
                 </AnimatePresence>
             </div>
 
-            {room?.status === 'waiting' && !allPlayersReady ? (
+            {(!allPlayersReady || room?.status === 'waiting') ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-950 relative overflow-hidden">
                     {/* 背景裝飾 */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/5 rounded-full blur-[100px] animate-pulse" />
@@ -1185,6 +1199,18 @@ export const CoachGameView: React.FC = () => {
                                 ))}
                             </div>
                         </div>
+
+                        {/* 開始遊戲按鈕 - 放在進度列表下方 */}
+                        {room?.status === 'waiting' && allPlayersReady && (
+                            <div className="mt-8 flex justify-center">
+                                <button
+                                    onClick={handleStartGame}
+                                    className="w-[200px] h-[60px] bg-blue-600 hover:bg-blue-500 text-white text-xl font-black rounded-2xl shadow-[0_10px_30px_-5px_rgba(37,99,235,0.4)] transition-all active:scale-95 animate-in zoom-in duration-300"
+                                >
+                                    開始遊戲
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             ) : (
@@ -1203,18 +1229,6 @@ export const CoachGameView: React.FC = () => {
                             </motion.div>
                         )}
                     </AnimatePresence>
-
-                    {/* 開始遊戲按鈕 (畫面正中央) */}
-                    {room?.status === 'waiting' && allPlayersReady && (
-                        <div className="fixed inset-0 z-[110] flex items-center justify-center pointer-events-none">
-                            <button
-                                onClick={handleStartGame}
-                                className="w-[200px] h-[80px] bg-blue-600 hover:bg-blue-500 text-white text-xl font-black rounded-2xl shadow-[0_10px_30px_-5px_rgba(37,99,235,0.4)] transition-all active:scale-95 animate-in zoom-in duration-300 pointer-events-auto"
-                            >
-                                開始遊戲
-                            </button>
-                        </div>
-                    )}
 
                     <div className="flex-1 flex min-h-0 relative">
                         {/* 遊戲尚未開始時的中央開始按鈕 (僅在初始時間且暫停時顯示) */}
@@ -1466,12 +1480,33 @@ export const CoachGameView: React.FC = () => {
                                                 // 確保在捲動內容時，如果偵測到橫向移動，不觸發拖拽
                                             }}
                                         >
-                                            {selectedPlayerSummary && (
+                                            {!selectedPlayerState.isSetup ? (
+                                                <div className="h-full flex flex-col items-center justify-center gap-6 animate-in fade-in zoom-in duration-500">
+                                                    <div className="w-24 h-24 bg-amber-500/10 rounded-full flex items-center justify-center border-2 border-amber-500/30">
+                                                        <RefreshCw size={48} className="text-amber-500 animate-spin" />
+                                                    </div>
+                                                    <div className="text-center space-y-2">
+                                                        <h3 className="text-2xl font-black text-white tracking-widest">
+                                                            {(() => {
+                                                                const step = selectedPlayerState.selectionStep;
+                                                                switch (step) {
+                                                                    case 'profession': return '選擇職業中';
+                                                                    case 'enterprise': return '選擇企業中';
+                                                                    case 'dream': return '選擇夢想中';
+                                                                    default: return '進入遊戲中';
+                                                                }
+                                                            })()}
+                                                        </h3>
+                                                        <p className="text-slate-500 font-bold uppercase tracking-tighter">Waiting for player to complete setup</p>
+                                                    </div>
+                                                </div>
+                                            ) : selectedPlayerSummary && (
                                                 <FinancialStatement
                                                     gameState={selectedPlayerState}
                                                     summary={selectedPlayerSummary}
                                                     hideNav={false}
                                                     hideSummary={true}
+                                                    showDashboard={true}
                                                     defaultShowDetails={true}
                                                 />
                                             )}
@@ -1848,6 +1883,81 @@ export const CoachGameView: React.FC = () => {
                     background: #334155;
                 }
             `}</style>
+
+            {/* 審核彈窗 */}
+            <AnimatePresence>
+                {pendingRequest && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex items-center justify-center p-4 overflow-hidden">
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="bg-slate-900 border border-slate-700 rounded-[2.5rem] p-10 max-w-lg w-full shadow-2xl relative overflow-hidden"
+                        >
+                            {/* 背景裝飾 */}
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20" />
+                            <div className="absolute bottom-0 left-0 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl -ml-20 -mb-20" />
+
+                            <div className="relative">
+                                <div className="w-20 h-20 bg-blue-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8 rotate-12">
+                                    <ShieldAlert className="w-10 h-10 text-blue-400 -rotate-12" />
+                                </div>
+
+                                <h2 className="text-3xl font-black text-center mb-2 text-white tracking-tight">審核請求</h2>
+                                <p className="text-slate-400 text-center mb-10 text-lg">請核對玩家操作資訊</p>
+
+                                <div className="bg-slate-800/50 rounded-3xl p-8 mb-10 border border-slate-700/50 backdrop-blur-sm">
+                                    <div className="space-y-6">
+                                        <div className="flex justify-between items-center pb-4 border-b border-slate-700/50">
+                                            <span className="text-slate-400 font-medium">玩家名稱</span>
+                                            <span className="text-xl font-bold text-white">{pendingRequest.playerName}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center pb-4 border-b border-slate-700/50">
+                                            <span className="text-slate-400 font-medium">請求類型</span>
+                                            <span className="text-lg font-semibold text-blue-400">
+                                                {pendingRequest.type === 'payday' ? '領取月結餘' : 
+                                                 pendingRequest.type === 'insurance' ? '保險理賠' : 
+                                                 '新增幸福項目'}
+                                                {pendingRequest.insuranceType === 'medical' && ' (醫療)'}
+                                                {pendingRequest.insuranceType === 'aircraft' && ' (飛行器)'}
+                                                {pendingRequest.type === 'happiness' && ` (${pendingRequest.happinessLabel})`}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center pt-2">
+                                            <span className="text-slate-400 font-medium text-lg">
+                                                {pendingRequest.type === 'happiness' ? '幸福點數' : '申請金額'}
+                                            </span>
+                                            <span className={cn(
+                                                "text-3xl font-black",
+                                                pendingRequest.type === 'happiness' ? "text-pink-400" : "text-emerald-400"
+                                            )}>
+                                                {pendingRequest.type === 'happiness' ? `+${pendingRequest.amount}` : formatMoney(pendingRequest.amount)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button
+                                        onClick={() => rejectRequest(pendingRequest.id)}
+                                        className="py-5 px-6 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-bold text-lg transition-all active:scale-95 border border-slate-700 flex items-center justify-center gap-2"
+                                    >
+                                        <X className="w-6 h-6 text-red-400" />
+                                        拒絕
+                                    </button>
+                                    <button
+                                        onClick={() => approveRequest(pendingRequest.id)}
+                                        className="py-5 px-6 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <CheckCircle2 className="w-6 h-6" />
+                                        同意
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

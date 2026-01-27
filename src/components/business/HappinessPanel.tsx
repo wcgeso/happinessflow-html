@@ -182,7 +182,9 @@ export const HappinessPanel: React.FC<HappinessPanelProps> = ({
                 <Input
                   type="number"
                   value={newItemPoints}
-                  onChange={e => setNewItemPoints(e.target.value)}
+                  readOnly
+                  disabled
+                  className="bg-slate-800 opacity-70"
                 />
               </div>
               <div className="flex gap-3 pt-2">

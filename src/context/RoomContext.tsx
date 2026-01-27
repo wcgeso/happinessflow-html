@@ -12,7 +12,8 @@ import {
     deleteDoc,
     serverTimestamp,
     arrayUnion,
-    arrayRemove
+    arrayRemove,
+    deleteField
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAuth } from './AuthContext';
@@ -31,6 +32,18 @@ interface RoomMember {
     isLeft?: boolean;
     photoPosition?: string;
     photoScale?: string;
+}
+
+export interface PendingRequest {
+    id: string;
+    uid: string;
+    playerName: string;
+    type: 'payday' | 'insurance' | 'happiness';
+    amount: number;
+    timestamp: number;
+    status: 'pending' | 'approved' | 'rejected';
+    insuranceType?: 'medical' | 'aircraft';
+    happinessLabel?: string;
 }
 
 interface Room {
@@ -55,6 +68,7 @@ interface Room {
         isBubble: boolean;
         timestamp: number;
     };
+    pendingRequests?: Record<string, PendingRequest>;
 }
 
 interface RoomContextValue {
@@ -70,6 +84,10 @@ interface RoomContextValue {
     closeRoom: () => Promise<void>;
     updateMarket: (updates: Record<string, number>, code: string, isBubble?: boolean) => Promise<void>;
     updateRoomTimer: (timeLeft: number, isPaused: boolean) => Promise<void>;
+    submitRequest: (request: Omit<PendingRequest, 'id' | 'status' | 'timestamp'>) => Promise<void>;
+    approveRequest: (requestId: string) => Promise<void>;
+    rejectRequest: (requestId: string) => Promise<void>;
+    clearRequest: (requestId: string) => Promise<void>;
 }
 
 const RoomContext = createContext<RoomContextValue | undefined>(undefined);
@@ -111,6 +129,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return;
                 }
 
+                if (data.pendingRequests) {
+                    console.log('偵測到待審核請求:', Object.keys(data.pendingRequests).length, '筆');
+                }
                 setRoom(data);
 
                 // 更新 playerStates (不論是否為房主，只要 data 內有就更新)
@@ -317,6 +338,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
                 status: 'playing',
                 playerStates: {}, // 清空舊的玩家狀態
+                pendingRequests: {}, // 初始化審核請求
                 startedAt: Date.now() // 新增開始時間戳，用來觸發玩家重設狀態
             }));
         } catch (err: any) {
@@ -388,6 +410,64 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const submitRequest = async (request: Omit<PendingRequest, 'id' | 'status' | 'timestamp'>) => {
+        if (!room) return;
+        try {
+            const requestId = `${request.uid}_${Date.now()}`;
+            const newRequest: PendingRequest = {
+                ...request,
+                id: requestId,
+                status: 'pending',
+                timestamp: Date.now()
+            };
+            const roomRef = doc(db, 'rooms', room.id);
+            await safeAsync(updateDoc(roomRef, {
+                [`pendingRequests.${requestId}`]: newRequest
+            }));
+        } catch (err: any) {
+            console.error('送出審核請求失敗:', err);
+            setError(err.message);
+        }
+    };
+
+    const approveRequest = async (requestId: string) => {
+        if (!room || (user?.role !== 'coach' && user?.role !== 'gm')) return;
+        try {
+            const roomRef = doc(db, 'rooms', room.id);
+            await safeAsync(updateDoc(roomRef, {
+                [`pendingRequests.${requestId}.status`]: 'approved'
+            }));
+        } catch (err: any) {
+            console.error('核准請求失敗:', err);
+            setError(err.message);
+        }
+    };
+
+    const rejectRequest = async (requestId: string) => {
+        if (!room || (user?.role !== 'coach' && user?.role !== 'gm')) return;
+        try {
+            const roomRef = doc(db, 'rooms', room.id);
+            await safeAsync(updateDoc(roomRef, {
+                [`pendingRequests.${requestId}.status`]: 'rejected'
+            }));
+        } catch (err: any) {
+            console.error('拒絕請求失敗:', err);
+            setError(err.message);
+        }
+    };
+
+    const clearRequest = async (requestId: string) => {
+        if (!room) return;
+        try {
+            const roomRef = doc(db, 'rooms', room.id);
+            await safeAsync(updateDoc(roomRef, {
+                [`pendingRequests.${requestId}`]: deleteField()
+            }));
+        } catch (err: any) {
+            console.error('清除請求失敗:', err);
+        }
+    };
+
     return (
         <RoomContext.Provider value={{
             room,
@@ -401,7 +481,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             finishRoomGame,
             closeRoom,
             updateMarket,
-            updateRoomTimer
+            updateRoomTimer,
+            submitRequest,
+            approveRequest,
+            rejectRequest,
+            clearRequest
         }}>
             {children}
         </RoomContext.Provider>

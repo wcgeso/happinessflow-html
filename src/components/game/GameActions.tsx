@@ -17,7 +17,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
     disabled = false
 }) => {
     return (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-6">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-6 mb-safe">
             {/* 保險理賠 */}
             <button
                 onClick={onShowMedical}

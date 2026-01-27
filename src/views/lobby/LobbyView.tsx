@@ -452,10 +452,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
   if (showRoomView || (room && room.status === 'waiting')) {
     return (
-      <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none" style={{ 
-        paddingTop: 'env(safe-area-inset-top, 20px)',
-        paddingBottom: 'env(safe-area-inset-bottom, 20px)'
-      }}>
+      <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none pt-safe pb-safe">
         <RoomView
           onBack={() => {
             setShowRoomView(false);
@@ -472,18 +469,18 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   }
 
   return (
-    <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none" style={{ 
-      paddingTop: 'env(safe-area-inset-top, 20px)',
-      paddingBottom: 'env(safe-area-inset-bottom, 20px)'
-    }}>
+    <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none pb-safe">
+      {/* Background with safe area support */}
+      <div className="fixed inset-0 bg-slate-950 z-0"></div>
+      
       {/* Background Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500 rounded-full blur-[120px]" />
       </div>
 
-      {/* Header Bar - Flexible Height to accommodate safe area */}
-      <div className="relative z-50 px-6 py-2 h-auto min-h-[4rem] md:min-h-[5rem] flex justify-between items-center border-b border-slate-800/50 backdrop-blur-sm bg-slate-950/50 shrink-0">
+      {/* Header Bar - Fixed height with safe area support */}
+      <div className="relative z-50 px-6 pt-safe pb-2 h-auto min-h-[4rem] md:min-h-[5rem] flex justify-between items-center border-b border-slate-800/50 backdrop-blur-sm bg-slate-950/50 shrink-0">
         <div className="flex items-center gap-4">
           <div
             className={`w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center cursor-pointer hover:shadow-[0_0_15px_rgba(234,179,8,0.3)] transition-all group overflow-hidden ${getAvatarBorderStyle(user)}`}

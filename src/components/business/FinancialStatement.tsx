@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, FinancialSummary, Asset } from '../../types';
 import { STOCK_NAMES, REAL_ESTATE_PRESETS } from '../../constants';
-import { TrendingUp, Building, ChevronDown, ShieldCheck, ArrowUpCircle, ExternalLink } from 'lucide-react';
+import { TrendingUp, Building, ChevronDown, ShieldCheck, ArrowUpCircle, ExternalLink, Wallet, Landmark, BarChart3, PieChart } from 'lucide-react';
 import { HistoryTable } from './HistoryTable';
 import { CashFlowLog } from './CashFlowLog';
 import { BizUpgradeModal } from '../modals/BizUpgradeModal';
@@ -20,6 +20,7 @@ interface FinancialStatementProps {
   hideNav?: boolean;
   isMasked?: boolean;
   disabled?: boolean;
+  showDashboard?: boolean;
 }
 
 const formatMoney = (amount: number, isMasked?: boolean) => {
@@ -122,6 +123,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   hideNav = false,
   isMasked = false,
   disabled = false,
+  showDashboard = true,
 }) => {
   const [view, setView] = useState<'financial' | 'cashflow' | 'history'>('financial');
   const [isIncomeOpen, setIsIncomeOpen] = useState(defaultShowDetails);
@@ -193,10 +195,85 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   const houseInsCost = houseInsuranceCount * 2000;
   const aircraftInsCost = aircraftInsuranceCount * 2000;
 
+  const netAssets = summary.totalAssets - summary.totalLiabilities;
+
   return (
     <div className={cn("space-y-4 no-scrollbar", !hideNav && "pb-24")}>
       {!hideNav && (
-        <div className="flex w-full bg-slate-800/50 backdrop-blur-md p-1 rounded-xl border border-slate-700/50">
+        <div className="space-y-4">
+          {/* Asset Dashboard (Stats Bar) */}
+          {showDashboard && (
+            <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-2 duration-500">
+              {/* 現金 */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/60 backdrop-blur-md rounded-xl border border-slate-700/50 shadow-lg shadow-black/20">
+                <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
+                  <Wallet size={16} className="text-blue-400" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter leading-none mb-1">現金</span>
+                  <span className="text-sm font-black text-white leading-tight truncate">
+                    <NumericalValue isMasked={isMasked} value={gameState.cash} colorClass="text-white" />
+                  </span>
+                </div>
+              </div>
+
+              {/* 理財收入 */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/60 backdrop-blur-md rounded-xl border border-slate-700/50 shadow-lg shadow-black/20">
+                <div className="p-2 bg-emerald-500/10 rounded-lg shrink-0">
+                  <Landmark size={16} className="text-emerald-400" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter leading-none mb-1">理財收入</span>
+                  <span className="text-sm font-black text-emerald-400 leading-tight truncate">
+                    <NumericalValue isMasked={isMasked} value={summary.passiveIncome} colorClass="text-emerald-400" prefix="+" />
+                  </span>
+                </div>
+              </div>
+
+              {/* 月結餘 */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/60 backdrop-blur-md rounded-xl border border-slate-700/50 shadow-lg shadow-black/20">
+                <div className="p-2 bg-purple-500/10 rounded-lg shrink-0">
+                  <BarChart3 size={16} className="text-purple-400" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter leading-none mb-1">月結餘</span>
+                  <span className={cn(
+                    "text-sm font-black leading-tight truncate",
+                    summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-rose-400"
+                  )}>
+                    <NumericalValue 
+                      isMasked={isMasked} 
+                      value={summary.monthlyCashflow} 
+                      colorClass={summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-rose-400"} 
+                      prefix={summary.monthlyCashflow >= 0 ? "+" : ""} 
+                    />
+                  </span>
+                </div>
+              </div>
+
+              {/* 淨資產 */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/60 backdrop-blur-md rounded-xl border border-slate-700/50 shadow-lg shadow-black/20">
+                <div className="p-2 bg-amber-500/10 rounded-lg shrink-0">
+                  <PieChart size={16} className="text-amber-400" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter leading-none mb-1">淨資產</span>
+                  <span className={cn(
+                    "text-sm font-black leading-tight truncate",
+                    netAssets >= 0 ? "text-blue-400" : "text-rose-400"
+                  )}>
+                    <NumericalValue 
+                      isMasked={isMasked} 
+                      value={netAssets} 
+                      colorClass={netAssets >= 0 ? "text-blue-400" : "text-rose-400"} 
+                    />
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex w-full bg-slate-800/50 backdrop-blur-md p-1 rounded-xl border border-slate-700/50">
           {[
             { id: 'financial', label: '財務報表' },
             { id: 'cashflow', label: '現金流量表' },
@@ -211,7 +288,8 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
             </button>
           ))}
         </div>
-      )}
+      </div>
+    )}
 
       {view === 'financial' && (
         <div className="space-y-6 animate-in fade-in duration-500">
