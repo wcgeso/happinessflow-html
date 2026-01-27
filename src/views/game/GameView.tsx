@@ -99,6 +99,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
         handlePaydayConfirm,
         confirmMedicalClaim,
         confirmAircraftClaim,
+        addMoney,
         handleToggleHappiness,
         handleAddHappinessItem,
         handleRemoveHappinessItem,
@@ -331,6 +332,7 @@ export const GameView: React.FC<{ onFinishGame: (meta: any) => void }> = ({ onFi
                 onShowStockMarket={() => setShowStockMarketModal(true)}
                 onShowTutorial={() => setShowTutorial(true)}
                 onLeaveRoom={() => setShowLeaveConfirm(true)}
+                onAddMoney={addMoney}
             />
 
             {showLeaveConfirm && (

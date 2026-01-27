@@ -80,6 +80,32 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
 
   const { onCancel, happiness = [], assets = [], liabilities = [], selectedEnterprise, selectedDream, cash, salary, marketPrices, previousMarketPrices, disabled } = props;
 
+  const handleGlobalSellAll = () => {
+    const stocks = assets.filter(a => a.type === '股票');
+    if (stocks.length === 0) {
+      const msg = "您目前沒有持倉股票可以賣出";
+      if (props.onShowAlert) props.onShowAlert(msg, 'info');
+      else alert(msg);
+      return;
+    }
+
+    // 1. 切換到賣出模式與股票類別
+    setMode('sell');
+    setSellCat('股票');
+
+    // 2. 填充所有股票數量與價格
+    const newDetails: Record<string, { price: string; qty: string }> = {};
+    stocks.forEach(asset => {
+      const symbol = asset.name.replace('股票 ', '').replace('(', '').replace(')', '').trim();
+      const currentPrice = marketPrices?.[symbol] || 0;
+      newDetails[asset.id] = {
+        price: currentPrice.toString(),
+        qty: asset.quantity.toString()
+      };
+    });
+    setSellStockDetails(newDetails);
+  };
+
   const handleCancel = () => {
     resetFormStates();
     onCancel();
@@ -237,6 +263,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
                   withdrawAmount={withdrawAmount} setWithdrawAmount={setWithdrawAmount} repayInputs={repayInputs} setRepayInputs={setRepayInputs} cdTotal={cdTotal}
                   liabilities={liabilities}
                   marketPrices={marketPrices} previousMarketPrices={previousMarketPrices} onShowMarket={props.onShowMarket}
+                  onShowAlert={props.onShowAlert}
                 />
               </div>
             )}

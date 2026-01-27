@@ -13,7 +13,9 @@ interface StockBuyFormProps {
     onShowMarket?: () => void;
 }
 
-export const StockBuyForm: React.FC<StockBuyFormProps> = ({ stockInputs, setStockInputs, marketPrices, previousMarketPrices, stockAssets, onShowMarket }) => {
+export const StockBuyForm: React.FC<StockBuyFormProps> = ({ 
+    stockInputs, setStockInputs, marketPrices, previousMarketPrices, stockAssets, onShowMarket 
+}) => {
     const handleBuyAllOne = () => {
         const newInputs = { ...stockInputs };
         STOCK_SYMBOLS.forEach(symbol => {

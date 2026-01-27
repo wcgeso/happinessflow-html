@@ -4,9 +4,10 @@ import { Mode } from '../../types';
 interface TransactionModeTabsProps {
     currentMode: Mode;
     onModeChange: (mode: Mode) => void;
+    disabled?: boolean;
 }
 
-export const TransactionModeTabs: React.FC<TransactionModeTabsProps> = ({ currentMode, onModeChange }) => {
+export const TransactionModeTabs: React.FC<TransactionModeTabsProps> = ({ currentMode, onModeChange, disabled }) => {
     const modes: { id: Mode; label: string }[] = [
         { id: 'buy', label: '買入' },
         { id: 'sell', label: '賣出' },
@@ -20,11 +21,12 @@ export const TransactionModeTabs: React.FC<TransactionModeTabsProps> = ({ curren
             {modes.map((m) => (
                 <button
                     key={m.id}
-                    onClick={() => onModeChange(m.id)}
+                    onClick={() => !disabled && onModeChange(m.id)}
+                    disabled={disabled}
                     className={`py-2 rounded font-bold text-[11px] transition-all ${currentMode === m.id
                             ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'
                             : 'text-slate-400 hover:bg-slate-800'
-                        }`}
+                        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                     {m.label}
                 </button>

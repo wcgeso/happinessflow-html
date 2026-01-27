@@ -499,8 +499,8 @@ export const useTransactionLogic = ({
                     const liab = liabilities.find(l => l.id === id); if (!liab) return;
                     txData = { name: `償還 ${liab.name}`, amount: Number(amt), cashChange: -Number(amt), source: 'cash', usage: 'liability', liabilityId: liab.id };
                     const interestLabel = repayType === '不動產貸款' ? '不動產貸款利息' : '企業貸款利息';
-                    impactList = [`現金 -${formatMoney(Number(amt))}`, `${liab.name} -${formatMoney(Number(amt))}`, `${interestLabel} 減少`];
-                    expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Decrease' }, { category: 'Liabilities', name: liab.name, direction: 'Decrease' }, { category: 'Expenses', name: interestLabel, direction: 'Decrease' }];
+                    impactList = [`現金 -${formatMoney(Number(amt))}`, `${liab.type} -${formatMoney(Number(amt))}`, `${interestLabel} 減少`];
+                    expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Decrease' }, { category: 'Liabilities', name: liab.type, direction: 'Decrease' }, { category: 'Expenses', name: interestLabel, direction: 'Decrease' }];
                 }
             }
         } else if (mode === 'dividend') {

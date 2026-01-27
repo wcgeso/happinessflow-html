@@ -7,6 +7,7 @@ interface AssetTypeSelectorProps {
     onTypeChange: (type: AssetType) => void;
     happiness: HappinessItem[];
     cols?: number;
+    disabled?: boolean;
 }
 
 export const AssetTypeSelector: React.FC<AssetTypeSelectorProps> = ({
@@ -14,7 +15,8 @@ export const AssetTypeSelector: React.FC<AssetTypeSelectorProps> = ({
     currentType,
     onTypeChange,
     happiness,
-    cols = 3
+    cols = 3,
+    disabled
 }) => {
     return (
         <div className={`grid gap-2 ${cols === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
@@ -27,12 +29,12 @@ export const AssetTypeSelector: React.FC<AssetTypeSelectorProps> = ({
                 return (
                     <button
                         key={t}
-                        onClick={() => onTypeChange(t as any)}
+                        onClick={() => !disabled && !isAchieved && onTypeChange(t as any)}
                         className={`py-2 rounded-lg border text-[11px] font-bold transition-all ${isSelected
                             ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]'
                             : 'bg-slate-900 border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'
-                            } ${isAchieved ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
-                        disabled={isAchieved}
+                            } ${isAchieved || disabled ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+                        disabled={isAchieved || disabled}
                     >
                         {t}
                     </button>

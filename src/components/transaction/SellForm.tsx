@@ -2,7 +2,7 @@ import React from 'react';
 import { Asset } from '../../types';
 import { Input, Button } from '../ui/ui';
 import { STOCK_NAMES } from '../../constants';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, MinusCircle } from 'lucide-react';
 
 interface SellFormProps {
     sellCat: string;
@@ -18,6 +18,7 @@ interface SellFormProps {
     marketPrices?: Record<string, number>;
     previousMarketPrices?: Record<string, number>;
     onShowMarket?: () => void;
+    onShowAlert?: (message: string, type: 'info' | 'error' | 'success') => void;
 }
 
 const formatMoney = (amount: number) => `${amount.toLocaleString()} H`;
@@ -26,15 +27,43 @@ export const SellForm: React.FC<SellFormProps> = ({
     sellCat, assets, sellStockDetails, setSellStockDetails,
     withdrawAmount, setWithdrawAmount, repayInputs, setRepayInputs, cdTotal,
     liabilities = [],
-    marketPrices, previousMarketPrices, onShowMarket
+    marketPrices, previousMarketPrices, onShowMarket, onShowAlert
 }) => {
     const filteredAssets = assets.filter(a => a.type === sellCat);
+
+    const handleSellAll = () => {
+        if (filteredAssets.length === 0) {
+            const msg = "您目前沒有持倉股票可以賣出";
+            if (onShowAlert) onShowAlert(msg, 'info');
+            else alert(msg);
+            return;
+        }
+
+        const newDetails = { ...sellStockDetails };
+        filteredAssets.forEach(asset => {
+            const symbol = asset.name.replace('股票 ', '').replace('(', '').replace(')', '').trim();
+            const currentPrice = marketPrices?.[symbol] || 0;
+            newDetails[asset.id] = {
+                price: currentPrice.toString(),
+                qty: asset.quantity.toString()
+            };
+        });
+        setSellStockDetails(newDetails);
+    };
 
     if (sellCat === '股票') {
         return (
             <div className="space-y-4">
-                {onShowMarket && (
-                    <div className="flex justify-end">
+                <div className="flex justify-between items-center">
+                    <Button 
+                        onClick={handleSellAll}
+                        className="h-8 py-0 px-3 bg-rose-600 hover:bg-rose-500 text-white font-black text-xs rounded-lg shadow-lg shadow-rose-900/40 transition-all active:scale-95 flex items-center gap-1.5"
+                    >
+                        <MinusCircle size={14} />
+                        股票一鍵全賣
+                    </Button>
+
+                    {onShowMarket && (
                         <Button 
                             onClick={onShowMarket}
                             className="h-8 py-0 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-lg shadow-lg shadow-emerald-900/40 transition-all active:scale-95 flex items-center gap-1.5"
@@ -42,8 +71,8 @@ export const SellForm: React.FC<SellFormProps> = ({
                             <TrendingUp size={14} />
                             查看行情
                         </Button>
-                    </div>
-                )}
+                    )}
+                </div>
                 <div className="space-y-2">
                     <div className="grid grid-cols-4 gap-2 px-2 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                         <span>代號</span>

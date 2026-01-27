@@ -13,6 +13,14 @@ export const useGameLogic = () => {
 
     const [happinessSubMode, setHappinessSubMode] = useState<'history' | 'pay' | 'inc_exp'>('history');
 
+    const addMoney = (amount: number) => {
+        setGameState(prev => ({
+            ...prev,
+            cash: prev.cash + amount
+        }));
+        showAlert(`🛠️ 開發者操作：${amount > 0 ? '增加' : '減少'}現金 ${formatMoney(Math.abs(amount))}`, 'success');
+    };
+
     const handleDeleteTransactionRecord = (id: string) => {
         const txToDelete = gameState.history.find(tx => tx.id === id);
         if (!txToDelete) return;
@@ -1055,6 +1063,7 @@ export const useGameLogic = () => {
         scoreResult,
         alertInfo,
         showAlert,
+        addMoney,
         handleDeleteTransactionRecord,
         handleTransactionSubmit,
         handlePaydayConfirm,

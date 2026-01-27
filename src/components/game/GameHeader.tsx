@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Star, Plane, GraduationCap, Trophy, TrendingUp, Wallet, BarChart3, PieChart, Landmark, HelpCircle, ChevronDown, Clock, Users, Home, Heart, LogOut } from 'lucide-react';
+import { Star, Plane, GraduationCap, Trophy, TrendingUp, Wallet, BarChart3, PieChart, Landmark, HelpCircle, ChevronDown, Clock, Users, Home, Heart, LogOut, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../ui/ui';
 import { getProfessionIcon } from '../common/IconHelpers';
@@ -7,6 +7,8 @@ import { cn, formatMoney } from '../../utils/gameUtils';
 import { StockMarketModal } from '../transaction/StockMarketModal';
 import { useRoom } from '../../context/RoomContext';
 import SafeImage from '../common/SafeImage';
+import { IS_DEV_VERSION } from '../../constants/version';
+import { DevSettingsModal } from '../modals/DevSettingsModal';
 
 interface GameHeaderProps {
     gameState: any;
@@ -17,6 +19,7 @@ interface GameHeaderProps {
     onShowStockMarket: () => void;
     onShowTutorial: () => void;
     onLeaveRoom: () => void;
+    onAddMoney?: (amount: number) => void;
 }
 
 export const GameHeader: React.FC<GameHeaderProps> = ({ 
@@ -27,11 +30,13 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
     onFinishGame,
     onShowStockMarket,
     onShowTutorial,
-    onLeaveRoom
+    onLeaveRoom,
+    onAddMoney
 }) => {
     const { room, playerStates } = useRoom();
     const [showAircraftTooltip, setShowAircraftTooltip] = useState(false);
     const [showRoomInfo, setShowRoomInfo] = useState(false);
+    const [showDevSettings, setShowDevSettings] = useState(false);
     const [timeLeft, setTimeLeft] = useState<string>('--:--');
 
     const hasAircraft = gameState.assets.some((a: any) => a.type === '飛行器');
@@ -246,7 +251,33 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                         </div>
                         <ChevronDown size={11} className={cn("transition-transform duration-300", showRoomInfo && "rotate-180")} />
                     </button>
+
+                    {/* 開發者模式按鈕 */}
+                    {IS_DEV_VERSION && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowDevSettings(true);
+                            }}
+                            className="ml-2 w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500 hover:bg-amber-500/30 transition-all active:scale-90 shadow-lg shadow-amber-900/10"
+                            title="開發者設定"
+                        >
+                            <Settings size={14} className="animate-spin-slow" />
+                        </button>
+                    )}
                 </div>
+
+                {/* 開發者設定面板 */}
+                {IS_DEV_VERSION && (
+                    <DevSettingsModal
+                        isOpen={showDevSettings}
+                        onClose={() => setShowDevSettings(false)}
+                        onAddMoney={(amount) => {
+                            if (onAddMoney) onAddMoney(amount);
+                        }}
+                        currentCash={gameState.cash}
+                    />
+                )}
 
                 {/* 下拉房間資訊面板 (懸浮式設計) */}
                 <AnimatePresence>
