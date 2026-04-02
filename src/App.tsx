@@ -33,7 +33,7 @@ const AppContent = () => {
     const { gameState, setGameState } = useGame();
 
     // 維護模式判斷 (依據域名)
-    const isMaintenance = window.location.hostname === 'happinessflow.vercel.app';
+    const isMaintenance = false;
 
     // View State
     const [currentView, setCurrentView] = useState<'lobby' | 'history' | 'create_report' | 'selection' | 'game' | 'score' | 'achievements' | 'coach_monitor' | 'room_waiting'>('lobby');
