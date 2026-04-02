@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>蜂富人生｜財商沙盤體驗</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Noto Serif TC', 'Noto Sans TC', serif;
+      background: #0d0d14;
+      color: #f0ead6;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* ── Typography ── */
+    h1, h2, h3, h4 { font-weight: 700; letter-spacing: 0.05em; }
+    .gold { color: #c9a84c; }
+    .gold-light { color: #e8c96e; }
+    .white { color: #ffffff; }
+    strong { color: #e8c96e; }
+
+    /* ── Layout ── */
+    .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── Decorative Bee Line ── */
+    .section-label {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: 0.78rem; letter-spacing: 0.2em; text-transform: uppercase;
+      color: #c9a84c; margin-bottom: 16px;
+    }
+    .section-label::before, .section-label::after {
+      content: ''; display: block; width: 40px; height: 1px; background: #c9a84c;
+    }
+
+    /* ═══════════════════════════════════════
+       HERO
+    ═══════════════════════════════════════ */
+    #hero {
+      position: relative;
+      min-height: 100svh;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      text-align: center;
+      padding: 80px 24px 60px;
+      overflow: hidden;
+    }
+    #hero .bg {
+      position: absolute; inset: 0;
+      background: url('IMG_4064.jpeg') center center / cover no-repeat;
+      filter: brightness(0.28) saturate(0.4);
+      z-index: 0;
+    }
+    #hero .overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(13,13,20,0.45) 0%, rgba(13,13,20,0.95) 100%);
+      z-index: 1;
+    }
+    #hero > * { position: relative; z-index: 2; }
+
+    .hero-badge {
+      display: inline-block;
+      border: 1px solid #c9a84c;
+      color: #c9a84c;
+      font-size: 0.7rem; letter-spacing: 0.3em;
+      padding: 5px 18px; border-radius: 20px;
+      margin-bottom: 28px;
+    }
+    .hero-title {
+      font-size: clamp(2.6rem, 8vw, 5.5rem);
+      line-height: 1.15;
+      color: #fff;
+      text-shadow: 0 2px 30px rgba(201,168,76,0.4);
+      margin-bottom: 10px;
+    }
+    .hero-title span { color: #c9a84c; }
+    .hero-subtitle {
+      font-size: clamp(1rem, 2.5vw, 1.35rem);
+      color: #c9a84c;
+      letter-spacing: 0.08em;
+      margin-bottom: 30px;
+    }
+    .hero-desc {
+      max-width: 680px;
+      font-size: clamp(0.95rem, 2vw, 1.1rem);
+      color: #c8bfa0;
+      margin: 0 auto 48px;
+      line-height: 1.9;
+    }
+    .hero-cta {
+      display: inline-flex; align-items: center; gap: 12px;
+      background: linear-gradient(135deg, #c9a84c, #8a6424);
+      color: #fff; font-size: 1rem; font-weight: 700;
+      padding: 16px 40px; border-radius: 50px;
+      text-decoration: none; letter-spacing: 0.1em;
+      box-shadow: 0 6px 30px rgba(201,168,76,0.45);
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+    .hero-cta:hover { transform: translateY(-3px); box-shadow: 0 10px 40px rgba(201,168,76,0.65); }
+    .hero-scroll {
+      position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+      z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 6px;
+      color: #c9a84c66; font-size: 0.65rem; letter-spacing: 0.2em;
+      animation: bounce 2s ease-in-out infinite;
+    }
+    .hero-scroll svg { width: 20px; height: 20px; stroke: #c9a84c66; }
+    @keyframes bounce { 0%,100%{transform: translateX(-50%) translateY(0)} 50%{transform: translateX(-50%) translateY(8px)} }
+
+    /* ═══════════════════════════════════════
+       PAIN POINT
+    ═══════════════════════════════════════ */
+    #pain {
+      padding: 100px 24px;
+      text-align: center;
+    }
+    .pain-heading {
+      font-size: clamp(1.4rem, 4vw, 2.4rem);
+      color: #fff; margin-bottom: 28px;
+    }
+    .pain-body {
+      max-width: 720px; margin: 0 auto;
+      font-size: 1.05rem; color: #b8ae96; line-height: 2;
+    }
+
+    /* ═══════════════════════════════════════
+       WHAT IS IT — image + text blocks
+    ═══════════════════════════════════════ */
+    #what { padding: 80px 24px; }
+    .what-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 56px; align-items: center;
+    }
+    @media (max-width: 720px) { .what-inner { grid-template-columns: 1fr; } }
+    .what-img {
+      border-radius: 16px; overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      aspect-ratio: 9/16;
+      background: #0d0d14;
+    }
+    .what-img img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .what-text h2 { font-size: clamp(1.5rem, 3.5vw, 2.2rem); color: #fff; margin-bottom: 20px; }
+    .what-text p { color: #b8ae96; font-size: 1rem; line-height: 2; margin-bottom: 16px; }
+    .feature-list { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
+    .feature-item {
+      background: #111120; border: 1px solid #2a2a40;
+      border-radius: 14px; padding: 16px 18px;
+      transition: border-color 0.3s;
+    }
+    .feature-item:hover { border-color: #c9a84c55; }
+    .feature-item .fi-icon { font-size: 1.5rem; margin-bottom: 8px; }
+    .feature-item h4 { font-size: 0.9rem; color: #e8c96e; margin-bottom: 6px; letter-spacing: 0.03em; }
+    .feature-item p { font-size: 0.82rem; color: #7a7360; line-height: 1.7; margin: 0; }
+    @media (max-width: 480px) { .feature-list { grid-template-columns: 1fr; } }
+
+    /* ═══════════════════════════════════════
+       PHOTO STRIP
+    ═══════════════════════════════════════ */
+    #strip {
+      display: flex; overflow-x: auto; gap: 12px;
+      padding: 0 24px;
+      scrollbar-width: none;
+      justify-content: center;
+    }
+    #strip::-webkit-scrollbar { display: none; }
+    .strip-img {
+      flex: 0 0 220px; height: 400px; border-radius: 12px; overflow: hidden;
+      background: #0d0d14;
+    }
+    .strip-img img { width: 100%; height: 100%; object-fit: contain; display: block;
+      transition: transform 0.4s; }
+    .strip-img:hover img { transform: scale(1.04); }
+
+    /* ═══════════════════════════════════════
+       GAINS — 3 cards
+    ═══════════════════════════════════════ */
+    #gains { padding: 100px 24px; }
+    .gains-heading { text-align: center; font-size: clamp(1.4rem, 3.5vw, 2.2rem); color: #fff; margin-bottom: 60px; }
+    .gains-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 28px;
+    }
+    .gain-card {
+      background: linear-gradient(145deg, #1a1a2a, #12121c);
+      border: 1px solid #2a2a40;
+      border-radius: 20px; padding: 40px 32px;
+      position: relative; overflow: hidden;
+      transition: transform 0.3s, border-color 0.3s;
+    }
+    .gain-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #c9a84c, #e8c96e);
+    }
+    .gain-card:hover { transform: translateY(-6px); border-color: #c9a84c44; }
+    .gain-icon { font-size: 2.4rem; margin-bottom: 18px; }
+    .gain-card h3 { font-size: 1.1rem; color: #e8c96e; margin-bottom: 12px; letter-spacing: 0.05em; }
+    .gain-card p { color: #9e9880; font-size: 0.95rem; line-height: 1.9; }
+
+    /* ═══════════════════════════════════════
+       TRUST — 4 pillars
+    ═══════════════════════════════════════ */
+    #trust { padding: 100px 24px; background: #0a0a12; }
+    .trust-heading { text-align: center; font-size: clamp(1.4rem, 3.5vw, 2.1rem); color: #fff; margin-bottom: 16px; }
+    .trust-sub { text-align: center; color: #7a7360; font-size: 0.95rem; margin-bottom: 60px; }
+    .trust-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 24px;
+    }
+    .trust-item {
+      text-align: center; padding: 36px 24px;
+      background: #111120; border-radius: 16px;
+      border: 1px solid #20203a;
+      transition: border-color 0.3s;
+    }
+    .trust-item:hover { border-color: #c9a84c55; }
+    .trust-num {
+      font-size: 2.8rem; font-weight: 900;
+      background: linear-gradient(135deg, #c9a84c, #e8c96e);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1; margin-bottom: 14px;
+    }
+    .trust-item h4 { font-size: 1rem; color: #e8c96e; margin-bottom: 10px; }
+    .trust-item p { color: #7a7360; font-size: 0.88rem; line-height: 1.8; }
+
+    /* ═══════════════════════════════════════
+       GALLERY GRID (remaining photos)
+    ═══════════════════════════════════════ */
+    #gallery { padding: 80px 0; }
+    .gallery-heading { text-align: center; font-size: clamp(1.2rem, 3vw, 1.8rem); color: #fff; margin-bottom: 40px; padding: 0 24px; }
+    .gallery-strip {
+      display: flex; overflow-x: auto; gap: 12px;
+      padding: 0 24px;
+      scrollbar-width: none;
+      justify-content: center;
+    }
+    .gallery-strip::-webkit-scrollbar { display: none; }
+    .gallery-strip-img {
+      flex: 0 0 280px; height: 200px; border-radius: 12px; overflow: hidden;
+    }
+    .gallery-strip-img img { width: 100%; height: 100%; object-fit: cover; display: block;
+      transition: transform 0.5s; }
+    .gallery-strip-img:hover img { transform: scale(1.08); }
+
+    /* ═══════════════════════════════════════
+       CTA / REGISTRATION
+    ═══════════════════════════════════════ */
+    #cta {
+      padding: 100px 24px;
+      text-align: center;
+      background: linear-gradient(180deg, #0d0d14 0%, #0a0811 100%);
+    }
+    .cta-box {
+      max-width: 680px; margin: 0 auto;
+      background: linear-gradient(145deg, #1a1520, #110e18);
+      border: 1px solid #c9a84c44;
+      border-radius: 28px;
+      padding: 60px 48px;
+      box-shadow: 0 0 80px rgba(201,168,76,0.12);
+      position: relative; overflow: hidden;
+    }
+    .cta-box::before {
+      content: '✦ 2026 啟航限定 ✦';
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(135deg, #c9a84c, #8a6424);
+      color: #fff; font-size: 0.65rem; letter-spacing: 0.25em;
+      padding: 5px 24px; border-radius: 0 0 12px 12px;
+    }
+    .cta-price { margin: 24px 0 32px; }
+    .price-label { font-size: 0.85rem; color: #7a7360; letter-spacing: 0.1em; text-decoration: line-through; }
+    .price-main {
+      font-size: clamp(3rem, 8vw, 5rem); font-weight: 900;
+      background: linear-gradient(135deg, #c9a84c, #e8c96e);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1.1;
+    }
+    .price-unit { font-size: 1rem; color: #c9a84c; }
+    .price-note { font-size: 0.9rem; color: #6a6354; margin-top: 6px; }
+    .cta-perk {
+      background: #0d0a14; border-radius: 14px; padding: 18px 24px;
+      margin-bottom: 40px; font-size: 0.92rem; color: #8a8070;
+      line-height: 1.7;
+    }
+    .cta-perk strong { color: #c9a84c; }
+
+    /* QR Code placeholder */
+    .qr-wrap {
+      display: inline-flex; flex-direction: column; align-items: center; gap: 16px;
+      margin-bottom: 32px;
+    }
+    .qr-box {
+      width: 180px; height: 180px;
+      background: #fff;
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 14px;
+      box-shadow: 0 0 40px rgba(201,168,76,0.3);
+    }
+    .qr-box svg { width: 100%; height: 100%; }
+    .qr-label { font-size: 0.8rem; letter-spacing: 0.15em; color: #c9a84c; }
+
+    .cta-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #c9a84c, #8a6424);
+      color: #fff; font-size: 1.05rem; font-weight: 700;
+      padding: 17px 50px; border-radius: 50px;
+      text-decoration: none; letter-spacing: 0.12em;
+      box-shadow: 0 6px 30px rgba(201,168,76,0.45);
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+    .cta-btn:hover { transform: translateY(-3px); box-shadow: 0 12px 45px rgba(201,168,76,0.65); }
+
+    /* ═══════════════════════════════════════
+       FOOTER
+    ═══════════════════════════════════════ */
+    footer {
+      background: #07070f;
+      border-top: 1px solid #1e1e30;
+      text-align: center;
+      padding: 48px 24px;
+    }
+    .footer-bee { font-size: 1.8rem; margin-bottom: 10px; }
+    .footer-name { font-size: 1rem; color: #c9a84c; letter-spacing: 0.15em; margin-bottom: 4px; }
+    .footer-en { font-size: 0.75rem; color: #5a5040; letter-spacing: 0.2em; margin-bottom: 16px; }
+    .footer-motto { font-size: 0.9rem; color: #4a4438; font-style: italic; }
+
+    /* ═══════════════════════════════════════
+       Reveal on Scroll
+    ═══════════════════════════════════════ */
+    .reveal {
+      opacity: 0; transform: translateY(36px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+
+    /* ── Divider ── */
+    .divider {
+      width: 60px; height: 2px;
+      background: linear-gradient(90deg, transparent, #c9a84c, transparent);
+      margin: 0 auto 48px;
+    }
+
+    /* ── Vision Mission ── */
+    #vision {
+      padding: 80px 24px;
+      background: #0a0a12;
+    }
+    .vision-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    @media (max-width: 640px) { .vision-grid { grid-template-columns: 1fr; } }
+    .vision-card {
+      border-radius: 20px;
+      padding: 36px 32px;
+      position: relative; overflow: hidden;
+    }
+    .vision-card.vision { background: linear-gradient(145deg, #1a1a2a, #12121c); border: 1px solid #c9a84c44; }
+    .vision-card.mission { background: linear-gradient(145deg, #12121c, #1a1a2a); border: 1px solid #2a2a40; }
+    .vision-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #c9a84c, #e8c96e);
+    }
+    .vision-tag {
+      font-size: 0.7rem; letter-spacing: 0.25em; color: #c9a84c;
+      margin-bottom: 14px; display: block;
+    }
+    .vision-card h3 { font-size: 1.15rem; color: #fff; margin-bottom: 14px; }
+    .vision-card p { color: #9e9880; font-size: 0.95rem; line-height: 1.9; }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ HERO ═══ -->
+  <section id="hero">
+    <div class="bg"></div>
+    <div class="overlay"></div>
+    <div class="hero-badge">✦ 2026 啟航限定體驗 ✦</div>
+    <h1 class="hero-title"><span>蜂富</span>人生</h1>
+    <p class="hero-subtitle">財商沙盤體驗</p>
+    <p class="hero-desc">
+      3 小時，帶你重新定義何謂<strong>「財務與幸福」</strong><br>
+      數字不該只是金錢數字，而是支撐你成為<strong>「想要的樣子」</strong>最堅實的底氣
+    </p>
+    <a href="#cta" class="hero-cta">
+      立即預約體驗
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+    <div class="hero-scroll">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+      SCROLL
+    </div>
+  </section>
+
+  <!-- ═══ PAIN POINT ═══ -->
+  <section id="pain">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label">覺察</div>
+        <h2 class="pain-heading">你在「理財」，<br>還是在<span class="gold">「消耗人生」</span>？</h2>
+        <div class="divider"></div>
+        <p class="pain-body">
+          這裡不空談財商思維，而是帶你認識<strong>何謂真正的財務以及人生的關聯</strong>。<br>
+          在這裡，每一個數字都代表一個問題：<br>
+          <strong>這樣的財務配置與選擇，能活成你想要的樣子嗎？</strong>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ VISION MISSION ═══ -->
+  <section id="vision">
+    <div class="container">
+      <div class="reveal" style="text-align:center; margin-bottom: 40px;">
+        <div class="section-label">我們的初心</div>
+        <h2 style="font-size: clamp(1.4rem, 3.5vw, 2.1rem); color:#fff;">為什麼是<span class="gold">蜂富人生</span>？</h2>
+      </div>
+      <div class="vision-grid">
+        <div class="vision-card vision reveal reveal-delay-1">
+          <span class="vision-tag">VISION · 願景</span>
+          <h3>普及全民財務觀念</h3>
+          <p>消除金錢不安感，賦予每個人掌握財富的能力，實踐人生願景。</p>
+        </div>
+        <div class="vision-card mission reveal reveal-delay-2">
+          <span class="vision-tag">MISSION · 使命</span>
+          <h3>讓財商觀念真實落地</h3>
+          <p>透過「蜂富人生」使玩家察覺理財慣性，讓財商觀念在現實生活中真實落地。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ WHAT IS IT ═══ -->
+  <section id="what">
+    <div class="container">
+      <div class="what-inner">
+        <div class="what-img reveal">
+          <img src="IMG_2839.JPG" alt="沙盤體驗現場" loading="lazy" />
+        </div>
+        <div class="what-text reveal reveal-delay-1">
+          <h2>這 3 小時，<br><span class="gold">你將如何預演人生？</span></h2>
+          <p>
+            這是一款專為全民與追求夢想者設計、讓<strong>財商觀念真實落地</strong>的沙盤推演工具。
+            在人生縮影中，你將從目前的工作收入出發，在決策壓力下<strong>真實預演未來</strong>。
+          </p>
+          <ul class="feature-list">
+            <li class="feature-item">
+              <div class="fi-icon">📈</div>
+              <h4>股票時機判斷</h4>
+              <p>在瞬息萬變的市場中，學會判斷買進與賣出的關鍵時機。</p>
+            </li>
+            <li class="feature-item">
+              <div class="fi-icon">🏢</div>
+              <h4>企業投資決策</h4>
+              <p>決定是否投資、經營企業，體驗真實的創業風險與報酬。</p>
+            </li>
+            <li class="feature-item">
+              <div class="fi-icon">🏠</div>
+              <h4>首購房產規劃</h4>
+              <p>在正確時機點買下第一間房，學習資產與負債的關鍵差異。</p>
+            </li>
+            <li class="feature-item">
+              <div class="fi-icon">🛡️</div>
+              <h4>保險防護配置</h4>
+              <p>面臨失業與意外風險，測試你是否建立了正確的風險防護網。</p>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ PHOTO STRIP ═══ -->
+  <div id="strip">
+    <div class="strip-img"><img src="IMG_2842.jpeg" alt="遊戲主畫面" loading="lazy" /></div>
+    <div class="strip-img"><img src="IMG_2841.jpeg" alt="股票市場行情" loading="lazy" /></div>
+    <div class="strip-img"><img src="IMG_2844.jpeg" alt="財務報表" loading="lazy" /></div>
+  </div>
+
+  <!-- ═══ GAINS ═══ -->
+  <section id="gains">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label" style="justify-content: center; width: 100%;">玩完後，你會帶走什麼？</div>
+        <h2 class="gains-heading">三大<span class="gold">核心收穫</span></h2>
+      </div>
+      <div class="gains-grid">
+        <div class="gain-card reveal reveal-delay-1">
+          <div class="gain-icon">💡</div>
+          <h3>覺察行為慣性</h3>
+          <p>透過人生模擬，看見你在壓力下「不自覺」的金錢決策盲點，從根本改變財務行為模式。</p>
+        </div>
+        <div class="gain-card reveal reveal-delay-2">
+          <div class="gain-icon">📈</div>
+          <h3>認識正統財務</h3>
+          <p>告別繁瑣計算，透過自動化檢核機制，讓您了解每筆交易如何影響自身財務，在遊戲過程中自然學會正統財務邏輯。</p>
+        </div>
+        <div class="gain-card reveal reveal-delay-3">
+          <div class="gain-icon">🚀</div>
+          <h3>跳脫傳統財商</h3>
+          <p>跳脫傳統 ESBI 象限，從全新思維「P象限（專業）」帶你認識財務，重建清晰的人生方向。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ TRUST PILLARS ═══ -->
+  <section id="trust">
+    <div class="container">
+      <div class="reveal">
+        <div class="section-label" style="justify-content: center; width: 100%;">承諾</div>
+        <h2 class="trust-heading"><br><span class="gold">帶你體驗深度的生命複盤</span></h2>
+        <p class="trust-sub">四大承諾，帶給你一場純淨的財務學習體驗</p>
+      </div>
+      <div class="trust-grid">
+        <div class="trust-item reveal reveal-delay-1">
+          <div class="trust-num">01</div>
+          <h4>專業執行師引導</h4>
+          <p>由蜂富執行師深度複盤，將沙盤體悟轉化為真實的行動計畫。</p>
+        </div>
+        <div class="trust-item reveal reveal-delay-2">
+          <div class="trust-num">02</div>
+          <h4>絕不推銷商品</h4>
+          <p>純淨體驗承諾：不推銷保險與金融商品，只聚焦於你的財務覺察。</p>
+        </div>
+        <div class="trust-item reveal reveal-delay-1">
+          <div class="trust-num">03</div>
+          <h4>不利用恐嚇銷售</h4>
+          <p>拒絕焦慮式行銷，以真實的數據與覺察幫助你做出明智決策。</p>
+        </div>
+        <div class="trust-item reveal reveal-delay-2">
+          <div class="trust-num">04</div>
+          <h4>人生導向初衷</h4>
+          <p>不空談如何賺大錢，陪伴你如何過上「想過的樣子」，幸福人生才是最終目標。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ GALLERY ═══ -->
+  <section id="gallery">
+    <div class="container">
+      <div class="reveal">
+        <h2 class="gallery-heading">每一場都是<span class="gold">真實的人生演練</span></h2>
+      </div>
+      <div class="gallery-strip reveal">
+        <div class="gallery-strip-img"><img src="IMG_2832.jpeg" alt="活動照片" loading="lazy" /></div>
+        <div class="gallery-strip-img"><img src="IMG_3945.jpeg" alt="活動照片" loading="lazy" /></div>
+        <div class="gallery-strip-img"><img src="IMG_3960.jpeg" alt="活動照片" loading="lazy" /></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ CTA ═══ -->
+  <section id="cta">
+    <div class="container">
+      <div class="cta-box reveal">
+        <div class="cta-price">
+          <div class="price-label">原價 NT$ 800 元</div>
+          <div class="price-main">NT$500</div>
+          <div class="price-unit">/ 3 小時深度體驗</div>
+          <div class="price-note">2026 啟航限定優惠</div>
+        </div>
+        <div class="cta-perk">
+          🎁 <strong>專屬權益：</strong>體驗結束後邀請您加入<br>
+          <strong>「蜂富玩家專屬社群」</strong>，與同好持續成長。
+        </div>
+        <div class="qr-wrap">
+          <div class="qr-box">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https%3A%2F%2Fline.me%2FR%2Fti%2Fp%2F%40914bfyex" alt="LINE QR Code" width="152" height="152" />
+          </div>
+          <div class="qr-label">掃描 QR Code 立即預約</div>
+        </div>
+        <p style="color:#5a5040; font-size:0.82rem; margin-bottom: 24px; line-height: 1.8;">
+          立即掃描，預約下一場「掌握人生與財務」的全新體驗！
+        </p>
+        <a href="https://line.me/R/ti/p/@914bfyex" target="_blank" rel="noopener" class="cta-btn">立即預約</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ FOOTER ═══ -->
+  <footer>
+    <div class="footer-name">中華財富人生財商推廣協會</div>
+    <div class="footer-en">Wealthy Life FQ Education Association</div>
+    <div class="footer-motto">財富是為了實現幸福人生而服務！</div>
+  </footer>
+
+  <!-- ═══ Scroll Reveal Script ═══ -->
+  <script>
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+      { threshold: 0.12 }
+    );
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>
