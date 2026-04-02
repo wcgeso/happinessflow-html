@@ -13,7 +13,7 @@ const BASE_VERSION = 'V1.0';
  * ''      => 正式版 (無後綴)
  * '-beta' => 測試版
  */
-const MANUAL_SUFFIX: '' | '-beta' = '-beta'; 
+const MANUAL_SUFFIX: '' | '-beta' = ''; 
 
 export const APP_VERSION = (() => {
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
