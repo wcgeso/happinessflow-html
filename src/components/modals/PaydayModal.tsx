@@ -24,7 +24,7 @@ export const PaydayModal: React.FC<PaydayModalProps> = ({
     const isPositive = monthlyCashflow >= 0;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-safe pb-safe bg-black/80 backdrop-blur-sm">
             <Card className="w-full max-sm bg-slate-900 border-slate-700 shadow-2xl animate-in fade-in zoom-in-95 p-6 text-center">
                 <div className="w-16 h-16 bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto text-yellow-400 mb-4">
                     <DollarSign size={32} />

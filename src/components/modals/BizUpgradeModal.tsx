@@ -43,7 +43,7 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
 
 
     const modalContent = (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-safe pb-safe bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-slate-900 border-2 border-slate-700 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col relative">
                 {/* Close Button */}
                 <button

@@ -15,6 +15,16 @@
   <link rel="apple-touch-icon" href="/icon-192.png?v=3" />
   <link rel="manifest" href="/manifest.json?v=3" />
   <title>蜂富人生 HappinessFlow</title>
+  <!-- 在 React 載入前同步設定 --app-height，修正 iOS standalone 底部缺口 -->
+  <script>
+    (function() {
+      function setAppHeight() {
+        document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+      }
+      setAppHeight();
+      window.addEventListener('resize', setAppHeight);
+    })();
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -22,16 +32,26 @@
     :root {
       --app-height: 100%;
       --safe-top: env(safe-area-inset-top, 0px);
-      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-bottom: 0px;
       --safe-left: env(safe-area-inset-left, 0px);
       --safe-right: env(safe-area-inset-right, 0px);
     }
 
+    /* Safe Area Utility Classes */
+    .pt-safe { padding-top: env(safe-area-inset-top, 0px) !important; }
+    .pb-safe { padding-bottom: 0px !important; }
+    .pl-safe { padding-left: env(safe-area-inset-left, 0px) !important; }
+    .pr-safe { padding-right: env(safe-area-inset-right, 0px) !important; }
+    .mt-safe { margin-top: env(safe-area-inset-top, 0px) !important; }
+    .mb-safe { margin-bottom: 0px !important; }
+    .top-safe { top: env(safe-area-inset-top, 0px) !important; }
+    .bottom-safe { bottom: 0px !important; }
+
     html,
     body {
-      min-height: 100%;
-      min-height: 100dvh;
-      background-color: #0f172a;
+      height: 100vh;
+      min-height: 100vh;
+      background-color: #020617;
       margin: 0;
       padding: 0;
       -webkit-tap-highlight-color: transparent;
@@ -39,10 +59,11 @@
       -moz-text-size-adjust: 100%;
       text-size-adjust: 100%;
       touch-action: manipulation;
+      overflow: hidden;
     }
 
     #root {
-      height: 100dvh;
+      height: 100vh;
       width: 100%;
       display: flex;
       flex-direction: column;
@@ -111,7 +132,7 @@
 </script>
 </head>
 
-<body class="bg-slate-900 text-white">
+<body class="bg-slate-950 text-white">
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
   <!-- Google Verification: Privacy Policy and Terms Links -->

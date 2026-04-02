@@ -25,7 +25,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     const iconColor = type === 'danger' ? 'text-rose-500' : 'text-amber-500';
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 pt-safe pb-safe bg-black/80 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
             <Card className="w-full max-w-sm bg-slate-900 border-slate-700 shadow-2xl animate-in zoom-in-95 p-6 text-center">
                 <AlertTriangle size={48} className={`mx-auto mb-4 ${iconColor}`} />
                 <h3 className="text-xl font-bold text-white mb-2">{title}</h3>

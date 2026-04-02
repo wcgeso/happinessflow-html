@@ -344,7 +344,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md px-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center pt-safe pb-safe bg-slate-950/90 backdrop-blur-md px-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

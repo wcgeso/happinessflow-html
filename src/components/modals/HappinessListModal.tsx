@@ -23,7 +23,7 @@ export const HappinessListModal: React.FC<HappinessListModalProps> = ({
     disabled = false
 }) => {
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-safe pb-safe bg-black/80 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div className="w-full max-md bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
                 <div className="p-3 bg-slate-800 flex justify-between items-center border-b border-slate-700 shrink-0">
                     <h3 className="font-bold text-white flex items-center gap-2">

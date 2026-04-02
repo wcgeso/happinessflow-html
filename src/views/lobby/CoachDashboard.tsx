@@ -37,13 +37,14 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   // GM 管理相關狀態
   const [showGMTools, setShowGMTools] = useState(false);
   const [showSyncConfirm, setShowSyncConfirm] = useState(false);
+  const [showClearScoresConfirm, setShowClearScoresConfirm] = useState(false);
   const [gmStats, setGmStats] = useState({ totalUsers: 0, totalCoaches: 0, totalAdmins: 0, totalPlayers: 0 });
   const [searchEmail, setSearchEmail] = useState('');
 
   // Notify parent when GM tools state changes
   useEffect(() => {
-    onGMToolsStateChange?.(showGMTools || showSyncConfirm);
-  }, [showGMTools, showSyncConfirm, onGMToolsStateChange]);
+    onGMToolsStateChange?.(showGMTools || showSyncConfirm || showClearScoresConfirm);
+  }, [showGMTools, showSyncConfirm, showClearScoresConfirm, onGMToolsStateChange]);
 
   // 獲取統計數據
   const fetchStats = async () => {
@@ -277,6 +278,40 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
     } catch (e: any) {
       console.error('同步失敗:', e);
       showToast('同步失敗: ' + e.message, 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleClearScores = () => {
+    setShowClearScoresConfirm(true);
+  };
+
+  const executeClearScores = async () => {
+    setShowClearScoresConfirm(false);
+    setIsSyncing(true);
+    try {
+      const allUsersSnap = await safeAsync(getDocs(collection(db, 'users')));
+      if (!allUsersSnap) {
+        setIsSyncing(false);
+        return;
+      }
+
+      const userIds = allUsersSnap.docs.map(d => d.id);
+      const batchSize = 450;
+
+      for (let i = 0; i < userIds.length; i += batchSize) {
+        const currentBatch = writeBatch(db);
+        userIds.slice(i, i + batchSize).forEach(uid => {
+          currentBatch.set(doc(db, 'users', uid), { experience: 0 }, { merge: true });
+        });
+        await currentBatch.commit();
+      }
+
+      showToast(`已清除 ${userIds.length} 位玩家的排行榜積分`, 'success');
+    } catch (e: any) {
+      console.error('清除積分失敗:', e);
+      showToast('清除失敗: ' + e.message, 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -530,6 +565,25 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
           </div>
 
           <button
+            onClick={handleClearScores}
+            disabled={isSyncing}
+            className="w-full p-4 bg-rose-500/10 border border-rose-500/20 rounded-3xl flex items-center justify-between hover:bg-rose-500/20 transition-all group shadow-lg shadow-rose-500/5 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-rose-500/20 rounded-2xl flex items-center justify-center border border-rose-500/30">
+                <Trophy size={20} className="text-rose-500" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-black text-white">清除排行榜積分</div>
+                <div className="text-[10px] text-rose-500/80 font-bold uppercase tracking-widest">Reset Leaderboard</div>
+              </div>
+            </div>
+            <div className="px-3 py-1 bg-rose-500/20 rounded-full text-[10px] font-black text-rose-500 border border-rose-500/30 uppercase">
+              {isSyncing ? '處理中...' : '清除積分'}
+            </div>
+          </button>
+
+          <button
             onClick={handleSyncScores}
             disabled={isSyncing}
             className="w-full p-4 bg-amber-500/10 border border-amber-500/20 rounded-3xl flex items-center justify-between hover:bg-amber-500/20 transition-all group shadow-lg shadow-amber-500/5 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -554,6 +608,51 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
         </div>
       )}
 
+
+      {/* Clear Scores Confirmation Modal */}
+      <AnimatePresence>
+        {showClearScoresConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10002] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 border border-slate-800 p-8 rounded-[32px] max-w-sm w-full text-center space-y-6 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-rose-500/20 rounded-3xl flex items-center justify-center mx-auto text-rose-500">
+                <AlertTriangle size={32} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white">確認清除排行榜？</h3>
+                <p className="text-slate-400 text-sm mt-3 leading-relaxed text-left bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                  這將把所有玩家的排行榜積分歸零，此操作無法撤銷。<br /><br />
+                  <span className="text-rose-500 font-bold">⚠️ 危險操作：</span><br />
+                  確認後，所有玩家的 experience 積分將被設為 0。
+                </p>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={executeClearScores}
+                  className="w-full py-4 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-2xl transition-all active:scale-95 shadow-lg shadow-rose-500/20"
+                >
+                  確認清除
+                </button>
+                <button
+                  onClick={() => setShowClearScoresConfirm(false)}
+                  className="w-full py-4 text-slate-500 font-bold hover:text-white transition-colors"
+                >
+                  取消
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Sync Score Confirmation Modal */}
       <AnimatePresence>

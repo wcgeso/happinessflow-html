@@ -435,7 +435,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-safe pb-safe bg-slate-950/90 backdrop-blur-md">
       <Card className="w-full max-w-5xl bg-slate-900 border-slate-700 shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-[680px] max-h-[90vh]">
         {/* Progress Bar */}
         <div className="h-1.5 w-full bg-slate-800 shrink-0">

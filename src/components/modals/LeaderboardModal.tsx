@@ -94,7 +94,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
         className="h-full bg-slate-950 flex flex-col overflow-hidden"
       >
         {/* Header */}
-        <div className="relative p-6 border-b border-slate-800 bg-slate-900/50">
+        <div className="relative p-6 pt-safe border-b border-slate-800 bg-slate-900/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20">
               <Trophy size={20} className="text-amber-500" />
@@ -106,7 +106,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
           </div>
           <button
             onClick={onClose}
-            className="absolute top-6 right-6 p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all"
+            className="absolute top-12 right-6 p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all"
           >
             <X size={20} />
           </button>

@@ -147,9 +147,9 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
      };
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-40 flex flex-col pt-safe">
+        <header className="fixed top-0 left-0 right-0 z-40 flex flex-col pt-safe bg-slate-900/95 backdrop-blur-md">
             {/* Top Bar */}
-            <div className="relative z-20 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-2.5 shadow-md">
+            <div className="relative z-20 border-b border-slate-800 px-4 py-2.5 shadow-md">
                 <div className="max-w-7xl mx-auto flex items-center justify-between relative">
                     <div className="flex items-center gap-3">
                         {gameState.profession && (

@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Bug, Plane, Stethoscope, Palette, TreePine, Briefcase, Edit3, Calendar, Hash, Award, History, Play, X, Check, Upload, Image as ImageIcon, Move, Copy } from 'lucide-react';
+import { Bug, Plane, Stethoscope, Palette, TreePine, Briefcase, Edit3, Calendar, Hash, Award, History, Play, X, Check, Upload, Image as ImageIcon, Move, Copy, Trophy } from 'lucide-react';
 import { Button, Input, Slider } from '../ui/ui';
 import SafeImage from '../common/SafeImage';
 import { useAuth, getUserTitle, getCoachBadge, getPlayerBadge, getBadgeGlowStyle } from '../../context/AuthContext';
 import { useGame } from '../../context/GameContext';
 import { avatarOptions } from './AvatarModal';
+import { RankInfoModal } from './RankInfoModal';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -32,6 +33,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
     const [isSaving, setIsSaving] = useState(false);
     const [copied, setCopied] = useState(false);
     const [isBadgeEnlarged, setIsBadgeEnlarged] = useState(false);
+    const [showRankInfo, setShowRankInfo] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const dragStartPos = useRef({ x: 0, y: 0 });
@@ -223,7 +225,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
     const isCustomAvatar = displayUser.photoURL?.startsWith('http') || displayUser.photoURL?.startsWith('data:image');
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
+        <>
+        <div className="fixed inset-0 z-[150] flex items-center justify-center pt-safe pb-safe bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
             <div className="w-full h-full md:h-auto md:max-w-lg bg-slate-900 md:border md:border-slate-800 md:rounded-3xl shadow-2xl overflow-y-auto animate-in zoom-in-95 duration-200">
                 {/* Hidden File Input */}
                 <input
@@ -549,6 +552,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
                         ))}
                     </div>
 
+                    {/* Rank Info Button */}
+                    <button
+                        onClick={() => setShowRankInfo(true)}
+                        className="w-full mt-4 py-3 px-4 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 rounded-xl transition-all flex items-center justify-center gap-2 text-amber-400 hover:text-amber-300 font-bold text-sm active:scale-[0.98]"
+                    >
+                        <Trophy size={16} />
+                        <span>查看位階系統</span>
+                    </button>
+
                     {/* View History Button - Only for other users */}
                     {targetUser && (
                         <button
@@ -556,7 +568,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
                                 onClose();
                                 onViewHistory?.(targetUser.uid);
                             }}
-                            className="w-full mt-4 py-3 px-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl transition-all flex items-center justify-center gap-2 text-slate-300 hover:text-white font-bold text-sm"
+                            className="w-full mt-2 py-3 px-4 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-xl transition-all flex items-center justify-center gap-2 text-slate-300 hover:text-white font-bold text-sm"
                         >
                             <History size={16} />
                             <span>查看歷史紀錄</span>
@@ -565,5 +577,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
                 </div>
             </div>
         </div>
+
+        {/* Rank Info Modal */}
+        <RankInfoModal
+            isOpen={showRankInfo}
+            onClose={() => setShowRankInfo(false)}
+            currentTitle={getUserTitle(displayUser, viewMode)}
+            currentRole={viewMode || (displayUser?.role as 'coach' | 'player' | 'gm')}
+            currentExperience={displayUser?.experience || 0}
+        />
+        </>
     );
 };

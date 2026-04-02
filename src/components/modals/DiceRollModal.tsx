@@ -54,7 +54,7 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 sm:p-6 bg-slate-950 backdrop-blur-xl overflow-y-auto">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 pt-safe pb-safe sm:p-6 bg-slate-950 backdrop-blur-xl overflow-y-auto">
             {/* 彈出視窗主體 */}
             <div className={cn(
                 "relative w-full max-w-md bg-slate-900 border border-white/10 rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-500",

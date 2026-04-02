@@ -219,7 +219,7 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
 
     return (
         <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden touch-none">
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar touch-pan-y">
+            <div className="flex-1 overflow-y-auto p-4 pt-safe md:p-8 no-scrollbar touch-pan-y">
                 <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
                     {/* Header Section */}
                     <div className="flex flex-row items-center justify-between gap-4">
