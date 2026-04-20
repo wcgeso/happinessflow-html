@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Users, TrendingUp, PlusCircle, UserPlus, Search, ShieldCheck, X, Trophy, BookOpen, RefreshCw, AlertTriangle, History } from 'lucide-react';
+import { Play, Users, TrendingUp, PlusCircle, UserPlus, Search, ShieldCheck, X, Trophy, BookOpen, RefreshCw, AlertTriangle, History, FileText } from 'lucide-react';
 import { db } from '../../../services/firebase';
 import { collection, query, getDocs, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,6 +18,7 @@ interface CoachDashboardProps {
   userStats: any;
   isGMMode?: boolean;
   onGMToolsStateChange?: (isOpen: boolean) => void;
+  onViewCoachReport?: () => void;
 }
 
 export const CoachDashboard: React.FC<CoachDashboardProps> = ({
@@ -29,7 +30,8 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   onViewTutorial,
   userStats,
   isGMMode = false,
-  onGMToolsStateChange
+  onGMToolsStateChange,
+  onViewCoachReport
 }) => {
   const { user: currentUser } = useAuth();
   const isGMUser = isGM(currentUser);
@@ -40,18 +42,23 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   const [showClearScoresConfirm, setShowClearScoresConfirm] = useState(false);
   const [gmStats, setGmStats] = useState({ totalUsers: 0, totalCoaches: 0, totalAdmins: 0, totalPlayers: 0 });
   const [searchEmail, setSearchEmail] = useState('');
+  const [gmTab, setGmTab] = useState<'manage' | 'users'>('manage');
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [userSearchFilter, setUserSearchFilter] = useState('');
+  const [userSortBy, setUserSortBy] = useState<'name' | 'email' | 'role'>('name');
 
   // Notify parent when GM tools state changes
   useEffect(() => {
     onGMToolsStateChange?.(showGMTools || showSyncConfirm || showClearScoresConfirm);
   }, [showGMTools, showSyncConfirm, showClearScoresConfirm, onGMToolsStateChange]);
 
-  // 獲取統計數據
+  // 獲取統計數據和所有用戶
   const fetchStats = async () => {
     try {
       const querySnapshot = await safeAsync(getDocs(collection(db, 'users')));
       if (!querySnapshot) return;
-      const users = querySnapshot.docs.map(doc => doc.data());
+      const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllUsers(users);
 
       const totalAdmins = users.filter(u => u.title === '遊戲管理員').length;
       const totalCoaches = users.filter(u => u.role === 'coach' && u.title !== '遊戲管理員').length;
@@ -383,8 +390,27 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Search Area */}
-                  <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-[32px] p-8 md:p-10 space-y-6">
+                  {/* Tab Navigation */}
+                  <div className="flex gap-2 border-b border-slate-800/50">
+                    <button
+                      onClick={() => setGmTab('manage')}
+                      className={`px-6 py-3 font-black text-sm uppercase tracking-wider transition-all ${gmTab === 'manage' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                    >
+                      權限管理
+                    </button>
+                    <button
+                      onClick={() => setGmTab('users')}
+                      className={`px-6 py-3 font-black text-sm uppercase tracking-wider transition-all ${gmTab === 'users' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                    >
+                      用戶列表
+                    </button>
+                  </div>
+
+                  {/* Tab Content */}
+                  {gmTab === 'manage' ? (
+                    <>
+                      {/* Search Area */}
+                      <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-[32px] p-8 md:p-10 space-y-6">
                     <div className="space-y-2">
                       <label className="text-sm font-black text-indigo-300/80 ml-1">搜尋使用者</label>
                       <div className="flex flex-col sm:flex-row gap-3">
@@ -559,6 +585,106 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                       {isBackfilling ? '補錄中...' : '執行補錄資料'}
                     </Button>
                   </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Users List Tab */}
+                      <div className="space-y-6">
+                        {/* Search and Sort */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="md:col-span-2 space-y-2">
+                            <label className="text-sm font-black text-indigo-300/80 ml-1">搜尋用戶</label>
+                            <div className="relative">
+                              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400/50" size={20} />
+                              <Input
+                                placeholder="輸入名稱或信箱..."
+                                value={userSearchFilter}
+                                onChange={(e) => setUserSearchFilter(e.target.value)}
+                                className="pl-12 h-12 bg-slate-900/50 border-indigo-500/20 rounded-xl text-base focus:ring-indigo-500/40 w-full"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-black text-indigo-300/80 ml-1">排序</label>
+                            <select
+                              value={userSortBy}
+                              onChange={(e) => setUserSortBy(e.target.value as 'name' | 'email' | 'role')}
+                              className="w-full h-12 bg-slate-900/50 border border-indigo-500/20 rounded-xl text-white px-4 focus:ring-2 focus:ring-indigo-500/40 appearance-none font-semibold"
+                            >
+                              <option value="name">按名稱</option>
+                              <option value="email">按信箱</option>
+                              <option value="role">按權限</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Users Table */}
+                        <div className="bg-slate-900/50 border border-slate-800/50 rounded-2xl overflow-hidden max-h-[600px] overflow-y-auto">
+                          <table className="w-full">
+                            <thead className="bg-slate-900/80 border-b border-slate-800/50 sticky top-0">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-wider">名稱</th>
+                                <th className="px-4 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-wider">信箱</th>
+                                <th className="px-4 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-wider">權限</th>
+                                <th className="px-4 py-3 text-center text-xs font-black text-slate-400 uppercase tracking-wider">操作</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {allUsers
+                                .filter(u => {
+                                  const filter = userSearchFilter.toLowerCase();
+                                  return (u.name?.toLowerCase().includes(filter) || u.email?.toLowerCase().includes(filter));
+                                })
+                                .sort((a, b) => {
+                                  if (userSortBy === 'name') return (a.name || '').localeCompare(b.name || '');
+                                  if (userSortBy === 'email') return (a.email || '').localeCompare(b.email || '');
+                                  // Sort by role: admin, coach, player
+                                  const roleOrder: Record<string, number> = { '遊戲管理員': 0, 'coach': 1, 'player': 2 };
+                                  const aRole = a.title === '遊戲管理員' ? '遊戲管理員' : a.role;
+                                  const bRole = b.title === '遊戲管理員' ? '遊戲管理員' : b.role;
+                                  return (roleOrder[aRole] || 999) - (roleOrder[bRole] || 999);
+                                })
+                                .map((user, idx) => {
+                                  const roleLabel = user.title === '遊戲管理員' ? '管理員' : (user.role === 'coach' ? '執行師' : '玩家');
+                                  const roleColor = user.title === '遊戲管理員' ? 'text-indigo-400' : (user.role === 'coach' ? 'text-amber-500' : 'text-slate-400');
+
+                                  return (
+                                    <tr key={user.id} className={`border-b border-slate-800/30 hover:bg-slate-800/30 transition-colors ${idx % 2 === 0 ? 'bg-slate-950/20' : ''}`}>
+                                      <td className="px-4 py-4 text-sm font-semibold text-white">{user.name || '未設定'}</td>
+                                      <td className="px-4 py-4 text-sm text-slate-400">{user.email || '無'}</td>
+                                      <td className="px-4 py-4 text-sm">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-800/50 border ${roleColor} border-current/20`}>
+                                          {roleLabel}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-4 text-center">
+                                        <button
+                                          onClick={() => {
+                                            setSearchEmail(user.email || user.id);
+                                            setGmTab('manage');
+                                          }}
+                                          className="px-3 py-1.5 text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-all active:scale-95"
+                                        >
+                                          編輯
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                            </tbody>
+                          </table>
+                          {allUsers.filter(u => {
+                            const filter = userSearchFilter.toLowerCase();
+                            return (u.name?.toLowerCase().includes(filter) || u.email?.toLowerCase().includes(filter));
+                          }).length === 0 && (
+                            <div className="text-center py-8 text-slate-400 font-semibold">
+                              未找到符合的用戶
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -603,6 +729,24 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
             </div>
             <div className="px-3 py-1 bg-amber-500/20 rounded-full text-[10px] font-black text-amber-500 border border-amber-500/30 uppercase">
               {isSyncing ? '同步中...' : '執行同步'}
+            </div>
+          </button>
+
+          <button
+            onClick={() => onViewCoachReport?.()}
+            className="w-full p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl flex items-center justify-between hover:bg-emerald-500/20 transition-all group shadow-lg shadow-emerald-500/5"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-500/20 rounded-2xl flex items-center justify-center border border-emerald-500/30">
+                <FileText size={20} className="text-emerald-500" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-black text-white">執行師報表</div>
+                <div className="text-[10px] text-emerald-500/80 font-bold uppercase tracking-widest">Commission Report</div>
+              </div>
+            </div>
+            <div className="px-3 py-1 bg-emerald-500/20 rounded-full text-[10px] font-black text-emerald-500 border border-emerald-500/30 uppercase">
+              查看報表
             </div>
           </button>
         </div>

@@ -6,7 +6,7 @@
  * 3. 開發/本地版 (localhost / happinessflow-dev.vercel.app): -dev
  */
 
-const BASE_VERSION = 'V1.0';
+const BASE_VERSION = 'V1.1';
 
 /**
  * 在此手動切換對外網址的顯示後綴：

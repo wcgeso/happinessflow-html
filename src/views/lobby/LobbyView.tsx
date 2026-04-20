@@ -8,6 +8,7 @@ import { RoomView } from './RoomView';
 import { CoachDashboard } from './CoachDashboard';
 import { DeveloperPortal } from './DeveloperPortal';
 import { CoachHistoryView } from '../history/CoachHistoryView';
+import { CoachReportView } from '../report/CoachReportView';
 import { VERSION_DISPLAY, IS_DEV_VERSION } from '../../constants/version';
 import { useRoom } from '../../context/RoomContext';
 import { collection, getDocs } from 'firebase/firestore';
@@ -55,6 +56,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showCoachHistory, setShowCoachHistory] = useState(false);
+  const [showCoachReport, setShowCoachReport] = useState(false);
   const [showRoomView, setShowRoomView] = useState(initialShowRoomView);
   const [isGMToolsOpen, setIsGMToolsOpen] = useState(false);
 
@@ -62,10 +64,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   useEffect(() => {
     const hasOpenModal = showProfileModal || showTutorialModal || showLetterModal ||
       showCreateRoomModal || showLeaderboardModal || showFriendsModal ||
-      showCoachHistory || showRoomView || isGMToolsOpen;
+      showCoachHistory || showCoachReport || showRoomView || isGMToolsOpen;
     onModalStateChange?.(hasOpenModal);
   }, [showProfileModal, showTutorialModal, showLetterModal, showCreateRoomModal,
-    showLeaderboardModal, showFriendsModal, showCoachHistory, showRoomView, isGMToolsOpen, onModalStateChange]);
+    showLeaderboardModal, showFriendsModal, showCoachHistory, showCoachReport, showRoomView, isGMToolsOpen, onModalStateChange]);
 
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
@@ -468,6 +470,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     return <CoachHistoryView onBack={() => setShowCoachHistory(false)} />;
   }
 
+  if (showCoachReport) {
+    return <CoachReportView onBack={() => setShowCoachReport(false)} />;
+  }
+
   return (
     <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none pb-safe">
       {/* Background with safe area support */}
@@ -571,6 +577,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 userStats={userStats}
                 isGMMode={true}
                 onGMToolsStateChange={setIsGMToolsOpen}
+                onViewCoachReport={() => setShowCoachReport(true)}
               />
             </div>
           ) : viewMode === 'coach' ? (
