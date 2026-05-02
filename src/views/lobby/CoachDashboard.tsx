@@ -201,6 +201,12 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   const [backfillEmail, setBackfillEmail] = useState('');
   const [isBackfilling, setIsBackfilling] = useState(false);
 
+  // 推廣綁定功能狀態
+  const [bindReferrerEmail, setBindReferrerEmail] = useState('');
+  const [bindPlayerEmails, setBindPlayerEmails] = useState('');
+  const [isBindingReferral, setIsBindingReferral] = useState(false);
+  const [bindReferralResult, setBindReferralResult] = useState('');
+
   const handleBackfillUser = async () => {
     if (!backfillUID.trim() || !backfillEmail.trim()) {
       showToast('請輸入 UID 和 Email', 'error');
@@ -231,6 +237,58 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
       showToast(`補錄失敗: ${error.message}`, 'error');
     } finally {
       setIsBackfilling(false);
+    }
+  };
+
+  const handleBindReferral = async () => {
+    const referrerEmail = bindReferrerEmail.trim();
+    const playerList = bindPlayerEmails.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!referrerEmail || playerList.length === 0) {
+      setBindReferralResult('❌ 請填入推廣者信箱和至少一位玩家信箱');
+      return;
+    }
+    setIsBindingReferral(true);
+    setBindReferralResult('處理中...');
+    try {
+      const allSnap = await safeAsync(getDocs(collection(db, 'users')));
+      if (!allSnap) throw new Error('無法讀取用戶資料');
+      const allUsers = allSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+
+      // 找推廣者
+      const referrer = allUsers.find((u: any) =>
+        u.email?.toLowerCase() === referrerEmail.toLowerCase()
+      );
+      if (!referrer) {
+        setBindReferralResult(`❌ 找不到推廣者：${referrerEmail}`);
+        setIsBindingReferral(false);
+        return;
+      }
+
+      const lines: string[] = [`✅ 推廣者：${referrer.name}（${referrer.email}）`, ''];
+      for (const playerInput of playerList) {
+        const player = allUsers.find((u: any) =>
+          u.email?.toLowerCase() === playerInput.toLowerCase() ||
+          u.name?.toLowerCase() === playerInput.toLowerCase()
+        );
+        if (!player) {
+          lines.push(`❌ 找不到：${playerInput}`);
+          continue;
+        }
+        await safeAsync(
+          import('firebase/firestore').then(({ updateDoc, doc: firestoreDoc }) =>
+            updateDoc(firestoreDoc(db, 'users', player.id), {
+              referredBy: referrer.id,
+              effectiveCoachId: (referrer.role === 'coach' || referrer.role === 'gm') ? referrer.id : (referrer.effectiveCoachId || null)
+            })
+          )
+        );
+        lines.push(`✅ 已綁定：${player.name}（${player.email}）`);
+      }
+      setBindReferralResult(lines.join('\n'));
+    } catch (e: any) {
+      setBindReferralResult(`❌ 錯誤：${e.message}`);
+    } finally {
+      setIsBindingReferral(false);
     }
   };
 
@@ -703,6 +761,47 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                     >
                       {isBackfilling ? '補錄中...' : '執行補錄資料'}
                     </Button>
+                  </div>
+
+                  {/* 手動綁定推廣關係 */}
+                  <div className="bg-slate-900/50 border border-slate-800 rounded-[32px] p-8 md:p-10 space-y-6">
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-lg font-black text-white">手動綁定推廣關係</h3>
+                      <p className="text-xs text-slate-500 font-bold">將指定玩家設定為某位用戶的推廣下線，支援 Email 或名稱查詢</p>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">推廣者 Email</label>
+                        <Input
+                          placeholder="wcgeso0221@gmail.com"
+                          value={bindReferrerEmail}
+                          onChange={e => setBindReferrerEmail(e.target.value)}
+                          className="h-12 bg-slate-950/50 border-slate-800 rounded-xl text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">玩家清單（每行一位，填 Email 或名稱）</label>
+                        <textarea
+                          placeholder={'劉冠瑋\n林茂岑\n黃拉拉\nClaire'}
+                          value={bindPlayerEmails}
+                          onChange={e => setBindPlayerEmails(e.target.value)}
+                          rows={4}
+                          className="w-full bg-slate-950/50 border border-slate-800 rounded-xl text-sm text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 resize-none placeholder:text-slate-600"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleBindReferral}
+                      disabled={isBindingReferral}
+                      className="w-full bg-slate-800 hover:bg-violet-600 text-slate-400 hover:text-white font-black h-12 rounded-xl border border-slate-700 hover:border-violet-500 transition-all active:scale-95"
+                    >
+                      {isBindingReferral ? '綁定中...' : '執行推廣綁定'}
+                    </Button>
+                    {bindReferralResult && (
+                      <pre className="text-xs text-slate-300 bg-slate-950/60 border border-slate-800 rounded-xl p-4 whitespace-pre-wrap leading-relaxed">
+                        {bindReferralResult}
+                      </pre>
+                    )}
                   </div>
                     </>
                   ) : (
