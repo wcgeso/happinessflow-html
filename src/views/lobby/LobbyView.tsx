@@ -57,6 +57,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [showCoachHistory, setShowCoachHistory] = useState(false);
   const [showCoachReport, setShowCoachReport] = useState(false);
+  const [showCoachSelfReport, setShowCoachSelfReport] = useState(false);
   const [showRoomView, setShowRoomView] = useState(initialShowRoomView);
   const [isGMToolsOpen, setIsGMToolsOpen] = useState(false);
 
@@ -64,10 +65,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   useEffect(() => {
     const hasOpenModal = showProfileModal || showTutorialModal || showLetterModal ||
       showCreateRoomModal || showLeaderboardModal || showFriendsModal ||
-      showCoachHistory || showCoachReport || showRoomView || isGMToolsOpen;
+      showCoachHistory || showCoachReport || showCoachSelfReport || showRoomView || isGMToolsOpen;
     onModalStateChange?.(hasOpenModal);
   }, [showProfileModal, showTutorialModal, showLetterModal, showCreateRoomModal,
-    showLeaderboardModal, showFriendsModal, showCoachHistory, showCoachReport, showRoomView, isGMToolsOpen, onModalStateChange]);
+    showLeaderboardModal, showFriendsModal, showCoachHistory, showCoachReport, showCoachSelfReport, showRoomView, isGMToolsOpen, onModalStateChange]);
 
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
@@ -474,6 +475,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     return <CoachReportView onBack={() => setShowCoachReport(false)} />;
   }
 
+  if (showCoachSelfReport) {
+    return <CoachReportView onBack={() => setShowCoachSelfReport(false)} coachFilter={user?.uid} />;
+  }
+
   return (
     <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none pb-safe md:overflow-auto">
       {/* Background with safe area support */}
@@ -590,6 +595,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               onViewTutorial={() => setShowTutorialModal(true)}
               userStats={userStats}
               onGMToolsStateChange={setIsGMToolsOpen}
+              onViewCoachSelfReport={() => setShowCoachSelfReport(true)}
             />
           ) : (
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-left-4 duration-500">

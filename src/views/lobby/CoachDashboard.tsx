@@ -20,6 +20,7 @@ interface CoachDashboardProps {
   isGMMode?: boolean;
   onGMToolsStateChange?: (isOpen: boolean) => void;
   onViewCoachReport?: () => void;
+  onViewCoachSelfReport?: () => void;
 }
 
 // ── 推廣名單樹節點 ──────────────────────────────────────────
@@ -118,7 +119,8 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   userStats: _userStats,
   isGMMode = false,
   onGMToolsStateChange,
-  onViewCoachReport
+  onViewCoachReport,
+  onViewCoachSelfReport,
 }) => {
   const { user: currentUser } = useAuth();
   const isGMUser = isGM(currentUser);
@@ -161,7 +163,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
     try {
       const querySnapshot = await safeAsync(getDocs(collection(db, 'users')));
       if (!querySnapshot) return;
-      const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const users = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
       setAllUsers(users);
 
       const totalAdmins = users.filter(u => u.title === '遊戲管理員').length;
@@ -909,48 +911,6 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
           </div>
 
           <button
-            onClick={handleClearScores}
-            disabled={isSyncing}
-            className="w-full p-4 bg-rose-500/10 border border-rose-500/20 rounded-3xl flex items-center justify-between hover:bg-rose-500/20 transition-all group shadow-lg shadow-rose-500/5 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-rose-500/20 rounded-2xl flex items-center justify-center border border-rose-500/30">
-                <Trophy size={20} className="text-rose-500" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-black text-white">清除排行榜積分</div>
-                <div className="text-[10px] text-rose-500/80 font-bold uppercase tracking-widest">Reset Leaderboard</div>
-              </div>
-            </div>
-            <div className="px-3 py-1 bg-rose-500/20 rounded-full text-[10px] font-black text-rose-500 border border-rose-500/30 uppercase">
-              {isSyncing ? '處理中...' : '清除積分'}
-            </div>
-          </button>
-
-          <button
-            onClick={handleSyncScores}
-            disabled={isSyncing}
-            className="w-full p-4 bg-amber-500/10 border border-amber-500/20 rounded-3xl flex items-center justify-between hover:bg-amber-500/20 transition-all group shadow-lg shadow-amber-500/5 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-amber-500/20 rounded-2xl flex items-center justify-center border border-amber-500/30">
-                {isSyncing ? (
-                  <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <RefreshCw size={20} className="text-amber-500" />
-                )}
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-black text-white">重新同步全服積分</div>
-                <div className="text-[10px] text-amber-500/80 font-bold uppercase tracking-widest">System Maintenance</div>
-              </div>
-            </div>
-            <div className="px-3 py-1 bg-amber-500/20 rounded-full text-[10px] font-black text-amber-500 border border-amber-500/30 uppercase">
-              {isSyncing ? '同步中...' : '執行同步'}
-            </div>
-          </button>
-
-          <button
             onClick={() => onViewCoachReport?.()}
             className="w-full p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl flex items-center justify-between hover:bg-emerald-500/20 transition-all group shadow-lg shadow-emerald-500/5"
           >
@@ -983,6 +943,48 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
             </div>
             <div className="px-3 py-1 bg-sky-500/20 rounded-full text-[10px] font-black text-sky-400 border border-sky-500/30 uppercase">
               查看日誌
+            </div>
+          </button>
+
+          <button
+            onClick={handleSyncScores}
+            disabled={isSyncing}
+            className="w-full p-4 bg-amber-500/10 border border-amber-500/20 rounded-3xl flex items-center justify-between hover:bg-amber-500/20 transition-all group shadow-lg shadow-amber-500/5 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-500/20 rounded-2xl flex items-center justify-center border border-amber-500/30">
+                {isSyncing ? (
+                  <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <RefreshCw size={20} className="text-amber-500" />
+                )}
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-black text-white">重新同步全服積分</div>
+                <div className="text-[10px] text-amber-500/80 font-bold uppercase tracking-widest">System Maintenance</div>
+              </div>
+            </div>
+            <div className="px-3 py-1 bg-amber-500/20 rounded-full text-[10px] font-black text-amber-500 border border-amber-500/30 uppercase">
+              {isSyncing ? '同步中...' : '執行同步'}
+            </div>
+          </button>
+
+          <button
+            onClick={handleClearScores}
+            disabled={isSyncing}
+            className="w-full p-4 bg-rose-500/10 border border-rose-500/20 rounded-3xl flex items-center justify-between hover:bg-rose-500/20 transition-all group shadow-lg shadow-rose-500/5 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-rose-500/20 rounded-2xl flex items-center justify-center border border-rose-500/30">
+                <Trophy size={20} className="text-rose-500" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-black text-white">清除排行榜積分</div>
+                <div className="text-[10px] text-rose-500/80 font-bold uppercase tracking-widest">Reset Leaderboard</div>
+              </div>
+            </div>
+            <div className="px-3 py-1 bg-rose-500/20 rounded-full text-[10px] font-black text-rose-500 border border-rose-500/30 uppercase">
+              {isSyncing ? '處理中...' : '清除積分'}
             </div>
           </button>
         </div>
@@ -1022,6 +1024,17 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               </div>
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
+                  {
+                    version: 'v1.4.2',
+                    date: '2026-05-02',
+                    color: 'indigo',
+                    items: [
+                      '執行師模式新增「執行報表」入口：只顯示個人場次與應繳回金額',
+                      '執行師報表新增應繳回公司明細（公司利潤 30%、賽季獎金 10%、推廣獎金 20%）',
+                      '修復執行師報表頁面在手機上被瀏海遮擋的問題',
+                      'GM 頁面按鈕順序調整',
+                    ],
+                  },
                   {
                     version: 'v1.4.1',
                     date: '2026-05-02',
@@ -1257,6 +1270,20 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                   <div className="flex flex-col text-left">
                     <span className="text-sm font-black text-white tracking-wide">執行紀錄</span>
                     <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">History</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={onViewCoachSelfReport}
+                  className="group relative p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl hover:bg-slate-800/60 hover:border-emerald-500/30 transition-all duration-300 flex items-center gap-4 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform duration-500">
+                    <FileText size={22} className="text-emerald-500" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-sm font-black text-white tracking-wide">執行報表</span>
+                    <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">My Report</span>
                   </div>
                 </button>
 

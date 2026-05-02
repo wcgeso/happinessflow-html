@@ -8,6 +8,7 @@ import { CoachRecord } from '../../types';
 
 interface CoachReportViewProps {
   onBack: () => void;
+  coachFilter?: string; // 若傳入則只顯示該執行師的資料（執行師自用模式）
 }
 
 interface GroupedData {
@@ -38,7 +39,7 @@ const COMPANY_CUT = 0.3;
 const PROMOTION_BONUS = 0.2;
 const SEASON_BONUS = 0.1;
 
-export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
+export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack, coachFilter }) => {
   const [records, setRecords] = useState<CoachRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
@@ -141,6 +142,18 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
     };
   };
 
+  // Calculate how much a coach must return to the company for a single record
+  const calculateReturnAmount = (record: CoachRecord) => {
+    const uids = sessionPlayerUids[record.id] || [];
+    const selfReferredCount = uids.filter(uid => userMap[uid]?.referredBy === record.coachId).length;
+    const otherCount = record.playerCount - selfReferredCount;
+    const companyCut = Math.round(record.playerCount * PLAYER_FEE * COMPANY_CUT);
+    const seasonBonus = Math.round(record.playerCount * PLAYER_FEE * SEASON_BONUS);
+    const promotionBonusToReturn = Math.round(otherCount * PLAYER_FEE * PROMOTION_BONUS);
+    const promotionBonusToKeep = Math.round(selfReferredCount * PLAYER_FEE * PROMOTION_BONUS);
+    return { companyCut, seasonBonus, promotionBonusToReturn, promotionBonusToKeep, selfReferredCount, otherCount, total: companyCut + seasonBonus + promotionBonusToReturn };
+  };
+
   // Build referral chain info for each player in a session
   const getPlayerReferralInfos = (sessionId: string, players: { name: string }[]): PlayerReferralInfo[] => {
     const uids = sessionPlayerUids[sessionId] || [];
@@ -187,6 +200,14 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
     coachRecords = currentMonthData.coaches[selectedCoach] || { coachName: '全部執行師', records: [] };
   }
 
+  // 執行師自用模式：只顯示自己的紀錄
+  if (coachFilter) {
+    coachRecords = {
+      coachName: coachRecords.coachName,
+      records: coachRecords.records.filter(r => r.coachId === coachFilter),
+    };
+  }
+
   const totalStats = coachRecords.records.reduce(
     (acc, record) => {
       const fees = calculateFees(record.playerCount);
@@ -203,6 +224,20 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
     { games: 0, players: 0, totalRevenue: 0, coachPayment: 0, companyProfit: 0, promotionBonus: 0, seasonBonus: 0 }
   );
 
+  const totalReturnStats = coachRecords.records.reduce(
+    (acc, record) => {
+      const ret = calculateReturnAmount(record);
+      return {
+        companyCut: acc.companyCut + ret.companyCut,
+        seasonBonus: acc.seasonBonus + ret.seasonBonus,
+        promotionBonusToReturn: acc.promotionBonusToReturn + ret.promotionBonusToReturn,
+        promotionBonusToKeep: acc.promotionBonusToKeep + ret.promotionBonusToKeep,
+        total: acc.total + ret.total,
+      };
+    },
+    { companyCut: 0, seasonBonus: 0, promotionBonusToReturn: 0, promotionBonusToKeep: 0, total: 0 }
+  );
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 z-[1000] bg-slate-950 flex items-center justify-center">
@@ -217,14 +252,16 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
   return (
     <div className="fixed inset-0 z-[1000] bg-slate-950 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="border-b border-slate-800/50 p-6 md:p-8 flex items-center justify-between">
+      <div className="border-b border-slate-800/50 p-6 pt-safe md:p-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 bg-emerald-500/20 rounded-3xl flex items-center justify-center border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
             <FileText size={28} className="text-emerald-400" />
           </div>
           <div>
             <h1 className="text-2xl font-black text-white tracking-tight">執行師報表</h1>
-            <p className="text-emerald-400/60 font-bold uppercase tracking-[0.1em] text-xs mt-0.5">Coach Commission Report</p>
+            <p className="text-emerald-400/60 font-bold uppercase tracking-[0.1em] text-xs mt-0.5">
+              {coachFilter ? 'My Commission Report' : 'Coach Commission Report'}
+            </p>
           </div>
         </div>
         <button
@@ -239,7 +276,7 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={`grid gap-4 ${coachFilter ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
             <div className="space-y-2">
               <label className="text-sm font-black text-slate-300 ml-1">選擇月份</label>
               <select
@@ -254,16 +291,18 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
                 ))}
               </select>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-black text-slate-300 ml-1">選擇執行師</label>
-              <select
-                value={selectedCoach}
-                onChange={e => setSelectedCoach(e.target.value)}
-                className="w-full h-12 bg-slate-900/50 border border-emerald-500/20 rounded-xl text-white px-4 focus:ring-2 focus:ring-emerald-500/40 appearance-none cursor-pointer font-semibold"
-              >
-                {coachOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
+            {!coachFilter && (
+              <div className="space-y-2">
+                <label className="text-sm font-black text-slate-300 ml-1">選擇執行師</label>
+                <select
+                  value={selectedCoach}
+                  onChange={e => setSelectedCoach(e.target.value)}
+                  className="w-full h-12 bg-slate-900/50 border border-emerald-500/20 rounded-xl text-white px-4 focus:ring-2 focus:ring-emerald-500/40 appearance-none cursor-pointer font-semibold"
+                >
+                  {coachOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Summary Cards */}
@@ -300,6 +339,42 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
                     <div className={`text-[10px] text-${item.color}-400/60 mt-1`}>{item.note}</div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Return Amount Summary */}
+          {totalStats.games > 0 && (
+            <div className="bg-rose-500/5 border border-rose-500/30 rounded-3xl p-6 md:p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-black text-white">應繳回公司金額</h3>
+                <div className="text-right">
+                  <div className="text-3xl font-black text-rose-400">NT$ {totalReturnStats.total.toLocaleString()}</div>
+                  {totalReturnStats.promotionBonusToKeep > 0 && (
+                    <div className="text-[11px] text-slate-500 mt-1">自推保留 NT$ {totalReturnStats.promotionBonusToKeep.toLocaleString()}</div>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20">
+                  <div className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2">公司利潤 (30%)</div>
+                  <div className="text-2xl font-black text-amber-300">NT$ {totalReturnStats.companyCut.toLocaleString()}</div>
+                  <div className="text-[10px] text-amber-400/60 mt-1">必繳</div>
+                </div>
+                <div className="p-4 bg-rose-500/10 rounded-2xl border border-rose-500/20">
+                  <div className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2">賽季獎金 (10%)</div>
+                  <div className="text-2xl font-black text-rose-300">NT$ {totalReturnStats.seasonBonus.toLocaleString()}</div>
+                  <div className="text-[10px] text-rose-400/60 mt-1">必繳</div>
+                </div>
+                <div className="p-4 bg-purple-500/10 rounded-2xl border border-purple-500/20">
+                  <div className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2">推廣獎金（非自推）(20%)</div>
+                  <div className="text-2xl font-black text-purple-300">NT$ {totalReturnStats.promotionBonusToReturn.toLocaleString()}</div>
+                  <div className="text-[10px] text-purple-400/60 mt-1">
+                    {totalReturnStats.promotionBonusToKeep > 0
+                      ? `自推部分 NT$ ${totalReturnStats.promotionBonusToKeep.toLocaleString()} 不計入`
+                      : '必繳'}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -442,6 +517,36 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
                                 </div>
                               ))}
                             </div>
+
+                            {/* Return Amount for this record */}
+                            {(() => {
+                              const ret = calculateReturnAmount(record);
+                              return (
+                                <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <span className="text-sm font-black text-slate-300">應繳回公司</span>
+                                    <span className="text-xl font-black text-rose-400">NT$ {ret.total.toLocaleString()}</span>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <div className="text-center p-2 bg-amber-500/10 rounded-lg">
+                                      <div className="text-[10px] text-amber-400/70 mb-1">公司利潤 (30%)</div>
+                                      <div className="text-sm font-black text-amber-300">NT$ {ret.companyCut.toLocaleString()}</div>
+                                    </div>
+                                    <div className="text-center p-2 bg-rose-500/10 rounded-lg">
+                                      <div className="text-[10px] text-rose-400/70 mb-1">賽季獎金 (10%)</div>
+                                      <div className="text-sm font-black text-rose-300">NT$ {ret.seasonBonus.toLocaleString()}</div>
+                                    </div>
+                                    <div className="text-center p-2 bg-purple-500/10 rounded-lg">
+                                      <div className="text-[10px] text-purple-400/70 mb-1">推廣獎金 (20%)</div>
+                                      <div className="text-sm font-black text-purple-300">NT$ {ret.promotionBonusToReturn.toLocaleString()}</div>
+                                      {ret.selfReferredCount > 0 && (
+                                        <div className="text-[9px] text-slate-500 mt-0.5">自推 {ret.selfReferredCount} 人保留</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </motion.div>
                         )}
                       </AnimatePresence>
