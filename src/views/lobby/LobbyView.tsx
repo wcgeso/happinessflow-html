@@ -475,7 +475,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   }
 
   return (
-    <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none pb-safe">
+    <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none pb-safe md:overflow-auto">
       {/* Background with safe area support */}
       <div className="fixed inset-0 bg-slate-950 z-0"></div>
       
@@ -532,9 +532,9 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         </div>
       </div>
 
-      <div className="relative z-10 flex-1 flex flex-col px-6 py-4 max-w-4xl mx-auto w-full overflow-hidden">
+      <div className="relative z-10 flex-1 flex flex-col px-6 py-4 max-w-4xl mx-auto w-full overflow-hidden md:overflow-y-auto no-scrollbar">
         {/* Main Content Area - Auto Scaling */}
-        <div className="flex-1 flex flex-col justify-center gap-6 lg:gap-8">
+        <div className="flex-1 flex flex-col justify-center gap-6 lg:gap-8 md:justify-start md:pb-8">
           {/* Logo Section - Common to both modes */}
           <div className="text-center relative top-4">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight mb-2">

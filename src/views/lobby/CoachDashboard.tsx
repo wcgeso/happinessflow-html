@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Users, TrendingUp, PlusCircle, UserPlus, Search, ShieldCheck, X, Trophy, BookOpen, RefreshCw, AlertTriangle, History, FileText, ChevronRight, ChevronDown } from 'lucide-react';
+import { Play, Users, TrendingUp, PlusCircle, UserPlus, Search, ShieldCheck, X, Trophy, BookOpen, RefreshCw, AlertTriangle, History, FileText, ChevronRight, ChevronDown, ScrollText } from 'lucide-react';
 import { db } from '../../../services/firebase';
 import { collection, query, getDocs, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -133,6 +133,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [userSearchFilter, setUserSearchFilter] = useState('');
   const [userSortBy, setUserSortBy] = useState<'name' | 'email' | 'role'>('name');
+  const [showChangelog, setShowChangelog] = useState(false);
 
   // Notify parent when GM tools state changes
   useEffect(() => {
@@ -851,9 +852,135 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               查看報表
             </div>
           </button>
+
+          <button
+            onClick={() => setShowChangelog(true)}
+            className="w-full p-4 bg-sky-500/10 border border-sky-500/20 rounded-3xl flex items-center justify-between hover:bg-sky-500/20 transition-all group shadow-lg shadow-sky-500/5"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-sky-500/20 rounded-2xl flex items-center justify-center border border-sky-500/30">
+                <ScrollText size={20} className="text-sky-400" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-black text-white">系統更新日誌</div>
+                <div className="text-[10px] text-sky-400/80 font-bold uppercase tracking-widest">Changelog</div>
+              </div>
+            </div>
+            <div className="px-3 py-1 bg-sky-500/20 rounded-full text-[10px] font-black text-sky-400 border border-sky-500/30 uppercase">
+              查看日誌
+            </div>
+          </button>
         </div>
       )}
 
+
+      {/* Changelog Modal */}
+      <AnimatePresence>
+        {showChangelog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10002] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-6"
+            onClick={() => setShowChangelog(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 border border-slate-800 rounded-[32px] max-w-sm w-full shadow-2xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-sky-500/20 rounded-2xl flex items-center justify-center border border-sky-500/30">
+                    <ScrollText size={20} className="text-sky-400" />
+                  </div>
+                  <div>
+                    <div className="text-base font-black text-white">系統更新日誌</div>
+                    <div className="text-[10px] text-sky-400/80 font-bold uppercase tracking-widest">Changelog</div>
+                  </div>
+                </div>
+                <button onClick={() => setShowChangelog(false)} className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
+                {[
+                  {
+                    version: 'v1.4.0',
+                    date: '2026-05-02',
+                    color: 'sky',
+                    items: [
+                      '新增邀請碼系統：每位用戶自動生成專屬邀請碼',
+                      '支援多層推廣鏈結，推廣獎金自動歸屬最近執行師',
+                      '執行師升格後自動更新下線的歸屬',
+                      '新增「用戶推廣名單」總表（GM 控制台）',
+                      '新增系統更新日誌入口',
+                    ],
+                  },
+                  {
+                    version: 'v1.3.0',
+                    date: '2026-04-28',
+                    color: 'violet',
+                    items: [
+                      '新增 PWA 安裝引導：iOS 步驟說明 + Android 原生安裝',
+                      '修復個人彈窗在桌面版無法捲動的問題',
+                      '邀請碼區塊拆分為「複製邀請碼」與「分享連結」兩個按鈕',
+                    ],
+                  },
+                  {
+                    version: 'v1.2.0',
+                    date: '2026-04-20',
+                    color: 'emerald',
+                    items: [
+                      '排行榜積分改為遊戲結算積分的累加（rankScore）',
+                      '修復排行榜顯示體驗值而非遊戲積分的問題',
+                    ],
+                  },
+                  {
+                    version: 'v1.1.0',
+                    date: '2026-04-10',
+                    color: 'amber',
+                    items: [
+                      '新增 GM 控制台：用戶管理、角色調整',
+                      '新增執行師報表功能',
+                      '新增好友系統與排行榜',
+                    ],
+                  },
+                  {
+                    version: 'v1.0.0',
+                    date: '2026-03-01',
+                    color: 'slate',
+                    items: [
+                      '蜂富人生 HappinessFlow 正式上線',
+                      '基礎遊戲功能：創建房間、遊戲結算',
+                      '用戶驗證與個人檔案',
+                    ],
+                  },
+                ].map(log => (
+                  <div key={log.version} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-black px-2 py-0.5 rounded-full bg-${log.color}-500/20 text-${log.color}-400 border border-${log.color}-500/30`}>
+                        {log.version}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-mono">{log.date}</span>
+                    </div>
+                    <ul className="space-y-1 pl-2">
+                      {log.items.map((item, i) => (
+                        <li key={i} className="text-xs text-slate-300 flex items-start gap-2">
+                          <span className="text-slate-500 mt-0.5">•</span>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Clear Scores Confirmation Modal */}
       <AnimatePresence>

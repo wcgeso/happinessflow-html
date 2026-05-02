@@ -711,7 +711,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
                                 {showReferralTree && (
                                     <div className="mt-3 border-t border-slate-800 pt-3">
                                         {referralChildren.length === 0 ? (
-                                            <p className="text-[10px] text-slate-600 text-center py-2">尚無下線</p>
+                                            <p className="text-[10px] text-slate-600 text-center py-2">尚無玩家</p>
                                         ) : (
                                             referralChildren.map(child => (
                                                 <ReferralNode key={child.id} uid={child.id} name={child.name} role={child.role} depth={0} />
