@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Users, TrendingUp, PlusCircle, UserPlus, Search, ShieldCheck, X, Trophy, BookOpen, RefreshCw, AlertTriangle, History, FileText, ChevronRight, ChevronDown, ScrollText } from 'lucide-react';
 import { db } from '../../../services/firebase';
-import { collection, query, getDocs, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth, isGM } from '../../context/AuthContext';
 import SafeImage from '../../components/common/SafeImage';
@@ -115,7 +115,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   onViewFriends,
   onViewLeaderboard,
   onViewTutorial,
-  userStats,
+  userStats: _userStats,
   isGMMode = false,
   onGMToolsStateChange,
   onViewCoachReport
@@ -134,6 +134,22 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   const [userSearchFilter, setUserSearchFilter] = useState('');
   const [userSortBy, setUserSortBy] = useState<'name' | 'email' | 'role'>('name');
   const [showChangelog, setShowChangelog] = useState(false);
+  const [coachSessionCount, setCoachSessionCount] = useState<number | null>(null);
+
+  // 從 coach_records 讀取該執行師的實際帶局場次
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    const fetchCoachSessions = async () => {
+      const q = query(
+        collection(db, 'coach_records'),
+        where('coachId', '==', currentUser.uid),
+        where('isFinal', '==', true)
+      );
+      const snap = await safeAsync(getDocs(q));
+      if (snap) setCoachSessionCount(snap.size);
+    };
+    fetchCoachSessions();
+  }, [currentUser?.uid]);
 
   // Notify parent when GM tools state changes
   useEffect(() => {
@@ -1113,7 +1129,9 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 bg-slate-900/50 border border-slate-800/50 rounded-2xl backdrop-blur-sm flex items-center justify-between text-left relative overflow-hidden">
                 <div>
                   <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">執行總場次</div>
-                  <div className="text-3xl font-black text-amber-500">{userStats.totalGames}</div>
+                  <div className="text-3xl font-black text-amber-500">
+                    {coachSessionCount === null ? '—' : coachSessionCount}
+                  </div>
                 </div>
                 <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center border border-amber-500/20">
                   <TrendingUp size={24} className="text-amber-500" />
