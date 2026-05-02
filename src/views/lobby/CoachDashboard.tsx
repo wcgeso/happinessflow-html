@@ -1023,6 +1023,14 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v1.4.1',
+                    date: '2026-05-02',
+                    color: 'teal',
+                    items: [
+                      '個人頁面「推廣玩家」區塊改為僅執行師身份可見',
+                    ],
+                  },
+                  {
                     version: 'v1.4.0',
                     date: '2026-05-02',
                     color: 'sky',

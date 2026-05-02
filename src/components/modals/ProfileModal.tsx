@@ -692,8 +692,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
                                 )}
                             </div>
 
-                            {/* 下線名單 */}
-                            <div className="p-4 bg-slate-950/30 border border-slate-800/50 rounded-2xl">
+                            {/* 下線名單（僅執行師可見） */}
+                            {displayUser?.role === 'coach' && <div className="p-4 bg-slate-950/30 border border-slate-800/50 rounded-2xl">
                                 <button
                                     onClick={handleToggleReferralTree}
                                     className="w-full flex items-center justify-between"
@@ -719,7 +719,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
                                         )}
                                     </div>
                                 )}
-                            </div>
+                            </div>}
 
                             {/* 手動綁定邀請人（尚未綁定時顯示） */}
                             {!displayUser.referredBy && (
