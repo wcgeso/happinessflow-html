@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Trophy, Medal, Star, Target, Crown } from 'lucide-react';
 import SafeImage from '../common/SafeImage';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
 import { safeAsync } from '../../utils/utils';
 import { useAuth, getUserTitle } from '../../context/AuthContext';
@@ -35,7 +35,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
       try {
         setLoading(true);
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, orderBy('rankScore', 'desc'), limit(50));
+        const q = query(usersRef, limit(500));
         const querySnapshot = await safeAsync(getDocs(q));
 
         if (!querySnapshot) {
@@ -43,10 +43,14 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
           return;
         }
 
+        const sortedDocs = [...querySnapshot.docs].sort(
+          (a, b) => (b.data().rankScore || 0) - (a.data().rankScore || 0)
+        ).slice(0, 50);
+
         const fetchedRankings: RankingUser[] = [];
         let foundCurrentUser = false;
 
-        querySnapshot.docs.forEach((doc, index) => {
+        sortedDocs.forEach((doc, index) => {
           const data = doc.data();
           const rank = index + 1;
           const isMe = data.uid === currentUser?.uid;
