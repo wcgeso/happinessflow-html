@@ -14,6 +14,7 @@ import { auth, googleProvider, appleProvider, storage, db } from '../../services
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { safeAsync } from '../utils/utils';
+import { generateInviteCode, findUserByInviteCode, computeEffectiveCoachId } from '../utils/referralUtils';
 
 interface User {
     uid: string;
@@ -26,6 +27,10 @@ interface User {
     creationTime?: string;
     title?: string;
     experience?: number; // 場次或積分
+    rankScore?: number; // 排行榜積分：遊戲結算積分的累加
+    inviteCode?: string;
+    referredBy?: string;
+    effectiveCoachId?: string;
 }
 
 export const isGM = (user: User | null): boolean => {
@@ -173,7 +178,8 @@ interface AuthContextValue {
     login: (email: string, password: string) => Promise<void>;
     loginWithGoogle: () => Promise<void>;
     loginWithApple: () => Promise<void>;
-    register: (email: string, password: string, playerName: string) => Promise<void>;
+    register: (email: string, password: string, playerName: string, refCode?: string) => Promise<void>;
+    bindReferral: (inviteCode: string) => Promise<{ success: boolean; referrerName?: string; error?: string }>;
     updateUserProfile: (name?: string, photoURL?: string, photoPosition?: string, photoScale?: string) => Promise<void>;
     uploadAvatar: (file: File) => Promise<string>;
     logout: () => Promise<void>;
@@ -234,6 +240,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         if (data.photoScale) basicUserInfo.photoScale = data.photoScale;
                         if (data.title) basicUserInfo.title = data.title;
                         if (data.experience !== undefined) basicUserInfo.experience = data.experience;
+                        if (data.rankScore !== undefined) basicUserInfo.rankScore = data.rankScore;
+                        if (data.inviteCode) {
+                            basicUserInfo.inviteCode = data.inviteCode;
+                        } else {
+                            // 舊帳號補齊邀請碼
+                            const newCode = generateInviteCode();
+                            basicUserInfo.inviteCode = newCode;
+                            safeAsync(updateDoc(doc(db, 'users', firebaseUser.uid), { inviteCode: newCode }));
+                        }
+                        if (data.referredBy) basicUserInfo.referredBy = data.referredBy;
+                        if (data.effectiveCoachId) basicUserInfo.effectiveCoachId = data.effectiveCoachId;
                     } else {
                         // 如果 Firestore 還沒資料（例如透過 Google/Apple 第三方登入），自動建立初始資料
                         const isGM = firebaseUser.email?.toLowerCase() === 'gm0221@happinessflow.com';
@@ -322,32 +339,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const register = async (email: string, password: string, playerName: string) => {
+    const register = async (email: string, password: string, playerName: string, refCode?: string) => {
         setIsLoadingAuth(true);
         try {
             const userCredential = await safeAsync(createUserWithEmailAndPassword(auth, email, password), null, (err) => { throw err; });
             if (!userCredential) return;
-            
+
             const nickname = playerName.trim() || email.split('@')[0];
             const isGM = email.toLowerCase() === 'gm0221@happinessflow.com';
             const role = isGM ? 'coach' : 'player';
             const title = isGM ? '遊戲管理員' : '';
-            
-            await safeAsync(updateProfile(userCredential.user, { 
+            const inviteCode = generateInviteCode();
+
+            // 處理邀請碼綁定
+            let referredBy: string | undefined;
+            let effectiveCoachId: string | undefined;
+            if (refCode) {
+                const referrer = await findUserByInviteCode(refCode);
+                if (referrer && referrer.uid !== userCredential.user.uid) {
+                    referredBy = referrer.uid;
+                    if (referrer.role === 'coach' || referrer.role === 'gm') {
+                        effectiveCoachId = referrer.uid;
+                    } else {
+                        effectiveCoachId = (await computeEffectiveCoachId(referrer.uid)) || undefined;
+                    }
+                }
+            }
+
+            await safeAsync(updateProfile(userCredential.user, {
                 displayName: nickname,
                 photoURL: 'bee'
             }));
-            
-            // 在 Firestore 中建立使用者資料
+
             await safeAsync(setDoc(doc(db, 'users', userCredential.user.uid), {
                 uid: userCredential.user.uid,
                 email: userCredential.user.email,
                 name: nickname,
                 role: role,
                 title: title,
-                photoURL: 'bee'
+                photoURL: 'bee',
+                inviteCode,
+                ...(referredBy && { referredBy }),
+                ...(effectiveCoachId && { effectiveCoachId })
             }, { merge: true }));
-            
+
             setUser({
                 uid: userCredential.user.uid,
                 email: userCredential.user.email || '',
@@ -355,14 +390,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 role: role,
                 title: title,
                 photoURL: 'bee',
+                inviteCode,
+                referredBy,
+                effectiveCoachId,
                 creationTime: userCredential.user.metadata.creationTime
             });
         } catch (error: any) {
             console.error('註冊錯誤:', error);
-            throw error; // 直接拋出原始錯誤
+            throw error;
         } finally {
             setIsLoadingAuth(false);
         }
+    };
+
+    const bindReferral = async (inviteCode: string): Promise<{ success: boolean; referrerName?: string; error?: string }> => {
+        if (!auth.currentUser || !user) return { success: false, error: '未登入' };
+        if (user.referredBy) return { success: false, error: '已綁定邀請人，無法更改' };
+
+        const referrer = await findUserByInviteCode(inviteCode);
+        if (!referrer) return { success: false, error: '找不到此邀請碼' };
+        if (referrer.uid === user.uid) return { success: false, error: '不能使用自己的邀請碼' };
+
+        let effectiveCoachId: string | undefined;
+        if (referrer.role === 'coach' || referrer.role === 'gm') {
+            effectiveCoachId = referrer.uid;
+        } else {
+            effectiveCoachId = (await computeEffectiveCoachId(referrer.uid)) || undefined;
+        }
+
+        await updateDoc(doc(db, 'users', user.uid), {
+            referredBy: referrer.uid,
+            ...(effectiveCoachId && { effectiveCoachId })
+        });
+        setUser(prev => prev ? { ...prev, referredBy: referrer.uid, effectiveCoachId } : prev);
+        return { success: true, referrerName: referrer.name };
     };
 
     const updateUserProfile = async (name?: string, photoURL?: string, photoPosition?: string, photoScale?: string) => {
@@ -450,6 +511,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithGoogle,
         loginWithApple,
         register,
+        bindReferral,
         updateUserProfile,
         uploadAvatar,
         logout

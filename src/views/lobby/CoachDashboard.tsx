@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Users, TrendingUp, PlusCircle, UserPlus, Search, ShieldCheck, X, Trophy, BookOpen, RefreshCw, AlertTriangle, History, FileText } from 'lucide-react';
+import { Play, Users, TrendingUp, PlusCircle, UserPlus, Search, ShieldCheck, X, Trophy, BookOpen, RefreshCw, AlertTriangle, History, FileText, ChevronRight, ChevronDown } from 'lucide-react';
 import { db } from '../../../services/firebase';
 import { collection, query, getDocs, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,6 +7,7 @@ import { useAuth, isGM } from '../../context/AuthContext';
 import SafeImage from '../../components/common/SafeImage';
 import { Button, Input } from '../../components/ui/ui';
 import { safeAsync } from '../../utils/utils';
+import { handlePromotionToCoach } from '../../utils/referralUtils';
 
 interface CoachDashboardProps {
   onCreateGame: () => void;
@@ -20,6 +21,92 @@ interface CoachDashboardProps {
   onGMToolsStateChange?: (isOpen: boolean) => void;
   onViewCoachReport?: () => void;
 }
+
+// ── 推廣名單樹節點 ──────────────────────────────────────────
+const ReferralTreeNode: React.FC<{ user: any; allUsers: any[]; depth: number }> = ({ user, allUsers, depth }) => {
+  const [expanded, setExpanded] = React.useState(false);
+  const children = allUsers.filter(u => u.referredBy === user.id);
+  const roleLabel = user.title === '遊戲管理員' ? '管理員' : user.role === 'coach' ? '執行師' : '玩家';
+  const roleColor = user.role === 'coach' ? 'text-amber-400' : 'text-slate-400';
+
+  return (
+    <div className={depth > 0 ? 'ml-5 border-l border-slate-700/40 pl-3' : ''}>
+      <div className="flex items-center gap-2 py-1.5 group">
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="w-5 h-5 flex items-center justify-center text-slate-500 hover:text-slate-300 transition-colors shrink-0"
+        >
+          {children.length > 0 ? (
+            expanded
+              ? <ChevronDown size={13} />
+              : <ChevronRight size={13} />
+          ) : (
+            <span className="w-1 h-1 rounded-full bg-slate-700 inline-block" />
+          )}
+        </button>
+        <span className="text-xs font-bold text-white truncate max-w-[140px]">{user.name || '未設定'}</span>
+        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 ${roleColor}`}>{roleLabel}</span>
+        {children.length > 0 && (
+          <span className="text-[9px] text-slate-500 font-bold ml-auto shrink-0">{children.length} 位</span>
+        )}
+      </div>
+      {expanded && children.map(child => (
+        <ReferralTreeNode key={child.id} user={child} allUsers={allUsers} depth={depth + 1} />
+      ))}
+    </div>
+  );
+};
+
+// ── 推廣名單頁籤 ────────────────────────────────────────────
+const ReferralListTab: React.FC<{ allUsers: any[] }> = ({ allUsers }) => {
+  const [filter, setFilter] = React.useState('');
+
+  // 只顯示有至少一位直接下線的用戶作為根節點
+  const rootReferrers = allUsers.filter(u => {
+    const hasReferrals = allUsers.some(x => x.referredBy === u.id);
+    if (!hasReferrals) return false;
+    if (!filter) return true;
+    return u.name?.toLowerCase().includes(filter.toLowerCase()) ||
+           u.email?.toLowerCase().includes(filter.toLowerCase());
+  }).sort((a, b) => {
+    const aCount = allUsers.filter(x => x.referredBy === a.id).length;
+    const bCount = allUsers.filter(x => x.referredBy === b.id).length;
+    return bCount - aCount;
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-slate-500 font-bold mt-0.5">共 {rootReferrers.length} 位用戶有推廣玩家</p>
+        </div>
+        <div className="relative w-56">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+          <input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="搜尋用戶..."
+            className="w-full pl-8 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+      </div>
+
+      {allUsers.length === 0 ? (
+        <div className="text-center py-12 text-slate-500 font-bold text-sm">請先切換到「用戶列表」頁籤以載入資料</div>
+      ) : rootReferrers.length === 0 ? (
+        <div className="text-center py-12 text-slate-500 font-bold text-sm">目前無用戶有推廣玩家</div>
+      ) : (
+        <div className="space-y-2">
+          {rootReferrers.map(user => (
+            <div key={user.id} className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+              <ReferralTreeNode user={user} allUsers={allUsers} depth={0} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   onCreateGame,
@@ -42,7 +129,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   const [showClearScoresConfirm, setShowClearScoresConfirm] = useState(false);
   const [gmStats, setGmStats] = useState({ totalUsers: 0, totalCoaches: 0, totalAdmins: 0, totalPlayers: 0 });
   const [searchEmail, setSearchEmail] = useState('');
-  const [gmTab, setGmTab] = useState<'manage' | 'users'>('manage');
+  const [gmTab, setGmTab] = useState<'manage' | 'users' | 'referrals'>('manage');
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [userSearchFilter, setUserSearchFilter] = useState('');
   const [userSortBy, setUserSortBy] = useState<'name' | 'email' | 'role'>('name');
@@ -194,6 +281,13 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
         updatedAt: new Date().toISOString()
       }, { merge: true }));
 
+      // 玩家升格為執行師時，自動將其下線的 effectiveCoachId 轉移到本人
+      if (newRole === 'coach') {
+        handlePromotionToCoach(searchResult.id).catch(e =>
+          console.error('升格轉移下線失敗:', e)
+        );
+      }
+
       setSearchResult({ ...searchResult, role: newRole });
       fetchStats(); // 重新獲取統計數據
       showToast(`已成功更新身分為：${newRole === 'coach' ? '執行師' : '玩家'}`, 'success');
@@ -275,7 +369,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
 
         chunk.forEach(uid => {
           const userRef = doc(db, 'users', uid);
-          currentBatch.set(userRef, { experience: playerScores[uid] }, { merge: true });
+          currentBatch.set(userRef, { experience: playerScores[uid], rankScore: playerScores[uid] }, { merge: true });
         });
 
         await currentBatch.commit();
@@ -310,7 +404,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
       for (let i = 0; i < userIds.length; i += batchSize) {
         const currentBatch = writeBatch(db);
         userIds.slice(i, i + batchSize).forEach(uid => {
-          currentBatch.set(doc(db, 'users', uid), { experience: 0 }, { merge: true });
+          currentBatch.set(doc(db, 'users', uid), { experience: 0, rankScore: 0 }, { merge: true });
         });
         await currentBatch.commit();
       }
@@ -404,10 +498,18 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                     >
                       用戶列表
                     </button>
+                    <button
+                      onClick={() => setGmTab('referrals')}
+                      className={`px-6 py-3 font-black text-sm uppercase tracking-wider transition-all ${gmTab === 'referrals' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
+                    >
+                      用戶推廣名單
+                    </button>
                   </div>
 
                   {/* Tab Content */}
-                  {gmTab === 'manage' ? (
+                  {gmTab === 'referrals' ? (
+                    <ReferralListTab allUsers={allUsers} />
+                  ) : gmTab === 'manage' ? (
                     <>
                       {/* Search Area */}
                       <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-[32px] p-8 md:p-10 space-y-6">

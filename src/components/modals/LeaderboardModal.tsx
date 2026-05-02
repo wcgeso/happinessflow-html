@@ -35,7 +35,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
       try {
         setLoading(true);
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, orderBy('experience', 'desc'), limit(50));
+        const q = query(usersRef, orderBy('rankScore', 'desc'), limit(50));
         const querySnapshot = await safeAsync(getDocs(q));
 
         if (!querySnapshot) {
@@ -59,7 +59,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
           fetchedRankings.push({
             id: doc.id,
             name: data.name || '神秘玩家',
-            score: data.experience || 0,
+            score: data.rankScore || 0,
             title: getUserTitle(data as any),
             avatar: data.photoURL || 'bee',
             rank: rank,
@@ -70,7 +70,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
         setRankings(fetchedRankings);
 
         // 如果前50名沒找到自己，且自己有積分，則顯示在下方
-        if (!foundCurrentUser && currentUser?.experience) {
+        if (!foundCurrentUser && currentUser?.rankScore) {
           // 這裡簡化處理，實際排名可能需要額外查詢 count
           setCurrentUserRank(null);
         }
@@ -204,7 +204,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
             </div>
             <div className="text-right">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">目前積分</p>
-              <p className="text-base font-black text-blue-500">{(currentUser?.experience || 0).toLocaleString()}</p>
+              <p className="text-base font-black text-blue-500">{(currentUser?.rankScore || 0).toLocaleString()}</p>
             </div>
           </div>
         </div>

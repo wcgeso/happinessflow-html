@@ -189,7 +189,8 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                     const userRef = doc(db, 'users', player.uid);
                     try {
                         await safeAsync(updateDoc(userRef, {
-                            experience: increment(player.totalScore)
+                            experience: increment(player.totalScore),
+                            rankScore: increment(player.totalScore)
                         }));
                     } catch (e) {
                         console.error(`Failed to update experience for user ${player.uid}`, e);

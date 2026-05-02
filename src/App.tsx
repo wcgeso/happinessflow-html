@@ -6,6 +6,7 @@ import { VERSION_DISPLAY } from './constants/version';
 import { DeveloperPortal } from './views/lobby/DeveloperPortal';
 import { Terminal, ShieldCheck, UserCircle, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { InstallPromptBanner } from './components/modals/InstallPromptBanner';
 
 // Lazy load views
 const AuthView = React.lazy(() => import('./views/auth/AuthView').then(module => ({ default: module.AuthView })));
@@ -717,6 +718,7 @@ export default function App() {
                 <GameProvider>
                     <div className="flex-1 w-full h-full overflow-hidden bg-slate-950 select-none touch-none flex flex-col">
                         <AppContent />
+                        <InstallPromptBanner />
                     </div>
                 </GameProvider>
             </RoomProvider>

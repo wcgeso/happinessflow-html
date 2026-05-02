@@ -239,6 +239,7 @@ export interface UserPublicInfo {
   photoScale?: string;
   title?: string;
   experience?: number;
+  rankScore?: number;
   status?: 'online' | 'offline' | 'playing';
 }
 

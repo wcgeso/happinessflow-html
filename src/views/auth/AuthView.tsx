@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Button, Input } from '../../components/ui/ui';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowRight, UserPlus, LogIn, AlertCircle } from 'lucide-react';
+import { ArrowRight, UserPlus, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { VERSION_DISPLAY, IS_DEV_VERSION } from '../../constants/version';
 import SafeImage from '../../components/common/SafeImage';
+import { findUserByInviteCode } from '../../utils/referralUtils';
 
 export const AuthView: React.FC = () => {
     const { login, register, loginWithGoogle, loginWithApple } = useAuth();
@@ -15,6 +16,18 @@ export const AuthView: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [isAppleLoading, setIsAppleLoading] = useState(false);
+    const [pendingRefCode, setPendingRefCode] = useState<string | null>(null);
+    const [referrerName, setReferrerName] = useState<string | null>(null);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const ref = params.get('ref');
+        if (ref) {
+            setPendingRefCode(ref);
+            setIsLogin(false);
+            findUserByInviteCode(ref).then(u => { if (u) setReferrerName(u.name); });
+        }
+    }, []);
 
     const translateFirebaseError = (code: string) => {
         switch (code) {
@@ -92,7 +105,7 @@ export const AuthView: React.FC = () => {
                     }
                 }
             } else {
-                await register(finalEmail, finalPassword, name);
+                await register(finalEmail, finalPassword, name, pendingRefCode || undefined);
             }
         } catch (err: any) {
             let errorMessage = translateFirebaseError(err.code);
@@ -186,36 +199,37 @@ export const AuthView: React.FC = () => {
         <div className="flex-1 w-full bg-slate-950 relative overflow-hidden">
             {/* Background Elements */}
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-900/20 via-slate-950 to-black z-0"></div>
-            <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full"></div>
-            <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-600/10 blur-[120px] rounded-full"></div>
+            <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-amber-700/10 blur-[120px] rounded-full"></div>
+            <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-amber-600/8 blur-[120px] rounded-full"></div>
 
             {/* Scrollable Content Wrapper */}
             <div className="absolute inset-0 overflow-y-auto no-scrollbar flex flex-col items-center px-4 pt-safe pb-safe">
-                <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-700 my-auto py-10">
-                    <div className="text-center mb-6 md:mb-10">
-                    {/* Circular Icon Container */}
-                    <div className="inline-flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-b from-amber-300 to-amber-600 shadow-[0_0_40px_rgba(245,158,11,0.2)] mb-4 md:mb-6 relative group transition-transform hover:scale-105 duration-500">
-                        <div className="absolute inset-0 rounded-full bg-amber-400/10 blur-xl group-hover:blur-2xl transition-all"></div>
-                        <span className="text-4xl md:text-5xl relative z-10 drop-shadow-xl select-none">🐝</span>
+                <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-700 my-auto py-8">
+                    <div className="text-center mb-6 md:mb-8 flex flex-col items-center gap-0">
+                    {/* App Logo */}
+                    <div className="relative group transition-transform hover:scale-105 duration-500">
+                        {/* Gold glow */}
+                        <div className="absolute inset-0 bg-amber-400/10 blur-3xl group-hover:bg-amber-400/20 transition-all duration-500 scale-110"></div>
+                        <img
+                            src="/logo.png?v=2"
+                            alt="蜂富人生"
+                            className="w-64 md:w-72 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)]"
+                        />
                     </div>
 
-                    {/* Gradient Title */}
-                    <h1 className="text-4xl md:text-5xl font-black mb-2 bg-clip-text text-transparent bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight">
-                        蜂富人生
-                    </h1>
-
-                    {/* English Subtitle */}
-                    <div className="flex items-center justify-center gap-2 mb-3">
-                        <div className="h-[1px] w-5 bg-gradient-to-r from-transparent to-amber-500/40"></div>
-                        <span className="text-amber-500/80 font-bold tracking-[0.25em] text-[9px] uppercase">Happiness Flow</span>
-                        <div className="h-[1px] w-5 bg-gradient-to-l from-transparent to-amber-500/40"></div>
+                    {/* English title & tagline */}
+                    <div className="flex items-center justify-center gap-2.5 mt-5">
+                        <div className="h-[1px] flex-1 max-w-[40px] bg-gradient-to-r from-transparent to-amber-500/50"></div>
+                        <span className="text-amber-400 font-black tracking-[0.3em] text-[10px] md:text-[11px] uppercase">Happiness Flow</span>
+                        <div className="h-[1px] flex-1 max-w-[40px] bg-gradient-to-l from-transparent to-amber-500/50"></div>
                     </div>
 
-                    <p className="bg-clip-text text-transparent bg-gradient-to-b from-white via-amber-100 to-amber-500 font-bold text-xs tracking-wide">財務是為了實現幸福的人生而服務</p>
+                    <p className="text-amber-400/80 text-[11px] md:text-xs tracking-widest font-medium mt-1">財務是為了實現幸福的人生而服務</p>
                 </div>
 
-                <Card className="bg-slate-900/40 backdrop-blur-2xl border-white/5 p-5 md:p-6 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-amber-500/20 to-transparent"></div>
+                <Card className="bg-slate-900/50 backdrop-blur-2xl border-white/[0.07] p-5 md:p-6 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)] relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-amber-500/30 to-transparent"></div>
+                    <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-amber-500/10 to-transparent"></div>
 
                     {error && (
                         <div className="mb-4 md:mb-6 p-3 md:p-4 bg-rose-500/10 border-l-4 border-rose-500 rounded-r-xl text-rose-200 text-xs md:text-sm font-bold flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-300 shadow-[0_4px_20px_rgba(244,63,94,0.15)]">
@@ -233,6 +247,15 @@ export const AuthView: React.FC = () => {
                             </div>
                             <span className="tracking-tight">建立新帳號</span>
                         </h2>
+                    )}
+
+                    {!isLogin && pendingRefCode && (
+                        <div className="mb-4 flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                            <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                            <span className="text-emerald-400 font-bold text-xs">
+                                {referrerName ? `由 ${referrerName} 邀請加入` : '使用邀請連結加入'}
+                            </span>
+                        </div>
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
