@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, FileText, TrendingUp, Users, DollarSign, Calendar } from 'lucide-react';
+import { X, FileText, Calendar, ChevronDown, ChevronRight, Users } from 'lucide-react';
 import { db } from '../../../services/firebase';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { safeAsync } from '../../utils/utils';
-import { Button } from '../../components/ui/ui';
 import { CoachRecord } from '../../types';
 
 interface CoachReportViewProps {
@@ -12,24 +11,32 @@ interface CoachReportViewProps {
 }
 
 interface GroupedData {
-  [coachId: string]: {
-    coachName: string;
-    records: CoachRecord[];
-  };
+  [coachId: string]: { coachName: string; records: CoachRecord[] };
 }
 
 interface MonthData {
-  [month: string]: {
-    records: CoachRecord[];
-    coaches: GroupedData;
-  };
+  [month: string]: { records: CoachRecord[]; coaches: GroupedData };
+}
+
+interface UserInfo {
+  id: string;
+  name: string;
+  role: string;
+  referredBy?: string;
+  effectiveCoachId?: string;
+}
+
+interface PlayerReferralInfo {
+  playerName: string;
+  referrer: UserInfo | null;
+  effectiveCoach: UserInfo | null;
 }
 
 const PLAYER_FEE = 500;
-const COACH_CUT = 0.4; // 40%
-const COMPANY_CUT = 0.3; // 30%
-const PROMOTION_BONUS = 0.2; // 20%
-const SEASON_BONUS = 0.1; // 10%
+const COACH_CUT = 0.4;
+const COMPANY_CUT = 0.3;
+const PROMOTION_BONUS = 0.2;
+const SEASON_BONUS = 0.1;
 
 export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
   const [records, setRecords] = useState<CoachRecord[]>([]);
@@ -38,68 +45,88 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
   const [selectedCoach, setSelectedCoach] = useState<string>('all');
   const [expandedRecord, setExpandedRecord] = useState<string | null>(null);
 
+  // uid -> UserInfo map
+  const [userMap, setUserMap] = useState<Record<string, UserInfo>>({});
+  // sessionId -> playerUids map (from score_records)
+  const [sessionPlayerUids, setSessionPlayerUids] = useState<Record<string, string[]>>({});
+
   useEffect(() => {
-    fetchCoachRecords();
+    fetchAll();
   }, []);
 
-  const fetchCoachRecords = async () => {
+  const fetchAll = async () => {
     setIsLoading(true);
     try {
-      const recordsRef = collection(db, 'coach_records');
-      const recordsSnap = await safeAsync(getDocs(recordsRef));
-      if (!recordsSnap) {
-        setIsLoading(false);
-        return;
+      const [coachSnap, scoreSnap, usersSnap] = await Promise.all([
+        safeAsync(getDocs(collection(db, 'coach_records'))),
+        safeAsync(getDocs(collection(db, 'score_records', 'S1', 'records'))),
+        safeAsync(getDocs(collection(db, 'users'))),
+      ]);
+
+      // Build user map
+      if (usersSnap) {
+        const map: Record<string, UserInfo> = {};
+        usersSnap.docs.forEach(d => {
+          const data = d.data();
+          map[d.id] = {
+            id: d.id,
+            name: data.name || '未知用戶',
+            role: data.role || 'player',
+            referredBy: data.referredBy,
+            effectiveCoachId: data.effectiveCoachId,
+          };
+        });
+        setUserMap(map);
       }
 
-      const fetchedRecords = recordsSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as CoachRecord[];
+      // Build sessionId -> playerUids map
+      if (scoreSnap) {
+        const uidMap: Record<string, string[]> = {};
+        scoreSnap.docs.forEach(d => {
+          const data = d.data();
+          if (data.playerUids?.length) {
+            uidMap[d.id] = data.playerUids;
+          } else if (data.players?.length) {
+            uidMap[d.id] = data.players.map((p: any) => p.uid).filter(Boolean);
+          }
+        });
+        setSessionPlayerUids(uidMap);
+      }
 
-      // Sort by timestamp descending
-      fetchedRecords.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-      setRecords(fetchedRecords);
-
-      // Set initial month to latest
-      if (fetchedRecords.length > 0) {
-        const latestDate = new Date(fetchedRecords[0].date);
-        const month = `${latestDate.getFullYear()}-${String(latestDate.getMonth() + 1).padStart(2, '0')}`;
-        setSelectedMonth(month);
+      // Coach records
+      if (coachSnap) {
+        const fetched = coachSnap.docs.map(d => ({ id: d.id, ...d.data() })) as CoachRecord[];
+        fetched.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        setRecords(fetched);
+        if (fetched.length > 0) {
+          const latestDate = new Date(fetched[0].date);
+          setSelectedMonth(`${latestDate.getFullYear()}-${String(latestDate.getMonth() + 1).padStart(2, '0')}`);
+        }
       }
     } catch (error) {
-      console.error('Error fetching coach records:', error);
+      console.error('Error fetching report data:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getMonthFromDate = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  const getMonthFromDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   };
 
   const organizeDataByMonth = (): MonthData => {
     const grouped: MonthData = {};
-
     records.forEach(record => {
       const month = getMonthFromDate(record.date);
-      if (!grouped[month]) {
-        grouped[month] = { records: [], coaches: {} };
-      }
+      if (!grouped[month]) grouped[month] = { records: [], coaches: {} };
       grouped[month].records.push(record);
-
-      // Group by coach
       const coachId = record.coachId;
       if (!grouped[month].coaches[coachId]) {
-        grouped[month].coaches[coachId] = {
-          coachName: record.coachName,
-          records: []
-        };
+        grouped[month].coaches[coachId] = { coachName: record.coachName, records: [] };
       }
       grouped[month].coaches[coachId].records.push(record);
     });
-
     return grouped;
   };
 
@@ -110,8 +137,32 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
       coachCut: Math.round(total * COACH_CUT),
       companyCut: Math.round(total * COMPANY_CUT),
       promotionBonus: Math.round(total * PROMOTION_BONUS),
-      seasonBonus: Math.round(total * SEASON_BONUS)
+      seasonBonus: Math.round(total * SEASON_BONUS),
     };
+  };
+
+  // Build referral chain info for each player in a session
+  const getPlayerReferralInfos = (sessionId: string, players: { name: string }[]): PlayerReferralInfo[] => {
+    const uids = sessionPlayerUids[sessionId] || [];
+    return players.map((p, idx) => {
+      const uid = uids[idx];
+      if (!uid || !userMap[uid]) {
+        return { playerName: p.name, referrer: null, effectiveCoach: null };
+      }
+      const playerUser = userMap[uid];
+      const referrer = playerUser.referredBy ? (userMap[playerUser.referredBy] || null) : null;
+      let effectiveCoach: UserInfo | null = null;
+      if (referrer && referrer.role !== 'coach' && referrer.role !== 'gm') {
+        const ecId = playerUser.effectiveCoachId || referrer?.effectiveCoachId;
+        effectiveCoach = ecId ? (userMap[ecId] || null) : null;
+      }
+      return { playerName: p.name, referrer, effectiveCoach };
+    });
+  };
+
+  const roleLabel = (role: string) => {
+    if (role === 'coach' || role === 'gm') return { text: '執行師', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' };
+    return { text: '玩家', color: 'text-slate-400 bg-slate-800/80 border-slate-700' };
   };
 
   const monthlyData = organizeDataByMonth();
@@ -123,7 +174,7 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
         { id: 'all', name: '全部執行師' },
         ...Object.entries(currentMonthData.coaches)
           .sort((a, b) => a[1].coachName.localeCompare(b[1].coachName))
-          .map(([id, data]) => ({ id, name: data.coachName }))
+          .map(([id, data]) => ({ id, name: data.coachName })),
       ]
     : [];
 
@@ -136,7 +187,6 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
     coachRecords = currentMonthData.coaches[selectedCoach] || { coachName: '全部執行師', records: [] };
   }
 
-  // Calculate totals
   const totalStats = coachRecords.records.reduce(
     (acc, record) => {
       const fees = calculateFees(record.playerCount);
@@ -147,7 +197,7 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
         coachPayment: acc.coachPayment + fees.coachCut,
         companyProfit: acc.companyProfit + fees.companyCut,
         promotionBonus: acc.promotionBonus + fees.promotionBonus,
-        seasonBonus: acc.seasonBonus + fees.seasonBonus
+        seasonBonus: acc.seasonBonus + fees.seasonBonus,
       };
     },
     { games: 0, players: 0, totalRevenue: 0, coachPayment: 0, companyProfit: 0, promotionBonus: 0, seasonBonus: 0 }
@@ -194,97 +244,62 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
               <label className="text-sm font-black text-slate-300 ml-1">選擇月份</label>
               <select
                 value={selectedMonth}
-                onChange={(e) => {
-                  setSelectedMonth(e.target.value);
-                  setSelectedCoach('all');
-                }}
-                className="w-full h-12 bg-slate-900/50 border border-emerald-500/20 rounded-xl text-white px-4 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 appearance-none cursor-pointer font-semibold"
+                onChange={e => { setSelectedMonth(e.target.value); setSelectedCoach('all'); }}
+                className="w-full h-12 bg-slate-900/50 border border-emerald-500/20 rounded-xl text-white px-4 focus:ring-2 focus:ring-emerald-500/40 appearance-none cursor-pointer font-semibold"
               >
                 {sortedMonths.map(month => (
                   <option key={month} value={month}>
-                    {new Date(`${month}-01`).toLocaleDateString('zh-TW', {
-                      year: 'numeric',
-                      month: 'long'
-                    })}
+                    {new Date(`${month}-01`).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' })}
                   </option>
                 ))}
               </select>
             </div>
-
             <div className="space-y-2">
               <label className="text-sm font-black text-slate-300 ml-1">選擇執行師</label>
               <select
                 value={selectedCoach}
-                onChange={(e) => setSelectedCoach(e.target.value)}
-                className="w-full h-12 bg-slate-900/50 border border-emerald-500/20 rounded-xl text-white px-4 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 appearance-none cursor-pointer font-semibold"
+                onChange={e => setSelectedCoach(e.target.value)}
+                className="w-full h-12 bg-slate-900/50 border border-emerald-500/20 rounded-xl text-white px-4 focus:ring-2 focus:ring-emerald-500/40 appearance-none cursor-pointer font-semibold"
               >
-                {coachOptions.map(coach => (
-                  <option key={coach.id} value={coach.id}>
-                    {coach.name}
-                  </option>
-                ))}
+                {coachOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           </div>
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-            <div className="p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl backdrop-blur-sm">
-              <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">總場次</div>
-              <div className="text-2xl font-black text-white">{totalStats.games}</div>
-            </div>
-            <div className="p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl backdrop-blur-sm">
-              <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">總玩家數</div>
-              <div className="text-2xl font-black text-white">{totalStats.players}</div>
-            </div>
-            <div className="p-4 bg-slate-900/40 border border-blue-500/10 rounded-2xl backdrop-blur-sm">
-              <div className="text-[9px] font-black text-blue-500/80 uppercase tracking-widest mb-1">總收入</div>
-              <div className="text-2xl font-black text-blue-400">NT$ {totalStats.totalRevenue.toLocaleString()}</div>
-            </div>
-            <div className="p-4 bg-slate-900/40 border border-emerald-500/10 rounded-2xl backdrop-blur-sm">
-              <div className="text-[9px] font-black text-emerald-500/80 uppercase tracking-widest mb-1">執行師費用</div>
-              <div className="text-2xl font-black text-emerald-400">NT$ {totalStats.coachPayment.toLocaleString()}</div>
-            </div>
-            <div className="p-4 bg-slate-900/40 border border-amber-500/10 rounded-2xl backdrop-blur-sm">
-              <div className="text-[9px] font-black text-amber-500/80 uppercase tracking-widest mb-1">公司利潤</div>
-              <div className="text-2xl font-black text-amber-400">NT$ {totalStats.companyProfit.toLocaleString()}</div>
-            </div>
+            {[
+              { label: '總場次', value: totalStats.games, color: 'text-white', border: 'border-slate-800/50' },
+              { label: '總玩家數', value: totalStats.players, color: 'text-white', border: 'border-slate-800/50' },
+              { label: '總收入', value: `NT$ ${totalStats.totalRevenue.toLocaleString()}`, color: 'text-blue-400', border: 'border-blue-500/10' },
+              { label: '執行師費用', value: `NT$ ${totalStats.coachPayment.toLocaleString()}`, color: 'text-emerald-400', border: 'border-emerald-500/10' },
+              { label: '公司利潤', value: `NT$ ${totalStats.companyProfit.toLocaleString()}`, color: 'text-amber-400', border: 'border-amber-500/10' },
+            ].map(card => (
+              <div key={card.label} className={`p-4 bg-slate-900/40 border ${card.border} rounded-2xl backdrop-blur-sm`}>
+                <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">{card.label}</div>
+                <div className={`text-2xl font-black ${card.color}`}>{card.value}</div>
+              </div>
+            ))}
           </div>
 
           {/* Fee Summary */}
           {totalStats.games > 0 && (
             <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-3xl p-6 md:p-8">
-              <h3 className="text-lg font-black text-white mb-6">費用分拆明細 (全部收入分配)</h3>
+              <h3 className="text-lg font-black text-white mb-6">費用分拆明細</h3>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="p-4 bg-slate-900/50 rounded-2xl border border-blue-500/20">
-                  <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">總收入</div>
-                  <div className="text-2xl font-black text-blue-300">NT$ {totalStats.totalRevenue.toLocaleString()}</div>
-                  <div className="text-[10px] text-blue-400/60 mt-1">100%</div>
-                </div>
-
-                <div className="p-4 bg-slate-900/50 rounded-2xl border border-emerald-500/20">
-                  <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">帶盤費 (40%)</div>
-                  <div className="text-2xl font-black text-emerald-300">NT$ {totalStats.coachPayment.toLocaleString()}</div>
-                  <div className="text-[10px] text-emerald-400/60 mt-1">執行師應收</div>
-                </div>
-
-                <div className="p-4 bg-slate-900/50 rounded-2xl border border-amber-500/20">
-                  <div className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2">公司利潤 (30%)</div>
-                  <div className="text-2xl font-black text-amber-300">NT$ {totalStats.companyProfit.toLocaleString()}</div>
-                  <div className="text-[10px] text-amber-400/60 mt-1">公司保留</div>
-                </div>
-
-                <div className="p-4 bg-slate-900/50 rounded-2xl border border-purple-500/20">
-                  <div className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2">推廣獎金 (20%)</div>
-                  <div className="text-2xl font-black text-purple-300">NT$ {totalStats.promotionBonus.toLocaleString()}</div>
-                  <div className="text-[10px] text-purple-400/60 mt-1">執行師獎勵</div>
-                </div>
-
-                <div className="p-4 bg-slate-900/50 rounded-2xl border border-rose-500/20">
-                  <div className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2">賽季獎金 (10%)</div>
-                  <div className="text-2xl font-black text-rose-300">NT$ {totalStats.seasonBonus.toLocaleString()}</div>
-                  <div className="text-[10px] text-rose-400/60 mt-1">季度累積</div>
-                </div>
+                {[
+                  { label: '總收入', value: totalStats.totalRevenue, note: '100%', color: 'blue' },
+                  { label: '帶盤費 (40%)', value: totalStats.coachPayment, note: '執行師應收', color: 'emerald' },
+                  { label: '公司利潤 (30%)', value: totalStats.companyProfit, note: '公司保留', color: 'amber' },
+                  { label: '推廣獎金 (20%)', value: totalStats.promotionBonus, note: '執行師獎勵', color: 'purple' },
+                  { label: '賽季獎金 (10%)', value: totalStats.seasonBonus, note: '季度累積', color: 'rose' },
+                ].map(item => (
+                  <div key={item.label} className={`p-4 bg-slate-900/50 rounded-2xl border border-${item.color}-500/20`}>
+                    <div className={`text-[10px] font-black text-${item.color}-400 uppercase tracking-widest mb-2`}>{item.label}</div>
+                    <div className={`text-2xl font-black text-${item.color}-300`}>NT$ {item.value.toLocaleString()}</div>
+                    <div className={`text-[10px] text-${item.color}-400/60 mt-1`}>{item.note}</div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -301,6 +316,10 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
                 {coachRecords.records.map((record, idx) => {
                   const fees = calculateFees(record.playerCount);
                   const isExpanded = expandedRecord === record.id;
+                  const referralInfos = isExpanded && record.players
+                    ? getPlayerReferralInfos(record.id, record.players)
+                    : [];
+                  const perPlayerBonus = PLAYER_FEE * PROMOTION_BONUS;
 
                   return (
                     <motion.div
@@ -308,7 +327,7 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.05 }}
-                      className="bg-slate-900/40 border border-slate-800/50 rounded-2xl overflow-hidden hover:border-emerald-500/30 transition-all group cursor-pointer"
+                      className="bg-slate-900/40 border border-slate-800/50 rounded-2xl overflow-hidden hover:border-emerald-500/30 transition-all cursor-pointer"
                       onClick={() => setExpandedRecord(isExpanded ? null : record.id)}
                     >
                       {/* Summary Row */}
@@ -324,8 +343,7 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
                             </div>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-6 flex-shrink-0">
+                        <div className="flex items-center gap-4 flex-shrink-0">
                           <div className="text-right">
                             <div className="text-sm text-slate-400">玩家數</div>
                             <div className="text-xl font-black text-white">{record.playerCount}</div>
@@ -333,6 +351,9 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
                           <div className="text-right">
                             <div className="text-sm text-slate-400">費用總額</div>
                             <div className="text-xl font-black text-emerald-400">NT$ {fees.total.toLocaleString()}</div>
+                          </div>
+                          <div className="text-slate-600">
+                            {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                           </div>
                         </div>
                       </div>
@@ -344,51 +365,82 @@ export const CoachReportView: React.FC<CoachReportViewProps> = ({ onBack }) => {
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
-                            className="border-t border-slate-800/50 bg-slate-900/20 p-4 md:p-6 space-y-4"
+                            className="border-t border-slate-800/50 bg-slate-900/20 p-4 md:p-6 space-y-6"
+                            onClick={e => e.stopPropagation()}
                           >
-                            {/* Player Names */}
-                            {record.players && record.players.length > 0 && (
-                              <div>
-                                <div className="text-sm font-black text-slate-300 mb-2">玩家名單</div>
-                                <div className="flex flex-wrap gap-2">
-                                  {record.players.map((player, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="px-3 py-1.5 bg-slate-800/50 rounded-full text-xs font-semibold text-slate-300 border border-slate-700"
-                                    >
-                                      {player.name}
-                                    </div>
-                                  ))}
-                                </div>
+                            {/* Player Referral Chain */}
+                            <div>
+                              <div className="flex items-center gap-2 mb-3">
+                                <Users size={14} className="text-purple-400" />
+                                <span className="text-sm font-black text-slate-300">玩家推廣歸屬</span>
+                                <span className="text-[10px] text-purple-400/60 font-bold ml-1">每位推廣獎金 NT$ {perPlayerBonus}</span>
                               </div>
-                            )}
+                              <div className="space-y-2">
+                                {referralInfos.map((info, i) => {
+                                  const rl = info.referrer ? roleLabel(info.referrer.role) : null;
+                                  const isReferrerCoach = info.referrer && (info.referrer.role === 'coach' || info.referrer.role === 'gm');
+                                  const bonusRecipient = isReferrerCoach
+                                    ? info.referrer
+                                    : info.effectiveCoach;
+
+                                  return (
+                                    <div key={i} className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 space-y-2">
+                                      {/* Player name */}
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-5 h-5 bg-slate-700 rounded-full flex items-center justify-center text-[10px] font-black text-slate-300">{i + 1}</div>
+                                        <span className="text-sm font-black text-white">{info.playerName}</span>
+                                        {bonusRecipient && (
+                                          <span className="ml-auto text-[10px] font-black text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">
+                                            推廣獎金 → {bonusRecipient.name}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* Referral chain */}
+                                      {!info.referrer ? (
+                                        <div className="text-[11px] text-slate-600 pl-7">無推廣關係</div>
+                                      ) : (
+                                        <div className="pl-7 space-y-1">
+                                          <div className="flex items-center gap-2 text-[11px]">
+                                            <span className="text-slate-500">直接推廣人：</span>
+                                            <span className="text-slate-300 font-bold">{info.referrer.name}</span>
+                                            <span className={`px-1.5 py-0.5 rounded-full border text-[10px] font-black ${rl?.color}`}>{rl?.text}</span>
+                                          </div>
+                                          {!isReferrerCoach && (
+                                            <div className="flex items-center gap-2 text-[11px] pl-4">
+                                              <span className="text-slate-600">└ 歸屬執行師：</span>
+                                              {info.effectiveCoach ? (
+                                                <>
+                                                  <span className="text-amber-300 font-bold">{info.effectiveCoach.name}</span>
+                                                  <span className="px-1.5 py-0.5 rounded-full border text-[10px] font-black text-amber-400 bg-amber-500/10 border-amber-500/20">執行師</span>
+                                                </>
+                                              ) : (
+                                                <span className="text-slate-600">無歸屬執行師</span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
 
                             {/* Fee Breakdown */}
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                              <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                                <div className="text-[10px] font-black text-blue-400 uppercase tracking-wider mb-1">總收入</div>
-                                <div className="text-lg font-black text-blue-300">NT$ {fees.total.toLocaleString()}</div>
-                              </div>
-
-                              <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                                <div className="text-[10px] font-black text-emerald-400 uppercase tracking-wider mb-1">帶盤費</div>
-                                <div className="text-lg font-black text-emerald-300">NT$ {fees.coachCut.toLocaleString()}</div>
-                              </div>
-
-                              <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                                <div className="text-[10px] font-black text-amber-400 uppercase tracking-wider mb-1">公司利潤</div>
-                                <div className="text-lg font-black text-amber-300">NT$ {fees.companyCut.toLocaleString()}</div>
-                              </div>
-
-                              <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
-                                <div className="text-[10px] font-black text-purple-400 uppercase tracking-wider mb-1">推廣獎金</div>
-                                <div className="text-lg font-black text-purple-300">NT$ {fees.promotionBonus.toLocaleString()}</div>
-                              </div>
-
-                              <div className="p-3 bg-rose-500/10 rounded-xl border border-rose-500/20">
-                                <div className="text-[10px] font-black text-rose-400 uppercase tracking-wider mb-1">賽季獎金</div>
-                                <div className="text-lg font-black text-rose-300">NT$ {fees.seasonBonus.toLocaleString()}</div>
-                              </div>
+                              {[
+                                { label: '總收入', value: fees.total, color: 'blue' },
+                                { label: '帶盤費', value: fees.coachCut, color: 'emerald' },
+                                { label: '公司利潤', value: fees.companyCut, color: 'amber' },
+                                { label: '推廣獎金', value: fees.promotionBonus, color: 'purple' },
+                                { label: '賽季獎金', value: fees.seasonBonus, color: 'rose' },
+                              ].map(item => (
+                                <div key={item.label} className={`p-3 bg-${item.color}-500/10 rounded-xl border border-${item.color}-500/20`}>
+                                  <div className={`text-[10px] font-black text-${item.color}-400 uppercase tracking-wider mb-1`}>{item.label}</div>
+                                  <div className={`text-lg font-black text-${item.color}-300`}>NT$ {item.value.toLocaleString()}</div>
+                                </div>
+                              ))}
                             </div>
                           </motion.div>
                         )}
