@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Bug, Plane, Stethoscope, Palette, TreePine, Briefcase, Edit3, Calendar, Hash, Award, History, Play, X, Check, Upload, Image as ImageIcon, Move, Copy, Trophy } from 'lucide-react';
+import { Bug, Plane, Stethoscope, Palette, TreePine, Briefcase, Edit3, Calendar, Award, History, Play, X, Check, Upload, Copy, Trophy, Move, Link, Users, ChevronRight, ChevronDown, UserPlus, Share2 } from 'lucide-react';
 import { Button, Input, Slider } from '../ui/ui';
 import SafeImage from '../common/SafeImage';
 import { useAuth, getUserTitle, getCoachBadge, getPlayerBadge, getBadgeGlowStyle } from '../../context/AuthContext';
 import { useGame } from '../../context/GameContext';
 import { avatarOptions } from './AvatarModal';
 import { RankInfoModal } from './RankInfoModal';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../../services/firebase';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -15,8 +17,50 @@ interface ProfileModalProps {
     onViewHistory?: (uid: string) => void; // Callback to view user's history
 }
 
+// 遞迴下線節點元件
+const ReferralNode: React.FC<{ uid: string; name: string; role: string; depth: number }> = ({ uid, name, role, depth }) => {
+    const [expanded, setExpanded] = useState(false);
+    const [children, setChildren] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    const toggle = async () => {
+        if (expanded) { setExpanded(false); return; }
+        setLoading(true);
+        const q = query(collection(db, 'users'), where('referredBy', '==', uid));
+        const snap = await getDocs(q);
+        setChildren(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+        setExpanded(true);
+    };
+
+    return (
+        <div className={depth > 0 ? 'ml-4 border-l border-slate-700/50 pl-3 mt-1' : 'mt-1'}>
+            <button onClick={toggle} className="w-full flex items-center gap-2 py-1.5 text-left hover:bg-slate-800/40 rounded-lg px-2 transition-all group">
+                {loading ? (
+                    <div className="w-3 h-3 border border-slate-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                ) : (
+                    <span className="text-slate-500 group-hover:text-slate-300 transition-colors shrink-0">
+                        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    </span>
+                )}
+                <span className="text-xs shrink-0">{role === 'coach' ? '👑' : '👤'}</span>
+                <span className="text-xs font-bold text-slate-300 truncate">{name}</span>
+                {role === 'coach' && (
+                    <span className="text-[9px] font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded ml-auto shrink-0">執行師</span>
+                )}
+            </button>
+            {expanded && children.map(child => (
+                <ReferralNode key={child.id} uid={child.id} name={child.name} role={child.role} depth={depth + 1} />
+            ))}
+            {expanded && children.length === 0 && (
+                <p className="ml-6 text-[10px] text-slate-600 py-1">無下線</p>
+            )}
+        </div>
+    );
+};
+
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, viewMode, targetUser, onViewHistory }) => {
-    const { user: currentUser, updateUserProfile, uploadAvatar } = useAuth();
+    const { user: currentUser, updateUserProfile, uploadAvatar, bindReferral } = useAuth();
     const { gameHistory } = useGame();
 
     // Determine which user to display
@@ -35,6 +79,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
     const [isBadgeEnlarged, setIsBadgeEnlarged] = useState(false);
     const [showRankInfo, setShowRankInfo] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
+    const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+    const [showReferralTree, setShowReferralTree] = useState(false);
+    const [referralChildren, setReferralChildren] = useState<any[]>([]);
+    const [referralLoading, setReferralLoading] = useState(false);
+    const [bindInput, setBindInput] = useState('');
+    const [bindLoading, setBindLoading] = useState(false);
+    const [bindFeedback, setBindFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const dragStartPos = useRef({ x: 0, y: 0 });
     const dragStartPosition = useRef({ x: 50, y: 50 });
@@ -191,6 +243,57 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
         }
     };
 
+    const copyToClipboard = async (text: string) => {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const el = document.createElement('textarea');
+            el.value = text;
+            el.style.position = 'fixed'; el.style.left = '-9999px';
+            document.body.appendChild(el); el.focus(); el.select();
+            document.execCommand('copy'); el.remove();
+        }
+    };
+
+    const handleCopyInviteCode = async () => {
+        if (!displayUser?.inviteCode) return;
+        try {
+            await copyToClipboard(displayUser.inviteCode);
+            setInviteCodeCopied(true);
+            setTimeout(() => setInviteCodeCopied(false), 2000);
+        } catch {}
+    };
+
+    const handleCopyInviteLink = async () => {
+        if (!displayUser?.inviteCode) return;
+        const link = `${window.location.origin}?ref=${displayUser.inviteCode}`;
+        try {
+            await copyToClipboard(link);
+            setInviteLinkCopied(true);
+            setTimeout(() => setInviteLinkCopied(false), 2000);
+        } catch {}
+    };
+
+    const handleToggleReferralTree = async () => {
+        if (showReferralTree) { setShowReferralTree(false); return; }
+        setReferralLoading(true);
+        const q = query(collection(db, 'users'), where('referredBy', '==', displayUser.uid));
+        const snap = await getDocs(q);
+        setReferralChildren(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setReferralLoading(false);
+        setShowReferralTree(true);
+    };
+
+    const handleBindReferral = async () => {
+        if (!bindInput.trim() || bindLoading) return;
+        setBindLoading(true);
+        setBindFeedback(null);
+        const result = await bindReferral(bindInput.trim());
+        setBindFeedback({ type: result.success ? 'success' : 'error', msg: result.success ? `成功綁定：${result.referrerName}` : (result.error || '綁定失敗') });
+        setBindLoading(false);
+        if (result.success) setBindInput('');
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!isEditable) return;
         const file = e.target.files?.[0];
@@ -227,7 +330,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
     return (
         <>
         <div className="fixed inset-0 z-[150] flex items-center justify-center pt-safe pb-safe bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="w-full h-full md:h-auto md:max-w-lg bg-slate-900 md:border md:border-slate-800 md:rounded-3xl shadow-2xl overflow-y-auto animate-in zoom-in-95 duration-200">
+            <div className="w-full h-full md:max-h-[90vh] md:max-w-lg bg-slate-900 md:border md:border-slate-800 md:rounded-3xl shadow-2xl overflow-y-auto no-scrollbar animate-in zoom-in-95 duration-200">
                 {/* Hidden File Input */}
                 <input
                     type="file"
@@ -551,6 +654,112 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
                             </div>
                         ))}
                     </div>
+
+                    {/* ── 邀請碼區塊（自己的資料才顯示） ── */}
+                    {isEditable && (
+                        <div className="mt-4 space-y-3">
+                            {/* 我的邀請碼 */}
+                            <div className="p-4 bg-slate-950/30 border border-slate-800/50 rounded-2xl">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Link size={13} className="text-amber-400" />
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">我的邀請碼</span>
+                                </div>
+                                {displayUser.inviteCode ? (
+                                    <>
+                                        <div className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 mb-3">
+                                            <span className="font-mono font-black text-amber-400 text-sm tracking-widest">{displayUser.inviteCode}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={handleCopyInviteCode}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${inviteCodeCopied ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'}`}
+                                            >
+                                                {inviteCodeCopied ? <Check size={12} /> : <Copy size={12} />}
+                                                {inviteCodeCopied ? '已複製' : '複製邀請碼'}
+                                            </button>
+                                            <button
+                                                onClick={handleCopyInviteLink}
+                                                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all active:scale-95 ${inviteLinkCopied ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'}`}
+                                            >
+                                                {inviteLinkCopied ? <Check size={12} /> : <Share2 size={12} />}
+                                                {inviteLinkCopied ? '已複製' : '分享連結'}
+                                            </button>
+                                        </div>
+                                        <p className="text-[9px] text-slate-600 font-medium mt-2">新用戶透過連結註冊後自動綁定</p>
+                                    </>
+                                ) : (
+                                    <p className="text-[10px] text-slate-500">邀請碼生成中，重新登入後即可使用</p>
+                                )}
+                            </div>
+
+                            {/* 下線名單 */}
+                            <div className="p-4 bg-slate-950/30 border border-slate-800/50 rounded-2xl">
+                                <button
+                                    onClick={handleToggleReferralTree}
+                                    className="w-full flex items-center justify-between"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Users size={13} className="text-blue-400" />
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">推廣玩家</span>
+                                    </div>
+                                    {referralLoading ? (
+                                        <div className="w-3 h-3 border border-slate-500 border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                        <span className="text-slate-500">{showReferralTree ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
+                                    )}
+                                </button>
+                                {showReferralTree && (
+                                    <div className="mt-3 border-t border-slate-800 pt-3">
+                                        {referralChildren.length === 0 ? (
+                                            <p className="text-[10px] text-slate-600 text-center py-2">尚無下線</p>
+                                        ) : (
+                                            referralChildren.map(child => (
+                                                <ReferralNode key={child.id} uid={child.id} name={child.name} role={child.role} depth={0} />
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 手動綁定邀請人（尚未綁定時顯示） */}
+                            {!displayUser.referredBy && (
+                                <div className="p-4 bg-slate-950/30 border border-slate-800/50 rounded-2xl">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <UserPlus size={13} className="text-purple-400" />
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">輸入邀請碼</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={bindInput}
+                                            onChange={e => setBindInput(e.target.value.toUpperCase())}
+                                            placeholder="HF-XXXXXX"
+                                            className="flex-1 bg-slate-900/50 border-slate-700 text-white font-mono text-sm h-10"
+                                        />
+                                        <button
+                                            onClick={handleBindReferral}
+                                            disabled={bindLoading || !bindInput.trim()}
+                                            className="px-4 py-2 bg-purple-500 hover:bg-purple-400 disabled:bg-slate-700 disabled:text-slate-500 text-white text-xs font-black rounded-xl transition-all active:scale-95"
+                                        >
+                                            {bindLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '綁定'}
+                                        </button>
+                                    </div>
+                                    {bindFeedback && (
+                                        <p className={`text-[10px] font-bold mt-2 ${bindFeedback.type === 'success' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {bindFeedback.msg}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 已綁定顯示邀請人 */}
+                            {displayUser.referredBy && (
+                                <div className="px-4 py-2.5 bg-slate-950/30 border border-slate-800/50 rounded-xl flex items-center gap-2">
+                                    <Check size={11} className="text-emerald-400 shrink-0" />
+                                    <span className="text-[10px] text-slate-500 font-medium">已綁定邀請人</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Rank Info Button */}
                     <button
