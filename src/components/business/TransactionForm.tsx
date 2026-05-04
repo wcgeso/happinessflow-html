@@ -40,6 +40,7 @@ interface TransactionFormProps {
   setHappinessSubMode: (v: 'history' | 'pay' | 'inc_exp') => void;
   liabilities: any[];
   currentRankLevel: number;
+  medicalInsuranceCount?: number;
   marketPrices?: Record<string, number>;
   previousMarketPrices?: Record<string, number>;
   onTransaction: (data: TransactionData) => void;
@@ -232,6 +233,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = (props) => {
                       uninsuredHouses={uninsuredHouses} insSelectedHouses={insSelectedHouses} setInsSelectedHouses={setInsSelectedHouses}
                       hasAircraftAsset={hasAircraftAsset} insAircraftSelected={insAircraftSelected} setInsAircraftSelected={setInsAircraftSelected}
                       showInsAircraftError={showInsAircraftError} setShowInsAircraftError={setShowInsAircraftError} setErrorMessage={setErrorMessage}
+                      medicalInsuranceCount={props.medicalInsuranceCount}
                     />
                   )}
                   {assetType === '目標企業' && (

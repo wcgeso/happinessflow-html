@@ -1025,6 +1025,20 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v1.4.3',
+                    date: '2026-05-04',
+                    color: 'violet',
+                    items: [
+                      '升等考試與終身學習改為需經執行師審核後才能擲骰',
+                      '開發者傳送門新增「開房邀請練習」模式：正常開房、玩家可加入，但不計分不留紀錄',
+                      '醫療保險限定每位玩家僅能購買一張',
+                      '股票買入／賣出表單新增預計總金額即時顯示',
+                      '兼職工作室升級按鈕改為文字「升級」，更易辨識',
+                      '企業升級改為兩次擲骰：第一骰判定是否符合（≥5），第二骰決定收入增加（點數 × 10,000 H）',
+                      '修復手機版幸福指數卡片被固定標題列遮擋的問題',
+                    ],
+                  },
+                  {
                     version: 'v1.4.2',
                     date: '2026-05-02',
                     color: 'indigo',

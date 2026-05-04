@@ -46,6 +46,7 @@ const AppContent = () => {
     const [showDevConfirm, setShowDevConfirm] = useState(false);
     const [hasDevEnabled, setHasDevEnabled] = useState(() => localStorage.getItem('hf_dev_mode') === 'true');
     const [isDevRouting, setIsDevRouting] = useState(false);
+    const [practiceRoomAutoOpen, setPracticeRoomAutoOpen] = useState(false);
 
     const isGM = user?.title === '遊戲管理員';
     const [lobbyViewMode, setLobbyViewMode] = useState<'player' | 'coach' | 'gm'>('player');
@@ -66,6 +67,13 @@ const AppContent = () => {
 
     const handleDevNavigate = (view: any) => {
         console.log('Global Dev Portal Navigation:', view);
+
+        if (view === 'practice_room_open') {
+            setPracticeRoomAutoOpen(true);
+            setCurrentView('lobby');
+            return;
+        }
+
         setIsDevRouting(true);
 
         // 如果跳轉到需要 sessionMeta 的畫面但目前沒有，則補上預設值，避免 Spinner 轉圈圈
@@ -132,6 +140,8 @@ const AppContent = () => {
                 setHasLobbyModalOpen={setHasLobbyModalOpen}
                 targetHistoryUserId={targetHistoryUserId}
                 setTargetHistoryUserId={setTargetHistoryUserId}
+                practiceRoomAutoOpen={practiceRoomAutoOpen}
+                setPracticeRoomAutoOpen={setPracticeRoomAutoOpen}
             />
 
             {/* Global Developer Portal - Modal only, trigger moved to Lobby identity menu */}
@@ -339,7 +349,9 @@ const MainRouting = ({
     setLobbyViewMode,
     setHasLobbyModalOpen,
     targetHistoryUserId,
-    setTargetHistoryUserId
+    setTargetHistoryUserId,
+    practiceRoomAutoOpen,
+    setPracticeRoomAutoOpen
 }: any) => {
     const { logout } = useAuth();
     const { room } = useRoom();
@@ -363,6 +375,7 @@ const MainRouting = ({
                 return;
             }
             if (!room && roomViews.includes(currentView)) {
+                if (localStorage.getItem('hf_practice_mode') === 'true') return; // 練習模式允許無房間遊戲
                 console.log('不在房間中，跳回大廳');
                 setCurrentView('lobby');
             }
@@ -621,6 +634,8 @@ const MainRouting = ({
                     viewMode={lobbyViewMode}
                     onViewModeChange={setLobbyViewMode}
                     onModalStateChange={setHasLobbyModalOpen}
+                    autoOpenCreateRoom={practiceRoomAutoOpen}
+                    onAutoOpenHandled={() => setPracticeRoomAutoOpen(false)}
                 />
             );
         case 'room_waiting':

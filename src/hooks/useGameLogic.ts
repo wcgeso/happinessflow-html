@@ -853,18 +853,48 @@ export const useGameLogic = () => {
         });
     };
 
-    const handlePromotionConfirm = (type: 'normal' | 'lifelong') => {
-        const cost = type === 'normal' ? 1000 : 5000;
+    const handlePromotionConfirm = (_type: 'normal' | 'lifelong' = 'normal'): boolean | 'pending' => {
+        const cost = 1000;
         if (gameState.cash < cost) {
             showAlert(`現金不足！報名費需 ${cost.toLocaleString()} H`, 'error');
             return false;
         }
+        if (!room) {
+            // 練習模式：直接扣費執行
+            setGameState(prev => {
+                const newState = { ...prev, cash: prev.cash - cost };
+                const newTx: Transaction = {
+                    id: generateId(),
+                    timestamp: Date.now(),
+                    name: '升等考試報名費',
+                    amount: cost,
+                    sourceLabel: '支出',
+                    usageLabel: '教育進修',
+                    cashChange: -cost,
+                    balance: newState.cash,
+                    flowType: '生活'
+                };
+                newState.history = [...newState.history, newTx];
+                return newState;
+            });
+            return true;
+        }
+        submitRequest({
+            uid: user!.uid,
+            playerName: user!.name || '玩家',
+            type: 'promotion',
+            amount: cost,
+        });
+        return 'pending';
+    };
+
+    const executePromotionFee = (cost: number) => {
         setGameState(prev => {
             const newState = { ...prev, cash: prev.cash - cost };
             const newTx: Transaction = {
                 id: generateId(),
                 timestamp: Date.now(),
-                name: `升等考試報名費 (${type === 'normal' ? '一般考試' : '終身學習'})`,
+                name: '升等考試報名費',
                 amount: cost,
                 sourceLabel: '支出',
                 usageLabel: '教育進修',
@@ -875,7 +905,6 @@ export const useGameLogic = () => {
             newState.history = [...newState.history, newTx];
             return newState;
         });
-        return true;
     };
 
     const handleBizUpgrade = (assetId: string, diceRoll: number) => {
@@ -934,12 +963,47 @@ export const useGameLogic = () => {
         showAlert('🎉 企業升級成功！', 'success');
     };
 
-    const handleLifelongConfirm = (type: string, cost: number) => {
+    const handleLifelongConfirm = (type: string, cost: number): boolean | 'pending' => {
         if (gameState.cash < cost) {
             showAlert(`現金不足，需要 ${formatMoney(cost)}`, 'error');
             return false;
         }
+        if (!room) {
+            // 練習模式：直接扣費執行
+            setGameState(prev => {
+                const newState = { ...prev, cash: prev.cash - cost };
+                const typeNames: Record<string, string> = {
+                    'enhance_profession': '增強職業能力',
+                    'stock_ability': '投資股票的能力',
+                    'real_estate_ability': '投資不動產的能力'
+                };
+                const newTx: Transaction = {
+                    id: generateId(),
+                    timestamp: Date.now(),
+                    name: `終身學習報名：${typeNames[type] || type}`,
+                    amount: cost,
+                    sourceLabel: '支出',
+                    usageLabel: '教育支出',
+                    cashChange: -cost,
+                    balance: newState.cash,
+                    flowType: '生活'
+                };
+                newState.history = [...newState.history, newTx];
+                return newState;
+            });
+            return true;
+        }
+        submitRequest({
+            uid: user!.uid,
+            playerName: user!.name || '玩家',
+            type: 'lifelong',
+            amount: cost,
+            promotionType: type,
+        });
+        return 'pending';
+    };
 
+    const executeLifelongFee = (type: string, cost: number) => {
         setGameState(prev => {
             const newState = { ...prev, cash: prev.cash - cost };
             const typeNames: Record<string, string> = {
@@ -947,7 +1011,6 @@ export const useGameLogic = () => {
                 'stock_ability': '投資股票的能力',
                 'real_estate_ability': '投資不動產的能力'
             };
-
             const newTx: Transaction = {
                 id: generateId(),
                 timestamp: Date.now(),
@@ -959,12 +1022,9 @@ export const useGameLogic = () => {
                 balance: newState.cash,
                 flowType: '生活'
             };
-
             newState.history = [...newState.history, newTx];
             return newState;
         });
-
-        return true;
     };
 
     const applyLifelongResult = (type: string, success: boolean, showAlertMsg: boolean = true) => {
@@ -1154,8 +1214,10 @@ export const useGameLogic = () => {
         executeAddHappinessItem,
         handleRemoveHappinessItem,
         handlePromotionConfirm,
+        executePromotionFee,
         handleBizUpgrade,
         handleLifelongConfirm,
+        executeLifelongFee,
         applyLifelongResult,
         applyExamResult,
         handleFinishGame,

@@ -29,6 +29,12 @@ export const StockBuyForm: React.FC<StockBuyFormProps> = ({
         setStockInputs(newInputs);
     };
 
+    const totalCost = STOCK_SYMBOLS.reduce((sum, symbol) => {
+        const qty = Number(stockInputs[symbol]?.qty || 0);
+        const price = marketPrices?.[symbol] || 0;
+        return sum + qty * price;
+    }, 0);
+
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -122,6 +128,12 @@ export const StockBuyForm: React.FC<StockBuyFormProps> = ({
                 );
             })}
             </div>
+            {totalCost > 0 && (
+                <div className="flex items-center justify-between px-3 py-2 bg-slate-900/60 rounded-xl border border-rose-500/20">
+                    <span className="text-xs text-slate-400 font-bold">預計總花費</span>
+                    <span className="text-sm font-black text-rose-400">{totalCost.toLocaleString()} H</span>
+                </div>
+            )}
         </div>
     );
 };

@@ -52,6 +52,13 @@ export const SellForm: React.FC<SellFormProps> = ({
     };
 
     if (sellCat === '股票') {
+        const totalProceeds = filteredAssets.reduce((sum, asset) => {
+            const symbol = asset.name.replace('股票 ', '').replace('(', '').replace(')', '').trim();
+            const qty = Number(sellStockDetails[asset.id]?.qty || 0);
+            const price = marketPrices?.[symbol] || 0;
+            return sum + qty * price;
+        }, 0);
+
         return (
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -140,6 +147,12 @@ export const SellForm: React.FC<SellFormProps> = ({
                     );
                 }) : <p className="text-center text-slate-500 py-6 italic text-sm">手頭目前無持有股票</p>}
                 </div>
+                {totalProceeds > 0 && (
+                    <div className="flex items-center justify-between px-3 py-2 bg-slate-900/60 rounded-xl border border-emerald-500/20">
+                        <span className="text-xs text-slate-400 font-bold">預計總收入</span>
+                        <span className="text-sm font-black text-emerald-400">{totalProceeds.toLocaleString()} H</span>
+                    </div>
+                )}
             </div>
         );
     }

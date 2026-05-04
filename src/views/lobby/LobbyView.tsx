@@ -31,6 +31,8 @@ interface LobbyViewProps {
   viewMode?: 'player' | 'coach' | 'gm';
   onViewModeChange?: (mode: 'player' | 'coach' | 'gm') => void;
   onModalStateChange?: (hasOpenModal: boolean) => void;
+  autoOpenCreateRoom?: boolean;
+  onAutoOpenHandled?: () => void;
 }
 
 export const LobbyView: React.FC<LobbyViewProps> = ({
@@ -44,7 +46,9 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   initialShowRoomView = false,
   viewMode = 'player',
   onViewModeChange,
-  onModalStateChange
+  onModalStateChange,
+  autoOpenCreateRoom,
+  onAutoOpenHandled
 }) => {
   const { gameHistory, gameState } = useGame();
   const { user } = useAuth();
@@ -61,6 +65,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const [showRoomView, setShowRoomView] = useState(initialShowRoomView);
   const [isGMToolsOpen, setIsGMToolsOpen] = useState(false);
 
+
+
   // Notify parent when any modal state changes
   useEffect(() => {
     const hasOpenModal = showProfileModal || showTutorialModal || showLetterModal ||
@@ -69,6 +75,13 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     onModalStateChange?.(hasOpenModal);
   }, [showProfileModal, showTutorialModal, showLetterModal, showCreateRoomModal,
     showLeaderboardModal, showFriendsModal, showCoachHistory, showCoachReport, showCoachSelfReport, showRoomView, isGMToolsOpen, onModalStateChange]);
+
+  useEffect(() => {
+    if (autoOpenCreateRoom) {
+      setShowCreateRoomModal(true);
+      onAutoOpenHandled?.();
+    }
+  }, [autoOpenCreateRoom]);
 
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);

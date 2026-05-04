@@ -111,8 +111,10 @@ export const GameView: React.FC<{
         executeAddHappinessItem,
         handleRemoveHappinessItem,
         handlePromotionConfirm,
+        executePromotionFee,
         handleBizUpgrade,
         handleLifelongConfirm,
+        executeLifelongFee,
         applyLifelongResult,
         applyExamResult,
         handleFinishGame,
@@ -239,19 +241,27 @@ export const GameView: React.FC<{
 
     const onPromotionRegister = (type: PromotionType) => {
         if (type === 'normal') {
-            if (handlePromotionConfirm(type)) {
+            const result = handlePromotionConfirm(type);
+            if (result === true) {
                 setPromotionType(type);
                 setShowPromotionModal(false);
                 setShowDiceModal(true);
+            } else if (result === 'pending') {
+                setPromotionType(type);
+                setShowPromotionModal(false);
             }
         }
     };
 
     const onLifelongConfirm = (type: string, cost: number) => {
-        if (handleLifelongConfirm(type, cost)) {
+        const result = handleLifelongConfirm(type, cost);
+        if (result === true) {
             setPromotionType(type as PromotionType);
             setShowLifelongModal(false);
             setShowDiceModal(true);
+        } else if (result === 'pending') {
+            setPromotionType(type as PromotionType);
+            setShowLifelongModal(false);
         }
     };
 
@@ -291,7 +301,6 @@ export const GameView: React.FC<{
         if (!pendingRequest || !user) return;
 
         if (pendingRequest.status === 'approved') {
-            // 執行實際的操作
             if (pendingRequest.type === 'payday') {
                 executePayday(pendingRequest.amount);
                 showAlert(`✅ 執行師已同意您的月結餘領取請求 (${formatMoney(pendingRequest.amount)})`, 'success');
@@ -306,17 +315,25 @@ export const GameView: React.FC<{
             } else if (pendingRequest.type === 'happiness') {
                 executeAddHappinessItem(pendingRequest.happinessLabel || '自訂幸福項目', pendingRequest.amount);
                 showAlert(`✅ 執行師已同意您的自訂幸福項目：${pendingRequest.happinessLabel}`, 'success');
+            } else if (pendingRequest.type === 'promotion') {
+                executePromotionFee(pendingRequest.amount);
+                setPromotionType('normal');
+                setShowDiceModal(true);
+            } else if (pendingRequest.type === 'lifelong') {
+                executeLifelongFee(pendingRequest.promotionType || '', pendingRequest.amount);
+                setPromotionType(pendingRequest.promotionType as PromotionType);
+                setShowDiceModal(true);
             }
-            // 清除請求
             clearRequest(pendingRequest.id);
         } else if (pendingRequest.status === 'rejected') {
-            const typeMap = {
+            const typeMap: Record<string, string> = {
                 'payday': '月結餘領取',
                 'insurance': '保險理賠',
-                'happiness': '新增幸福項目'
+                'happiness': '新增幸福項目',
+                'promotion': '升等考試',
+                'lifelong': '終身學習',
             };
-            showAlert(`❌ 執行師拒絕了您的${typeMap[pendingRequest.type as keyof typeof typeMap] || '操作'}請求`, 'error');
-            // 清除請求
+            showAlert(`❌ 執行師拒絕了您的${typeMap[pendingRequest.type] || '操作'}請求`, 'error');
             clearRequest(pendingRequest.id);
         }
     }, [pendingRequest?.status, user?.uid]);
@@ -333,13 +350,17 @@ export const GameView: React.FC<{
                         <h3 className="text-xl font-bold mb-2 text-white">等待審核中</h3>
                         <p className="text-slate-400 mb-6">
                             您的{
-                                pendingRequest.type === 'payday' ? '月結餘領取' : 
-                                pendingRequest.type === 'insurance' ? '保險理賠' : 
+                                pendingRequest.type === 'payday' ? '月結餘領取' :
+                                pendingRequest.type === 'insurance' ? '保險理賠' :
+                                pendingRequest.type === 'promotion' ? '升等考試' :
+                                pendingRequest.type === 'lifelong' ? '終身學習' :
                                 '新增幸福項目'
                             }請求已送出，請等待執行師審核。
                         </p>
                         <div className="text-sm font-medium text-blue-400 bg-blue-500/10 py-2 px-4 rounded-full inline-block">
-                            {pendingRequest.type === 'happiness' ? `幸福點數：+${pendingRequest.amount}` : `待領取金額：${formatMoney(pendingRequest.amount)}`}
+                            {pendingRequest.type === 'happiness' ? `幸福點數：+${pendingRequest.amount}` :
+                             pendingRequest.type === 'promotion' || pendingRequest.type === 'lifelong' ? `報名費：${formatMoney(pendingRequest.amount)}` :
+                             `待領取金額：${formatMoney(pendingRequest.amount)}`}
                         </div>
                     </div>
                 </div>
@@ -449,7 +470,7 @@ export const GameView: React.FC<{
                 />
             )}
 
-            <main className="flex-1 overflow-y-auto no-scrollbar px-4 pt-48 pb-48 space-y-8 touch-pan-y">
+            <main className="flex-1 overflow-y-auto no-scrollbar px-4 pb-48 space-y-8 touch-pan-y" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 192px)' }}>
                 <div className="max-w-7xl mx-auto w-full space-y-6">
                     <GameStats
                         gameState={gameState}
@@ -506,6 +527,7 @@ export const GameView: React.FC<{
                         assets={gameState.assets}
                         happiness={gameState.happiness}
                         currentRankLevel={gameState.currentRankLevel}
+                        medicalInsuranceCount={gameState.medicalInsuranceCount}
                         marketPrices={gameState.marketPrices}
                         previousMarketPrices={gameState.previousMarketPrices}
                         liabilities={gameState.liabilities.concat(gameState.loans > 0 ? [{ id: 'bank_loan', name: '信用貸款 (Legacy)', totalOwed: gameState.loans, monthlyPayment: gameState.loans * 0.1, type: '信用貸款' }] : [])}

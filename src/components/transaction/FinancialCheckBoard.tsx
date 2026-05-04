@@ -23,17 +23,17 @@ const Quadrant: React.FC<QuadrantProps> = ({ title, color, icon, items, userEntr
 
             <div className="flex-1 space-y-1 overflow-y-auto no-scrollbar max-h-32">
                 {userEntries.map((entry, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-slate-900/80 px-2 py-1 rounded border border-white/5 text-[12px] animate-in slide-in-from-top-1">
+                    <div key={idx} className="flex justify-between items-center bg-slate-900/80 px-2 py-1.5 rounded border border-white/5 text-[12px] animate-in slide-in-from-top-1">
                         <span className="text-white truncate max-w-[70px]">{entry.name}</span>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5">
                             <span className={`font-black px-1 rounded ${entry.direction === 'Increase' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
                                 {entry.direction === 'Increase' ? '↑' : '↓'}
                             </span>
                             <button
                                 onClick={() => onToggle(entry.name, entry.direction)}
-                                className="text-slate-500 hover:text-white transition-colors"
+                                className="text-slate-400 hover:text-white transition-colors"
                             >
-                                <X size={10} />
+                                <X size={14} />
                             </button>
                         </div>
                     </div>

@@ -672,7 +672,6 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
           asset={upgradingAsset}
           onUpgrade={(diceRoll) => {
             onUpgradeBiz?.(upgradingAsset.id, diceRoll);
-            setUpgradingAsset(null);
           }}
         />
       )}
@@ -783,10 +782,10 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
                             e.stopPropagation();
                             onUpgradeClick?.(item);
                           }}
-                          className="p-1 rounded-full hover:bg-emerald-500/20 text-emerald-500 transition-colors group/upgrade"
+                          className="px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors border border-emerald-500/20"
                           title="升級企業"
                         >
-                          <ArrowUpCircle size={14} className="group-hover/upgrade:scale-110 transition-transform" />
+                          升級
                         </button>
                       )}
                     </div>

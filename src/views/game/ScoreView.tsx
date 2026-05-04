@@ -234,6 +234,7 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
 
             // 2. 清理本地遊戲狀態，確保回到大廳時是乾淨的
             localStorage.removeItem('happiness_game_state');
+            localStorage.removeItem('hf_practice_mode');
             setGameState({
                 profession: null,
                 selectedEnterprise: null,
@@ -462,41 +463,48 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
 
                         {/* Buttons Area */}
                         <div className="space-y-3">
-                            {/* Coach Only: Upload Button */}
+                            {/* Coach Only: Upload Button (練習模式不顯示) */}
                             {room?.hostId === user?.uid && (
-                                <div className="space-y-2">
-                                    <button
-                                        disabled={isUploading || uploadStatus === 'success'}
-                                        onClick={handleUploadScores}
-                                        className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black transition-all active:scale-95 ${uploadStatus === 'success'
-                                            ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
-                                            : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed'
-                                            }`}
-                                    >
-                                        {isUploading ? (
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                <span>正在上傳...</span>
-                                            </div>
-                                        ) : uploadStatus === 'success' ? (
-                                            <>
-                                                <CheckCircle2 size={18} />
-                                                <span>紀錄成功</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Upload size={18} />
-                                                <span>儲存紀錄</span>
-                                            </>
-                                        )}
-                                    </button>
+                                localStorage.getItem('hf_practice_mode') === 'true' ? (
+                                    <div className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-sm">
+                                        <span>🧪</span>
+                                        <span>練習模式・不計分・不留紀錄</span>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <button
+                                            disabled={isUploading || uploadStatus === 'success'}
+                                            onClick={handleUploadScores}
+                                            className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black transition-all active:scale-95 ${uploadStatus === 'success'
+                                                ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
+                                                : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed'
+                                                }`}
+                                        >
+                                            {isUploading ? (
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                    <span>正在上傳...</span>
+                                                </div>
+                                            ) : uploadStatus === 'success' ? (
+                                                <>
+                                                    <CheckCircle2 size={18} />
+                                                    <span>紀錄成功</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload size={18} />
+                                                    <span>儲存紀錄</span>
+                                                </>
+                                            )}
+                                        </button>
 
-                                    {uploadStatus === 'error' && (
-                                        <p className="text-[10px] text-rose-400 flex items-center justify-center gap-1">
-                                            <AlertCircle size={10} /> 上傳失敗，請重試
-                                        </p>
-                                    )}
-                                </div>
+                                        {uploadStatus === 'error' && (
+                                            <p className="text-[10px] text-rose-400 flex items-center justify-center gap-1">
+                                                <AlertCircle size={10} /> 上傳失敗，請重試
+                                            </p>
+                                        )}
+                                    </div>
+                                )
                             )}
 
                         </div>

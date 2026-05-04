@@ -12,30 +12,46 @@ interface InsuranceFormProps {
     insAircraftSelected: boolean; setInsAircraftSelected: (v: boolean) => void;
     showInsAircraftError: boolean; setShowInsAircraftError: (v: boolean) => void;
     setErrorMessage: (v: string | null) => void;
+    medicalInsuranceCount?: number;
 }
 
 export const InsuranceForm: React.FC<InsuranceFormProps> = ({
     insType, setInsType, insMedicalQty, setInsMedicalQty, uninsuredHouses,
     insSelectedHouses, setInsSelectedHouses, hasAircraftAsset,
     insAircraftSelected, setInsAircraftSelected, showInsAircraftError, setShowInsAircraftError,
-    setErrorMessage
+    setErrorMessage, medicalInsuranceCount = 0
 }) => {
+    const hasMedical = medicalInsuranceCount >= 1;
     return (
         <div className="space-y-4">
             <div className="flex bg-slate-900 p-1 rounded-lg">
-                <button onClick={() => { setInsType('medical'); setErrorMessage(null); }} className={`flex-1 py-1 text-[10px] font-bold rounded ${insType === 'medical' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>醫療險</button>
+                <button onClick={() => { setInsType('medical'); setErrorMessage(null); }} className={`flex-1 py-1 text-[10px] font-bold rounded ${insType === 'medical' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>
+                    醫療險{hasMedical && ' ✓'}
+                </button>
                 <button onClick={() => { setInsType('house'); setErrorMessage(null); setShowInsAircraftError(false); }} className={`flex-1 py-1 text-[10px] font-bold rounded ${insType === 'house' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>房屋險</button>
                 <button onClick={() => { setInsType('aircraft'); setErrorMessage(null); if (hasAircraftAsset) { setInsAircraftSelected(true); } }} className={`flex-1 py-1 text-[10px] font-bold rounded ${insType === 'aircraft' ? 'bg-slate-600 text-white' : 'text-slate-400'}`}>飛行器險</button>
             </div>
 
             {insType === 'medical' && (
                 <div>
-                    <label className="text-xs text-slate-400 block mb-1">買入張數</label>
-                    <Input type="number" value={insMedicalQty} onChange={e => setInsMedicalQty(e.target.value)} />
-                    {Number(insMedicalQty) > 0 && (
-                        <div className="mt-1 space-y-0.5">
-                            <div className="text-[10px] text-rose-400 font-bold">預計花費: {(Number(insMedicalQty) * 2000).toLocaleString()} H</div>
-                            <div className="text-[10px] text-rose-400 font-bold">預計每月支出增加: {(Number(insMedicalQty) * 2000).toLocaleString()} H</div>
+                    {hasMedical ? (
+                        <div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-black text-sm shrink-0">✓</div>
+                            <div>
+                                <div className="text-sm font-black text-emerald-400">已持有醫療保險</div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">每位玩家限購一張，已達上限</div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="p-3 rounded-lg border border-slate-700 bg-slate-900 flex items-center justify-between">
+                                <div className="text-sm font-bold text-white">醫療保險</div>
+                                <div className="text-sm font-black text-white">1 張</div>
+                            </div>
+                            <div className="mt-1 space-y-0.5">
+                                <div className="text-[10px] text-rose-400 font-bold">預計花費: 2,000 H</div>
+                                <div className="text-[10px] text-rose-400 font-bold">預計每月支出增加: 2,000 H</div>
+                            </div>
                         </div>
                     )}
                 </div>

@@ -315,6 +315,7 @@ export const CoachGameView: React.FC = () => {
 
     const saveRecords = async (isFinal: boolean = false, isSilent: boolean = false) => {
         if (!room || !user || !players.length) return;
+        if (localStorage.getItem('hf_practice_mode') === 'true') return; // 練習模式不儲存
 
         if (!isSilent) console.log(`[存檔] 執行紀錄存檔中... (是否為結算: ${isFinal})`);
 
@@ -1916,17 +1917,24 @@ export const CoachGameView: React.FC = () => {
                                         <div className="flex justify-between items-center pb-4 border-b border-slate-700/50">
                                             <span className="text-slate-400 font-medium">請求類型</span>
                                             <span className="text-lg font-semibold text-blue-400">
-                                                {pendingRequest.type === 'payday' ? '領取月結餘' : 
-                                                 pendingRequest.type === 'insurance' ? '保險理賠' : 
+                                                {pendingRequest.type === 'payday' ? '領取月結餘' :
+                                                 pendingRequest.type === 'insurance' ? '保險理賠' :
+                                                 pendingRequest.type === 'promotion' ? '升等考試' :
+                                                 pendingRequest.type === 'lifelong' ? '終身學習' :
                                                  '新增幸福項目'}
                                                 {pendingRequest.insuranceType === 'medical' && ' (醫療)'}
                                                 {pendingRequest.insuranceType === 'aircraft' && ' (飛行器)'}
                                                 {pendingRequest.type === 'happiness' && ` (${pendingRequest.happinessLabel})`}
+                                                {pendingRequest.type === 'lifelong' && pendingRequest.promotionType && ` (${
+                                                    { 'enhance_profession': '職業能力', 'stock_ability': '股票投資', 'real_estate_ability': '不動產投資' }[pendingRequest.promotionType] || pendingRequest.promotionType
+                                                })`}
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center pt-2">
                                             <span className="text-slate-400 font-medium text-lg">
-                                                {pendingRequest.type === 'happiness' ? '幸福點數' : '申請金額'}
+                                                {pendingRequest.type === 'happiness' ? '幸福點數' :
+                                                 pendingRequest.type === 'promotion' || pendingRequest.type === 'lifelong' ? '報名費用' :
+                                                 '申請金額'}
                                             </span>
                                             <span className={cn(
                                                 "text-3xl font-black",

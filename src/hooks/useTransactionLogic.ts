@@ -26,6 +26,7 @@ interface UseTransactionLogicProps {
     setHappinessSubMode: (v: 'history' | 'pay' | 'inc_exp') => void;
     liabilities: Liability[];
     marketPrices?: Record<string, number>;
+    medicalInsuranceCount?: number;
     onTransaction: (data: TransactionData) => void;
     onShowAlert?: (message: string, type: 'info' | 'error' | 'success', persist?: boolean) => void;
 }
@@ -43,6 +44,7 @@ export const useTransactionLogic = ({
     setHappinessSubMode,
     liabilities,
     marketPrices,
+    medicalInsuranceCount = 0,
     onTransaction,
     onShowAlert
 }: UseTransactionLogicProps) => {
@@ -287,7 +289,7 @@ export const useTransactionLogic = ({
                 expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Decrease' }, { category: 'Assets', name: '定存', direction: 'Increase' }, { category: 'Income', name: '定存利息', direction: 'Increase' }];
             } else if (assetType === '保險') {
                 let desc = '', pay: any = {}, qty = 0;
-                if (insType === 'medical') { qty = Number(insMedicalQty); if (qty <= 0) { showError("請輸入張數"); return; } desc = `買入醫療保險 (${qty}張)`; pay = { medicalQty: qty }; }
+                if (insType === 'medical') { if (medicalInsuranceCount >= 1) { showError("已持有醫療保險，每位玩家限購一張"); return; } qty = 1; desc = `買入醫療保險 (1張)`; pay = { medicalQty: 1 }; }
                 else if (insType === 'house') { qty = insSelectedHouses.length; if (qty <= 0) { showError("請選擇投保房屋"); return; } desc = `買入房屋保險 (${qty}間)`; pay = { targetAssetIds: insSelectedHouses }; }
                 else if (insType === 'aircraft') { if (!insAircraftSelected) { showError("請勾選飛行器保險"); return; } qty = 1; desc = `買入飛行器保險`; pay = { aircraft: true }; }
                 const total = qty * 2000;

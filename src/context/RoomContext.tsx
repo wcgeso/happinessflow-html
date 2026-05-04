@@ -38,12 +38,13 @@ export interface PendingRequest {
     id: string;
     uid: string;
     playerName: string;
-    type: 'payday' | 'insurance' | 'happiness';
+    type: 'payday' | 'insurance' | 'happiness' | 'promotion' | 'lifelong';
     amount: number;
     timestamp: number;
     status: 'pending' | 'approved' | 'rejected';
     insuranceType?: 'medical' | 'aircraft';
     happinessLabel?: string;
+    promotionType?: string;
 }
 
 interface Room {

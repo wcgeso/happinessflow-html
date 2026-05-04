@@ -4,11 +4,9 @@ import {
   Terminal, X, Home, UserCheck, Play,
   Monitor, Layout, Trophy, RotateCcw,
   Clock, Zap, ShieldAlert, ExternalLink, Activity,
-  Award
+  Award, FlaskConical, Users
 } from 'lucide-react';
 import { cn } from '../../utils/gameUtils';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../../services/firebase';
 
 interface DeveloperPortalProps {
   isOpen: boolean;
@@ -139,6 +137,54 @@ export const DeveloperPortal: React.FC<DeveloperPortalProps> = ({
                         )}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                {/* Practice Mode */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <FlaskConical size={14} className="text-emerald-500" /> 練習模式
+                  </h3>
+                  <div className="flex flex-col gap-3">
+                    <button
+                      onClick={() => {
+                        localStorage.setItem('hf_practice_mode', 'true');
+                        onNavigate('selection');
+                        onClose();
+                      }}
+                      className="w-full flex items-center justify-between p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-3xl hover:bg-emerald-500/10 transition-all group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <FlaskConical className="text-emerald-400" size={20} />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-black text-white">單人練習</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">直接進入選職業・不計分・不留紀錄</div>
+                        </div>
+                      </div>
+                      <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-black rounded-full border border-emerald-500/20 uppercase tracking-widest">Solo</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        localStorage.setItem('hf_practice_mode', 'true');
+                        onNavigate('practice_room_open');
+                        onClose();
+                      }}
+                      className="w-full flex items-center justify-between p-6 bg-teal-500/5 border border-teal-500/20 rounded-3xl hover:bg-teal-500/10 transition-all group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-teal-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Users className="text-teal-400" size={20} />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-black text-white">開房邀請練習</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">正常開房・玩家可加入・不計分・不留紀錄</div>
+                        </div>
+                      </div>
+                      <span className="px-2 py-1 bg-teal-500/10 text-teal-400 text-[10px] font-black rounded-full border border-teal-500/20 uppercase tracking-widest">Room</span>
+                    </button>
                   </div>
                 </div>
 
