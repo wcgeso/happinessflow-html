@@ -470,7 +470,7 @@ export const GameView: React.FC<{
                 />
             )}
 
-            <main className="flex-1 overflow-y-auto no-scrollbar px-4 pb-48 space-y-8 touch-pan-y" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 192px)' }}>
+            <main className="flex-1 overflow-y-auto no-scrollbar px-4 pb-48 space-y-8 touch-pan-y" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 230px)' }}>
                 <div className="max-w-7xl mx-auto w-full space-y-6">
                     <GameStats
                         gameState={gameState}

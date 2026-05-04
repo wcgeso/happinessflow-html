@@ -1,6 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Input } from '../ui/ui';
-import { Asset, HappinessItem } from '../../types';
+import { HappinessItem } from '../../types';
+
+const HAPPINESS_EVENTS = [
+    { id: 'date', name: '第一次約會', cost: '3,000', type: 'pay', points: 2 },
+    { id: 'propose', name: '難忘的求婚', cost: '5,000', type: 'pay', points: 2 },
+    { id: 'wedding', name: '浪漫的婚禮', cost: '100,000', type: 'pay', points: 4 },
+    { id: 'child1', name: '擁有第一個孩子', cost: '10,000', type: 'inc_exp', points: 4 },
+    { id: 'child2', name: '擁有第二個孩子', cost: '10,000', type: 'inc_exp', points: 4 }
+];
+
+const HAPPINESS_ID_MAP: Record<string, string> = {
+    date: 'h_date', propose: 'h_proposal', wedding: 'h_wedding',
+    child1: 'h_child1', child2: 'h_child2'
+};
+
+const isEventCompleted = (id: string, completedEvents: string[], happiness: HappinessItem[]) =>
+    completedEvents.includes(id) || !!happiness.find(h => h.id === HAPPINESS_ID_MAP[id])?.checked;
 
 interface EventFormProps {
     eventSubMode: 'pay' | 'inc_exp' | 'dec_exp';
@@ -32,13 +48,22 @@ export const EventForm: React.FC<EventFormProps> = ({
     completedHappinessEvents,
     happiness
 }) => {
-    const HAPPINESS_EVENTS = [
-        { id: 'date', name: '第一次約會', cost: '3,000', type: 'pay', points: 2 },
-        { id: 'propose', name: '難忘的求婚', cost: '5,000', type: 'pay', points: 2 },
-        { id: 'wedding', name: '浪漫的婚禮', cost: '100,000', type: 'pay', points: 4 },
-        { id: 'child1', name: '擁有第一個孩子', cost: '10,000', type: 'inc_exp', points: 4 },
-        { id: 'child2', name: '擁有第二個孩子', cost: '10,000', type: 'inc_exp', points: 4 }
-    ];
+    // Auto-select the first available (unlocked, incomplete) happiness event
+    useEffect(() => {
+        if (eventTab !== 'happiness' || happinessSubMode !== 'history') return;
+        for (let i = 0; i < HAPPINESS_EVENTS.length; i++) {
+            const event = HAPPINESS_EVENTS[i];
+            const completed = isEventCompleted(event.id, completedHappinessEvents, happiness);
+            const locked = i > 0 && !isEventCompleted(HAPPINESS_EVENTS[i - 1].id, completedHappinessEvents, happiness);
+            if (!completed && !locked) {
+                setEventCustomName(event.name);
+                setEventAmount(event.cost.replace(/,/g, ''));
+                if (event.type === 'inc_exp') setEventExpCategory('otherMedicalChild');
+                break;
+            }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [eventTab, happinessSubMode]);
 
     return (
         <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 space-y-6">
@@ -50,7 +75,7 @@ export const EventForm: React.FC<EventFormProps> = ({
                     機運事件
                 </button>
                 <button
-                    onClick={() => setEventTab('happiness')}
+                    onClick={() => { setEventTab('happiness'); setHappinessSubMode('history'); }}
                     className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${eventTab === 'happiness' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
                 >
                     幸福事件
@@ -93,35 +118,33 @@ export const EventForm: React.FC<EventFormProps> = ({
             ) : (
                 <div className="space-y-4 animate-in fade-in duration-300">
                     <div className="flex bg-slate-900 p-1 rounded-lg flex-wrap gap-1">
-                        <button 
-                            onClick={() => { 
-                                setHappinessSubMode('history'); 
+                        <button
+                            onClick={() => {
+                                setHappinessSubMode('history');
                                 setErrorMessage(null);
-                                setEventCustomName('');
-                                setEventAmount('');
-                            }} 
+                            }}
                             className={`flex-1 py-1 text-[10px] rounded transition-all ${happinessSubMode === 'history' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}
                         >
                             幸福歷程
                         </button>
-                        <button 
-                            onClick={() => { 
-                                setHappinessSubMode('pay'); 
+                        <button
+                            onClick={() => {
+                                setHappinessSubMode('pay');
                                 setErrorMessage(null);
                                 setEventCustomName('');
                                 setEventAmount('');
-                            }} 
+                            }}
                             className={`flex-1 py-1 text-[10px] rounded transition-all ${happinessSubMode === 'pay' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}
                         >
                             支付現金
                         </button>
-                        <button 
-                            onClick={() => { 
-                                setHappinessSubMode('inc_exp'); 
+                        <button
+                            onClick={() => {
+                                setHappinessSubMode('inc_exp');
                                 setErrorMessage(null);
                                 setEventCustomName('');
                                 setEventAmount('');
-                            }} 
+                            }}
                             className={`flex-1 py-1 text-[10px] rounded transition-all ${happinessSubMode === 'inc_exp' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}
                         >
                             增加月支出
@@ -131,32 +154,13 @@ export const EventForm: React.FC<EventFormProps> = ({
                     {happinessSubMode === 'history' ? (
                         <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
                             {HAPPINESS_EVENTS.map((event, index) => {
-                                const isCompleted = completedHappinessEvents.includes(event.id) || 
-                                                   (event.id === 'date' && happiness.find(h => h.id === 'h_date')?.checked) ||
-                                                   (event.id === 'propose' && happiness.find(h => h.id === 'h_proposal')?.checked) ||
-                                                   (event.id === 'wedding' && happiness.find(h => h.id === 'h_wedding')?.checked) ||
-                                                   (event.id === 'child1' && happiness.find(h => h.id === 'h_child1')?.checked) ||
-                                                   (event.id === 'child2' && happiness.find(h => h.id === 'h_child2')?.checked);
-                                
-                                // Check if previous event is completed
-                                let isLocked = false;
-                                if (index > 0) {
-                                    const prevEvent = HAPPINESS_EVENTS[index - 1];
-                                    const isPrevCompleted = completedHappinessEvents.includes(prevEvent.id) || 
-                                                           (prevEvent.id === 'date' && happiness.find(h => h.id === 'h_date')?.checked) ||
-                                                           (prevEvent.id === 'propose' && happiness.find(h => h.id === 'h_proposal')?.checked) ||
-                                                           (prevEvent.id === 'wedding' && happiness.find(h => h.id === 'h_wedding')?.checked) ||
-                                                           (prevEvent.id === 'child1' && happiness.find(h => h.id === 'h_child1')?.checked) ||
-                                                           (prevEvent.id === 'child2' && happiness.find(h => h.id === 'h_child2')?.checked);
-                                    if (!isPrevCompleted) {
-                                        isLocked = true;
-                                    }
-                                }
+                                const completed = isEventCompleted(event.id, completedHappinessEvents, happiness);
+                                const locked = index > 0 && !isEventCompleted(HAPPINESS_EVENTS[index - 1].id, completedHappinessEvents, happiness);
 
                                 return (
                                     <button
                                         key={event.id}
-                                        disabled={isCompleted || isLocked}
+                                        disabled={completed || locked}
                                         onClick={() => {
                                             setEventCustomName(event.name);
                                             setEventAmount(event.cost.replace(/,/g, ''));
@@ -165,11 +169,11 @@ export const EventForm: React.FC<EventFormProps> = ({
                                             }
                                         }}
                                         className={`w-full flex items-center justify-between p-2 rounded-lg border transition-all ${
-                                            eventCustomName === event.name 
-                                                ? 'bg-rose-600/20 border-rose-500 shadow-[0_0_15px_rgba(225,29,72,0.1)]' 
-                                                : isCompleted 
-                                                    ? 'bg-slate-900/30 border-slate-800 opacity-50 grayscale' 
-                                                    : isLocked
+                                            eventCustomName === event.name
+                                                ? 'bg-rose-600/20 border-rose-500 shadow-[0_0_15px_rgba(225,29,72,0.1)]'
+                                                : completed
+                                                    ? 'bg-slate-900/30 border-slate-800 opacity-50 grayscale'
+                                                    : locked
                                                         ? 'bg-slate-900/20 border-slate-800 opacity-40 cursor-not-allowed'
                                                         : 'bg-slate-900/50 border-slate-700 hover:border-rose-500/50 hover:bg-slate-800'
                                         }`}
@@ -177,8 +181,8 @@ export const EventForm: React.FC<EventFormProps> = ({
                                         <div className="flex flex-col items-start flex-1">
                                             <span className={`text-xs font-bold ${eventCustomName === event.name ? 'text-rose-400' : 'text-slate-200'}`}>
                                                 {event.name}
-                                                {isCompleted && <span className="ml-2 text-[10px] text-emerald-500">(已達成)</span>}
-                                                {!isCompleted && isLocked && <span className="ml-2 text-[10px] text-slate-500">(未解鎖)</span>}
+                                                {completed && <span className="ml-2 text-[10px] text-emerald-500">(已達成)</span>}
+                                                {!completed && locked && <span className="ml-2 text-[10px] text-slate-500">(未解鎖)</span>}
                                             </span>
                                             <span className="text-[10px] text-slate-500">
                                                 {event.type === 'pay' ? `花費: ${event.cost} H` : `每月支出增加: ${event.cost} H`}
@@ -199,9 +203,9 @@ export const EventForm: React.FC<EventFormProps> = ({
                             {happinessSubMode === 'inc_exp' && (
                                 <div>
                                     <label className="text-xs text-slate-400 block mb-1">支出類別</label>
-                                    <select 
-                                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white" 
-                                        value={eventExpCategory} 
+                                    <select
+                                        className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white"
+                                        value={eventExpCategory}
                                         onChange={e => setEventExpCategory(e.target.value as any)}
                                     >
                                         <option value="basicLiving">餐飲、服飾、居住類</option>
@@ -212,21 +216,21 @@ export const EventForm: React.FC<EventFormProps> = ({
                             )}
                             <div>
                                 <label className="text-xs text-slate-400 block mb-1">項目名稱</label>
-                                <Input 
-                                    placeholder={happinessSubMode === 'pay' ? "例如：豪華晚餐" : "例如：請保姆"} 
-                                    value={eventCustomName} 
-                                    onChange={e => setEventCustomName(e.target.value)} 
+                                <Input
+                                    placeholder={happinessSubMode === 'pay' ? "例如：豪華晚餐" : "例如：請保姆"}
+                                    value={eventCustomName}
+                                    onChange={e => setEventCustomName(e.target.value)}
                                 />
                             </div>
                             <div>
                                 <label className="text-xs text-slate-400 block mb-1">
                                     {happinessSubMode === 'pay' ? "支付金額" : "每月增加支出"}
                                 </label>
-                                <Input 
-                                    type="number" 
-                                    placeholder="輸入金額" 
-                                    value={eventAmount} 
-                                    onChange={e => setEventAmount(e.target.value)} 
+                                <Input
+                                    type="number"
+                                    placeholder="輸入金額"
+                                    value={eventAmount}
+                                    onChange={e => setEventAmount(e.target.value)}
                                 />
                                 {Number(eventAmount) > 0 && (
                                     <div className="text-[10px] text-rose-400 font-bold mt-1">

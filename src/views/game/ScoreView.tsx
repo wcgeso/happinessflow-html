@@ -337,7 +337,7 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
     }
 
     return (
-        <div className="flex-1 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-hidden touch-none relative pt-safe pb-safe">
+        <div className="h-full w-full bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 relative pt-safe pb-safe">
             {/* 成就達成通知隊列 */}
             <div className="fixed top-4 mt-safe left-0 right-0 z-[1000] flex flex-col items-center gap-2 pointer-events-none">
                 <AnimatePresence mode="popLayout">
@@ -394,8 +394,8 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                 </div>
             )}
 
-            <div className="max-w-lg w-full h-full flex flex-col py-4 overflow-hidden no-scrollbar">
-                <Card className="bg-slate-900 border-slate-500 shadow-2xl shadow-slate-500/10 flex flex-col overflow-hidden animate-in zoom-in-95 no-scrollbar relative">
+            <div className="max-w-lg w-full max-h-full flex flex-col py-4">
+                <Card className="bg-slate-900 border-slate-500 shadow-2xl shadow-slate-500/10 flex flex-col overflow-hidden animate-in zoom-in-95 no-scrollbar relative min-h-0">
                     {/* Close Button at Top Right */}
                     <button
                         onClick={onClose}

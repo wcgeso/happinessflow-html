@@ -413,60 +413,93 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
 
             {/* Stats Bar - 增加上方內距避免遮擋計時器 */}
             <div className="relative z-10 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 px-4 pt-6 pb-2 shadow-inner">
-                <div className="max-w-7xl mx-auto grid grid-cols-2 gap-2">
-                    {/* 現金 */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
-                        <div className="p-1.5 bg-blue-500/10 rounded-md shrink-0">
-                            <Wallet size={14} className="text-blue-400" />
+                <div className="max-w-7xl mx-auto space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                        {/* 現金 */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
+                            <div className="p-1.5 bg-blue-500/10 rounded-md shrink-0">
+                                <Wallet size={14} className="text-blue-400" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">現金</span>
+                                <span className="text-sm font-black text-white leading-tight truncate">{formatMoney(gameState.cash)}</span>
+                            </div>
                         </div>
-                        <div className="flex flex-col min-w-0">
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">現金</span>
-                            <span className="text-sm font-black text-white leading-tight truncate">{formatMoney(gameState.cash)}</span>
+
+                        {/* 理財收入 */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
+                            <div className="p-1.5 bg-emerald-500/10 rounded-md shrink-0">
+                                <Landmark size={14} className="text-emerald-400" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">理財收入</span>
+                                <span className="text-sm font-black text-emerald-400 leading-tight truncate">+{formatMoney(summary.passiveIncome)}</span>
+                            </div>
+                        </div>
+
+                        {/* 月結餘 */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
+                            <div className="p-1.5 bg-purple-500/10 rounded-md shrink-0">
+                                <BarChart3 size={14} className="text-purple-400" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">月結餘</span>
+                                <span className={cn(
+                                    "text-sm font-black leading-tight truncate",
+                                    summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-rose-400"
+                                )}>
+                                    {summary.monthlyCashflow >= 0 ? "+" : ""}{formatMoney(summary.monthlyCashflow)}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* 淨資產 */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
+                            <div className="p-1.5 bg-amber-500/10 rounded-md shrink-0">
+                                <PieChart size={14} className="text-amber-400" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">淨資產</span>
+                                <span className={cn(
+                                    "text-sm font-black leading-tight truncate",
+                                    netAssets >= 0 ? "text-blue-400" : "text-rose-400"
+                                )}>
+                                    {formatMoney(netAssets)}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* 理財收入 */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
-                        <div className="p-1.5 bg-emerald-500/10 rounded-md shrink-0">
-                            <Landmark size={14} className="text-emerald-400" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">理財收入</span>
-                            <span className="text-sm font-black text-emerald-400 leading-tight truncate">+{formatMoney(summary.passiveIncome)}</span>
-                        </div>
-                    </div>
-
-                    {/* 月結餘 */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
-                        <div className="p-1.5 bg-purple-500/10 rounded-md shrink-0">
-                            <BarChart3 size={14} className="text-purple-400" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">月結餘</span>
-                            <span className={cn(
-                                "text-sm font-black leading-tight truncate",
-                                summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-rose-400"
+                    {/* 財務自由指標 */}
+                    {(() => {
+                        const isFree = summary.passiveIncome > summary.totalExpenses;
+                        return (
+                            <div className={cn(
+                                "flex items-center justify-between px-3 py-1.5 rounded-lg border transition-colors",
+                                isFree
+                                    ? "bg-emerald-500/10 border-emerald-500/30"
+                                    : "bg-slate-900/50 border-slate-800/50"
                             )}>
-                                {summary.monthlyCashflow >= 0 ? "+" : ""}{formatMoney(summary.monthlyCashflow)}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* 淨資產 */}
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
-                        <div className="p-1.5 bg-amber-500/10 rounded-md shrink-0">
-                            <PieChart size={14} className="text-amber-400" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">淨資產</span>
-                            <span className={cn(
-                                "text-sm font-black leading-tight truncate",
-                                netAssets >= 0 ? "text-blue-400" : "text-rose-400"
-                            )}>
-                                {formatMoney(netAssets)}
-                            </span>
-                        </div>
-                    </div>
+                                <span className={cn(
+                                    "text-xs font-black uppercase tracking-tighter leading-none shrink-0",
+                                    isFree ? "text-emerald-500" : "text-slate-500"
+                                )}>財務自由</span>
+                                <div className="flex items-center gap-1 text-[10px] font-black">
+                                    <span className="text-slate-500 font-bold">理財收入</span>
+                                    <span className="text-emerald-400">{formatMoney(summary.passiveIncome)}</span>
+                                    <span className="text-slate-600 text-xs">{">"}</span>
+                                    <span className="text-slate-500 font-bold">總支出</span>
+                                    <span className="text-rose-400">{formatMoney(summary.totalExpenses)}</span>
+                                    <span className={cn(
+                                        "ml-1 px-1.5 py-0.5 rounded text-[9px] font-black",
+                                        isFree ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800 text-slate-500"
+                                    )}>
+                                        {isFree ? "已達成" : "未達成"}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
         </header>
