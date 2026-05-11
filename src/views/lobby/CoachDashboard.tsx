@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Users, TrendingUp, PlusCircle, UserPlus, Search, ShieldCheck, X, Trophy, BookOpen, RefreshCw, AlertTriangle, History, FileText, ChevronRight, ChevronDown, ScrollText } from 'lucide-react';
+import { Play, Users, TrendingUp, PlusCircle, UserPlus, Search, ShieldCheck, X, Trophy, BookOpen, RefreshCw, AlertTriangle, History, FileText, ChevronRight, ChevronDown, ScrollText, Database } from 'lucide-react';
 import { db } from '../../../services/firebase';
 import { collection, query, where, getDocs, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,6 +21,7 @@ interface CoachDashboardProps {
   onGMToolsStateChange?: (isOpen: boolean) => void;
   onViewCoachReport?: () => void;
   onViewCoachSelfReport?: () => void;
+  onViewRoomRecords?: () => void;
 }
 
 // ── 推廣名單樹節點 ──────────────────────────────────────────
@@ -121,6 +122,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   onGMToolsStateChange,
   onViewCoachReport,
   onViewCoachSelfReport,
+  onViewRoomRecords,
 }) => {
   const { user: currentUser } = useAuth();
   const isGMUser = isGM(currentUser);
@@ -167,7 +169,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
       setAllUsers(users);
 
       const totalAdmins = users.filter(u => u.title === '遊戲管理員').length;
-      const totalCoaches = users.filter(u => u.role === 'coach' && u.title !== '遊戲管理員').length;
+      const totalCoaches = users.filter(u => u.role === 'coach').length;
       const totalPlayers = users.filter(u => u.role === 'player' && u.title !== '遊戲管理員').length;
 
       setGmStats({
@@ -929,6 +931,24 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
           </button>
 
           <button
+            onClick={() => onViewRoomRecords?.()}
+            className="w-full p-4 bg-violet-500/10 border border-violet-500/20 rounded-3xl flex items-center justify-between hover:bg-violet-500/20 transition-all group shadow-lg shadow-violet-500/5"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-violet-500/20 rounded-2xl flex items-center justify-center border border-violet-500/30">
+                <Database size={20} className="text-violet-400" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-black text-white">房間紀錄管理</div>
+                <div className="text-[10px] text-violet-400/80 font-bold uppercase tracking-widest">Room Records</div>
+              </div>
+            </div>
+            <div className="px-3 py-1 bg-violet-500/20 rounded-full text-[10px] font-black text-violet-400 border border-violet-500/30 uppercase">
+              瀏覽紀錄
+            </div>
+          </button>
+
+          <button
             onClick={() => setShowChangelog(true)}
             className="w-full p-4 bg-sky-500/10 border border-sky-500/20 rounded-3xl flex items-center justify-between hover:bg-sky-500/20 transition-all group shadow-lg shadow-sky-500/5"
           >
@@ -1024,6 +1044,16 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               </div>
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
+                  {
+                    version: 'v1.4.4',
+                    date: '2026-05-11',
+                    color: 'emerald',
+                    items: [
+                      'GM 控制台新增「房間紀錄管理」頁面：可瀏覽、搜尋所有開房紀錄，並支援單筆刪除',
+                      '房間紀錄管理新增「手動新增紀錄」功能：可補登遺漏場次，支援搜尋綁定玩家帳號並自動累加排名積分',
+                      '財務檢核彈窗刪除按鈕放大並優化間距',
+                    ],
+                  },
                   {
                     version: 'v1.4.3',
                     date: '2026-05-04',
