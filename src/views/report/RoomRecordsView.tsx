@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Trash2, Search, ChevronRight, AlertTriangle, Database, Users, Calendar, Hash, Plus } from 'lucide-react';
+import { X, Trash2, Search, ChevronRight, AlertTriangle, Database, Users, Calendar, Hash, Plus, FileText } from 'lucide-react';
 import { db } from '../../../services/firebase';
-import { collection, getDocs, deleteDoc, doc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, setDoc, updateDoc, increment, serverTimestamp, getDoc } from 'firebase/firestore';
 import { safeAsync } from '../../utils/utils';
-import { CoachRecord } from '../../types';
-import { cn } from '../../utils/gameUtils';
+import { CoachRecord, GameState } from '../../types';
+import { cn, calculateFinancialSummary } from '../../utils/gameUtils';
+import { FinancialStatement } from '../../components/business/FinancialStatement';
 
 const PROFESSION_TITLES = [
   '築巢師系列', '店員系列', '會計師系列', '釀蜜師系列', '教師系列',
@@ -19,6 +20,161 @@ interface PlayerEntry {
   score: number | '';
   isWin: boolean;
 }
+
+// ── Player Financial Modal ───────────────────────────────────────────────────
+
+interface PlayerFinancialModalProps {
+  recordId: string;
+  playerName: string;
+  playerIndex: number;
+  onClose: () => void;
+}
+
+const PlayerFinancialModal: React.FC<PlayerFinancialModalProps> = ({ recordId, playerName, playerIndex, onClose }) => {
+  const [loading, setLoading] = useState(true);
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [summary, setSummary] = useState<any>(null);
+  const [displayName, setDisplayName] = useState(playerName);
+  const [profession, setProfession] = useState('');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const snap = await safeAsync(getDoc(doc(db, 'score_records', 'S1', 'records', recordId)));
+      if (snap?.exists()) {
+        const data = snap.data();
+        const players: any[] = data.players || [];
+        const p = players[playerIndex]?.name === playerName
+          ? players[playerIndex]
+          : players.find((pl: any) => pl.name === playerName);
+
+        if (p) {
+          // 還原薪資（同 HistoryView 邏輯）
+          const income = { ...p.income };
+          if (!income.salary && p.summary) {
+            const passive = p.summary.passiveIncome || 0;
+            const total = p.summary.totalIncome || 0;
+            if (total > passive) income.salary = total - passive;
+          }
+
+          // 重新計算精確財務摘要（同 HistoryView 邏輯）
+          const reconstructed: any = {
+            profession: p.professionData || { title: p.profession, salary: income.salary || 0, expenses: { basicLiving: 0, transportEdu: 0, otherMedicalChild: 0 } },
+            assets: p.assets || [],
+            liabilities: p.liabilities || [],
+            income,
+            expenses: p.expenses || {},
+            loans: p.loans || 0,
+            medicalInsuranceCount: p.medicalInsuranceCount || 0,
+            currentRankLevel: p.currentRankLevel || 1,
+            cash: p.cash || 0,
+            marketPrices: data.marketPrices || {}
+          };
+          const freshSummary = calculateFinancialSummary(reconstructed);
+
+          const dummyGameState: GameState = {
+            profession: p.professionData || {
+              title: p.profession,
+              salary: income.salary || 0,
+              id: 'dummy',
+              initialRank: '',
+              savings: 0,
+              expenses: {
+                tax: Math.floor((income.salary || 0) * 0.05),
+                basicLiving: p.expenses?.basicLiving || 0,
+                transportEdu: p.expenses?.transportEdu || 0,
+                otherMedicalChild: p.expenses?.otherMedicalChild || 0
+              },
+              mortgageTotal: 0,
+              businessLoanTotal: 0,
+              creditLoanTotal: 0,
+              promotions: []
+            },
+            selectedEnterprise: null,
+            selectedDream: null,
+            expenses: p.expenses || {},
+            income: { ...income },
+            currentRankTitle: p.profession,
+            currentRankLevel: 1,
+            cash: p.cash || 0,
+            children: 0,
+            medicalInsuranceCount: 0,
+            assets: p.assets || [],
+            liabilities: p.liabilities || [],
+            loans: p.loans || 0,
+            isSetup: true,
+            history: p.history || [],
+            happiness: p.happinessItems || [],
+            happinessTotal: p.happiness || 0,
+            marketPrices: {},
+            previousMarketPrices: {},
+            lastPublishedCode: '',
+            abilities: { stockAbilityCount: 0, realEstateAbilityCount: 0, professionAbilityCount: 0 },
+            completedHappinessEvents: [],
+            playerName: p.name,
+          };
+
+          setGameState(dummyGameState);
+          setSummary(freshSummary);
+          setDisplayName(p.name);
+          setProfession(p.profession || '');
+        }
+      }
+      setLoading(false);
+    };
+    fetchData();
+  }, [recordId, playerName, playerIndex]);
+
+  return (
+    <div className="fixed inset-0 z-[10003] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
+      <div
+        className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-900/50 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+              <FileText className="text-emerald-400" size={24} />
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-white leading-none">完整財務報表</h3>
+              <div className="text-slate-500 text-sm mt-1.5">{displayName}{profession ? ` • ${profession}` : ''}</div>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6 bg-slate-950/30">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-4">
+              <div className="w-10 h-10 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+              <p className="text-slate-500 font-bold text-sm">載入財務資料中...</p>
+            </div>
+          ) : !gameState || !summary ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-500">
+              <FileText size={40} className="opacity-30" />
+              <p className="font-bold">此場次無財務報表數據</p>
+              <p className="text-xs text-slate-600">手動新增的紀錄或舊版場次不含財務快照</p>
+            </div>
+          ) : (
+            <FinancialStatement
+              gameState={gameState}
+              summary={summary}
+              hideSummary={true}
+              defaultShowDetails={true}
+              hideNav={false}
+              disabled={true}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ── Add Record Modal ─────────────────────────────────────────────────────────
 
@@ -427,6 +583,7 @@ export const RoomRecordsView: React.FC<RoomRecordsViewProps> = ({ onBack }) => {
   const [deleteTarget, setDeleteTarget] = useState<CoachRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [viewingFinancial, setViewingFinancial] = useState<{ recordId: string; playerName: string; playerIndex: number } | null>(null);
 
   useEffect(() => {
     fetchRecords();
@@ -603,7 +760,7 @@ export const RoomRecordsView: React.FC<RoomRecordsViewProps> = ({ onBack }) => {
                 {expandedId === record.id && record.players && record.players.length > 0 && (
                   <div className="border-t border-slate-800/50 px-4 pb-4 pt-3">
                     <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">玩家列表</div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-2">
                       {record.players.map((p, i) => (
                         <div key={i} className="flex items-center justify-between bg-slate-800/40 rounded-xl px-3 py-2">
                           <div className="flex items-center gap-2 min-w-0">
@@ -615,6 +772,13 @@ export const RoomRecordsView: React.FC<RoomRecordsViewProps> = ({ onBack }) => {
                             <span className="text-xs font-black text-pink-400">♥ {p.happiness}</span>
                             <span className="text-xs font-black text-amber-400">{p.score} 分</span>
                             {p.isWin && <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/20">WIN</span>}
+                            <button
+                              onClick={() => setViewingFinancial({ recordId: record.id, playerName: p.name, playerIndex: i })}
+                              className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg text-[10px] font-black text-emerald-400 transition-all active:scale-95"
+                            >
+                              <FileText size={10} />
+                              報表
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -627,6 +791,16 @@ export const RoomRecordsView: React.FC<RoomRecordsViewProps> = ({ onBack }) => {
           </div>
         )}
       </div>
+
+      {/* Player Financial Modal */}
+      {viewingFinancial && (
+        <PlayerFinancialModal
+          recordId={viewingFinancial.recordId}
+          playerName={viewingFinancial.playerName}
+          playerIndex={viewingFinancial.playerIndex}
+          onClose={() => setViewingFinancial(null)}
+        />
+      )}
 
       {/* Add Record Modal */}
       {showAddModal && (

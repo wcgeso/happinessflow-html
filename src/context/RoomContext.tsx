@@ -340,7 +340,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 status: 'playing',
                 playerStates: {}, // 清空舊的玩家狀態
                 pendingRequests: {}, // 初始化審核請求
-                startedAt: Date.now() // 新增開始時間戳，用來觸發玩家重設狀態
+                startedAt: Date.now(), // 新增開始時間戳，用來觸發玩家重設狀態
+                sessionId: `${room.id}_${Date.now()}` // 每場遊戲產生新的唯一 sessionId，避免覆蓋上一場紀錄
             }));
         } catch (err: any) {
             setError(err.message);

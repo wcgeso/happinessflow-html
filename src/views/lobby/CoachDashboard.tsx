@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Users, TrendingUp, PlusCircle, UserPlus, Search, ShieldCheck, X, Trophy, BookOpen, RefreshCw, AlertTriangle, History, FileText, ChevronRight, ChevronDown, ScrollText, Database } from 'lucide-react';
 import { db } from '../../../services/firebase';
-import { collection, query, where, getDocs, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, setDoc, writeBatch, updateDoc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth, isGM } from '../../context/AuthContext';
 import SafeImage from '../../components/common/SafeImage';
@@ -192,12 +192,35 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [showScoreEdit, setShowScoreEdit] = useState(false);
+  const [editScoreValue, setEditScoreValue] = useState('');
 
   const showToast = (text: string, type: 'success' | 'error') => {
     setMessage({ text, type });
     setTimeout(() => {
       setMessage({ text: '', type: '' });
     }, 3000);
+  };
+
+  const handleUpdateScore = async () => {
+    if (!searchResult || isUpdating) return;
+    const newScore = parseInt(editScoreValue, 10);
+    if (isNaN(newScore) || newScore < 0) {
+      showToast('請輸入有效的積分數字（0 以上整數）', 'error');
+      return;
+    }
+    setIsUpdating(true);
+    try {
+      const userRef = doc(db, 'users', searchResult.id);
+      await safeAsync(updateDoc(userRef, { rankScore: newScore, experience: newScore }));
+      setSearchResult({ ...searchResult, rankScore: newScore, experience: newScore });
+      setShowScoreEdit(false);
+      showToast(`積分已更新為 ${newScore}`, 'success');
+    } catch (e: any) {
+      showToast(`更新失敗: ${e.message}`, 'error');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   // 補錄功能狀態
@@ -683,7 +706,47 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+                        <div className="flex flex-col gap-3 w-full md:w-auto">
+                          {/* 積分修改區塊 */}
+                          <div className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-2xl border border-slate-700/50">
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">目前積分</div>
+                            <div className="text-sm font-black text-amber-400 flex-1">{(searchResult.rankScore || 0).toLocaleString()}</div>
+                            {!showScoreEdit ? (
+                              <Button
+                                onClick={() => { setShowScoreEdit(true); setEditScoreValue(String(searchResult.rankScore || 0)); }}
+                                className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-black text-xs px-4 h-8 rounded-xl border border-amber-500/30 transition-all"
+                              >
+                                修改積分
+                              </Button>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={editScoreValue}
+                                  onChange={(e) => setEditScoreValue(e.target.value)}
+                                  onKeyDown={(e) => e.key === 'Enter' && handleUpdateScore()}
+                                  className="h-8 w-24 bg-slate-950/50 border-amber-500/30 rounded-xl text-sm text-center font-black"
+                                  autoFocus
+                                />
+                                <Button
+                                  onClick={handleUpdateScore}
+                                  disabled={isUpdating}
+                                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-3 h-8 rounded-xl transition-all"
+                                >
+                                  確認
+                                </Button>
+                                <button
+                                  onClick={() => setShowScoreEdit(false)}
+                                  className="text-slate-500 hover:text-white transition-colors"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap gap-3 w-full">
                           {/* 管理員權限按鈕 */}
                           {!(searchResult.title === '遊戲管理員' || searchResult.role === 'gm') ? (
                             <Button
@@ -725,6 +788,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                               取消執行師
                             </Button>
                           )}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1044,6 +1108,31 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               </div>
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
+                  {
+                    version: 'v1.4.6',
+                    date: '2026-05-15',
+                    color: 'rose',
+                    items: [
+                      '修復排行榜積分重複累加問題：同一場遊戲的積分現在只會計算一次，不再因重複觸發而倍增',
+                      'GM 管理面板新增「手動修改個人積分」功能：可搜尋玩家並直接修正 rankScore',
+                      '修復排行榜底部「您的積分」顯示舊快取數值的問題，改為即時抓取最新資料',
+                      '修復同一房間進行多場遊戲時，後場覆蓋前場紀錄的問題（sessionId 現在每場重新生成）',
+                      'GM 房間紀錄管理新增「查看財務報表」功能：點擊玩家可查看與遊戲內相同格式的完整財務報表',
+                      '修正自用房幸福分數邏輯：同時持有多間自用房時，改為只計算分數最高的那一間',
+                    ],
+                  },
+                  {
+                    version: 'v1.4.5',
+                    date: '2026-05-14',
+                    color: 'sky',
+                    items: [
+                      '新增玩家端自動存檔機制：遊戲開始後每 1 分鐘自動將遊戲資料儲存至 Firebase',
+                      '執行師端自動存檔頻率調整為每 1 分鐘一次，確保後台資料即時更新',
+                      '新增 player_sessions 資料集合：玩家資料獨立備份，即使執行師斷線仍保留紀錄',
+                      '歷史紀錄頁面整合官方紀錄與玩家自存紀錄，避免重複顯示',
+                      '遊戲結束時玩家端同步觸發最終存檔，確保資料完整',
+                    ],
+                  },
                   {
                     version: 'v1.4.4',
                     date: '2026-05-11',

@@ -310,6 +310,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
                 querySnapshot.forEach((doc) => {
                     const data = doc.id.startsWith('MOCK_') ? doc.data() : doc.data();
                     if (!data.players || !Array.isArray(data.players)) return;
+                    // 只顯示最終結算紀錄，排除自動存檔的中間快照
+                    if (data.isFinal !== true) return;
 
                     const playerData = data.players.find((p: any) => p.uid === targetUserId);
                     if (playerData) {

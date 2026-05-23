@@ -183,20 +183,23 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                 };
                 await safeAsync(setDoc(doc(db, 'coach_records', recordId), coachRecord));
 
-                // 3. 更新每位玩家的累計積分 (experience)
-                await Promise.all(playersData.map(async (player) => {
-                    if (!player.uid) return;
-                    const userRef = doc(db, 'users', player.uid);
-                    try {
-                        await safeAsync(updateDoc(userRef, {
-                            experience: increment(player.totalScore),
-                            rankScore: increment(player.totalScore)
-                        }));
-                    } catch (e) {
-                        console.error(`Failed to update experience for user ${player.uid}`, e);
-                        // 不阻擋主流程，僅記錄錯誤
-                    }
-                }));
+                // 3. 更新每位玩家的累計積分 (experience) - 同一場只能加一次
+                const scoreIncrementKey = `score_incremented_${recordId}`;
+                if (!localStorage.getItem(scoreIncrementKey)) {
+                    localStorage.setItem(scoreIncrementKey, 'true');
+                    await Promise.all(playersData.map(async (player) => {
+                        if (!player.uid) return;
+                        const userRef = doc(db, 'users', player.uid);
+                        try {
+                            await safeAsync(updateDoc(userRef, {
+                                experience: increment(player.totalScore),
+                                rankScore: increment(player.totalScore)
+                            }));
+                        } catch (e) {
+                            console.error(`Failed to update experience for user ${player.uid}`, e);
+                        }
+                    }));
+                }
 
                 return true;
             } catch (err) {

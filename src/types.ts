@@ -158,6 +158,7 @@ export interface GameState {
   hasShownWinAnimation?: boolean;
   playerName?: string;
   reportName?: string;
+  sessionId?: string;
 }
 
 export interface FinancialSummary {
@@ -176,6 +177,8 @@ export interface GameRecord {
   playerName: string;
   reportName: string;
   profession: string;
+  roomId?: string;
+  status?: 'draft' | 'completed';
   finalRankTitle?: string;
   finalScore: number;
   happinessScore: number;

@@ -69,7 +69,16 @@ service cloud.firestore {
                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.title == '管理員';
     }
 
-    // 8. 好友系統規則 (解決您的 permission-denied錯誤)
+    // 8. 玩家個人遊戲存檔（自動存檔機制）
+    match /player_sessions/{uid}/records/{recordId} {
+      // 玩家只能讀寫自己的存檔
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      // 執行師可以讀取所有玩家存檔
+      allow read: if request.auth != null &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
+    }
+
+    // 9. 好友系統規則 (解決您的 permission-denied錯誤)
     match /friendships/{friendshipId} {
       // 允許相關人員（請求者或接收者）讀取
       allow read: if request.auth != null && (

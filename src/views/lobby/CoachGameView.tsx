@@ -395,8 +395,10 @@ export const CoachGameView: React.FC = () => {
             };
             await safeAsync(setDoc(doc(db, 'coach_records', recordId), coachRecord));
 
-            // 3. 更新每位玩家的累計積分 (experience) - 僅在最終結算時
-            if (isFinal) {
+            // 3. 更新每位玩家的累計積分 (experience) - 僅在最終結算時，且同一場只能加一次
+            const scoreIncrementKey = `score_incremented_${recordId}`;
+            if (isFinal && !localStorage.getItem(scoreIncrementKey)) {
+                localStorage.setItem(scoreIncrementKey, 'true');
                 await Promise.all(playersData.map(async (player) => {
                     if (!player.uid) return;
                     const userRef = doc(db, 'users', player.uid);
@@ -460,7 +462,7 @@ export const CoachGameView: React.FC = () => {
         const interval = setInterval(() => {
             console.log('[自動存檔] 兩分鐘定時存檔觸發');
             saveRecords(false, true);
-        }, 2 * 60 * 1000);
+        }, 60 * 1000);
 
         return () => clearInterval(interval);
     }, [room?.status, room?.startedAt, user?.uid, room?.hostId]);
@@ -592,6 +594,8 @@ export const CoachGameView: React.FC = () => {
             description: user?.uid === room?.hostId ? '確定要結束監控並關閉房間嗎？這將會中斷所有玩家的連線。' : '確定要結束監控並離開房間嗎？',
             type: user?.uid === room?.hostId ? 'danger' : 'warning',
             onConfirm: async () => {
+                // 練習模式結束時清除旗標，確保 App.tsx 路由能正常跳回大廳
+                localStorage.removeItem('hf_practice_mode');
                 if (user?.uid === room?.hostId) {
                     await closeRoom();
                 } else {
@@ -723,6 +727,10 @@ export const CoachGameView: React.FC = () => {
 
     const handleConfirmSave = async () => {
         if (!room || !players.length || uploadStatus === 'success') return;
+        if (localStorage.getItem('hf_practice_mode') === 'true') {
+            alert('練習模式不儲存紀錄。');
+            return;
+        }
 
         setIsSavingAll(true);
         setUploadStatus('uploading');

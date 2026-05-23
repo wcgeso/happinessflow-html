@@ -53,7 +53,8 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
         sortedDocs.forEach((doc, index) => {
           const data = doc.data();
           const rank = index + 1;
-          const isMe = data.uid === currentUser?.uid;
+          // 用 doc.id 比對，比 data.uid 更可靠（doc.id 就是 UID）
+          const isMe = doc.id === currentUser?.uid || data.uid === currentUser?.uid;
 
           if (isMe) {
             foundCurrentUser = true;
@@ -208,7 +209,9 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
             </div>
             <div className="text-right">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">目前積分</p>
-              <p className="text-base font-black text-blue-500">{(currentUser?.rankScore || 0).toLocaleString()}</p>
+              <p className="text-base font-black text-blue-500">
+                {(rankings.find(r => r.isCurrentUser)?.score ?? currentUser?.rankScore ?? 0).toLocaleString()}
+              </p>
             </div>
           </div>
         </div>

@@ -6,7 +6,9 @@ import {
     collection,
     query,
     where,
-    orderBy
+    orderBy,
+    setDoc,
+    serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAuth } from './AuthContext';
@@ -28,6 +30,7 @@ interface GameContextValue {
     saveGameRecord: (record: GameRecord) => Promise<void>;
     updateMarketPrices: (updates: Record<string, number>, code: string) => void;
     bubbleBurst: (code: string) => void;
+    sessionId: string | null;
 }
 
 const GameContext = createContext<GameContextValue | undefined>(undefined);
@@ -77,9 +80,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } as GameState;
     });
 
-    const [gameHistory, setGameHistory] = useState<GameRecord[]>([]);
+    const [scoreRecords, setScoreRecords] = useState<GameRecord[]>([]);
+    const [playerSessionRecords, setPlayerSessionRecords] = useState<GameRecord[]>([]);
     const [alertInfo, setAlertInfo] = useState<{ message: string; type: 'info' | 'error' | 'success'; persist?: boolean } | null>(null);
     const alertTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const sessionIdRef = useRef<string | null>(null);
+    const saveToPlayerSessionsRef = useRef<((status: 'draft' | 'completed') => Promise<void>) | null>(null);
 
     // 清除 Alert Timeout
     useEffect(() => {
@@ -94,6 +100,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('happiness_game_state', JSON.stringify(gameState));
         }
     }, [gameState]);
+
+    // 生成 sessionId（遊戲開始時）
+    useEffect(() => {
+        if (gameState.isSetup && user && !sessionIdRef.current) {
+            sessionIdRef.current = `${user.uid}_${Date.now()}`;
+        }
+        if (!gameState.isSetup && !gameState.selectionStep) {
+            sessionIdRef.current = null;
+        }
+    }, [gameState.isSetup, gameState.selectionStep, user]);
 
     // 自動同步到房間文件 (供執行師監控)
     useEffect(() => {
@@ -141,6 +157,60 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return calculateScoreResult(gameState, summary);
     }, [gameState, summary]);
 
+    // 寫入 player_sessions 的共用函式
+    const saveToPlayerSessions = useCallback(async (status: 'draft' | 'completed') => {
+        if (!user || !sessionIdRef.current || !gameState.isSetup) return;
+        if (localStorage.getItem('hf_practice_mode') === 'true') return;
+
+        const sessionId = sessionIdRef.current;
+        const now = new Date().toISOString();
+        const data = cleanObject({
+            uid: user.uid,
+            playerName: gameState.playerName || (user as any).name || 'Unknown',
+            roomId: room?.id || null,
+            sessionId,
+            status,
+            profession: gameState.currentRankTitle || gameState.profession?.title || 'Unknown',
+            finalScore: scoreResult.totalScore,
+            happinessScore: gameState.happinessTotal,
+            isWin: summary.passiveIncome > summary.totalExpenses,
+            financialSummary: summary,
+            gameStateSnapshot: {
+                assets: gameState.assets,
+                liabilities: gameState.liabilities,
+                income: gameState.income,
+                expenses: gameState.expenses,
+                history: gameState.history.slice(-100),
+                happiness: gameState.happiness,
+                cash: gameState.cash,
+                loans: gameState.loans,
+            },
+            updatedAt: now,
+            createdAt: now,
+        });
+
+        const docRef = doc(db, 'player_sessions', user.uid, 'records', sessionId);
+        await safeAsync(setDoc(docRef, data, { merge: true }));
+    }, [user, gameState, room?.id, scoreResult, summary]);
+
+    // 保持 ref 指向最新版本，讓 interval 呼叫時能拿到最新 gameState
+    useEffect(() => {
+        saveToPlayerSessionsRef.current = saveToPlayerSessions;
+    }, [saveToPlayerSessions]);
+
+    // 遊戲開始後立刻存一次，之後每兩分鐘自動存檔草稿到 player_sessions
+    useEffect(() => {
+        if (!gameState.isSetup || !user) return;
+
+        saveToPlayerSessionsRef.current?.('draft');
+
+        const interval = setInterval(() => {
+            saveToPlayerSessionsRef.current?.('draft');
+        }, 60 * 1000);
+
+        return () => clearInterval(interval);
+    }, [gameState.isSetup, user]);
+
     // 自動更新唯讀幸福項目
     useEffect(() => {
         if (!gameState.isSetup) return;
@@ -156,16 +226,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             changed = true;
         }
 
-        // 2. 自住房相關
+        // 2. 自住房相關：只取分數最高的那一間
         const houseSubIds: Record<string, string> = { '1room': 'h_house_1', '2room': 'h_house_2', '3room': 'h_house_3', '5room': 'h_house_5' };
-        const ownedHouseTypes = new Set(
-            gameState.assets
-                .filter(a => a.houseType && a.isSelfUse)
-                .map(a => a.houseType)
-        );
+        const housePoints: Record<string, number> = { '1room': 2, '2room': 4, '3room': 6, '5room': 8 };
+        const selfUseTypes = gameState.assets
+            .filter(a => a.houseType && a.isSelfUse)
+            .map(a => a.houseType as string);
+        const bestType = selfUseTypes.reduce<string | null>((best, t) =>
+            best === null || (housePoints[t] || 0) > (housePoints[best] || 0) ? t : best
+        , null);
 
         Object.entries(houseSubIds).forEach(([typeKey, itemId]) => {
-            const shouldBeChecked = ownedHouseTypes.has(typeKey);
+            const shouldBeChecked = typeKey === bestType;
             const item = updatedHappiness.find(h => h.id === itemId);
             if (item && item.checked !== shouldBeChecked) {
                 updatedHappiness = updatedHappiness.map(h => h.id === itemId ? { ...h, checked: shouldBeChecked } : h);
@@ -211,15 +283,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [summary.passiveIncome, summary.totalExpenses, gameState.assets, gameState.isSetup, gameState.happiness]);
 
-    // 獲取個人歷史紀錄
+    // 監聽執行師存入的官方紀錄 (score_records)
     useEffect(() => {
         if (!user) {
-            setGameHistory([]);
+            setScoreRecords([]);
             return;
         }
-
-        console.log(`[GameContext] 開始獲取用戶 ${user.uid} 的歷史紀錄... 路徑: score_records/S1/records`);
-        console.log(`[GameContext] 查詢條件: playerUids array-contains ${user.uid}`);
 
         const q = query(
             collection(db, 'score_records', 'S1', 'records'),
@@ -227,105 +296,110 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            console.log(`[GameContext] 收到 Snapshot, 文件數量: ${snapshot.size}`);
-            console.log(`[GameContext] Snapshot metadata:`, snapshot.metadata);
-
-            if (snapshot.empty) {
-                console.log(`[GameContext] Snapshot 為空，用戶 ${user.uid} 可能還沒有任何遊戲紀錄`);
-                console.log(`[GameContext] 嘗試查看所有文檔（測試用）...`);
-            }
-
-            const history: GameRecord[] = [];
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                console.log(`[GameContext] 處理紀錄: ${doc.id}`, {
-                    playerUids: data.playerUids,
-                    playersCount: data.players?.length,
-                    settledAt: data.settledAt,
-                    isFinal: data.isFinal
-                });
-
-                // 檢查 players 陣列是否存在且包含用戶
-                if (!data.players || !Array.isArray(data.players)) {
-                    console.log(`[GameContext] 紀錄 ${doc.id} 的 players 欄位格式錯誤:`, data.players);
-                    return;
-                }
-
+            const records: GameRecord[] = [];
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                if (!data.players || !Array.isArray(data.players)) return;
                 const playerData = data.players.find((p: any) => p.uid === user.uid);
+                if (!playerData) return;
 
-                if (playerData) {
-                    console.log(`[GameContext] 找到用戶 ${user.uid} 在紀錄 ${doc.id} 中的數據:`, {
-                        name: playerData.name,
-                        profession: playerData.profession,
-                        totalScore: playerData.totalScore,
-                        happiness: playerData.happiness
-                    });
-                    history.push({
-                        id: doc.id,
-                        date: data.settledAt?.toDate ? data.settledAt.toDate().toISOString() :
-                            (data.settledAt ? new Date(data.settledAt).toISOString() : new Date().toISOString()),
-                        playerName: playerData.name,
-                        reportName: data.roomName || `${playerData.name} 的財務報表`,
-                        profession: playerData.profession,
-                        finalScore: playerData.totalScore || 0,
-                        happinessScore: playerData.happiness || 0,
-                        isWin: playerData.happiness >= 100,
-                        financialSummary: playerData.summary || {
-                            totalIncome: 0,
-                            totalExpenses: 0,
-                            monthlyCashflow: 0,
-                            passiveIncome: 0,
-                            totalAssets: 0,
-                            totalLiabilities: 0,
-                            payday: 0
-                        },
-                        gameStateSnapshot: {
-                            assets: playerData.assets || [],
-                            liabilities: playerData.liabilities || [],
-                            income: playerData.income || {},
-                            expenses: playerData.expenses || {},
-                            history: playerData.history || [],
-                            happiness: playerData.happinessItems || [],
-                            cash: playerData.cash || 0,
-                            loans: playerData.loans || 0
-                        },
-                        allPlayers: (data.players || []).map((p: any) => ({
-                            name: p.name || '玩家',
-                            happiness: p.happiness ?? p.happinessTotal ?? 0,
-                            totalScore: p.totalScore ?? p.score ?? 0,
-                            profession: p.profession || '未知職業'
-                        }))
-                    });
-                } else {
-                    console.log(`[GameContext] 紀錄 ${doc.id} 的 players 陣列中未找到用戶 ${user.uid}`);
-                    console.log(`[GameContext] 該紀錄的所有玩家 UID:`, data.players.map((p: any) => p.uid));
-                }
+                records.push({
+                    id: docSnap.id,
+                    roomId: data.roomId,
+                    date: data.settledAt?.toDate ? data.settledAt.toDate().toISOString() :
+                        (data.settledAt ? new Date(data.settledAt).toISOString() : new Date().toISOString()),
+                    playerName: playerData.name,
+                    reportName: data.roomName || `${playerData.name} 的財務報表`,
+                    profession: playerData.profession,
+                    finalScore: playerData.totalScore || 0,
+                    happinessScore: playerData.happiness || 0,
+                    isWin: playerData.happiness >= 100,
+                    status: data.isFinal ? 'completed' : 'draft',
+                    financialSummary: playerData.summary || {
+                        totalIncome: 0, totalExpenses: 0, monthlyCashflow: 0,
+                        passiveIncome: 0, totalAssets: 0, totalLiabilities: 0, payday: 0
+                    },
+                    gameStateSnapshot: {
+                        assets: playerData.assets || [],
+                        liabilities: playerData.liabilities || [],
+                        income: playerData.income || {},
+                        expenses: playerData.expenses || {},
+                        history: playerData.history || [],
+                        happiness: playerData.happinessItems || [],
+                        cash: playerData.cash || 0,
+                        loans: playerData.loans || 0
+                    },
+                    allPlayers: (data.players || []).map((p: any) => ({
+                        name: p.name || '玩家',
+                        happiness: p.happiness ?? p.happinessTotal ?? 0,
+                        totalScore: p.totalScore ?? p.score ?? 0,
+                        profession: p.profession || '未知職業'
+                    }))
+                });
             });
 
-            // 手動排序
-            history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-            console.log(`[GameContext] 獲取到 ${history.length} 筆符合用戶的紀錄`);
-            if (history.length > 0) {
-                console.log(`[GameContext] 第一筆紀錄:`, history[0]);
-            }
-            setGameHistory(history);
+            records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            setScoreRecords(records);
         }, (error) => {
-            console.error("[GameContext] 獲取歷史紀錄失敗:", error);
-            console.error("[GameContext] 錯誤詳情:", {
-                code: error.code,
-                message: error.message,
-                name: error.name
-            });
+            console.error("[GameContext] 獲取官方歷史紀錄失敗:", error);
         });
 
         return () => unsubscribe();
     }, [user]);
 
+    // 監聽玩家自存紀錄 (player_sessions)，排除已有官方紀錄的場次
+    useEffect(() => {
+        if (!user) {
+            setPlayerSessionRecords([]);
+            return;
+        }
+
+        const q = query(
+            collection(db, 'player_sessions', user.uid, 'records'),
+            orderBy('updatedAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const coachRoomIds = new Set(scoreRecords.filter(r => r.roomId).map(r => r.roomId));
+
+            const records: GameRecord[] = [];
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                // 如果這場遊戲已有執行師的官方紀錄，跳過（避免重複）
+                if (data.roomId && coachRoomIds.has(data.roomId)) return;
+
+                records.push({
+                    id: docSnap.id,
+                    roomId: data.roomId,
+                    date: data.updatedAt || new Date().toISOString(),
+                    playerName: data.playerName || 'Unknown',
+                    reportName: data.playerName ? `${data.playerName} 的財務報表` : '我的財務報表',
+                    profession: data.profession || 'Unknown',
+                    finalScore: data.finalScore || 0,
+                    happinessScore: data.happinessScore || 0,
+                    isWin: data.isWin || false,
+                    status: data.status || 'draft',
+                    financialSummary: data.financialSummary || {
+                        totalIncome: 0, totalExpenses: 0, monthlyCashflow: 0,
+                        passiveIncome: 0, totalAssets: 0, totalLiabilities: 0, payday: 0
+                    },
+                    gameStateSnapshot: data.gameStateSnapshot || {
+                        assets: [], liabilities: [], income: {}, expenses: {},
+                        history: [], happiness: [], cash: 0, loans: 0
+                    },
+                });
+            });
+
+            setPlayerSessionRecords(records);
+        }, (error) => {
+            console.error("[GameContext] 獲取玩家自存紀錄失敗:", error);
+        });
+
+        return () => unsubscribe();
+    }, [user, scoreRecords]);
+
     const saveGameRecord = async (record: GameRecord) => {
-        // 這裡可以實作保存到 Firebase 的邏輯
-        // TODO: 將紀錄保存到 Firestore score_records
-        setGameHistory(prev => [record, ...prev]);
+        await saveToPlayerSessions('completed');
         showAlert('遊戲紀錄已保存', 'success');
     };
 
@@ -394,6 +468,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => unsubscribe();
     }, [room?.id, user?.uid, room?.hostId, gameState.isSetup, gameState.lastMarketUpdateTimestamp, bubbleBurst, updateMarketPrices]);
 
+    // 合併官方紀錄 + 玩家自存紀錄（官方優先，自存紀錄補充沒有官方紀錄的場次）
+    const gameHistory = useMemo(() => {
+        return [...scoreRecords, ...playerSessionRecords]
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [scoreRecords, playerSessionRecords]);
+
+    const setGameHistory = () => {};
+
     return (
         <GameContext.Provider value={{
             gameState,
@@ -407,7 +489,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             hideAlert,
             saveGameRecord,
             updateMarketPrices,
-            bubbleBurst
+            bubbleBurst,
+            sessionId: sessionIdRef.current,
         }}>
             {children}
         </GameContext.Provider>
