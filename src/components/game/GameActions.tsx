@@ -9,12 +9,12 @@ interface GameActionsProps {
     disabled?: boolean;
 }
 
-export const GameActions: React.FC<GameActionsProps> = ({ 
-    onShowMedical, 
-    onShowTransaction, 
-    onShowPayday, 
+export const GameActions: React.FC<GameActionsProps> = ({
+    onShowMedical,
+    onShowTransaction,
+    onShowPayday,
     onShowSettlement,
-    disabled = false
+    disabled = false,
 }) => {
     return (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-6 mb-safe">

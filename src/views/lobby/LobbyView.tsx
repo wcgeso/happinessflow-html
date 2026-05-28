@@ -49,7 +49,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   onViewModeChange,
   onModalStateChange,
   autoOpenCreateRoom,
-  onAutoOpenHandled
+  onAutoOpenHandled,
 }) => {
   const { gameHistory, gameState } = useGame();
   const { user } = useAuth();
@@ -115,7 +115,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
   const handleCreateRoom = async (settings: { name: string; maxPlayers: number; duration: number }) => {
     try {
-      await createRoom(settings);
+      const isPractice = localStorage.getItem('hf_practice_mode') === 'true';
+      await createRoom({ ...settings, isPractice });
       setShowCreateRoomModal(false);
       // 移除 setShowRoomView(true)，改由 RoomContext 的 room 狀態驅動自動跳轉
     } catch (err: any) {
@@ -592,7 +593,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
               {/* GM Dashboard Wrapper */}
               <CoachDashboard
-                onCreateGame={() => setShowCreateRoomModal(true)}
+                onCreateGame={() => { localStorage.removeItem('hf_practice_mode'); setShowCreateRoomModal(true); }}
                 onViewHistory={onViewHistory}
                 onViewCoachHistory={() => setShowCoachHistory(true)}
                 onViewFriends={() => setShowFriendsModal(true)}
@@ -607,7 +608,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             </div>
           ) : viewMode === 'coach' ? (
             <CoachDashboard
-              onCreateGame={() => setShowCreateRoomModal(true)}
+              onCreateGame={() => { localStorage.removeItem('hf_practice_mode'); setShowCreateRoomModal(true); }}
               onViewHistory={onViewHistory}
               onViewCoachHistory={() => setShowCoachHistory(true)}
               onViewFriends={() => setShowFriendsModal(true)}
@@ -728,6 +729,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   </div>
                 )}
 
+                {/* ── 加入線上棋盤房間 ── */}
                 {/* Secondary Actions Grid */}
                 <div className="grid grid-cols-2 gap-3 md:gap-4">
                   <button
