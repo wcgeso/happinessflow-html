@@ -9,10 +9,12 @@ import {
   getRedirectResult,
   signOut as _signOut,
   onAuthStateChanged as _onAuthStateChanged,
-  OAuthProvider
+  OAuthProvider,
+  connectAuthEmulator,
 } from 'firebase/auth';
 import {
   initializeFirestore,
+  connectFirestoreEmulator,
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -33,6 +35,13 @@ export const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: true,
 });
 export const storage = getStorage(app);
+
+// 本地開發：連接 Firebase Emulator（VITE_USE_EMULATOR=true 時啟用）
+if (import.meta.env.VITE_USE_EMULATOR === 'true') {
+  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+  connectFirestoreEmulator(db, 'localhost', 8080);
+  console.log('%c🔧 Firebase Emulator 已啟用（本地開發模式）', 'color: #f59e0b; font-weight: bold');
+}
 export const googleProvider = new GoogleAuthProvider();
 export const appleProvider = new OAuthProvider('apple.com');
 

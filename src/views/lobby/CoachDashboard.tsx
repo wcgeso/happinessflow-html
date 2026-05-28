@@ -11,6 +11,7 @@ import { handlePromotionToCoach } from '../../utils/referralUtils';
 
 interface CoachDashboardProps {
   onCreateGame: () => void;
+  onCreateBoardRoom?: () => void;
   onViewHistory: () => void;
   onViewCoachHistory: () => void;
   onViewFriends: () => void;
@@ -112,6 +113,7 @@ const ReferralListTab: React.FC<{ allUsers: any[] }> = ({ allUsers }) => {
 
 export const CoachDashboard: React.FC<CoachDashboardProps> = ({
   onCreateGame,
+  onCreateBoardRoom,
   onViewHistory,
   onViewCoachHistory,
   onViewFriends,
@@ -1380,6 +1382,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                 </div>
               </div>
             </button>
+
 
             {/* Coach Tools Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

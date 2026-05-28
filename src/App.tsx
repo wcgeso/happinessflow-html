@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect, useCallback } from 'react';
+import React, { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RoomProvider, useRoom } from './context/RoomContext';
@@ -456,7 +456,6 @@ const MainRouting = ({
                 } else {
                     if (currentView !== 'waiting_players' && currentView !== 'coach_monitor') {
                         console.log('仍有玩家在選擇職業，執行師留在等待畫面');
-                        // 這裡我們暫時讓執行師停留在 coach_monitor，但 CoachGameView 內部會處理等待畫面
                         setCurrentView('coach_monitor');
                     }
                 }

@@ -65,6 +65,13 @@ export const CoachGameView: React.FC = () => {
         }
     }, [room?.id]);
 
+    // 進入正式遊戲房間時清除殘留的練習模式旗標
+    useEffect(() => {
+        if (room?.id && !room.isPractice) {
+            localStorage.removeItem('hf_practice_mode');
+        }
+    }, [room?.id, room?.isPractice]);
+
     const [confirmPublishData, setConfirmPublishData] = useState<{
         code: string;
         updates: Record<string, number>;
@@ -315,14 +322,21 @@ export const CoachGameView: React.FC = () => {
 
     const saveRecords = async (isFinal: boolean = false, isSilent: boolean = false) => {
         if (!room || !user || !players.length) return;
-        if (localStorage.getItem('hf_practice_mode') === 'true') return; // 練習模式不儲存
+        if (room.isPractice) return; // 練習模式不儲存（以房間本身的欄位為準）
 
         if (!isSilent) console.log(`[存檔] 執行紀錄存檔中... (是否為結算: ${isFinal})`);
 
         try {
+            // 直接從 Firestore 讀取最新玩家狀態，不依賴記憶體
+            const roomSnap = await getDoc(doc(db, 'rooms', room.id));
+            const freshStates: Record<string, any> = roomSnap.exists()
+                ? (roomSnap.data()?.playerStates || {})
+                : {};
+
             // 整理所有玩家的積分數據
             const playersData = players.map(player => {
-            const state = playerStates[player.uid];
+            // 優先用 Firestore 最新狀態，fallback 到記憶體
+            const state = freshStates[player.uid] || playerStates[player.uid];
             if (!state) return null;
 
             const summary = calculateFinancialSummary(state);
@@ -727,7 +741,7 @@ export const CoachGameView: React.FC = () => {
 
     const handleConfirmSave = async () => {
         if (!room || !players.length || uploadStatus === 'success') return;
-        if (localStorage.getItem('hf_practice_mode') === 'true') {
+        if (room.isPractice) {
             alert('練習模式不儲存紀錄。');
             return;
         }

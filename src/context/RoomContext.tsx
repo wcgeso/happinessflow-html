@@ -61,6 +61,8 @@ interface Room {
     playerStates?: Record<string, GameState>; // 直接存放在房間文件內，確保執行師有權限讀取
     startedAt?: number; // 遊戲開始時間戳
     sessionId?: string; // 穩定的遊戲場次 ID
+    isBoardGame?: boolean; // 棋盤遊戲模式
+    isPractice?: boolean; // 練習模式（不計分）
     marketPrices?: Record<string, number>; // 股市價格
     previousMarketPrices?: Record<string, number>; // 前一次股市價格
     marketUpdates?: {
@@ -77,7 +79,7 @@ interface RoomContextValue {
     isLoadingRoom: boolean;
     error: string | null;
     playerStates: Record<string, GameState>;
-    createRoom: (settings?: { name: string; maxPlayers: number; duration: number }) => Promise<string>;
+    createRoom: (settings?: { name: string; maxPlayers: number; duration: number; isPractice?: boolean }) => Promise<string>;
     joinRoom: (roomCode: string) => Promise<void>;
     leaveRoom: () => Promise<void>;
     startRoomGame: () => Promise<void>;
@@ -188,7 +190,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return code;
     }, []);
 
-    const createRoom = useCallback(async (settings?: { name: string; maxPlayers: number; duration: number }) => {
+    const createRoom = useCallback(async (settings?: { name: string; maxPlayers: number; duration: number; isPractice?: boolean }) => {
         if (!user) throw new Error('請先登入');
         if (user.role !== 'coach') throw new Error('只有執行師可以開房');
 
@@ -218,7 +220,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 duration: settings?.duration || 60,
                 gameTimeLeft: (settings?.duration || 60) * 60,
                 isTimerPaused: true,
-                sessionId: `${roomCode}_${Date.now()}`
+                sessionId: `${roomCode}_${Date.now()}`,
+                ...(settings?.isPractice ? { isPractice: true } : {})
             };
             const cleanedRoom = cleanObject(newRoom);
             await safeAsync(setDoc(doc(db, 'rooms', roomCode), cleanedRoom));
