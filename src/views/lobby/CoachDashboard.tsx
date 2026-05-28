@@ -1111,6 +1111,17 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v1.4.7',
+                    date: '2026-05-28',
+                    color: 'emerald',
+                    items: [
+                      '修復執行師儲存紀錄時錯誤顯示「練習模式不儲存紀錄」的問題',
+                      '執行師儲存機制改為直接從 Firestore 讀取最新玩家狀態，不再依賴記憶體，確保資料準確',
+                      '練習模式判斷改以房間本身的 isPractice 欄位為準，不再受 localStorage 殘留旗標影響',
+                      '修復前一場練習模式未正常退出導致下一場正式遊戲無法儲存的問題',
+                    ],
+                  },
+                  {
                     version: 'v1.4.6',
                     date: '2026-05-15',
                     color: 'rose',
