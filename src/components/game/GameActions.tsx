@@ -36,6 +36,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
     // 當擲骰結束 (或是換人回合時)，強制將骰子重置回手上
     useEffect(() => {
         if (!isRollingBoardDice) {
+            diceControls.stop(); // 停止所有進行中的動畫(包含延遲消失)
             diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotateX: -15, rotateY: 15, rotateZ: 0 });
         }
     }, [isRollingBoardDice, diceControls]);
@@ -69,7 +70,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                 y: [0, apexY, landY, landY - 40, landY, landY - 15, landY], // 上升 -> 墜落 -> 彈起 -> 墜落 -> 小彈 -> 停止
                 z: [0, -100, -300, -300, -300], // Z軸(遠近)：平 -> 稍微拉近(上升) -> 遠離(落地)
                 scale: [1, 1.2, 0.4, 0.4, 0.4], // 視覺縮放配合 Z 軸
-                opacity: [1, 1, 1, 1, 0], // 最後停住才消失
+                opacity: 1, // 保持不透明直到落地結束
                 rotateX: [0, rotX * 0.5, rotX, rotX + 30, rotX + 30],
                 rotateY: [0, rotY * 0.5, rotY, rotY + 15, rotY + 15],
                 rotateZ: [0, rotZ * 0.5, rotZ, rotZ + 10, rotZ + 10],
@@ -78,6 +79,12 @@ export const GameActions: React.FC<GameActionsProps> = ({
                     times: [0, 0.3, 0.6, 0.75, 0.85, 0.95, 1], // 控制每個關鍵影格的時間點
                     ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn"] // 上升減速，下墜加速
                 }
+            }).then(() => {
+                // 落地後停留 2 秒，然後淡出消失
+                diceControls.start({
+                    opacity: 0,
+                    transition: { duration: 0.3, delay: 2 }
+                });
             });
             
             // 延遲觸發擲骰邏輯，讓玩家欣賞一下彈跳
@@ -189,7 +196,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                                 y: [0, apexY, landY, landY - 40, landY, landY - 15, landY],
                                                 z: [0, -100, -300, -300, -300],
                                                 scale: [1, 1.2, 0.4, 0.4, 0.4],
-                                                opacity: [1, 1, 1, 1, 0],
+                                                opacity: 1,
                                                 rotateX: [0, rotX * 0.5, rotX, rotX + 30, rotX + 30],
                                                 rotateY: [0, rotY * 0.5, rotY, rotY + 15, rotY + 15],
                                                 rotateZ: [0, rotZ * 0.5, rotZ, rotZ + 10, rotZ + 10],
@@ -198,6 +205,12 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                                     times: [0, 0.3, 0.6, 0.75, 0.85, 0.95, 1],
                                                     ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn"]
                                                 }
+                                            }).then(() => {
+                                                // 落地後停留 2 秒，然後淡出消失
+                                                diceControls.start({
+                                                    opacity: 0,
+                                                    transition: { duration: 0.3, delay: 2 }
+                                                });
                                             });
                                             
                                             setTimeout(() => {
