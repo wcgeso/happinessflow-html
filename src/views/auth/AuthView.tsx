@@ -210,8 +210,8 @@ export const AuthView: React.FC = () => {
                     <div className="relative group transition-transform hover:scale-105 duration-500">
                             {/* Gold glow */}
                             <div className="absolute inset-0 bg-amber-400/10 blur-3xl group-hover:bg-amber-400/20 transition-all duration-500 scale-110"></div>
-                            <img 
-                                src="/logo.png?v=4" 
+                            <img
+                                src="/logo.png?v=4"
                                 alt="幸福流" 
                                 className="w-64 md:w-72 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)]"
                             />
