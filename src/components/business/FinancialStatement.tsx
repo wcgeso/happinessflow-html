@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GameState, FinancialSummary, Asset } from '../../types';
 import { STOCK_NAMES, REAL_ESTATE_PRESETS } from '../../constants';
 import { TrendingUp, Building, ChevronDown, ShieldCheck, ArrowUpCircle, ExternalLink, Wallet, Landmark, BarChart3, PieChart } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { HistoryTable } from './HistoryTable';
 import { CashFlowLog } from './CashFlowLog';
 import { BizUpgradeModal } from '../modals/BizUpgradeModal';
@@ -669,23 +670,37 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
         />
       )}
 
-      {/* 底部 Tab 切換 (固定在 Dock 上方) */}
+      {/* 底部 Tab 切換 (藥丸式懸浮切換器) */}
       {!hideNav && (
-        <div className="fixed bottom-[110px] left-0 right-0 z-40 px-4 pointer-events-none">
-          <div className="max-w-4xl mx-auto flex w-full bg-slate-900/90 backdrop-blur-xl p-1.5 rounded-2xl border border-slate-700/60 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] pointer-events-auto">
+        <div className="fixed bottom-[110px] left-0 right-0 z-40 px-4 pointer-events-none flex justify-center">
+          <div className="relative flex items-center bg-slate-900/80 backdrop-blur-xl p-1.5 rounded-full border border-slate-700/60 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] pointer-events-auto">
             {[
-              { id: 'financial', label: '財務報表' },
-              { id: 'cashflow', label: '現金流量表' },
+              { id: 'financial', label: '報表' },
+              { id: 'cashflow', label: '金流' },
               { id: 'history', label: '紀錄' }
-            ].map((v) => (
-              <button
-                key={v.id}
-                onClick={() => setView(v.id as any)}
-                className={`flex-1 py-3 rounded-xl text-sm font-black tracking-widest transition-all ${view === v.id ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-              >
-                {v.label}
-              </button>
-            ))}
+            ].map((v) => {
+              const isActive = view === v.id;
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => setView(v.id as any)}
+                  className={cn(
+                    "relative px-6 py-2.5 rounded-full text-xs font-black tracking-widest transition-colors z-10",
+                    isActive ? "text-white" : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="pill-active-bg"
+                      className="absolute inset-0 bg-emerald-600 rounded-full shadow-[0_0_15px_rgba(5,150,105,0.6)] -z-10"
+                      initial={false}
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-20">{v.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
