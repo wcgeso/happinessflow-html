@@ -685,7 +685,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                   key={v.id}
                   onClick={() => setView(v.id as any)}
                   className={cn(
-                    "relative px-6 py-2.5 rounded-full text-xs font-black tracking-widest transition-colors z-10",
+                    "relative px-7 py-3 sm:px-8 sm:py-3.5 rounded-full text-sm font-black tracking-widest transition-colors z-10 touch-manipulation",
                     isActive ? "text-white" : "text-slate-400 hover:text-slate-200"
                   )}
                 >
@@ -697,7 +697,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                       transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     />
                   )}
-                  <span className="relative z-20">{v.label}</span>
+                  <span className="relative z-20 pointer-events-none">{v.label}</span>
                 </button>
               );
             })}
