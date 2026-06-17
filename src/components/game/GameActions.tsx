@@ -56,7 +56,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
             const rotZ = (dirX + dirY) * 2 + (Math.random() * 360 + 360);
 
             // 播放丟出去的動畫 (加入拋物線與 3D 結構保留)
-            await diceControls.start({
+            diceControls.start({
                 x: targetX,
                 y: targetY,
                 z: -500, // 透過 Z 軸製造遠近感 (需要父容器有 perspective)
@@ -70,13 +70,13 @@ export const GameActions: React.FC<GameActionsProps> = ({
                     // 使用 easeOut 讓它一開始飛很快，後來慢下來，營造落地感
                     ease: "easeOut" 
                 }
+            }).then(() => {
+                // 動畫結束後，瞬間重置位置準備下一次
+                diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotateX: -15, rotateY: 15, rotateZ: 0 });
             });
             
-            // 觸發擲骰邏輯
+            // 立刻觸發擲骰邏輯，不等待動畫結束
             onRollBoardDice();
-            
-            // 瞬間重置位置準備下一次
-            diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotateX: -15, rotateY: 15, rotateZ: 0 });
         } else {
             // 沒滑到位，彈回原位
             diceControls.start({
