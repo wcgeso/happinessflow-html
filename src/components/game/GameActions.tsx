@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { CirclePlus, Dices, Target, Landmark, Building, ChevronUp } from 'lucide-react';
 import { motion, useAnimation, useDragControls, PanInfo } from 'framer-motion';
 
@@ -32,6 +32,13 @@ export const GameActions: React.FC<GameActionsProps> = ({
     const diceControls = useAnimation();
     const dragControls = useDragControls();
     const [isDragging, setIsDragging] = useState(false);
+
+    // 當擲骰結束 (或是換人回合時)，強制將骰子重置回手上
+    useEffect(() => {
+        if (!isRollingBoardDice) {
+            diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotateX: -15, rotateY: 15, rotateZ: 0 });
+        }
+    }, [isRollingBoardDice, diceControls]);
 
     const handleDragEnd = async (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
         setIsDragging(false);
@@ -70,9 +77,6 @@ export const GameActions: React.FC<GameActionsProps> = ({
                     // 使用 easeOut 讓它一開始飛很快，後來慢下來，營造落地感
                     ease: "easeOut" 
                 }
-            }).then(() => {
-                // 動畫結束後，瞬間重置位置準備下一次
-                diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotateX: -15, rotateY: 15, rotateZ: 0 });
             });
             
             // 立刻觸發擲骰邏輯，不等待動畫結束
@@ -180,10 +184,8 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                                 rotateY: Math.random() * 360 + 720,
                                                 rotateZ: Math.random() * 360 + 360,
                                                 transition: { duration: 0.6, ease: "easeOut" }
-                                            }).then(() => {
-                                                onRollBoardDice();
-                                                diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotateX: -15, rotateY: 15, rotateZ: 0 });
                                             });
+                                            onRollBoardDice();
                                         }
                                     }}
                                     style={{ touchAction: "none", transformStyle: "preserve-3d" }}
