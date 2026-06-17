@@ -53,34 +53,37 @@ export const GameActions: React.FC<GameActionsProps> = ({
             const dirX = info.offset.x;
             const dirY = info.offset.y;
             
-            // 放大向量作為飛行終點，並給予一個預設的向外(上)拋物線感
-            const targetX = dirX * 4;
-            const targetY = dirY * 4 - 150; 
+            // 基礎飛行距離與高度
+            const targetX = dirX * 3;
+            const apexY = Math.min(dirY * 2, -200); // 最高點
+            const landY = apexY + 150; // 落地點 (比最高點低)
 
             // 根據方向產生真實的 3D 翻滾 (加上基礎旋轉圈數確保一定會轉)
             const rotX = (-dirY * 4) + (Math.random() * 360 + 720);
             const rotY = (dirX * 4) + (Math.random() * 360 + 720);
             const rotZ = (dirX + dirY) * 2 + (Math.random() * 360 + 360);
 
-            // 播放丟出去的動畫 (加入拋物線與 3D 結構保留)
+            // 播放丟出去的拋物線與彈跳動畫 (Keyframes)
             diceControls.start({
-                x: targetX,
-                y: targetY,
-                z: -500, // 透過 Z 軸製造遠近感 (需要父容器有 perspective)
-                scale: 0.2, // 變小模擬飛遠
-                opacity: 0,
-                rotateX: rotX,
-                rotateY: rotY,
-                rotateZ: rotZ,
+                x: [0, targetX * 0.5, targetX, targetX * 1.05, targetX],
+                y: [0, apexY, landY, landY - 40, landY, landY - 15, landY], // 上升 -> 墜落 -> 彈起 -> 墜落 -> 小彈 -> 停止
+                z: [0, -100, -300, -300, -300], // Z軸(遠近)：平 -> 稍微拉近(上升) -> 遠離(落地)
+                scale: [1, 1.2, 0.4, 0.4, 0.4], // 視覺縮放配合 Z 軸
+                opacity: [1, 1, 1, 1, 0], // 最後停住才消失
+                rotateX: [0, rotX * 0.5, rotX, rotX + 30, rotX + 30],
+                rotateY: [0, rotY * 0.5, rotY, rotY + 15, rotY + 15],
+                rotateZ: [0, rotZ * 0.5, rotZ, rotZ + 10, rotZ + 10],
                 transition: { 
-                    duration: 0.6, 
-                    // 使用 easeOut 讓它一開始飛很快，後來慢下來，營造落地感
-                    ease: "easeOut" 
+                    duration: 1.2, 
+                    times: [0, 0.3, 0.6, 0.75, 0.85, 0.95, 1], // 控制每個關鍵影格的時間點
+                    ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn"] // 上升減速，下墜加速
                 }
             });
             
-            // 立刻觸發擲骰邏輯，不等待動畫結束
-            onRollBoardDice();
+            // 延遲觸發擲骰邏輯，讓玩家欣賞一下彈跳
+            setTimeout(() => {
+                onRollBoardDice();
+            }, 600);
         } else {
             // 沒滑到位，彈回原位
             diceControls.start({
@@ -174,18 +177,32 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                     onClick={() => {
                                         // 保留點擊觸發，防呆
                                         if (isActive) {
+                                            const targetX = (Math.random() - 0.5) * 150;
+                                            const apexY = -250;
+                                            const landY = -100;
+                                            const rotX = Math.random() * 360 + 720;
+                                            const rotY = Math.random() * 360 + 720;
+                                            const rotZ = Math.random() * 360 + 360;
+
                                             diceControls.start({
-                                                x: (Math.random() - 0.5) * 100, 
-                                                y: -300, 
-                                                z: -500,
-                                                scale: 0.2, 
-                                                opacity: 0, 
-                                                rotateX: Math.random() * 360 + 720, 
-                                                rotateY: Math.random() * 360 + 720,
-                                                rotateZ: Math.random() * 360 + 360,
-                                                transition: { duration: 0.6, ease: "easeOut" }
+                                                x: [0, targetX * 0.5, targetX, targetX * 1.05, targetX],
+                                                y: [0, apexY, landY, landY - 40, landY, landY - 15, landY],
+                                                z: [0, -100, -300, -300, -300],
+                                                scale: [1, 1.2, 0.4, 0.4, 0.4],
+                                                opacity: [1, 1, 1, 1, 0],
+                                                rotateX: [0, rotX * 0.5, rotX, rotX + 30, rotX + 30],
+                                                rotateY: [0, rotY * 0.5, rotY, rotY + 15, rotY + 15],
+                                                rotateZ: [0, rotZ * 0.5, rotZ, rotZ + 10, rotZ + 10],
+                                                transition: { 
+                                                    duration: 1.2, 
+                                                    times: [0, 0.3, 0.6, 0.75, 0.85, 0.95, 1],
+                                                    ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn"]
+                                                }
                                             });
-                                            onRollBoardDice();
+                                            
+                                            setTimeout(() => {
+                                                onRollBoardDice();
+                                            }, 600);
                                         }
                                     }}
                                     style={{ touchAction: "none", transformStyle: "preserve-3d" }}
