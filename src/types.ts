@@ -5,7 +5,7 @@ export interface Asset {
   cost: number;
   downPayment: number;
   cashflow: number; // Positive monthly income
-  type: '現金' | '定存' | '股票' | '企業' | '不動產' | '飛行器';
+  type: '現金' | '定存' | '股票' | '企業' | '不動產' | '飛行器' | '汽車';
   isSelfUse?: boolean;
   houseType?: string;
   conversionCount?: number; // New: tracking real estate conversion (max 1)
@@ -21,7 +21,7 @@ export interface Liability {
   name: string;
   totalOwed: number;
   monthlyPayment: number;
-  type: '信用貸款' | '飛行器貸款' | '企業貸款' | '不動產貸款';
+  type: '信用貸款' | '飛行器貸款' | '汽車貸款' | '企業貸款' | '不動產貸款';
 }
 
 export interface ExpenseDetails {
@@ -128,6 +128,83 @@ export interface GameAbilities {
   professionAbilityCount: number;
 }
 
+export type BoardSquareType =
+  | 'school'
+  | 'bank'
+  | 'hospital'
+  | 'repair'
+  | 'happiness'
+  | 'opportunity'
+  | 'news';
+
+export interface BoardSquare {
+  id: string;
+  index: number;
+  label: string;
+  type: BoardSquareType;
+  x: number;
+  y: number;
+  trigger: string;
+  pauseTurns?: number;
+}
+
+export interface BoardCardResult {
+  deck: 'happiness' | 'opportunity' | 'news';
+  cardId: string;
+  title: string;
+  description: string;
+  subtitle?: string;
+  assetSymbol?: string;
+  effectLines?: string[];
+  familyMilestoneStatus?: any;
+}
+
+export interface BoardDeckState {
+  happiness: string[];
+  opportunity: string[];
+  news: string[];
+  usedHappiness: string[];
+  usedOpportunity: string[];
+  usedNews: string[];
+}
+
+export interface BoardEventLog {
+  id: string;
+  playerUid: string;
+  playerName: string;
+  summary: string;
+  detail?: string;
+  squareIndex: number;
+  timestamp: number;
+  rollTotal?: number;
+}
+
+export interface BoardCardRevealState {
+  eventId: string;
+  cardId: string;
+  isRevealed: boolean;
+  revealedAt?: number;
+  revealedBy?: string;
+}
+
+export interface BoardState {
+  currentTurnUid: string | null;
+  turnOrder: string[];
+  playerPositions: Record<string, number>;
+  skipTurns: Record<string, number>;
+  lastRoll: {
+    uid: string;
+    dice: number[];
+    total: number;
+    timestamp: number;
+  } | null;
+  currentCard: BoardCardResult | null;
+  currentCardReveal?: BoardCardRevealState | null;
+  currentEvent: BoardEventLog | null;
+  deckState: BoardDeckState;
+  updatedAt: number;
+}
+
 export interface GameState {
   profession: Profession | null;
   selectedEnterprise: Enterprise | null;
@@ -159,6 +236,10 @@ export interface GameState {
   playerName?: string;
   reportName?: string;
   sessionId?: string;
+  boardPosition?: number;
+  skipTurns?: number;
+  lastBoardEvent?: string;
+  pendingCardAction?: string;
 }
 
 export interface FinancialSummary {
@@ -255,7 +336,7 @@ export interface GameSessionMeta {
 // Transaction Related Types
 export type SourceType = 'cash' | 'loan' | 'income' | 'storage';
 export type UsageType = 'asset' | 'liability' | 'expense' | 'storage' | 'cash' | 'stock_update' | 'expense_update' | 'insurance' | 'happiness_event';
-export type AssetType = '股票' | '不動產' | '企業' | '定存' | '保險' | '飛行器' | '目標企業' | '心儀夢想' | '現金';
+export type AssetType = '股票' | '不動產' | '企業' | '定存' | '保險' | '飛行器' | '汽車' | '目標企業' | '心儀夢想' | '現金';
 
 export interface StockTransactionItem {
   symbol: string;

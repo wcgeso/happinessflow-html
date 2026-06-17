@@ -19,13 +19,13 @@ import {
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDD6yXBqQ5qExLYvGFd8m3kSJYzRGu659g",
-  authDomain: "happinessflow-63b2e.firebaseapp.com",
-  projectId: "happinessflow-63b2e",
-  storageBucket: "happinessflow-63b2e.firebasestorage.app",
-  messagingSenderId: "663631477568",
-  appId: "1:663631477568:web:9587c1dc9a3df6d749d8a5",
-  measurementId: "G-8BTEG67DMF"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyC9j-9nImSDSGgucGuaW6IHYBRiuvQ0-Mc",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "happinessflow-online.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "happinessflow-online",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "happinessflow-online.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "338788521967",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:338788521967:web:327e29d8c849032e9e481a",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-JVQCEGCLNY"
 };
 
 // Initialize Firebase

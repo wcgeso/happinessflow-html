@@ -17,8 +17,11 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAuth } from './AuthContext';
-import { GameState } from '../types';
+import { BoardCardResult, BoardDeckState, BoardEventLog, BoardState, GameState } from '../types';
 import { cleanObject, safeAsync } from '../utils/utils';
+import { BOARD_SQUARES, createInitialDeckState, getSquareByIndex } from '../constants/board';
+import { HAPPINESS_CARDS, NEWS_CARDS, OPPORTUNITY_CARDS } from '../constants/cards';
+import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from '../utils/familyMilestones';
 
 interface RoomMember {
     uid: string;
@@ -47,7 +50,7 @@ export interface PendingRequest {
     promotionType?: string;
 }
 
-interface Room {
+export interface Room {
     id: string; // 房間碼 (6位數)
     name?: string; // 房間標題
     hostId: string;
@@ -72,14 +75,249 @@ interface Room {
         timestamp: number;
     };
     pendingRequests?: Record<string, PendingRequest>;
+    boardState?: BoardState | null;
 }
+
+const buildHappinessCardMeta = (cardId: string, playerState?: GameState | null) => {
+    const card = HAPPINESS_CARDS.find(item => item.id === cardId);
+    if (!card) return null;
+
+    const isFamilyMilestone = card.category === '家庭重要歷程';
+    const stage = getFamilyMilestoneStageByCardId(card.id);
+    const familyMilestoneStatus = playerState ? getFamilyMilestoneStatus(playerState) : null;
+
+    return {
+        deck: 'happiness' as const,
+        title: isFamilyMilestone && stage ? stage.label.replace(/^\d+\.\s*/, '') : card.title,
+        subtitle: card.category,
+        description: card.description || `${card.category}事件`,
+        effectLines: [
+            ...(isFamilyMilestone && familyMilestoneStatus ? [
+                ...familyMilestoneStatus.stageLines,
+                `目前進度：第 ${familyMilestoneStatus.currentStage} 階段`
+            ] : []),
+            `幸福 +${card.happinessPoints}`,
+            ...(card.cashCost ? [`一次性支出 ${card.cashCost.toLocaleString()}`] : []),
+            ...(card.monthlyExpenseIncrease ? [`月支出 ${card.monthlyExpenseIncrease > 0 ? '+' : ''}${card.monthlyExpenseIncrease.toLocaleString()}`] : []),
+            ...(card.childrenIncrease ? [`孩子數 +${card.childrenIncrease}`] : []),
+            ...(card.otherPlayersCanJoin ? [`其他玩家可擲骰加入（至少 ${card.joinDiceMin || 0} 點）`] : []),
+            ...(card.requiresStorySharing ? ['需要玩家分享故事'] : [])
+        ]
+    };
+};
+
+const buildOpportunityCardMeta = (cardId: string) => {
+    const card = OPPORTUNITY_CARDS.find(item => item.id === cardId);
+    if (!card) return null;
+
+    return {
+        deck: 'opportunity' as const,
+        title: card.title,
+        subtitle: card.category || '機運卡',
+        description: card.description,
+        effectLines: [
+            ...(card.schoolFee ? [`學費 ${card.schoolFee.toLocaleString()}`] : []),
+            ...(card.diceRequirement ? [`判定需求：至少 ${card.diceRequirement} 點`] : []),
+            ...(card.purchasePrice ? [`價格 ${card.purchasePrice.toLocaleString()}`] : []),
+            ...(card.purchasePercent ? [`成交比例 ${card.purchasePercent}%`] : []),
+            ...(card.acquisitionMultiple ? [`收購倍率 ${card.acquisitionMultiple} 倍月收益`] : []),
+            ...(card.cashLoss ? [`現金 -${card.cashLoss.toLocaleString()}`] : []),
+            ...(card.cashGain ? [`現金 +${card.cashGain.toLocaleString()}`] : []),
+            ...(card.monthlyExpenseChange ? [`月支出 ${card.monthlyExpenseChange > 0 ? '+' : ''}${card.monthlyExpenseChange.toLocaleString()}`] : []),
+            ...(card.happinessLoss ? [`幸福 -${card.happinessLoss}`] : []),
+            ...(card.missRounds ? [`暫停 ${card.missRounds} 回合`] : []),
+            ...(card.drawCard ? [`再抽一張${card.drawCard === 'happiness' ? '幸福' : '新聞'}卡`] : []),
+            ...(card.affectsAllPlayers ? ['影響全部玩家'] : []),
+            ...(card.requiresStorySharing ? ['需要完成口頭分享'] : [])
+        ]
+    };
+};
+
+const buildNewsCardMeta = (cardId: string) => {
+    const card = NEWS_CARDS.find(item => item.id === cardId);
+    if (!card) return null;
+
+    if (card.type === 'real_estate') {
+        return {
+            deck: 'news' as const,
+            title: card.title,
+            subtitle: card.subtype,
+            description: card.description || '請依房市卡內容選擇自用或出租購買。',
+            effectLines: [
+                `總價：${card.totalPrice.toLocaleString()}`,
+                `頭期款：${card.downPayment.toLocaleString()}`,
+                `貸款：${card.loanAmount.toLocaleString()}`,
+                `貸款利息（月）：${card.monthlyPayment.toLocaleString()}`,
+                `租金收入（月）：${card.rent.toLocaleString()}`,
+                `淨收益（月）：${card.netRentIncome > 0 ? '+' : ''}${card.netRentIncome.toLocaleString()}`,
+                ...(card.canSelfUse ? [`自用幸福：+${card.happinessBonus}`] : [])
+            ]
+        };
+    }
+
+    if (card.type === 'small_business') {
+        return {
+            deck: 'news' as const,
+            title: card.title,
+            subtitle: card.subtype,
+            description: card.description || '兼職工作室貸款專案。所有玩家皆可申請。',
+            effectLines: [
+                `投資金額：${card.investmentPerMonth.toLocaleString()}`,
+                `貸款金額：${card.loanAmount.toLocaleString()}`,
+                `企業貸款利息（月）：-${card.interestPerMonth.toLocaleString()}`
+            ]
+        };
+    }
+
+    if (card.type === 'large_enterprise') {
+        return {
+            deck: 'news' as const,
+            title: card.title,
+            subtitle: card.subtype,
+            description: card.description || '大型企業投資機會。所有玩家皆可投資。',
+            effectLines: [
+                `最高投資額度：${card.maxInvestment.toLocaleString()}`,
+                `投資報酬率：每投資 1,000,000，月收益 +${card.monthlyReturnPerMillion.toLocaleString()}`
+            ]
+        };
+    }
+
+    if (card.type === 'cash_dividend') {
+        return {
+            deck: 'news' as const,
+            title: card.title,
+            subtitle: card.subtype,
+            description: card.description || '系統將自動根據您持有的股票發放現金股利。',
+            effectLines: Object.entries(card.dividendPerShare).map(([code, dps]) =>
+                `${code}：每張配發 ${(dps * 100).toLocaleString()}`
+            )
+        };
+    }
+
+    if (card.type === 'stock_dividend') {
+        return {
+            deck: 'news' as const,
+            title: card.title,
+            subtitle: card.subtype,
+            description: card.description || '系統將自動根據您持有的股票發放股票股息。',
+            effectLines: Object.entries(card.dividendRate).map(([code, rate]) =>
+                `${code}：配股率 ${(rate * 100).toLocaleString()}%`
+            )
+        };
+    }
+
+    return {
+        deck: 'news' as const,
+        title: card.title,
+        subtitle: card.subtype,
+        description: card.description || '請依新聞卡內容進行財務與市場調整。',
+        effectLines: [
+            ...(card.type === 'stock_price'
+                ? Object.entries(card.prices).map(([code, price]) => `${code}：${price.toLocaleString()}`)
+                : [])
+        ]
+    };
+};
+
+const toUsedKey = (deck: keyof Pick<BoardDeckState, 'happiness' | 'opportunity' | 'news'>) => {
+    if (deck === 'happiness') return 'usedHappiness';
+    if (deck === 'opportunity') return 'usedOpportunity';
+    return 'usedNews';
+};
+
+const drawBoardCard = (
+    deckState: BoardDeckState,
+    deck: keyof Pick<BoardDeckState, 'happiness' | 'opportunity' | 'news'>,
+    playerState?: GameState | null
+) => {
+    let activeDeck = [...deckState[deck]];
+    let usedDeck = [...deckState[toUsedKey(deck)]];
+
+    if (activeDeck.length === 0) {
+        activeDeck = [...usedDeck].sort(() => Math.random() - 0.5);
+        usedDeck = [];
+    }
+
+    const cardId = activeDeck.shift();
+    if (!cardId) return null;
+
+    const meta = deck === 'happiness'
+        ? buildHappinessCardMeta(cardId, playerState)
+        : deck === 'opportunity'
+            ? buildOpportunityCardMeta(cardId)
+            : buildNewsCardMeta(cardId);
+    if (!meta) return null;
+
+    usedDeck.push(cardId);
+
+    return {
+        card: {
+            deck: meta.deck,
+            cardId,
+            title: meta.title,
+            description: meta.description,
+            subtitle: meta.subtitle,
+            effectLines: meta.effectLines
+        } as BoardCardResult,
+        deckState: {
+            ...deckState,
+            [deck]: activeDeck,
+            [toUsedKey(deck)]: usedDeck
+        } as BoardDeckState
+    };
+};
+
+const hasCarAsset = (state?: GameState | null) => {
+    return !!state?.assets?.some(asset => asset.type === '汽車' || asset.type === '飛行器');
+};
+
+const createInitialBoardState = (members: RoomMember[], playerStates?: Record<string, GameState>): BoardState => {
+    const playerMembers = members.filter(member => member.role !== 'coach');
+    const turnOrder = playerMembers.map(member => member.uid);
+    const positions = Object.fromEntries(turnOrder.map(uid => [uid, 0]));
+    const skipTurns = Object.fromEntries(turnOrder.map(uid => [uid, playerStates?.[uid]?.skipTurns || 0]));
+
+    return {
+        currentTurnUid: turnOrder[0] || null,
+        turnOrder,
+        playerPositions: positions,
+        skipTurns,
+        lastRoll: null,
+        currentCard: null,
+        currentCardReveal: null,
+        currentEvent: null,
+        deckState: createInitialDeckState(),
+        updatedAt: Date.now()
+    };
+};
+
+const getNextTurnUid = (boardState: BoardState) => {
+    if (!boardState.turnOrder.length) return null;
+    if (!boardState.currentTurnUid) return boardState.turnOrder[0];
+
+    let index = boardState.turnOrder.indexOf(boardState.currentTurnUid);
+    const skipTurns = { ...boardState.skipTurns };
+
+    for (let offset = 1; offset <= boardState.turnOrder.length; offset += 1) {
+        const nextUid = boardState.turnOrder[(index + offset) % boardState.turnOrder.length];
+        const remainingSkips = skipTurns[nextUid] || 0;
+        if (remainingSkips > 0) {
+            skipTurns[nextUid] = remainingSkips - 1;
+            index = boardState.turnOrder.indexOf(nextUid);
+            continue;
+        }
+        return { nextUid, skipTurns };
+    }
+
+    return { nextUid: boardState.currentTurnUid, skipTurns };
+};
 
 interface RoomContextValue {
     room: Room | null;
     isLoadingRoom: boolean;
     error: string | null;
     playerStates: Record<string, GameState>;
-    createRoom: (settings?: { name: string; maxPlayers: number; duration: number; isPractice?: boolean }) => Promise<string>;
+    createRoom: (settings?: { name: string; maxPlayers: number; duration: number; isPractice?: boolean; isBoardGame?: boolean }) => Promise<string>;
     joinRoom: (roomCode: string) => Promise<void>;
     leaveRoom: () => Promise<void>;
     startRoomGame: () => Promise<void>;
@@ -91,6 +329,9 @@ interface RoomContextValue {
     approveRequest: (requestId: string) => Promise<void>;
     rejectRequest: (requestId: string) => Promise<void>;
     clearRequest: (requestId: string) => Promise<void>;
+    rollBoardDice: () => Promise<{ position: number; detail: string; skipTurns: number }>;
+    revealBoardCard: (eventId: string, cardId: string) => Promise<void>;
+    applyBoardMarketPrices: (updates: Record<string, number>, code: string, isBubble?: boolean) => Promise<void>;
 }
 
 const RoomContext = createContext<RoomContextValue | undefined>(undefined);
@@ -190,7 +431,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return code;
     }, []);
 
-    const createRoom = useCallback(async (settings?: { name: string; maxPlayers: number; duration: number; isPractice?: boolean }) => {
+    const createRoom = useCallback(async (settings?: { name: string; maxPlayers: number; duration: number; isPractice?: boolean; isBoardGame?: boolean }) => {
         if (!user) throw new Error('請先登入');
         if (user.role !== 'coach') throw new Error('只有執行師可以開房');
 
@@ -221,6 +462,19 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 gameTimeLeft: (settings?.duration || 60) * 60,
                 isTimerPaused: true,
                 sessionId: `${roomCode}_${Date.now()}`,
+                boardState: settings?.isBoardGame ? createInitialBoardState([{
+                    uid: user.uid,
+                    name: user.name,
+                    photoURL: user.photoURL || 'bee',
+                    email: user.email || '',
+                    title: user.title || '',
+                    experience: user.experience || 0,
+                    role: 'coach',
+                    joinedAt: new Date(),
+                    photoPosition: user.photoPosition,
+                    photoScale: user.photoScale
+                }]) : null,
+                ...(settings?.isBoardGame ? { isBoardGame: true } : {}),
                 ...(settings?.isPractice ? { isPractice: true } : {})
             };
             const cleanedRoom = cleanObject(newRoom);
@@ -339,16 +593,148 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const startRoomGame = async () => {
         if (!room || user?.uid !== room.hostId) return;
         try {
+            const nextBoardState = room.isBoardGame ? createInitialBoardState(room.members, room.playerStates) : null;
             await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
                 status: 'playing',
                 playerStates: {}, // 清空舊的玩家狀態
                 pendingRequests: {}, // 初始化審核請求
                 startedAt: Date.now(), // 新增開始時間戳，用來觸發玩家重設狀態
-                sessionId: `${room.id}_${Date.now()}` // 每場遊戲產生新的唯一 sessionId，避免覆蓋上一場紀錄
+                sessionId: `${room.id}_${Date.now()}`, // 每場遊戲產生新的唯一 sessionId，避免覆蓋上一場紀錄
+                boardState: nextBoardState
             }));
         } catch (err: any) {
             setError(err.message);
         }
+    };
+
+    const rollBoardDice = async () => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) {
+            throw new Error('棋盤房間尚未準備完成');
+        }
+
+        const boardState = room.boardState;
+        if (boardState.currentTurnUid !== user.uid) {
+            throw new Error('還沒輪到你');
+        }
+
+        const playerState = room.playerStates?.[user.uid];
+        const diceCount = hasCarAsset(playerState) ? 2 : 1;
+        const dice = Array.from({ length: diceCount }, () => Math.floor(Math.random() * 6) + 1);
+        const total = dice.reduce((sum, value) => sum + value, 0);
+        const startPosition = boardState.playerPositions[user.uid] || 0;
+        const pathLength = BOARD_SQUARES.length;
+        let nextPosition = startPosition;
+        const passedMessages: string[] = [];
+
+        for (let step = 1; step <= total; step += 1) {
+            nextPosition = (startPosition + step) % pathLength;
+            const square = getSquareByIndex(nextPosition);
+            if (square.type === 'bank') {
+                passedMessages.push(`經過${square.label}，請完成月結餘確認`);
+            }
+            if (square.type === 'school') {
+                passedMessages.push(`經過${square.label}，可前往升等考試`);
+            }
+            if (square.type === 'repair' && hasCarAsset(playerState)) {
+                const feeRoll = Math.floor(Math.random() * 6) + 1;
+                passedMessages.push(`經過維修廠，汽車保養費 ${feeRoll * 2000}，請自行登錄`);
+            }
+        }
+
+        const landedSquare = getSquareByIndex(nextPosition);
+        let deckState = boardState.deckState;
+        let currentCard: BoardCardResult | null = null;
+        let detailMessages = [...passedMessages];
+        const nextSkipTurns = { ...boardState.skipTurns };
+
+        if (landedSquare.type === 'happiness' || landedSquare.type === 'opportunity' || landedSquare.type === 'news') {
+            const drawResult = drawBoardCard(deckState, landedSquare.type, playerState);
+            if (drawResult) {
+                deckState = drawResult.deckState;
+                currentCard = drawResult.card;
+                detailMessages.push(`抽到${landedSquare.label}卡：${currentCard.title}`);
+            }
+        } else if (landedSquare.type === 'hospital') {
+            const hospitalRoll = Math.floor(Math.random() * 6) + 1;
+            nextSkipTurns[user.uid] = Math.max(nextSkipTurns[user.uid] || 0, landedSquare.pauseTurns || 1);
+            detailMessages.push(`住院醫藥費 ${hospitalRoll * 1000}，並暫停一回合`);
+        } else if (landedSquare.type === 'repair') {
+            const repairRoll = Math.floor(Math.random() * 6) + 1;
+            if (hasCarAsset(playerState)) {
+                detailMessages.push(`踩到維修廠，保養費 ${repairRoll * 2000}，並暫停一回合`);
+                nextSkipTurns[user.uid] = Math.max(nextSkipTurns[user.uid] || 0, landedSquare.pauseTurns || 1);
+            } else {
+                detailMessages.push('踩到維修廠，但目前沒有汽車');
+            }
+        } else if (landedSquare.type === 'school') {
+            detailMessages.push('可選擇報名升等考試');
+        } else if (landedSquare.type === 'bank') {
+            detailMessages.push('請確認本回合月結餘');
+        }
+
+        const nextTurn = getNextTurnUid({
+            ...boardState,
+            currentTurnUid: user.uid,
+            skipTurns: nextSkipTurns
+        });
+
+        const event: BoardEventLog = {
+            id: `${user.uid}_${Date.now()}`,
+            playerUid: user.uid,
+            playerName: room.members.find(member => member.uid === user.uid)?.name || user.name || '玩家',
+            summary: `${room.members.find(member => member.uid === user.uid)?.name || user.name || '玩家'} 擲出 ${total} 點，停在 ${landedSquare.label}`,
+            detail: detailMessages.join('｜'),
+            squareIndex: nextPosition,
+            timestamp: Date.now(),
+            rollTotal: total
+        };
+
+        const updatedPlayerState = playerState ? cleanObject({
+            ...playerState,
+            boardPosition: nextPosition,
+            skipTurns: nextSkipTurns[user.uid] || 0,
+            lastBoardEvent: event.summary,
+            pendingCardAction: detailMessages.join('\n')
+        }) : undefined;
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
+            boardState: {
+                ...boardState,
+                playerPositions: {
+                    ...boardState.playerPositions,
+                    [user.uid]: nextPosition
+                },
+                skipTurns: nextTurn?.skipTurns || nextSkipTurns,
+                currentTurnUid: nextTurn?.nextUid || user.uid,
+                lastRoll: {
+                    uid: user.uid,
+                    dice,
+                    total,
+                    timestamp: Date.now()
+                },
+                currentCard,
+                currentCardReveal: currentCard ? {
+                    eventId: event.id,
+                    cardId: currentCard.cardId,
+                    isRevealed: false
+                } : null,
+                currentEvent: event,
+                deckState,
+                updatedAt: Date.now()
+            },
+            ...(updatedPlayerState ? {
+                playerStates: {
+                    ...(room.playerStates || {}),
+                    [user.uid]: updatedPlayerState
+                }
+            } : {})
+        })));
+
+        return {
+            position: nextPosition,
+            detail: detailMessages.join('\n'),
+            skipTurns: nextSkipTurns[user.uid] || 0
+        };
     };
 
     const finishRoomGame = async () => {
@@ -397,6 +783,52 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }));
         } catch (err: any) {
             console.error('更新行情失敗:', err);
+            setError(err.message);
+        }
+    };
+
+    const revealBoardCard = async (eventId: string, cardId: string) => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+
+        const { boardState } = room;
+        const isCurrentCard =
+            boardState.currentEvent?.id === eventId &&
+            boardState.currentCard?.cardId === cardId;
+
+        if (!isCurrentCard) return;
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+            'boardState.currentCardReveal': {
+                eventId,
+                cardId,
+                isRevealed: true,
+                revealedAt: Date.now(),
+                revealedBy: user.uid
+            },
+            'boardState.updatedAt': Date.now()
+        }));
+    };
+
+    const applyBoardMarketPrices = async (updates: Record<string, number>, code: string, isBubble: boolean = false) => {
+        if (!room || !user) return;
+        if (!room.isBoardGame || room.boardState?.currentTurnUid !== user.uid) return;
+
+        try {
+            const roomRef = doc(db, 'rooms', room.id);
+            const currentPrices = room.marketPrices || {};
+
+            await safeAsync(updateDoc(roomRef, {
+                marketUpdates: {
+                    updates,
+                    code,
+                    isBubble,
+                    timestamp: Date.now()
+                },
+                previousMarketPrices: currentPrices,
+                marketPrices: updates
+            }));
+        } catch (err: any) {
+            console.error('套用棋盤行情失敗:', err);
             setError(err.message);
         }
     };
@@ -490,7 +922,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             submitRequest,
             approveRequest,
             rejectRequest,
-            clearRequest
+            clearRequest,
+            rollBoardDice,
+            revealBoardCard,
+            applyBoardMarketPrices
         }}>
             {children}
         </RoomContext.Provider>

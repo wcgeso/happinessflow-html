@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Star, Plane, GraduationCap, Trophy, TrendingUp, Wallet, BarChart3, PieChart, Landmark, HelpCircle, ChevronDown, Clock, Users, Home, Heart, LogOut, Settings } from 'lucide-react';
+import { Star, Car, GraduationCap, Trophy, TrendingUp, Wallet, BarChart3, PieChart, Landmark, HelpCircle, ChevronDown, Clock, Users, Home, Heart, LogOut, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../ui/ui';
 import { getProfessionIcon } from '../common/IconHelpers';
 import { cn, formatMoney } from '../../utils/gameUtils';
-import { StockMarketModal } from '../transaction/StockMarketModal';
 import { useRoom } from '../../context/RoomContext';
 import { useAuth, isGM as checkIsGM } from '../../context/AuthContext';
 import SafeImage from '../common/SafeImage';
@@ -45,7 +44,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
 
     const isGM = user?.role === 'coach' || checkIsGM(user);
 
-    const hasAircraft = gameState.assets.some((a: any) => a.type === '飛行器');
+    const hasAircraft = gameState.assets.some((a: any) => a.type === '飛行器' || a.type === '汽車');
     const netAssets = summary.totalAssets - summary.totalLiabilities;
 
     // 格式化時間
@@ -190,13 +189,13 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                 onMouseEnter={() => setShowAircraftTooltip(true)}
                                 onMouseLeave={() => setShowAircraftTooltip(false)}
                             >
-                                <Plane size={14} className={!hasAircraft ? 'text-slate-300' : 'text-white'} />
+                                <Car size={14} className={!hasAircraft ? 'text-slate-300' : 'text-white'} />
                             </div>
                             {showAircraftTooltip && (
                                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-40 bg-slate-800 text-white text-xs p-3 rounded border border-slate-600 z-[100] shadow-xl animate-in fade-in zoom-in-95 pointer-events-none">
                                     <div className="relative">
                                         <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-slate-800"></div>
-                                        {hasAircraft ? '遊玩時可擲兩顆骰子' : '尚未擁有飛行器'}
+                                        {hasAircraft ? '擁有汽車時可擲兩顆骰子' : '尚未擁有汽車'}
                                     </div>
                                 </div>
                             )}

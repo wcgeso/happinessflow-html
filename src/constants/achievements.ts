@@ -68,7 +68,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'first_aircraft', title: '一飛衝天', description: '獲得飛行器', category: 'asset', icon: 'Plane' },
   { id: 'repair_aircraft', title: '飛行器維修員', description: '曾進行維修飛行器交易項目', category: 'asset', icon: 'Settings' },
   { id: 'first_house', title: '首購族', description: '獲得第 1 間房產', category: 'asset', icon: 'Home' },
-  { id: 'luxury_house_2', title: '豪宅主人', description: '同時持有 2 間「五室三廳」豪華住宅房產', category: 'asset', icon: 'Building' },
+  { id: 'luxury_house_2', title: '豪宅主人', description: '同時持有 2 間「五房三廳」豪華住宅房產', category: 'asset', icon: 'Building' },
   { id: 'landlord_5', title: '大地主', description: '單局內同時持有不動產超過 5 間', category: 'asset', icon: 'Map' },
   { id: 'rent_king', title: '包租公/婆', description: '房租收入超過工作基本工資', category: 'asset', icon: 'Key' },
   { id: 'asset_allocator', title: '資產配置大師', description: '同時持有 股票/不動產/企業/保險/定存/飛行器 6 種資產', category: 'asset', icon: 'PieChart' },

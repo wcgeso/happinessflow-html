@@ -30,9 +30,9 @@ const formatMoney = (amount: number, isMasked?: boolean) => {
 
 const reHouseTypeMap: Record<string, string> = {
   '1room': '單間小套房',
-  '2room': '兩室一廳',
-  '3room': '三室兩廳',
-  '5room': '五室三廳',
+  '2room': '兩房一廳',
+  '3room': '三房兩廳',
+  '5room': '五房三廳',
   'store': '店面'
 };
 

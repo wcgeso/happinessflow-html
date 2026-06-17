@@ -173,6 +173,12 @@ export const CoachGameView: React.FC = () => {
         return `執行日記${yy}${mm}${dd}`;
     }, [room?.name]);
 
+    const handleOpenBoardProjection = () => {
+        if (!room?.id) return;
+        const url = `${window.location.origin}${window.location.pathname}?boardRoom=${room.id}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
     const handleToggleTimer = () => {
         if (timeLeft === 0) return; // 時間到不能再操作
         const newPaused = !isPaused;
@@ -802,6 +808,16 @@ export const CoachGameView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-4">
+                    {room?.isBoardGame && (
+                        <button
+                            onClick={handleOpenBoardProjection}
+                            className="hidden md:flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 font-black text-slate-950 shadow-lg shadow-cyan-900/30 transition-all hover:bg-cyan-300"
+                        >
+                            <Rocket size={16} />
+                            開啟地圖
+                        </button>
+                    )}
+
                     <div className="hidden md:flex items-center gap-6 px-4 py-2 bg-slate-800/50 rounded-xl border border-slate-700">
                         <div className="text-center">
                             <div className="text-[9px] text-slate-500 font-bold uppercase">總玩家數</div>
@@ -1945,7 +1961,7 @@ export const CoachGameView: React.FC = () => {
                                                  pendingRequest.type === 'lifelong' ? '終身學習' :
                                                  '新增幸福項目'}
                                                 {pendingRequest.insuranceType === 'medical' && ' (醫療)'}
-                                                {pendingRequest.insuranceType === 'aircraft' && ' (飛行器)'}
+                                                {pendingRequest.insuranceType === 'aircraft' && ' (汽車)'}
                                                 {pendingRequest.type === 'happiness' && ` (${pendingRequest.happinessLabel})`}
                                                 {pendingRequest.type === 'lifelong' && pendingRequest.promotionType && ` (${
                                                     { 'enhance_profession': '職業能力', 'stock_ability': '股票投資', 'real_estate_ability': '不動產投資' }[pendingRequest.promotionType] || pendingRequest.promotionType

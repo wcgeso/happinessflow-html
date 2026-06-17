@@ -113,7 +113,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     }
   };
 
-  const handleCreateRoom = async (settings: { name: string; maxPlayers: number; duration: number }) => {
+  const handleCreateRoom = async (settings: { name: string; maxPlayers: number; duration: number; isBoardGame?: boolean }) => {
     try {
       const isPractice = localStorage.getItem('hf_practice_mode') === 'true';
       await createRoom({ ...settings, isPractice });
@@ -275,7 +275,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         case 'first_aircraft': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.assets.some(a => a.type === '飛行器')); break;
         case 'repair_aircraft': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.history.some(t => t.name.includes('維修飛行器'))); break;
         case 'first_house': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.assets.some(a => a.type === '不動產')); break;
-        case 'luxury_house_2': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.assets.filter(a => a.type === '不動產' && a.name?.includes('五室三廳')).length >= 2); break;
+        case 'luxury_house_2': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.assets.filter(a => a.type === '不動產' && a.name?.includes('五房三廳')).length >= 2); break;
         // case 'stock_god': ...
         case 'landlord_5': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.assets.filter(a => a.type === '不動產').length >= 5); break;
         case 'rent_king': isUnlocked = gameHistory.some(h => h.financialSummary.passiveIncome > (h.gameStateSnapshot?.income.salary || 0)); break;

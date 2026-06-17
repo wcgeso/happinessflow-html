@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
 import { useGameLogic } from '../../hooks/useGameLogic';
-import { AlertCircle, CheckCircle2, Bell, LogOut, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Bell, LogOut } from 'lucide-react';
 import { useRoom } from '../../context/RoomContext';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
 import { HappinessPanel } from '../../components/business/HappinessPanel';
+import { TargetDreamSelectorModal } from '../../components/banking/TargetDreamSelectorModal';
 import { TransactionForm } from '../../components/business/TransactionForm';
 import { PaydayModal } from '../../components/modals/PaydayModal';
 import { MedicalClaimModal } from '../../components/modals/MedicalClaimModal';
@@ -13,7 +14,6 @@ import { PromotionModal } from '../../components/modals/PromotionModal';
 import { RankListModal } from '../../components/modals/RankListModal';
 import { LifelongLearningModal } from '../../components/modals/LifelongLearningModal';
 import { HappinessListModal } from '../../components/modals/HappinessListModal';
-import { StockMarketModal } from '../../components/transaction/StockMarketModal';
 import { TutorialModal } from '../../components/modals/TutorialModal';
 import { DiceRollContainer } from '../../components/game/DiceRollContainer';
 import { ScoreView } from './ScoreView';
@@ -21,8 +21,13 @@ import { PromotionType } from '../../hooks/useDiceRollLogic';
 import { GameHeader } from '../../components/game/GameHeader';
 import { GameStats } from '../../components/game/GameStats';
 import { GameActions } from '../../components/game/GameActions';
+import { BoardCardDrawer } from '../../components/game/BoardCardDrawer';
+import { BoardFinancialCheckModal } from '../../components/game/BoardFinancialCheckModal';
 import { HappinessWinAnimation } from '../../components/game/HappinessWinAnimation';
+import { hydrateBoardCardResult } from '../../utils/boardCardDisplay';
 import { formatMoney } from '../../utils/gameUtils';
+import { TransactionData } from '../../types';
+import { BoardAssetSaleCandidate, BoardFinancialAction, buildBoardAssetSaleFinancialAction, resolveBoardCardAction } from '../../utils/boardCardActions';
 
 export const GameView: React.FC<{ 
     onFinishGame: (meta: any) => void;
@@ -30,7 +35,7 @@ export const GameView: React.FC<{
 }> = ({ onFinishGame, isDevMode = false }) => {
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, leaveRoom, clearRequest } = useRoom();
+    const { room, leaveRoom, rollBoardDice, revealBoardCard, applyBoardMarketPrices } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -123,6 +128,7 @@ export const GameView: React.FC<{
     } = useGameLogic();
 
     const [showTransactionModal, setShowTransactionModal] = useState(false);
+    const [showTargetDreamModal, setShowTargetDreamModal] = useState(false);
     const [showHappinessModal, setShowHappinessModal] = useState(false);
     const [showPromotionModal, setShowPromotionModal] = useState(false);
     const [showLifelongModal, setShowLifelongModal] = useState(false);
@@ -131,15 +137,29 @@ export const GameView: React.FC<{
     const [showDiceModal, setShowDiceModal] = useState(false);
     const [lastDiceSuccess, setLastDiceSuccess] = useState(false);
     const [showRankListModal, setShowRankListModal] = useState(false);
-    const [showStockMarketModal, setShowStockMarketModal] = useState(false);
     const [showTutorial, setShowTutorial] = useState(false);
     const [showWinAnimation, setShowWinAnimation] = useState(false);
     const [showScoreView, setShowScoreView] = useState(false);
     const [isSettlement, setIsSettlement] = useState(false); // 追蹤是否是結算時打開
     const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
     const [isLeaving, setIsLeaving] = useState(false);
+    const [isBoardCardDrawerOpen, setIsBoardCardDrawerOpen] = useState(false);
+    const [lastBoardCardKey, setLastBoardCardKey] = useState<string | null>(null);
+    const [isBoardCardRevealed, setIsBoardCardRevealed] = useState(false);
+    const [handledBankPromptKeys, setHandledBankPromptKeys] = useState<string[]>([]);
+    const [lastBankPromptKey, setLastBankPromptKey] = useState<string | null>(null);
+    const [handledSchoolPromptKeys, setHandledSchoolPromptKeys] = useState<string[]>([]);
+    const [lastSchoolPromptKey, setLastSchoolPromptKey] = useState<string | null>(null);
+    const [handledBoardCardKeys, setHandledBoardCardKeys] = useState<string[]>([]);
+    const [paydayStep, setPaydayStep] = useState<'confirm' | 'followup'>('confirm');
+    const [transactionQuickPreset, setTransactionQuickPreset] = useState<{ initialTab?: 'broker' | 'banking' | 'wealth', mode?: 'buy' | 'sell', assetType?: '保險' | '定存' | '股票' } | null>(null);
+    const [boardFinancialAction, setBoardFinancialAction] = useState<BoardFinancialAction | null>(null);
+    const [selectedBoardSaleAssetIds, setSelectedBoardSaleAssetIds] = useState<string[]>([]);
+    const [appliedBoardMarketKeys, setAppliedBoardMarketKeys] = useState<string[]>([]);
+    const [isApplyingBoardMarket, setIsApplyingBoardMarket] = useState(false);
 
     const [promotionType, setPromotionType] = useState<PromotionType | null>(null);
+    const [isRollingBoardDice, setIsRollingBoardDice] = useState(false);
 
     useEffect(() => {
         const hasSeenTutorial = localStorage.getItem('happiness_flow_tutorial_seen');
@@ -214,20 +234,14 @@ export const GameView: React.FC<{
     };
 
     const handleTransaction = (data: any) => {
-        if (handleTransactionSubmit(data)) {
-            // 只有一般交易才關閉視窗，股市漲幅等需要留在 Phase 3 的則由元件內部控制或不在此處關閉
-            // 這裡判斷：如果是股市漲跌更新，則不立即關閉，讓 TransactionForm 顯示 Phase 3
-            if (data.usage === 'stock_update' && data.stockFluctuationPayload) {
-                // 不關閉，讓 TransactionForm 顯示成功畫面
-                return;
-            }
-            setShowTransactionModal(false);
-        }
-    };
-
-    const onModalPaydayConfirm = () => {
-        handlePaydayConfirm();
-        setShowPaydayModal(false);
+        setBoardFinancialAction({
+            kind: 'financial',
+            label: '確認交易內容',
+            txData: data,
+            expectedEntries: []
+        });
+        setShowTransactionModal(false);
+        setTransactionQuickPreset(null);
     };
 
     const onModalMedicalConfirm = (type: 'medical' | 'aircraft') => {
@@ -292,79 +306,178 @@ export const GameView: React.FC<{
         setLastDiceSuccess(false);
     };
 
-    const pendingRequest = room?.pendingRequests && user
-        ? Object.values(room.pendingRequests).find(r => r.uid === user.uid)
+    const boardState = room?.boardState || null;
+    const isBoardTurn = !!(room?.isBoardGame && boardState?.currentTurnUid === user?.uid);
+    const hasCar = gameState.assets.some(asset => asset.type === '汽車' || asset.type === '飛行器');
+    const activeBoardCard = boardState?.currentEvent?.playerUid === user?.uid ? boardState?.currentCard || null : null;
+    const activeBankPromptKey = boardState?.currentEvent?.playerUid === user?.uid &&
+        boardState?.currentEvent?.detail?.includes('月結餘')
+        ? `${boardState.currentEvent.id}_bank`
         : null;
+    const isActiveBankPromptPending = !!(activeBankPromptKey && !handledBankPromptKeys.includes(activeBankPromptKey));
 
-    // 處理審核結果
-    useEffect(() => {
-        if (!pendingRequest || !user) return;
+    const activeSchoolPromptKey = boardState?.currentEvent?.playerUid === user?.uid &&
+        (boardState?.currentEvent?.type === 'school' || boardState?.currentEvent?.detail?.includes('學校'))
+        ? `${boardState.currentEvent.id}_school`
+        : null;
+    const isActiveSchoolPromptPending = !!(activeSchoolPromptKey && !handledSchoolPromptKeys.includes(activeSchoolPromptKey));
 
-        if (pendingRequest.status === 'approved') {
-            if (pendingRequest.type === 'payday') {
-                executePayday(pendingRequest.amount);
-                showAlert(`✅ 執行師已同意您的月結餘領取請求 (${formatMoney(pendingRequest.amount)})`, 'success');
-            } else if (pendingRequest.type === 'insurance') {
-                if (pendingRequest.insuranceType === 'medical') {
-                    executeMedicalClaim(pendingRequest.amount);
-                    showAlert(`✅ 執行師已同意您的醫療保險理賠請求 (${formatMoney(pendingRequest.amount)})`, 'success');
-                } else if (pendingRequest.insuranceType === 'aircraft') {
-                    executeAircraftClaim(pendingRequest.amount);
-                    showAlert(`✅ 執行師已同意您的飛行器保險理賠請求 (${formatMoney(pendingRequest.amount)})`, 'success');
-                }
-            } else if (pendingRequest.type === 'happiness') {
-                executeAddHappinessItem(pendingRequest.happinessLabel || '自訂幸福項目', pendingRequest.amount);
-                showAlert(`✅ 執行師已同意您的自訂幸福項目：${pendingRequest.happinessLabel}`, 'success');
-            } else if (pendingRequest.type === 'promotion') {
-                executePromotionFee(pendingRequest.amount);
-                setPromotionType('normal');
-                setShowDiceModal(true);
-            } else if (pendingRequest.type === 'lifelong') {
-                executeLifelongFee(pendingRequest.promotionType || '', pendingRequest.amount);
-                setPromotionType(pendingRequest.promotionType as PromotionType);
-                setShowDiceModal(true);
-            }
-            clearRequest(pendingRequest.id);
-        } else if (pendingRequest.status === 'rejected') {
-            const typeMap: Record<string, string> = {
-                'payday': '月結餘領取',
-                'insurance': '保險理賠',
-                'happiness': '新增幸福項目',
-                'promotion': '升等考試',
-                'lifelong': '終身學習',
-            };
-            showAlert(`❌ 執行師拒絕了您的${typeMap[pendingRequest.type] || '操作'}請求`, 'error');
-            clearRequest(pendingRequest.id);
+    const activeBoardCardKey = activeBoardCard && boardState?.currentEvent
+        ? `${boardState.currentEvent.id}_${activeBoardCard.cardId}`
+        : null;
+    const activeBoardCardAction = useMemo(
+        () => (activeBoardCard ? resolveBoardCardAction(activeBoardCard.cardId, gameState) : null),
+        [activeBoardCard?.cardId, gameState]
+    );
+    const displayBoardCard = useMemo(
+        () => hydrateBoardCardResult(activeBoardCard, gameState),
+        [activeBoardCard, gameState]
+    );
+    const isActiveBoardCardHandled = !!(activeBoardCardKey && handledBoardCardKeys.includes(activeBoardCardKey));
+
+    const handleBoardDiceRoll = async () => {
+        setIsRollingBoardDice(true);
+        try {
+            const result = await rollBoardDice();
+            setGameState(prev => ({
+                ...prev,
+                boardPosition: result.position,
+                skipTurns: result.skipTurns,
+                lastBoardEvent: boardState?.currentEvent?.summary || prev.lastBoardEvent,
+                pendingCardAction: result.detail
+            }));
+            showAlert('已同步本回合擲骰與地圖事件', 'success');
+        } catch (err: any) {
+            showAlert(err.message || '擲骰失敗', 'error');
+        } finally {
+            setIsRollingBoardDice(false);
         }
-    }, [pendingRequest?.status, user?.uid]);
+    };
+
+    useEffect(() => {
+        if (!activeBoardCardKey || activeBoardCardKey === lastBoardCardKey) return;
+        if (showPaydayModal || isActiveBankPromptPending) return;
+
+        setLastBoardCardKey(activeBoardCardKey);
+        setIsBoardCardDrawerOpen(true);
+        setIsBoardCardRevealed(false);
+        setSelectedBoardSaleAssetIds([]);
+    }, [activeBoardCardKey, lastBoardCardKey, showPaydayModal, isActiveBankPromptPending]);
+
+    useEffect(() => {
+        if (!activeBoardCardKey || !activeBoardCardAction || activeBoardCardAction.kind !== 'market') return;
+        if (appliedBoardMarketKeys.includes(activeBoardCardKey) || isApplyingBoardMarket) return;
+
+        let isCancelled = false;
+        setIsApplyingBoardMarket(true);
+
+        applyBoardMarketPrices(activeBoardCardAction.prices, activeBoardCardAction.code, activeBoardCardAction.isBubble)
+            .then(() => {
+                if (isCancelled) return;
+                setAppliedBoardMarketKeys(prev => prev.includes(activeBoardCardKey) ? prev : [...prev, activeBoardCardKey]);
+                showAlert('已同步股市行情到房間', 'success');
+            })
+            .catch((err: any) => {
+                if (isCancelled) return;
+                showAlert(err.message || '同步股市行情失敗', 'error');
+            })
+            .finally(() => {
+                if (!isCancelled) {
+                    setIsApplyingBoardMarket(false);
+                }
+            });
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [activeBoardCardKey, activeBoardCardAction, appliedBoardMarketKeys, applyBoardMarketPrices, isApplyingBoardMarket, showAlert]);
+
+    useEffect(() => {
+        if (!activeBankPromptKey || activeBankPromptKey === lastBankPromptKey || !isActiveBankPromptPending) return;
+        setLastBankPromptKey(activeBankPromptKey);
+        setHandledBankPromptKeys(prev => prev.includes(activeBankPromptKey) ? prev : [...prev, activeBankPromptKey]);
+        setPaydayStep('confirm');
+        setShowPaydayModal(true);
+    }, [activeBankPromptKey, lastBankPromptKey, isActiveBankPromptPending, summary.monthlyCashflow]);
+
+    useEffect(() => {
+        if (!activeSchoolPromptKey || activeSchoolPromptKey === lastSchoolPromptKey || !isActiveSchoolPromptPending) return;
+        setLastSchoolPromptKey(activeSchoolPromptKey);
+        setHandledSchoolPromptKeys(prev => prev.includes(activeSchoolPromptKey) ? prev : [...prev, activeSchoolPromptKey]);
+        setShowPromotionModal(true);
+    }, [activeSchoolPromptKey, lastSchoolPromptKey, isActiveSchoolPromptPending]);
+
+    const markBoardCardHandled = () => {
+        if (!activeBoardCardKey) return;
+        setHandledBoardCardKeys(prev => prev.includes(activeBoardCardKey) ? prev : [...prev, activeBoardCardKey]);
+        setIsBoardCardDrawerOpen(false);
+    };
+
+    const handleBoardCardReveal = () => {
+        setIsBoardCardRevealed(true);
+        if (boardState?.currentEvent?.id && activeBoardCard?.cardId) {
+            revealBoardCard(boardState.currentEvent.id, activeBoardCard.cardId);
+        }
+    };
+
+    const handleApplyDirectHappiness = () => {
+        if (!activeBoardCard || !activeBoardCardAction || activeBoardCardAction.kind !== 'happiness') return;
+
+        setGameState(prev => {
+            const newItem = {
+                id: `board_${activeBoardCard.cardId}_${Date.now()}`,
+                label: activeBoardCardAction.title,
+                points: activeBoardCardAction.points,
+                checked: true,
+                isCustom: true
+            };
+            const happiness = [...prev.happiness, newItem];
+            return {
+                ...prev,
+                happiness,
+                happinessTotal: happiness.reduce((sum, item) => sum + (item.checked ? item.points : 0), 0),
+                completedHappinessEvents: Array.from(new Set([...(prev.completedHappinessEvents || []), activeBoardCard.cardId]))
+            };
+        });
+
+        showAlert(`已套用 ${activeBoardCardAction.points} 點幸福`, 'success');
+        markBoardCardHandled();
+    };
+
+    const handleApplyBoardFinancialTx = (txData: TransactionData) => {
+        if ((gameState.cash + txData.cashChange) < 0) {
+            showAlert('現金不足，無法套用這張卡片效果', 'error');
+            return;
+        }
+        handleTransaction(txData);
+        setBoardFinancialAction(null);
+        showAlert('卡片效果已套用到財務報表', 'success');
+        markBoardCardHandled();
+    };
+
+    const openQuickTransaction = (assetType: '保險' | '定存') => {
+        setTransactionQuickPreset({ mode: 'buy', assetType });
+        setShowPaydayModal(false);
+        setPaydayStep('confirm');
+        setShowTransactionModal(true);
+    };
+
+    const handleBoardAssetSaleConfirm = (items: BoardAssetSaleCandidate[]) => {
+        const action = buildBoardAssetSaleFinancialAction(
+            `卡片出售：${activeBoardCard?.title || '資產出售'}`,
+            items
+        );
+
+        if (!action) {
+            showAlert('請先選擇要出售的資產', 'error');
+            return;
+        }
+
+        setBoardFinancialAction(action);
+    };
 
     return (
         <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500 pb-safe">
-            {/* 審核中遮罩 */}
-            {pendingRequest && pendingRequest.status === 'pending' && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-                    <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in fade-in zoom-in duration-300">
-                        <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
-                        </div>
-                        <h3 className="text-xl font-bold mb-2 text-white">等待審核中</h3>
-                        <p className="text-slate-400 mb-6">
-                            您的{
-                                pendingRequest.type === 'payday' ? '月結餘領取' :
-                                pendingRequest.type === 'insurance' ? '保險理賠' :
-                                pendingRequest.type === 'promotion' ? '升等考試' :
-                                pendingRequest.type === 'lifelong' ? '終身學習' :
-                                '新增幸福項目'
-                            }請求已送出，請等待執行師審核。
-                        </p>
-                        <div className="text-sm font-medium text-blue-400 bg-blue-500/10 py-2 px-4 rounded-full inline-block">
-                            {pendingRequest.type === 'happiness' ? `幸福點數：+${pendingRequest.amount}` :
-                             pendingRequest.type === 'promotion' || pendingRequest.type === 'lifelong' ? `報名費：${formatMoney(pendingRequest.amount)}` :
-                             `待領取金額：${formatMoney(pendingRequest.amount)}`}
-                        </div>
-                    </div>
-                </div>
-            )}
             {showScoreView && (
                 <div className="fixed inset-0 z-[10000]">
                     <ScoreView
@@ -415,7 +528,7 @@ export const GameView: React.FC<{
                 onShowRankList={() => setShowRankListModal(true)}
                 onShowPromotion={() => setShowPromotionModal(true)}
                 onFinishGame={() => setShowScoreView(true)}
-                onShowStockMarket={() => setShowStockMarketModal(true)}
+                onShowStockMarket={() => { setTransactionQuickPreset({ initialTab: 'broker' }); setShowTransactionModal(true); }}
                 onShowTutorial={() => setShowTutorial(true)}
                 onLeaveRoom={() => setShowLeaveConfirm(true)}
                 onAddMoney={addMoney}
@@ -460,16 +573,6 @@ export const GameView: React.FC<{
                 <HappinessWinAnimation onComplete={() => setShowWinAnimation(false)} />
             )}
 
-            {showStockMarketModal && (
-                <StockMarketModal
-                    onClose={() => setShowStockMarketModal(false)}
-                    onOpenTrade={() => {
-                        setShowStockMarketModal(false);
-                        setShowTransactionModal(true);
-                    }}
-                />
-            )}
-
             <main className="flex-1 overflow-y-auto no-scrollbar px-4 pb-48 space-y-8 touch-pan-y" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 230px)' }}>
                 <div className="max-w-7xl mx-auto w-full space-y-6">
                     <GameStats
@@ -505,15 +608,247 @@ export const GameView: React.FC<{
             </main>
 
             <GameActions
+                onRollBoardDice={room?.isBoardGame ? handleBoardDiceRoll : undefined}
                 onShowMedical={() => setShowMedicalClaimModal(true)}
-                onShowTransaction={() => setShowTransactionModal(true)}
+                onShowTargetDream={() => setShowTargetDreamModal(true)}
+                onShowTransaction={() => {
+                    setTransactionQuickPreset(null);
+                    setShowTransactionModal(true);
+                }}
                 onShowPayday={() => setShowPaydayModal(true)}
                 onShowSettlement={() => {
                     setShowScoreView(true);
                     setIsSettlement(true);
                 }}
+                isBoardTurn={isBoardTurn}
+                isRollingBoardDice={isRollingBoardDice}
+                hasCar={hasCar}
                 disabled={room?.status === 'finished'}
             />
+
+            {displayBoardCard && (
+                <BoardCardDrawer
+                    card={displayBoardCard}
+                    isOpen={isBoardCardDrawerOpen}
+                    isRevealed={isBoardCardRevealed}
+                    onReveal={handleBoardCardReveal}
+                    onClose={() => setIsBoardCardDrawerOpen(false)}
+                    actionArea={isBoardCardRevealed && activeBoardCardAction ? (
+                        <div className="space-y-3 px-2 pt-1">
+                            {activeBoardCardAction.kind === 'financial' && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={markBoardCardHandled}
+                                        disabled={isActiveBoardCardHandled}
+                                        className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        關閉
+                                    </button>
+                                    <button
+                                        onClick={() => setBoardFinancialAction(activeBoardCardAction)}
+                                        disabled={isActiveBoardCardHandled}
+                                        className="rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {isActiveBoardCardHandled ? '此卡已處理' : activeBoardCardAction.label}
+                                    </button>
+                                </div>
+                            )}
+
+                            {activeBoardCardAction.kind === 'happiness' && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={markBoardCardHandled}
+                                        disabled={isActiveBoardCardHandled}
+                                        className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        關閉
+                                    </button>
+                                    <button
+                                        onClick={handleApplyDirectHappiness}
+                                        disabled={isActiveBoardCardHandled}
+                                        className="rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {isActiveBoardCardHandled ? '此卡已處理' : activeBoardCardAction.label}
+                                    </button>
+                                </div>
+                            )}
+
+                            {activeBoardCardAction.kind === 'market' && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => {
+                                            setTransactionQuickPreset({ initialTab: 'broker' });
+                                            setShowTransactionModal(true);
+                                            markBoardCardHandled();
+                                        }}
+                                        disabled={isActiveBoardCardHandled}
+                                        className="rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        前往交易
+                                    </button>
+                                    <button
+                                        onClick={markBoardCardHandled}
+                                        disabled={isActiveBoardCardHandled}
+                                        className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        關閉
+                                    </button>
+                                </div>
+                            )}
+
+                            {activeBoardCardAction.kind === 'choice' && (
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {activeBoardCardAction.options.map(option => {
+                                            let isInsufficientCash = false;
+                                            if (option.action.kind === 'financial' && option.id !== 'reject') {
+                                                isInsufficientCash = (gameState.cash + option.action.txData.cashChange) < 0;
+                                            }
+                                            return (
+                                                <button
+                                                    key={option.id}
+                                                    onClick={() => {
+                                                        if (option.action.kind === 'dismiss') {
+                                                            markBoardCardHandled();
+                                                            return;
+                                                        }
+                                                        setBoardFinancialAction(option.action);
+                                                    }}
+                                                    disabled={isActiveBoardCardHandled || isInsufficientCash}
+                                                    className={`rounded-2xl py-3.5 text-sm font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                                                        option.id === 'reject'
+                                                            ? 'bg-slate-800 text-slate-200 hover:bg-slate-700'
+                                                            : 'bg-emerald-600 text-white hover:bg-emerald-500'
+                                                    }`}
+                                                >
+                                                    {isInsufficientCash ? '現金不足' : option.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <button
+                                        onClick={markBoardCardHandled}
+                                        disabled={isActiveBoardCardHandled}
+                                        className="w-full rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        關閉
+                                    </button>
+                                </div>
+                            )}
+
+                            {activeBoardCardAction.kind === 'unsupported' && (
+                                <div className="space-y-3">
+                                    <div className="rounded-3xl border border-slate-800 bg-slate-900/80 px-4 py-4 text-sm leading-relaxed text-slate-300">
+                                        {activeBoardCardAction.note}
+                                    </div>
+                                    <button
+                                        onClick={markBoardCardHandled}
+                                        disabled={isActiveBoardCardHandled}
+                                        className="w-full rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        關閉
+                                    </button>
+                                </div>
+                            )}
+
+                            {activeBoardCardAction.kind === 'asset_sale' && (
+                                <div className="space-y-3">
+                                    <div className="space-y-2">
+                                        {activeBoardCardAction.items.length === 0 && (
+                                            <div className="rounded-3xl border border-slate-800 bg-slate-900/80 px-4 py-4 text-sm leading-relaxed text-slate-300">
+                                                {activeBoardCardAction.emptyNote}
+                                            </div>
+                                        )}
+
+                                        {activeBoardCardAction.items.map(item => {
+                                            const checked = selectedBoardSaleAssetIds.includes(item.id);
+                                            return (
+                                                <label
+                                                    key={item.id}
+                                                    className={`block rounded-3xl border px-4 py-4 transition-colors ${
+                                                        item.selectable
+                                                            ? checked
+                                                                ? 'border-emerald-500/60 bg-emerald-500/10'
+                                                                : 'border-slate-800 bg-slate-900/80'
+                                                            : 'border-slate-800 bg-slate-900/60 opacity-70'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            disabled={!item.selectable}
+                                                            onChange={() => {
+                                                                if (!item.selectable) return;
+                                                                setSelectedBoardSaleAssetIds(prev =>
+                                                                    prev.includes(item.id)
+                                                                        ? prev.filter(id => id !== item.id)
+                                                                        : [...prev, item.id]
+                                                                );
+                                                            }}
+                                                            className="mt-1 h-5 w-5 rounded border-slate-600 bg-slate-950 text-emerald-500"
+                                                        />
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="text-base font-black text-white">{item.asset.name}</div>
+                                                            <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-300">
+                                                                <div className="rounded-2xl bg-slate-950/70 px-3 py-2">
+                                                                    <div className="text-[10px] font-black tracking-[0.18em] text-slate-500">售價</div>
+                                                                    <div className="mt-1 font-bold text-white">{formatMoney(item.price)}</div>
+                                                                </div>
+                                                                <div className="rounded-2xl bg-slate-950/70 px-3 py-2">
+                                                                    <div className="text-[10px] font-black tracking-[0.18em] text-slate-500">貸款</div>
+                                                                    <div className="mt-1 font-bold text-white">{formatMoney(item.loanBalance)}</div>
+                                                                </div>
+                                                                <div className="col-span-2 rounded-2xl bg-slate-950/70 px-3 py-2">
+                                                                    <div className="text-[10px] font-black tracking-[0.18em] text-slate-500">出售後入帳</div>
+                                                                    <div className="mt-1 text-sm font-black text-emerald-300">{formatMoney(item.netCash)}</div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="mt-2 text-xs leading-relaxed text-slate-400">{item.summary}</div>
+                                                            {item.disabledReason && (
+                                                                <div className="mt-2 text-xs font-bold text-rose-300">{item.disabledReason}</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={markBoardCardHandled}
+                                            disabled={isActiveBoardCardHandled}
+                                            className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            關閉
+                                        </button>
+                                        <button
+                                            onClick={() => handleBoardAssetSaleConfirm(
+                                                activeBoardCardAction.items.filter(item => selectedBoardSaleAssetIds.includes(item.id))
+                                            )}
+                                            disabled={selectedBoardSaleAssetIds.length === 0}
+                                            className="rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {activeBoardCardAction.confirmLabel}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : null}
+                />
+            )}
+
+            {boardFinancialAction && (
+                <BoardFinancialCheckModal
+                    title={boardFinancialAction.txData.name}
+                    txData={boardFinancialAction.txData}
+                    expectedEntries={boardFinancialAction.expectedEntries}
+                    onApply={handleApplyBoardFinancialTx}
+                    onClose={() => setBoardFinancialAction(null)}
+                />
+            )}
 
             {/* Modals */}
             {showTransactionModal && (
@@ -534,12 +869,14 @@ export const GameView: React.FC<{
                         happinessSubMode={happinessSubMode}
                         setHappinessSubMode={setHappinessSubMode}
                         onTransaction={handleTransaction}
-                        onCancel={() => setShowTransactionModal(false)}
-                        disabled={room?.status === 'finished'}
-                        onShowMarket={() => {
+                        onCancel={() => {
                             setShowTransactionModal(false);
-                            setShowStockMarketModal(true);
+                            setTransactionQuickPreset(null);
                         }}
+                        disabled={room?.status === 'finished'}
+                        initialTab={transactionQuickPreset?.initialTab}
+                        initialMode={transactionQuickPreset?.mode}
+                        initialAssetType={transactionQuickPreset?.assetType}
                         onShowAlert={showAlert}
                     />
                 </div>
@@ -574,10 +911,22 @@ export const GameView: React.FC<{
             {showPaydayModal && (
                 <PaydayModal
                     isOpen={showPaydayModal}
+                    step={paydayStep}
                     monthlyCashflow={summary.monthlyCashflow}
                     formatMoney={formatMoney}
-                    onConfirm={onModalPaydayConfirm}
-                    onClose={() => setShowPaydayModal(false)}
+                    onOpenInsurance={() => openQuickTransaction('保險')}
+                    onOpenDeposit={() => openQuickTransaction('定存')}
+                    onSkipFollowup={() => {
+                        setShowPaydayModal(false);
+                        setPaydayStep('confirm');
+                    }}
+                    onClose={() => {
+                        if (paydayStep === 'confirm') {
+                            handlePaydayConfirm();
+                        }
+                        setShowPaydayModal(false);
+                        setPaydayStep('confirm');
+                    }}
                     disabled={room?.status === 'finished'}
                 />
             )}
@@ -625,17 +974,16 @@ export const GameView: React.FC<{
                     onAdd={handleAddHappinessItem}
                     onRemove={handleRemoveHappinessItem}
                     onClose={() => setShowHappinessModal(false)}
-                    disabled={room?.status === 'finished'}
                 />
             )}
 
-            {showStockMarketModal && (
-                <StockMarketModal
-                    onClose={() => setShowStockMarketModal(false)}
-                    onOpenTrade={() => {
-                        setShowStockMarketModal(false);
-                        setShowTransactionModal(true);
-                    }}
+            {showTargetDreamModal && (
+                <TargetDreamSelectorModal
+                    enterprise={gameState.selectedEnterprise}
+                    dream={gameState.selectedDream}
+                    cash={gameState.cash}
+                    onTransaction={handleTransaction}
+                    onClose={() => setShowTargetDreamModal(false)}
                 />
             )}
 

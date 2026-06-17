@@ -30,7 +30,7 @@ export const calculateFinancialSummary = (gameState: GameState): FinancialSummar
     // 3. 支出計算
     // A. 負債利息
     const creditLoanInterest = (liabilities.filter(l => l.type === '信用貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0)) + ((gameState.loans || 0) * 0.1);
-    const aircraftLoanInterest = liabilities.filter(l => l.type === '飛行器貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+    const aircraftLoanInterest = liabilities.filter(l => l.type === '飛行器貸款' || l.type === '汽車貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
     const businessLoanInterest = liabilities.filter(l => l.type === '企業貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
     const realEstateLoanInterest = liabilities.filter(l => l.type === '不動產貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
 
@@ -50,8 +50,8 @@ export const calculateFinancialSummary = (gameState: GameState): FinancialSummar
     // D. 保險費用 (每張 2000H)
     const medicalInsuranceCount = gameState.medicalInsuranceCount || 0;
     const houseInsuranceCount = assets.filter(a => a.type === '不動產' && a.isInsured).length;
-    // 飛行器保險 (若飛行器資產標註為已保險)
-    const aircraftInsuranceCount = assets.filter(a => (a.type as string) === '飛行器' && a.isInsured).length;
+    // 汽車保險 (相容舊的飛行器資產資料)
+    const aircraftInsuranceCount = assets.filter(a => ((a.type as string) === '飛行器' || (a.type as string) === '汽車') && a.isInsured).length;
     const insuranceCost = (medicalInsuranceCount + houseInsuranceCount + aircraftInsuranceCount) * 2000;
 
     const totalExpenses = taxExpense +
@@ -133,11 +133,11 @@ export const getInitialHappinessList = (enterprise: Enterprise, dream: Dream): H
         { id: 'h_child1', label: '4. 擁有第一個孩子', points: 4, checked: false, readOnly: true },
         { id: 'h_house_self', label: '5. 擁有自住的房子', points: 0, checked: false, readOnly: true },
         { id: 'h_house_1', label: '單間小套房', points: 2, checked: false, readOnly: true, parentId: 'h_house_self' },
-        { id: 'h_house_2', label: '兩室一廳', points: 4, checked: false, readOnly: true, parentId: 'h_house_self' },
-        { id: 'h_house_3', label: '三室兩廳', points: 6, checked: false, readOnly: true, parentId: 'h_house_self' },
-        { id: 'h_house_5', label: '五室三廳', points: 8, checked: false, readOnly: true, parentId: 'h_house_self' },
+        { id: 'h_house_2', label: '兩房一廳', points: 4, checked: false, readOnly: true, parentId: 'h_house_self' },
+        { id: 'h_house_3', label: '三房兩廳', points: 6, checked: false, readOnly: true, parentId: 'h_house_self' },
+        { id: 'h_house_5', label: '五房三廳', points: 8, checked: false, readOnly: true, parentId: 'h_house_self' },
         { id: 'h_child2', label: '擁有第二個孩子', points: 4, checked: false, readOnly: true },
-        { id: 'h_plane', label: '擁有一架飛行器', points: 4, checked: false, readOnly: true },
+        { id: 'h_plane', label: '擁有一台汽車', points: 4, checked: false, readOnly: true },
         { id: 'h_career', label: `事業成就 (${enterprise.name})`, code: enterprise.id, description: `投資額: ${formatMoney(enterprise.cost)} | 月收: +${formatMoney(enterprise.income)}`, points: 10, checked: false, readOnly: true },
         { id: 'h_dream', label: `完成夢想 (${dream.name})`, code: dream.id, description: `花費: ${formatMoney(dream.cost)} ${dream.description ? '| ' + dream.description : ''}`, points: 10, checked: false, readOnly: true },
     ];

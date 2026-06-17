@@ -16,62 +16,89 @@ const Quadrant: React.FC<QuadrantProps> = ({ title, color, icon, items, userEntr
     const selectedItem = items.includes(internalSelected) ? internalSelected : (items[0] || '');
 
     return (
-        <div className={`rounded-xl border-2 p-3 flex flex-col ${color} transition-all shadow-inner`}>
-            <div className="flex items-center gap-2 font-bold text-slate-200 mb-3 border-b border-white/10 pb-2">
-                {icon} {title}
-            </div>
-
-            <div className="flex-1 space-y-1 overflow-y-auto no-scrollbar max-h-32">
-                {userEntries.map((entry, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-slate-900/80 px-2 py-1.5 rounded border border-white/5 text-[12px] animate-in slide-in-from-top-1">
-                        <span className="text-white truncate max-w-[70px]">{entry.name}</span>
-                        <div className="flex items-center gap-0.5">
-                            <span className={`font-black px-1 rounded ${entry.direction === 'Increase' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                                {entry.direction === 'Increase' ? '↑' : '↓'}
-                            </span>
-                            <button
-                                onClick={() => onToggle(entry.name, entry.direction)}
-                                className="text-slate-400 hover:text-white transition-colors"
-                            >
-                                <X size={14} />
-                            </button>
-                        </div>
+        <section className={`rounded-[28px] border p-4 ${color} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]`}>
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2 text-slate-100">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-950/70">
+                        {icon}
                     </div>
-                ))}
+                    <div className="min-w-0">
+                        <div className="text-base font-black">{title}</div>
+                    </div>
+                </div>
+                <div className="shrink-0 rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-[11px] font-bold text-slate-300">
+                    已填 {userEntries.length}
+                </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-white/10 shrink-0">
-                <div className="relative mb-2">
-                    <div className="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 flex items-center justify-between min-h-[20px]">
-                        <span className="text-white font-medium truncate leading-none" style={{ fontSize: '12px' }}>
-                            {selectedItem}
-                        </span>
-                        <div className="text-slate-500 scale-75">▼</div>
+            <div className="mt-3">
+                <div className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">目前調整</div>
+                {userEntries.length > 0 && (
+                    <div className="space-y-2">
+                        {userEntries.map((entry, idx) => (
+                            <div
+                                key={idx}
+                                className="flex items-center justify-between gap-2 rounded-2xl border border-white/8 bg-slate-950/70 px-3 py-2.5 text-sm animate-in slide-in-from-top-1"
+                            >
+                                <div className="min-w-0">
+                                    <div className="truncate font-bold text-white">{entry.name}</div>
+                                    <div className={`mt-1 inline-flex rounded-full px-2 py-1 text-[11px] font-black ${
+                                        entry.direction === 'Increase'
+                                            ? 'bg-emerald-500/15 text-emerald-300'
+                                            : 'bg-rose-500/15 text-rose-300'
+                                    }`}>
+                                        {entry.direction === 'Increase' ? '這一欄增加' : '這一欄減少'}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => onToggle(entry.name, entry.direction)}
+                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-slate-900 text-slate-400 transition-colors hover:text-white"
+                                    aria-label={`移除 ${entry.name}`}
+                                >
+                                        <X size={16} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-3 border-t border-white/10 pt-3">
+                <div className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">選擇欄位</div>
+                <div className="relative">
+                    <div className="flex min-h-[52px] w-full items-center justify-between rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
+                        <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-500">目前欄位</div>
+                            <div className="mt-1 truncate text-sm font-black text-white">
+                                {selectedItem || '請選擇欄位'}
+                            </div>
+                        </div>
+                        <div className="text-sm font-black text-slate-500">▼</div>
                     </div>
                     <select
-                        className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer"
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                         value={selectedItem}
                         onChange={e => setInternalSelected(e.target.value)}
                     >
                         {items.map(i => <option key={i} value={i}>{i}</option>)}
                     </select>
                 </div>
-                <div className="grid grid-cols-2 gap-1">
+                <div className="mt-3 grid grid-cols-2 gap-2">
                     <button
                         onClick={() => onToggle(selectedItem, 'Increase')}
-                        className="bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-[12px] py-1 rounded border border-emerald-500/30 transition-colors"
+                        className="rounded-2xl border border-emerald-500/35 bg-emerald-500/15 px-4 py-3.5 text-sm font-black text-emerald-300 transition-colors hover:bg-emerald-500/25"
                     >
                         增加
                     </button>
                     <button
                         onClick={() => onToggle(selectedItem, 'Decrease')}
-                        className="bg-rose-600/20 hover:bg-rose-600/40 text-rose-400 text-[12px] py-1 rounded border border-rose-500/30 transition-colors"
+                        className="rounded-2xl border border-rose-500/35 bg-rose-500/15 px-4 py-3.5 text-sm font-black text-rose-300 transition-colors hover:bg-rose-500/25"
                     >
                         減少
                     </button>
                 </div>
             </div>
-        </div>
+        </section>
     );
 };
 
@@ -93,11 +120,11 @@ export const FinancialCheckBoard: React.FC<FinancialCheckBoardProps> = ({
     onToggle
 }) => {
     return (
-        <div className="grid grid-cols-2 gap-3 flex-1">
+        <div className="grid grid-cols-2 gap-3">
             <Quadrant
                 title="資產"
-                color="border-blue-500 bg-blue-900/10"
-                icon={<PieChart size={14} className="text-blue-400" />}
+                color="border-blue-500/35 bg-blue-950/20"
+                icon={<PieChart size={18} className="text-blue-300" />}
                 items={possibleItemsAssets}
                 userEntries={userEntries.filter(e => e.category === 'Assets')}
                 onToggle={(i, d) => onToggle('Assets', d, i)}
@@ -105,8 +132,8 @@ export const FinancialCheckBoard: React.FC<FinancialCheckBoardProps> = ({
 
             <Quadrant
                 title="負債"
-                color="border-rose-500 bg-rose-900/10"
-                icon={<TrendingDown size={14} className="text-rose-400" />}
+                color="border-rose-500/35 bg-rose-950/20"
+                icon={<TrendingDown size={18} className="text-rose-300" />}
                 items={possibleItemsLiabilities}
                 userEntries={userEntries.filter(e => e.category === 'Liabilities')}
                 onToggle={(i, d) => onToggle('Liabilities', d, i)}
@@ -114,8 +141,8 @@ export const FinancialCheckBoard: React.FC<FinancialCheckBoardProps> = ({
 
             <Quadrant
                 title="收入"
-                color="border-emerald-500 bg-emerald-900/10"
-                icon={<TrendingUp size={14} className="text-emerald-400" />}
+                color="border-emerald-500/35 bg-emerald-950/20"
+                icon={<TrendingUp size={18} className="text-emerald-300" />}
                 items={possibleItemsIncome}
                 userEntries={userEntries.filter(e => e.category === 'Income')}
                 onToggle={(i, d) => onToggle('Income', d, i)}
@@ -123,8 +150,8 @@ export const FinancialCheckBoard: React.FC<FinancialCheckBoardProps> = ({
 
             <Quadrant
                 title="支出"
-                color="border-orange-500 bg-orange-900/10"
-                icon={<Wallet size={14} className="text-orange-400" />}
+                color="border-orange-500/35 bg-orange-950/20"
+                icon={<Wallet size={18} className="text-orange-300" />}
                 items={possibleItemsExpenses}
                 userEntries={userEntries.filter(e => e.category === 'Expenses')}
                 onToggle={(i, d) => onToggle('Expenses', d, i)}

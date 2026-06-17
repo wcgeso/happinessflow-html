@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Ambulance, Plane } from 'lucide-react';
+import { Ambulance, Car } from 'lucide-react';
 import { Button, Card } from '../ui/ui';
 
 interface MedicalClaimModalProps {
@@ -43,16 +43,16 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
                         onClick={() => setClaimType('aircraft')}
                         className={`flex-1 py-2 text-xs font-bold rounded transition-all ${claimType === 'aircraft' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}
                     >
-                        飛行器理賠
+                        汽車理賠
                     </button>
                 </div>
 
                 <div className="w-20 h-20 bg-blue-900/30 rounded-full flex items-center justify-center mx-auto text-blue-400 mb-6 border-2 border-blue-500/30">
-                    {claimType === 'medical' ? <Ambulance size={40} /> : <Plane size={40} />}
+                    {claimType === 'medical' ? <Ambulance size={40} /> : <Car size={40} />}
                 </div>
 
                 <h3 className="text-2xl font-bold text-white mb-4">
-                    {claimType === 'medical' ? '醫療理賠申請' : '飛行器理賠申請'}
+                    {claimType === 'medical' ? '醫療理賠申請' : '汽車理賠申請'}
                 </h3>
 
                 <div className="space-y-3 mb-8">
@@ -63,7 +63,7 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
                         </div>
                     ) : (
                         <div className="flex justify-between text-slate-400 bg-slate-800/50 p-2 rounded">
-                            <span>飛行器保險狀態:</span>
+                            <span>汽車保險狀態:</span>
                             <span className={`${hasInsuredAircraft ? 'text-emerald-400' : 'text-rose-400'} font-bold`}>
                                 {hasInsuredAircraft ? '已投保' : '未投保'}
                             </span>

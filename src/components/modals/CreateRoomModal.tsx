@@ -5,13 +5,14 @@ import { Button } from '../ui/ui';
 interface CreateRoomModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onCreate: (settings: { name: string; maxPlayers: number; duration: number }) => Promise<void>;
+    onCreate: (settings: { name: string; maxPlayers: number; duration: number; isBoardGame?: boolean }) => Promise<void>;
 }
 
 export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onCreate }) => {
     const [name, setName] = useState('');
     const [maxPlayers, setMaxPlayers] = useState(1);
     const [duration, setDuration] = useState(60);
+    const [isBoardGame, setIsBoardGame] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +32,8 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
             await onCreate({ 
                 name: name.trim() || defaultNameFormat, 
                 maxPlayers, 
-                duration 
+                duration,
+                isBoardGame
             });
         } catch (err: any) {
             setError(err.message || '建立房間失敗，請稍後再試');
@@ -125,6 +127,28 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClos
                                         {d.label}
                                     </button>
                                 ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <label className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                                遊戲模式
+                            </label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => setIsBoardGame(false)}
+                                    className={`rounded-2xl border px-4 py-4 text-left transition-all ${!isBoardGame ? 'bg-amber-500 text-black border-amber-400 scale-[1.02]' : 'bg-slate-950 text-slate-400 border-slate-800'}`}
+                                >
+                                    <div className="font-black">一般模式</div>
+                                    <div className="text-xs mt-1 opacity-80">原本財務流程</div>
+                                </button>
+                                <button
+                                    onClick={() => setIsBoardGame(true)}
+                                    className={`rounded-2xl border px-4 py-4 text-left transition-all ${isBoardGame ? 'bg-cyan-400 text-slate-950 border-cyan-300 scale-[1.02]' : 'bg-slate-950 text-slate-400 border-slate-800'}`}
+                                >
+                                    <div className="font-black">線上棋盤</div>
+                                    <div className="text-xs mt-1 opacity-80">同步地圖與回合</div>
+                                </button>
                             </div>
                         </div>
 

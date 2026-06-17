@@ -19,6 +19,7 @@ const ScoreView = React.lazy(() => import('./views/game/ScoreView').then(module 
 const AchievementsView = React.lazy(() => import('./views/achievements/AchievementsView').then(module => ({ default: module.AchievementsView })));
 
 const CoachGameView = React.lazy(() => import('./views/lobby/CoachGameView').then(module => ({ default: module.CoachGameView })));
+const BoardProjectionView = React.lazy(() => import('./views/board/BoardProjectionView').then(module => ({ default: module.BoardProjectionView })));
 
 import { GameSessionMeta } from './types';
 
@@ -109,6 +110,15 @@ const AppContent = () => {
                     感謝您的耐心等待
                 </div>
             </div>
+        );
+    }
+
+    const boardRoomCode = new URLSearchParams(window.location.search).get('boardRoom');
+    if (boardRoomCode) {
+        return (
+            <Suspense fallback={<Spinner />}>
+                <BoardProjectionView roomCode={boardRoomCode} />
+            </Suspense>
         );
     }
 

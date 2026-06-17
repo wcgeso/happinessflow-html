@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { useGame } from '../context/GameContext';
-import { useRoom } from '../context/RoomContext';
-import { useAuth } from '../context/AuthContext';
 import { GameRecord, Transaction, Asset, TransactionData, HappinessItem } from '../types';
 import { formatMoney } from '../utils/gameUtils';
 
@@ -12,8 +10,6 @@ import { REAL_ESTATE_TYPES } from '../constants';
 
 export const useGameLogic = () => {
     const { gameState, setGameState, gameHistory, setGameHistory, summary, scoreResult, alertInfo, showAlert, hideAlert, saveGameRecord } = useGame();
-    const { room, submitRequest } = useRoom();
-    const { user } = useAuth();
 
     const [happinessSubMode, setHappinessSubMode] = useState<'history' | 'pay' | 'inc_exp'>('history');
 
@@ -72,9 +68,9 @@ export const useGameLogic = () => {
                             // Try to remove custom items or uncheck default items
                             // Reverse logic needs matching label mapping too
                             let baseLabel = REAL_ESTATE_TYPES[details.symbol || '']?.label || '自用住宅';
-                            if (baseLabel === '兩室一廳住宅') baseLabel = '兩室一廳';
-                            if (baseLabel === '三室二廳住宅') baseLabel = '三室兩廳';
-                            if (baseLabel === '五室三廳豪華住宅') baseLabel = '五室三廳';
+                            if (baseLabel === '兩房一廳住宅') baseLabel = '兩房一廳';
+                            if (baseLabel === '三房兩廳住宅') baseLabel = '三房兩廳';
+                            if (baseLabel === '五房三廳豪華住宅') baseLabel = '五房三廳';
 
                             const customItems = newState.happiness.filter(h => h.label.startsWith(baseLabel) && h.isCustom);
                             if (customItems.length > 0) {
@@ -221,6 +217,13 @@ export const useGameLogic = () => {
                         newState.assets = newState.assets.map(a => ids.includes(a.id) ? { ...a, isInsured: false } : a);
                     } else if (data.insuranceType === 'aircraft') {
                         newState.assets = newState.assets.map(a => a.type === '飛行器' ? { ...a, isInsured: false } : a);
+                    }
+                    
+                    if (data.expensePayload) {
+                        const { category, amount: expAmount, isIncrease } = data.expensePayload;
+                        const currentVal = newState.expenses[category] || 0;
+                        // Reverse the expense change!
+                        newState.expenses = { ...newState.expenses, [category]: isIncrease ? Math.max(0, currentVal - expAmount) : currentVal + expAmount };
                     }
                 }
 
@@ -403,17 +406,17 @@ export const useGameLogic = () => {
                     if (details.happyPoints && details.happyPoints > 0) {
                         // Determine the label used in the initial happiness list
                         // REAL_ESTATE_TYPES has { type: '1room', label: '單間小套房' }
-                        // initialHappinessList has '單間小套房', '兩室一廳', '三室兩廳', '五室三廳'
+                        // initialHappinessList has '單間小套房', '兩房一廳', '三房兩廳', '五房三廳'
                         // We need to map the REAL_ESTATE_TYPES label to the initial list label if they differ slightly
                         // 1room -> '單間小套房' (Match)
-                        // 2room -> '兩室一廳住宅' in constants vs '兩室一廳' in initial list
-                        // 3room -> '三室二廳住宅' in constants vs '三室兩廳' in initial list
-                        // 5room -> '五室三廳豪華住宅' in constants vs '五室三廳' in initial list
+                        // 2room -> '兩房一廳住宅' in constants vs '兩房一廳' in initial list
+                        // 3room -> '三房兩廳住宅' in constants vs '三房兩廳' in initial list
+                        // 5room -> '五房三廳豪華住宅' in constants vs '五房三廳' in initial list
 
                         let baseLabel = REAL_ESTATE_TYPES[details.symbol || '']?.label || '自用住宅';
-                        if (baseLabel === '兩室一廳住宅') baseLabel = '兩室一廳';
-                        if (baseLabel === '三室二廳住宅') baseLabel = '三室兩廳';
-                        if (baseLabel === '五室三廳豪華住宅') baseLabel = '五室三廳';
+                        if (baseLabel === '兩房一廳住宅') baseLabel = '兩房一廳';
+                        if (baseLabel === '三房兩廳住宅') baseLabel = '三房兩廳';
+                        if (baseLabel === '五房三廳豪華住宅') baseLabel = '五房三廳';
 
                         // Check if the base item exists (e.g., "單間小套房")
                         const existingBaseItemIndex = newState.happiness.findIndex(h => h.label === baseLabel);
@@ -621,6 +624,12 @@ export const useGameLogic = () => {
                 } else if (data.insuranceType === 'aircraft') {
                     newState.assets = newState.assets.map(a => a.type === '飛行器' ? { ...a, isInsured: true } : a);
                 }
+                
+                if (data.expensePayload) {
+                    const { category, amount: expAmount, isIncrease } = data.expensePayload;
+                    const currentVal = newState.expenses[category] || 0;
+                    newState.expenses = { ...newState.expenses, [category]: isIncrease ? currentVal + expAmount : Math.max(0, currentVal - expAmount) };
+                }
             }
 
             const newTx: Transaction = {
@@ -660,22 +669,6 @@ export const useGameLogic = () => {
 
     const handlePaydayConfirm = () => {
         const flow = summary.monthlyCashflow;
-
-        console.log('玩家點擊領取月結餘 - 房間:', !!room, '角色:', user?.role);
-
-        // 如果在房間中且是玩家，則送出審核請求
-        if (room && (user?.role === 'player' || user?.role === 'coach')) {
-            console.log('玩家送出審核請求:', user.name, flow);
-            submitRequest({
-                uid: user.uid,
-                playerName: user.name,
-                type: 'payday',
-                amount: flow
-            });
-            showAlert('已送出領取月結餘請求，請等待執行師審核', 'info');
-            return;
-        }
-
         executePayday(flow);
     };
 
@@ -703,20 +696,6 @@ export const useGameLogic = () => {
         const claimAmount = (gameState.medicalInsuranceCount || 0) * 50000;
         if (claimAmount <= 0) {
             showAlert('沒有可用的醫療保險', 'error');
-            return;
-        }
-
-        // 如果在房間中且是玩家，則送出審核請求
-        if (room && (user?.role === 'player' || user?.role === 'coach')) {
-            console.log('玩家送出醫療理賠審核請求:', user.name, claimAmount);
-            submitRequest({
-                uid: user.uid,
-                playerName: user.name,
-                type: 'insurance',
-                insuranceType: 'medical',
-                amount: claimAmount
-            });
-            showAlert('已送出理賠請求，請等待執行師審核', 'info');
             return;
         }
 
@@ -750,21 +729,7 @@ export const useGameLogic = () => {
             return;
         }
 
-        const claimAmount = 400000; // 飛行器理賠為 500,000 H 的 80%
-
-        // 如果在房間中且是玩家，則送出審核請求
-        if (room && (user?.role === 'player' || user?.role === 'coach')) {
-            console.log('玩家送出飛行器理賠審核請求:', user.name, claimAmount);
-            submitRequest({
-                uid: user.uid,
-                playerName: user.name,
-                type: 'insurance',
-                insuranceType: 'aircraft',
-                amount: claimAmount
-            });
-            showAlert('已送出理賠請求，請等待執行師審核', 'info');
-            return;
-        }
+        const claimAmount = 400000; // 飛行器理賠為 500,000 的 80%
 
         executeAircraftClaim(claimAmount);
     };
@@ -812,19 +777,6 @@ export const useGameLogic = () => {
     };
 
     const handleAddHappinessItem = (label: string, points: number) => {
-        // 如果在房間中且是玩家，則送出審核請求
-        if (room && (user?.role === 'player' || user?.role === 'coach')) {
-            submitRequest({
-                uid: user.uid,
-                playerName: user.name,
-                type: 'happiness',
-                amount: points,
-                happinessLabel: label
-            });
-            showAlert('已送出新增幸福項目請求，請等待執行師審核', 'info');
-            return;
-        }
-
         executeAddHappinessItem(label, points);
     };
 
@@ -856,36 +808,11 @@ export const useGameLogic = () => {
     const handlePromotionConfirm = (_type: 'normal' | 'lifelong' = 'normal'): boolean | 'pending' => {
         const cost = 1000;
         if (gameState.cash < cost) {
-            showAlert(`現金不足！報名費需 ${cost.toLocaleString()} H`, 'error');
+            showAlert(`現金不足！報名費需 ${cost.toLocaleString()}`, 'error');
             return false;
         }
-        if (!room) {
-            // 練習模式：直接扣費執行
-            setGameState(prev => {
-                const newState = { ...prev, cash: prev.cash - cost };
-                const newTx: Transaction = {
-                    id: generateId(),
-                    timestamp: Date.now(),
-                    name: '升等考試報名費',
-                    amount: cost,
-                    sourceLabel: '支出',
-                    usageLabel: '教育進修',
-                    cashChange: -cost,
-                    balance: newState.cash,
-                    flowType: '生活'
-                };
-                newState.history = [...newState.history, newTx];
-                return newState;
-            });
-            return true;
-        }
-        submitRequest({
-            uid: user!.uid,
-            playerName: user!.name || '玩家',
-            type: 'promotion',
-            amount: cost,
-        });
-        return 'pending';
+        executePromotionFee(cost);
+        return true;
     };
 
     const executePromotionFee = (cost: number) => {
@@ -968,39 +895,8 @@ export const useGameLogic = () => {
             showAlert(`現金不足，需要 ${formatMoney(cost)}`, 'error');
             return false;
         }
-        if (!room) {
-            // 練習模式：直接扣費執行
-            setGameState(prev => {
-                const newState = { ...prev, cash: prev.cash - cost };
-                const typeNames: Record<string, string> = {
-                    'enhance_profession': '增強職業能力',
-                    'stock_ability': '投資股票的能力',
-                    'real_estate_ability': '投資不動產的能力'
-                };
-                const newTx: Transaction = {
-                    id: generateId(),
-                    timestamp: Date.now(),
-                    name: `終身學習報名：${typeNames[type] || type}`,
-                    amount: cost,
-                    sourceLabel: '支出',
-                    usageLabel: '教育支出',
-                    cashChange: -cost,
-                    balance: newState.cash,
-                    flowType: '生活'
-                };
-                newState.history = [...newState.history, newTx];
-                return newState;
-            });
-            return true;
-        }
-        submitRequest({
-            uid: user!.uid,
-            playerName: user!.name || '玩家',
-            type: 'lifelong',
-            amount: cost,
-            promotionType: type,
-        });
-        return 'pending';
+        executeLifelongFee(type, cost);
+        return true;
     };
 
     const executeLifelongFee = (type: string, cost: number) => {
