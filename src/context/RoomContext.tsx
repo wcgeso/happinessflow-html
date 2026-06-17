@@ -271,6 +271,11 @@ const hasCarAsset = (state?: GameState | null) => {
     return !!state?.assets?.some(asset => asset.type === '汽車' || asset.type === '飛行器');
 };
 
+const BOARD_MOVE_INTRO_DELAY_MS = 600;
+const BOARD_MOVE_STEP_DURATION_MS = 380;
+const BOARD_MOVE_LANDING_DELAY_MS = 600;
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 const createInitialBoardState = (members: RoomMember[], playerStates?: Record<string, GameState>): BoardState => {
     const playerMembers = members.filter(member => member.role !== 'coach');
     const turnOrder = playerMembers.map(member => member.uid);
@@ -286,7 +291,9 @@ const createInitialBoardState = (members: RoomMember[], playerStates?: Record<st
         currentCard: null,
         currentCardReveal: null,
         currentEvent: null,
+        movement: null,
         deckState: createInitialDeckState(),
+        realEstateMarket: [],
         updatedAt: Date.now()
     };
 };
@@ -329,9 +336,11 @@ interface RoomContextValue {
     approveRequest: (requestId: string) => Promise<void>;
     rejectRequest: (requestId: string) => Promise<void>;
     clearRequest: (requestId: string) => Promise<void>;
-    rollBoardDice: () => Promise<{ position: number; detail: string; skipTurns: number }>;
+    rollBoardDice: () => Promise<{ position: number; detail: string; skipTurns: number; total: number; dice: number[] }>;
     revealBoardCard: (eventId: string, cardId: string) => Promise<void>;
     applyBoardMarketPrices: (updates: Record<string, number>, code: string, isBubble?: boolean) => Promise<void>;
+    abandonRealEstateCard: (cardId: string) => Promise<void>;
+    buyRealEstateFromMarket: (cardId: string) => Promise<void>;
 }
 
 const RoomContext = createContext<RoomContextValue | undefined>(undefined);
@@ -613,6 +622,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         const boardState = room.boardState;
+        if (boardState.movement?.isActive) {
+            throw new Error('目前角色仍在移動中');
+        }
         if (boardState.currentTurnUid !== user.uid) {
             throw new Error('還沒輪到你');
         }
@@ -623,11 +635,12 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const total = dice.reduce((sum, value) => sum + value, 0);
         const startPosition = boardState.playerPositions[user.uid] || 0;
         const pathLength = BOARD_SQUARES.length;
+        const path = Array.from({ length: total }, (_, step) => (startPosition + step + 1) % pathLength);
         let nextPosition = startPosition;
         const passedMessages: string[] = [];
 
-        for (let step = 1; step <= total; step += 1) {
-            nextPosition = (startPosition + step) % pathLength;
+        for (let step = 0; step < path.length; step += 1) {
+            nextPosition = path[step];
             const square = getSquareByIndex(nextPosition);
             if (square.type === 'bank') {
                 passedMessages.push(`經過${square.label}，請完成月結餘確認`);
@@ -672,6 +685,12 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             detailMessages.push('請確認本回合月結餘');
         }
 
+        const rollTimestamp = Date.now();
+        const movementDurationMs =
+            BOARD_MOVE_INTRO_DELAY_MS +
+            path.length * BOARD_MOVE_STEP_DURATION_MS +
+            BOARD_MOVE_LANDING_DELAY_MS;
+
         const nextTurn = getNextTurnUid({
             ...boardState,
             currentTurnUid: user.uid,
@@ -685,7 +704,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             summary: `${room.members.find(member => member.uid === user.uid)?.name || user.name || '玩家'} 擲出 ${total} 點，停在 ${landedSquare.label}`,
             detail: detailMessages.join('｜'),
             squareIndex: nextPosition,
-            timestamp: Date.now(),
+            timestamp: rollTimestamp + movementDurationMs,
             rollTotal: total
         };
 
@@ -700,6 +719,37 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
             boardState: {
                 ...boardState,
+                currentTurnUid: user.uid,
+                lastRoll: {
+                    uid: user.uid,
+                    dice,
+                    total,
+                    timestamp: rollTimestamp
+                },
+                currentCard: null,
+                currentCardReveal: null,
+                currentEvent: null,
+                movement: {
+                    playerUid: user.uid,
+                    startPosition,
+                    path,
+                    rollTotal: total,
+                    dice,
+                    startedAt: rollTimestamp,
+                    stepDurationMs: BOARD_MOVE_STEP_DURATION_MS,
+                    introDelayMs: BOARD_MOVE_INTRO_DELAY_MS,
+                    landingDelayMs: BOARD_MOVE_LANDING_DELAY_MS,
+                    isActive: true
+                },
+                updatedAt: rollTimestamp
+            }
+        })));
+
+        await wait(movementDurationMs);
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
+            boardState: {
+                ...boardState,
                 playerPositions: {
                     ...boardState.playerPositions,
                     [user.uid]: nextPosition
@@ -710,7 +760,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     uid: user.uid,
                     dice,
                     total,
-                    timestamp: Date.now()
+                    timestamp: rollTimestamp
                 },
                 currentCard,
                 currentCardReveal: currentCard ? {
@@ -719,6 +769,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     isRevealed: false
                 } : null,
                 currentEvent: event,
+                movement: null,
                 deckState,
                 updatedAt: Date.now()
             },
@@ -733,7 +784,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return {
             position: nextPosition,
             detail: detailMessages.join('\n'),
-            skipTurns: nextSkipTurns[user.uid] || 0
+            skipTurns: nextSkipTurns[user.uid] || 0,
+            total,
+            dice
         };
     };
 
@@ -760,6 +813,34 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (err: any) {
             setError(err.message);
         }
+    };
+
+    const abandonRealEstateCard = async (cardId: string) => {
+        if (!room) return;
+        const boardState = room.boardState;
+        if (!boardState) return;
+
+        const currentMarket = boardState.realEstateMarket || [];
+        if (currentMarket.includes(cardId)) return;
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+            'boardState.realEstateMarket': [...currentMarket, cardId],
+            'boardState.updatedAt': Date.now()
+        }));
+    };
+
+    const buyRealEstateFromMarket = async (cardId: string) => {
+        if (!room) return;
+        const boardState = room.boardState;
+        if (!boardState) return;
+
+        const currentMarket = boardState.realEstateMarket || [];
+        if (!currentMarket.includes(cardId)) return;
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+            'boardState.realEstateMarket': currentMarket.filter(id => id !== cardId),
+            'boardState.updatedAt': Date.now()
+        }));
     };
 
     const updateMarket = async (updates: Record<string, number>, code: string, isBubble: boolean = false) => {
@@ -925,7 +1006,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             clearRequest,
             rollBoardDice,
             revealBoardCard,
-            applyBoardMarketPrices
+            applyBoardMarketPrices,
+            abandonRealEstateCard,
+            buyRealEstateFromMarket
         }}>
             {children}
         </RoomContext.Provider>

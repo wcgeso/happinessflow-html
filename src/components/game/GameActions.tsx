@@ -3,7 +3,7 @@ import { CirclePlus, Dices, Target, Landmark, Building, ChevronUp } from 'lucide
 import { motion, useAnimation, useDragControls, PanInfo } from 'framer-motion';
 
 interface GameActionsProps {
-    onRollBoardDice?: () => void;
+    onRollBoardDice?: () => Promise<{ total: number, dice: number[] } | void> | void;
     onShowMedical: () => void;
     onShowTransaction: () => void;
     onShowPayday: () => void;
@@ -33,6 +33,84 @@ export const GameActions: React.FC<GameActionsProps> = ({
     const dragControls = useDragControls();
     const [isDragging, setIsDragging] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
+    const [diceResult, setDiceResult] = useState<number | null>(null);
+
+    // 根據結果動態分配骰子面，確保 Top 面永遠是骰出的點數
+    const getDiceFaces = (result: number | null) => {
+        const top = result || 5; // 預設 Top 是 5
+        const bottom = 7 - top;
+        const others = [1, 2, 3, 4, 5, 6].filter(n => n !== top && n !== bottom);
+        return {
+            front: others[0],
+            back: others[1],
+            right: others[2],
+            left: others[3],
+            bottom: bottom,
+            top: top
+        };
+    };
+    const faces = getDiceFaces(diceResult);
+
+    const isActive = isBoardTurn && !isRollingBoardDice && !disabled;
+    const isVisualActive = isActive || isAnimating;
+    const faceBg = isVisualActive 
+        ? "bg-gradient-to-br from-white to-slate-100 border-slate-300 shadow-[inset_0_0_15px_rgba(0,0,0,0.05)]" 
+        : "bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 shadow-[inset_0_0_15px_rgba(0,0,0,0.5)]";
+    const dotBg = isVisualActive ? "bg-slate-800" : "bg-slate-950";
+    const dot1Bg = isVisualActive ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" : "bg-slate-950";
+
+    const renderDots = (num: number) => {
+        switch (num) {
+            case 1:
+                return <div className={`w-4 h-4 rounded-full ${dot1Bg}`} />;
+            case 2:
+                return (
+                    <div className="w-full h-full p-2.5 flex justify-between">
+                        <div className={`w-2.5 h-2.5 rounded-full self-start ${dotBg}`}/>
+                        <div className={`w-2.5 h-2.5 rounded-full self-end ${dotBg}`}/>
+                    </div>
+                );
+            case 3:
+                return (
+                    <div className="w-full h-full p-2.5 flex flex-col justify-between">
+                        <div className={`w-2.5 h-2.5 rounded-full self-start ${dotBg}`}/>
+                        <div className={`w-2.5 h-2.5 rounded-full self-center ${dotBg}`}/>
+                        <div className={`w-2.5 h-2.5 rounded-full self-end ${dotBg}`}/>
+                    </div>
+                );
+            case 4:
+                return (
+                    <div className="w-full h-full p-2.5 grid grid-cols-2 grid-rows-2 gap-2 place-items-center">
+                        <div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/>
+                        <div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/>
+                        <div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/>
+                        <div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/>
+                    </div>
+                );
+            case 5:
+                return (
+                    <div className="relative w-full h-full">
+                        <div className={`absolute top-2.5 left-2.5 w-2.5 h-2.5 rounded-full ${dotBg}`}/>
+                        <div className={`absolute top-2.5 right-2.5 w-2.5 h-2.5 rounded-full ${dotBg}`}/>
+                        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full ${dotBg}`}/>
+                        <div className={`absolute bottom-2.5 left-2.5 w-2.5 h-2.5 rounded-full ${dotBg}`}/>
+                        <div className={`absolute bottom-2.5 right-2.5 w-2.5 h-2.5 rounded-full ${dotBg}`}/>
+                    </div>
+                );
+            case 6:
+                return (
+                    <div className="w-full h-full p-2.5 flex justify-between">
+                        <div className="flex flex-col justify-between"><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/></div>
+                        <div className="flex flex-col justify-between"><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/></div>
+                    </div>
+                );
+            default:
+                if (num > 6) {
+                    return <span className={`text-[32px] font-black ${isVisualActive ? 'text-slate-800' : 'text-slate-950'}`}>{num}</span>;
+                }
+                return null;
+        }
+    };
 
     // 當擲骰結束 (或是換人回合時)，強制將骰子重置回手上
     useEffect(() => {
@@ -40,6 +118,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
             diceControls.stop(); // 停止所有進行中的動畫(包含延遲消失)
             diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotateX: -15, rotateY: 15, rotateZ: 0 });
             setIsAnimating(false);
+            setDiceResult(null);
         }
     }, [isRollingBoardDice, diceControls]);
 
@@ -53,6 +132,19 @@ export const GameActions: React.FC<GameActionsProps> = ({
         if ((distance > 30 || speed > 200) && isBoardTurn && !isRollingBoardDice && !disabled && onRollBoardDice) {
             setIsAnimating(true);
             
+            // 先取得結果
+            let rollResult: { total: number, dice: number[] } | void;
+            try {
+                rollResult = await onRollBoardDice();
+            } catch (e) {
+                setIsAnimating(false);
+                return;
+            }
+            
+            if (rollResult && typeof rollResult.total === 'number') {
+                setDiceResult(rollResult.total);
+            }
+            
             // 根據滑動向量計算丟出去的目標位置
             const dirX = info.offset.x;
             const dirY = info.offset.y;
@@ -62,10 +154,13 @@ export const GameActions: React.FC<GameActionsProps> = ({
             const apexY = Math.min(dirY * 2, -200); // 最高點
             const landY = apexY + 150; // 落地點 (比最高點低)
 
-            // 減緩旋轉速度：從原本 720+ 降到 360+ (約 1~1.5 圈)，更真實
-            const rotX = (-dirY * 2) + (Math.random() * 180 + 360);
-            const rotY = (dirX * 2) + (Math.random() * 180 + 360);
-            const rotZ = (dirX + dirY) + (Math.random() * 180 + 180);
+            // 固定最終旋轉角度，確保平放且等角透視 (Top = 5)
+            // 由於面已經重新分配，我們只需要讓它回到與初始狀態一樣的 isometric 角度
+            // initial 是 rotateX: -15, rotateY: 15, rotateZ: 0
+            // 我們讓它轉兩圈後回到相同的角度：
+            const rotX = 720 - 15;
+            const rotY = 720 + 15;
+            const rotZ = 360;
 
             // 將「拋物線彈跳」與「延遲淡出」合併為單一動畫，防止瀏覽器在切換動畫時壓扁 3D 圖層
             diceControls.start({
@@ -73,9 +168,9 @@ export const GameActions: React.FC<GameActionsProps> = ({
                 y: [0, apexY, landY, landY - 40, landY, landY - 15, landY, landY, landY], 
                 z: [0, -100, -300, -300, -300, -300, -300, -300, -300], 
                 scale: [1, 1.2, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0], // 最後一格縮小至 0 代替透明度消失
-                rotateX: [0, rotX * 0.5, rotX, rotX + 30, rotX + 30, rotX + 35, rotX + 35, rotX + 35, rotX + 35],
-                rotateY: [0, rotY * 0.5, rotY, rotY + 15, rotY + 15, rotY + 20, rotY + 20, rotY + 20, rotY + 20],
-                rotateZ: [0, rotZ * 0.5, rotZ, rotZ + 10, rotZ + 10, rotZ + 15, rotZ + 15, rotZ + 15, rotZ + 15],
+                rotateX: [0, rotX * 0.5, rotX, rotX + 5, rotX, rotX + 2, rotX, rotX, rotX],
+                rotateY: [0, rotY * 0.5, rotY, rotY + 5, rotY, rotY + 2, rotY, rotY, rotY],
+                rotateZ: [0, rotZ * 0.5, rotZ, rotZ + 2, rotZ, rotZ + 1, rotZ, rotZ, rotZ],
                 transition: { 
                     duration: 3.5, // 總時長 3.5 秒 (包含落地停留的 2 秒)
                     // 0~1.2s 是飛行與彈跳, 1.2s~3.2s 是靜止, 3.2s~3.5s 是淡出消失
@@ -83,11 +178,6 @@ export const GameActions: React.FC<GameActionsProps> = ({
                     ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn", "linear", "easeInOut"] 
                 }
             });
-            
-            // 延遲觸發擲骰邏輯，讓玩家欣賞一下彈跳
-            setTimeout(() => {
-                onRollBoardDice();
-            }, 600);
         } else {
             // 沒滑到位，彈回原位
             diceControls.start({
@@ -104,13 +194,6 @@ export const GameActions: React.FC<GameActionsProps> = ({
         }
     };
 
-    const isActive = isBoardTurn && !isRollingBoardDice && !disabled;
-    const isVisualActive = isActive || isAnimating;
-    const faceBg = isVisualActive 
-        ? "bg-gradient-to-br from-white to-slate-100 border-slate-300 shadow-[inset_0_0_15px_rgba(0,0,0,0.05)]" 
-        : "bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 shadow-[inset_0_0_15px_rgba(0,0,0,0.5)]";
-    const dotBg = isVisualActive ? "bg-slate-800" : "bg-slate-950";
-    const dot1Bg = isVisualActive ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" : "bg-slate-950";
 
     return (
         <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none pb-safe">
@@ -179,35 +262,42 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                     initial={{ x: 0, y: 0, z: 0, rotateX: -15, rotateY: 15, rotateZ: 0 }}
                                     whileHover={isActive ? { scale: 1.05 } : {}}
                                     whileTap={isActive ? { scale: 0.95 } : {}}
-                                    onClick={() => {
+                                    onClick={async () => {
                                         // 保留點擊觸發，防呆
-                                        if (isActive) {
+                                        if (isActive && onRollBoardDice) {
+                                            setIsAnimating(true);
+                                            let rollResult: { total: number, dice: number[] } | void;
+                                            try {
+                                                rollResult = await onRollBoardDice();
+                                            } catch (e) {
+                                                setIsAnimating(false);
+                                                return;
+                                            }
+                                            if (rollResult && typeof rollResult.total === 'number') {
+                                                setDiceResult(rollResult.total);
+                                            }
+
                                             const targetX = (Math.random() - 0.5) * 150;
                                             const apexY = -250;
                                             const landY = -100;
-                                            const rotX = Math.random() * 180 + 360;
-                                            const rotY = Math.random() * 180 + 360;
-                                            const rotZ = Math.random() * 180 + 180;
+                                            const rotX = 720 - 15;
+                                            const rotY = 720 + 15;
+                                            const rotZ = 360;
 
                                             diceControls.start({
                                                 x: [0, targetX * 0.5, targetX, targetX * 1.05, targetX, targetX * 1.02, targetX, targetX, targetX],
                                                 y: [0, apexY, landY, landY - 40, landY, landY - 15, landY, landY, landY],
                                                 z: [0, -100, -300, -300, -300, -300, -300, -300, -300],
-                                                scale: [1, 1.2, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4],
-                                                opacity: [1, 1, 1, 1, 1, 1, 1, 1, 0],
-                                                rotateX: [0, rotX * 0.5, rotX, rotX + 30, rotX + 30, rotX + 35, rotX + 35, rotX + 35, rotX + 35],
-                                                rotateY: [0, rotY * 0.5, rotY, rotY + 15, rotY + 15, rotY + 20, rotY + 20, rotY + 20, rotY + 20],
-                                                rotateZ: [0, rotZ * 0.5, rotZ, rotZ + 10, rotZ + 10, rotZ + 15, rotZ + 15, rotZ + 15, rotZ + 15],
+                                                scale: [1, 1.2, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0],
+                                                rotateX: [0, rotX * 0.5, rotX, rotX + 5, rotX, rotX + 2, rotX, rotX, rotX],
+                                                rotateY: [0, rotY * 0.5, rotY, rotY + 5, rotY, rotY + 2, rotY, rotY, rotY],
+                                                rotateZ: [0, rotZ * 0.5, rotZ, rotZ + 2, rotZ, rotZ + 1, rotZ, rotZ, rotZ],
                                                 transition: { 
                                                     duration: 3.5, 
                                                     times: [0, 0.1, 0.2, 0.26, 0.29, 0.33, 0.35, 0.91, 1],
                                                     ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn", "linear", "easeInOut"]
                                                 }
                                             });
-                                            
-                                            setTimeout(() => {
-                                                onRollBoardDice();
-                                            }, 600);
                                         }
                                     }}
                                     style={{ touchAction: "none", transformStyle: "preserve-3d" }}
@@ -218,43 +308,22 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                     <div className="absolute inset-0 w-full h-full" style={{ transformStyle: "preserve-3d" }}>
                                         {/* 6個骰子面 */}
                                         <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'translateZ(32px)' }}>
-                                            <div className={`w-4 h-4 rounded-full ${dot1Bg}`} />
+                                            {renderDots(faces.front)}
                                         </div>
                                         <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(180deg) translateZ(32px)' }}>
-                                            <div className="w-full h-full p-2.5 flex justify-between">
-                                                <div className="flex flex-col justify-between"><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/></div>
-                                                <div className="flex flex-col justify-between"><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/><div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/></div>
-                                            </div>
+                                            {renderDots(faces.back)}
                                         </div>
                                         <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(90deg) translateZ(32px)' }}>
-                                            <div className="w-full h-full p-2.5 flex flex-col justify-between">
-                                                <div className={`w-2.5 h-2.5 rounded-full self-start ${dotBg}`}/>
-                                                <div className={`w-2.5 h-2.5 rounded-full self-center ${dotBg}`}/>
-                                                <div className={`w-2.5 h-2.5 rounded-full self-end ${dotBg}`}/>
-                                            </div>
+                                            {renderDots(faces.right)}
                                         </div>
                                         <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(-90deg) translateZ(32px)' }}>
-                                            <div className="w-full h-full p-2.5 grid grid-cols-2 grid-rows-2 gap-2 place-items-center">
-                                                <div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/>
-                                                <div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/>
-                                                <div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/>
-                                                <div className={`w-2.5 h-2.5 rounded-full ${dotBg}`}/>
-                                            </div>
+                                            {renderDots(faces.left)}
                                         </div>
                                         <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateX(90deg) translateZ(32px)' }}>
-                                            <div className="w-full h-full p-2.5 flex justify-between">
-                                                <div className={`w-2.5 h-2.5 rounded-full self-start ${dotBg}`}/>
-                                                <div className={`w-2.5 h-2.5 rounded-full self-end ${dotBg}`}/>
-                                            </div>
+                                            {renderDots(faces.bottom)}
                                         </div>
                                         <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateX(-90deg) translateZ(32px)' }}>
-                                            <div className="relative w-full h-full">
-                                                <div className={`absolute top-2.5 left-2.5 w-2.5 h-2.5 rounded-full ${dotBg}`}/>
-                                                <div className={`absolute top-2.5 right-2.5 w-2.5 h-2.5 rounded-full ${dotBg}`}/>
-                                                <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full ${dotBg}`}/>
-                                                <div className={`absolute bottom-2.5 left-2.5 w-2.5 h-2.5 rounded-full ${dotBg}`}/>
-                                                <div className={`absolute bottom-2.5 right-2.5 w-2.5 h-2.5 rounded-full ${dotBg}`}/>
-                                            </div>
+                                            {renderDots(faces.top)}
                                         </div>
 
                                         {hasCar && isVisualActive && (

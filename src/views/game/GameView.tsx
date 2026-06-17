@@ -349,8 +349,10 @@ export const GameView: React.FC<{
                 pendingCardAction: result.detail
             }));
             showAlert(`擲出 ${result.total} 點，已完成移動並同步地圖事件`, 'success');
+            return { total: result.total, dice: result.dice };
         } catch (err: any) {
             showAlert(err.message || '擲骰失敗', 'error');
+            throw err;
         } finally {
             setIsRollingBoardDice(false);
         }
