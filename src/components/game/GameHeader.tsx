@@ -150,78 +150,106 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
 
     return (
         <header className="fixed top-0 left-0 right-0 z-40 flex flex-col pt-safe pointer-events-none">
-            {/* Top Dashboard HUD */}
-            <div className="relative z-20 px-4 py-3">
-                <div className="max-w-7xl mx-auto flex items-start justify-between gap-4 pointer-events-auto">
+            {/* Top Profile Card HUD */}
+            <div className="relative z-20 px-3 py-3 w-full">
+                <div className="max-w-4xl mx-auto pointer-events-auto">
                     
-                    {/* 左側：身分與財務自由進度 */}
-                    <div className="flex flex-col gap-2">
+                    {/* 懸浮名片主體 */}
+                    <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/60 rounded-3xl shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] p-3 flex items-center gap-3">
+                        
+                        {/* 左側：職業頭像區 */}
                         {gameState.profession && (
-                            <div className="flex items-center gap-3 bg-slate-900/90 backdrop-blur-md border border-slate-700/50 p-2 rounded-2xl shadow-lg">
-                                <div
-                                    className="w-10 h-10 rounded-xl bg-slate-800 border border-yellow-500/50 flex items-center justify-center cursor-pointer hover:border-yellow-400 transition-colors shadow-inner"
-                                    onClick={onShowRankList}
-                                >
-                                    {getProfessionIcon(gameState.profession.id, { size: 20, className: "text-yellow-400" })}
-                                </div>
-                                <div className="flex flex-col pr-2">
-                                    <div className="flex items-center gap-1 mb-0.5">
-                                        {Array.from({ length: 5 }).map((_, i) => (
+                            <div 
+                                className="shrink-0 relative group cursor-pointer"
+                                onClick={onShowRankList}
+                            >
+                                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-slate-700/50 flex flex-col items-center justify-center shadow-inner group-hover:border-yellow-500/50 transition-colors">
+                                    {getProfessionIcon(gameState.profession.id, { size: 24, className: "text-yellow-400 mb-0.5 drop-shadow-md" })}
+                                    <div className="flex items-center gap-0.5">
+                                        {Array.from({ length: 3 }).map((_, i) => (
                                             <Star
                                                 key={i}
-                                                size={10}
+                                                size={8}
                                                 className={cn(i < gameState.currentRankLevel ? 'text-yellow-400 fill-yellow-400' : 'text-slate-700')}
                                             />
                                         ))}
                                     </div>
-                                    <span className="text-xs text-slate-200 font-black leading-none tracking-wider">{gameState.currentRankTitle}</span>
                                 </div>
                             </div>
                         )}
-                        
-                        {/* 財務自由進度條 */}
-                        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/50 p-2.5 rounded-2xl shadow-lg w-52 flex flex-col gap-1.5">
-                            <div className="flex justify-between items-end">
-                                <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">財務自由進度</span>
-                                <span className={cn("text-xs font-black", isFinanciallyFree ? "text-emerald-400" : "text-slate-300")}>
-                                    {financialFreedomProgress.toFixed(0)}%
-                                </span>
+
+                        {/* 中央：雙軌進度條區 (幸福與財富) */}
+                        <div className="flex-1 flex flex-col justify-center gap-2.5">
+                            
+                            {/* 上軌：幸福分數 (最醒目) */}
+                            <div 
+                                className="flex flex-col gap-1 cursor-pointer group"
+                                onClick={onShowHappiness}
+                            >
+                                <div className="flex justify-between items-end">
+                                    <div className="flex items-center gap-1.5">
+                                        <Heart size={14} className="text-pink-500 fill-pink-500 group-hover:scale-110 transition-transform" />
+                                        <span className="text-xs font-black text-pink-400 tracking-wider">幸福指數</span>
+                                    </div>
+                                    <span className="text-sm font-black text-white drop-shadow-[0_0_8px_rgba(236,72,153,0.5)]">
+                                        {gameState.happinessTotal} <span className="text-[10px] text-slate-500">/ 100</span>
+                                    </span>
+                                </div>
+                                <div className="h-2 w-full bg-slate-800/80 rounded-full overflow-hidden shadow-inner border border-slate-700/30">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-pink-600 to-pink-400 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(236,72,153,0.6)]"
+                                        style={{ width: `${Math.min((gameState.happinessTotal / 100) * 100, 100)}%` }}
+                                    />
+                                </div>
                             </div>
-                            <div className="flex items-center justify-between text-[9px] font-bold text-slate-500 mb-0.5">
-                                <span>理財收入 {formatMoney(passiveIncome)}</span>
-                                <span className="text-slate-600">/</span>
-                                <span>總支出 {formatMoney(totalExpenses)}</span>
+
+                            {/* 下軌：財務自由 */}
+                            <div className="flex flex-col gap-1">
+                                <div className="flex justify-between items-end">
+                                    <span className="text-[10px] font-black text-emerald-500 tracking-wider">財務自由</span>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-[9px] text-slate-500 font-mono">
+                                            {formatMoney(passiveIncome)} / {formatMoney(totalExpenses)}
+                                        </span>
+                                        <span className={cn("text-xs font-black ml-1", isFinanciallyFree ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "text-slate-300")}>
+                                            {financialFreedomProgress.toFixed(0)}%
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="h-1.5 w-full bg-slate-800/80 rounded-full overflow-hidden shadow-inner border border-slate-700/30">
+                                    <div 
+                                        className={cn("h-full rounded-full transition-all duration-1000", isFinanciallyFree ? "bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" : "bg-gradient-to-r from-emerald-700 to-emerald-500")}
+                                        style={{ width: `${financialFreedomProgress}%` }}
+                                    />
+                                </div>
                             </div>
-                            <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                                <div 
-                                    className={cn("h-full transition-all duration-1000", isFinanciallyFree ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" : "bg-blue-500")}
-                                    style={{ width: `${financialFreedomProgress}%` }}
-                                />
-                            </div>
+
                         </div>
-                    </div>
 
-                    {/* 右側：核心數值與設定 */}
-                    <div className="flex flex-col items-end gap-2">
-                        <div className="flex items-center gap-2">
-                            {/* 現金區塊 */}
-                            <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur-md border border-slate-700/50 px-4 py-2 rounded-2xl shadow-lg">
-                                <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-0.5">現金 (Cash)</div>
-                                <div className="text-xl font-black text-white tracking-tight">{formatMoney(gameState.cash)}</div>
+                        {/* 右側：金流數據與設定 */}
+                        <div className="shrink-0 flex flex-col items-end justify-between h-full py-0.5 border-l border-slate-700/50 pl-3">
+                            
+                            {/* 現金與月結餘 */}
+                            <div className="flex flex-col items-end mb-1">
+                                <div className="text-[10px] text-slate-500 font-bold mb-0.5">現金</div>
+                                <div className="text-base font-black text-white leading-none tracking-tight">{formatMoney(gameState.cash)}</div>
+                                <div className={cn("text-[10px] font-black mt-1", summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                                    {summary.monthlyCashflow >= 0 ? '+' : ''}{formatMoney(summary.monthlyCashflow)} /月
+                                </div>
                             </div>
 
-                            {/* 設定選單按鈕 */}
-                            <div className="relative">
+                            {/* 設定選單 */}
+                            <div className="relative mt-auto">
                                 <button
                                     onClick={() => setShowSettings(!showSettings)}
                                     className={cn(
-                                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all border shadow-lg",
+                                        "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
                                         showSettings 
-                                            ? "bg-blue-600 border-blue-400 text-white shadow-blue-900/40" 
-                                            : "bg-slate-900/90 backdrop-blur-md border-slate-700/50 text-slate-400 hover:text-white"
+                                            ? "bg-blue-600 text-white" 
+                                            : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
                                     )}
                                 >
-                                    <Settings size={20} className={cn("transition-transform duration-500", showSettings && "rotate-90")} />
+                                    <Settings size={16} className={cn("transition-transform duration-500", showSettings && "rotate-90")} />
                                 </button>
 
                                 {/* 展開的設定選單 */}
@@ -275,23 +303,6 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                     )}
                                 </AnimatePresence>
                             </div>
-                        </div>
-
-                        {/* 次要數值列 (月結餘與幸福指數) */}
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-700/50 px-3 py-1.5 rounded-xl shadow-lg">
-                                <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">月結餘</span>
-                                <span className={cn("text-sm font-black tabular-nums", summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                                    {summary.monthlyCashflow >= 0 ? '+' : ''}{formatMoney(summary.monthlyCashflow)}
-                                </span>
-                            </div>
-                            <button 
-                                onClick={onShowHappiness}
-                                className="flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-pink-500/30 px-3 py-1.5 rounded-xl shadow-[0_0_15px_rgba(236,72,153,0.15)] hover:bg-slate-800 transition-colors active:scale-95"
-                            >
-                                <Heart size={14} className="text-pink-500 fill-pink-500" />
-                                <span className="text-sm font-black text-white tabular-nums">{gameState.happinessTotal}</span>
-                            </button>
                         </div>
                     </div>
                 </div>
