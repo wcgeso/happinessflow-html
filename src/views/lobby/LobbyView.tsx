@@ -822,7 +822,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           </p>
           <div className="flex items-center justify-center gap-3 text-[10px] text-slate-600 font-medium">
             <a
-              href="https://happinessflow.vercel.app/privacy.html"
+              href="https://happinessflow-online.vercel.app/privacy.html"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-amber-500/60 transition-colors"
@@ -831,7 +831,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             </a>
             <div className="w-[1px] h-2 bg-slate-800"></div>
             <a
-              href="https://happinessflow.vercel.app/terms.html"
+              href="https://happinessflow-online.vercel.app/terms.html"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-amber-500/60 transition-colors"

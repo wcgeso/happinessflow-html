@@ -375,7 +375,7 @@ export const AuthView: React.FC = () => {
 
                         <div className="flex items-center justify-center gap-4 text-[9px] md:text-[10px] text-slate-500 font-medium">
                             <a 
-                                href="https://happinessflow.vercel.app/privacy.html" 
+                                href="https://happinessflow-online.vercel.app/privacy.html" 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="hover:text-amber-500/80 transition-colors"
@@ -384,7 +384,7 @@ export const AuthView: React.FC = () => {
                             </a>
                             <div className="w-[1px] h-2 bg-white/10"></div>
                             <a 
-                                href="https://happinessflow.vercel.app/terms.html" 
+                                href="https://happinessflow-online.vercel.app/terms.html" 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="hover:text-amber-500/80 transition-colors"

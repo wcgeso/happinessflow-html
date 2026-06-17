@@ -1,7 +1,7 @@
 /**
  * 版本號管理
  * 根據環境自動切換後綴：
- * 1. 正式版 (happinessflow.vercel.app): 無後綴
+ * 1. 正式版 (happinessflow-online.vercel.app): 無後綴
  * 2. 測試版 (Vercel Preview): -beta
  * 3. 開發/本地版 (localhost / happinessflow-dev.vercel.app): -dev
  */
