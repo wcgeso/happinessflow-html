@@ -198,7 +198,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   const netAssets = summary.totalAssets - summary.totalLiabilities;
 
   return (
-    <div className={cn("space-y-4 no-scrollbar", !hideNav && "pb-24")}>
+    <div className={cn("space-y-4 no-scrollbar", !hideNav && "pb-[100px]")}>
       {!hideNav && (
         <div className="space-y-4">
           {/* Asset Dashboard (Stats Bar) */}
@@ -272,22 +272,6 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
               </div>
             </div>
           )}
-
-          <div className="flex w-full bg-slate-800/50 backdrop-blur-md p-1 rounded-xl border border-slate-700/50">
-          {[
-            { id: 'financial', label: '財務報表' },
-            { id: 'cashflow', label: '現金流量表' },
-            { id: 'history', label: '紀錄' }
-          ].map((v) => (
-            <button
-              key={v.id}
-              onClick={() => setView(v.id as any)}
-              className={`flex-1 py-2.5 rounded-lg text-xs font-black tracking-widest transition-all ${view === v.id ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-900/40' : 'text-slate-400 hover:text-slate-200'}`}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
       </div>
     )}
 
@@ -683,6 +667,27 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
           asset={convertingHouse}
           onConvert={handleHouseConversion}
         />
+      )}
+
+      {/* 底部 Tab 切換 (固定在 Dock 上方) */}
+      {!hideNav && (
+        <div className="fixed bottom-[110px] left-0 right-0 z-40 px-4 pointer-events-none">
+          <div className="max-w-4xl mx-auto flex w-full bg-slate-900/90 backdrop-blur-xl p-1.5 rounded-2xl border border-slate-700/60 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] pointer-events-auto">
+            {[
+              { id: 'financial', label: '財務報表' },
+              { id: 'cashflow', label: '現金流量表' },
+              { id: 'history', label: '紀錄' }
+            ].map((v) => (
+              <button
+                key={v.id}
+                onClick={() => setView(v.id as any)}
+                className={`flex-1 py-3 rounded-xl text-sm font-black tracking-widest transition-all ${view === v.id ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
