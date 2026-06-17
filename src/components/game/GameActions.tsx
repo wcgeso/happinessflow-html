@@ -32,12 +32,14 @@ export const GameActions: React.FC<GameActionsProps> = ({
     const diceControls = useAnimation();
     const dragControls = useDragControls();
     const [isDragging, setIsDragging] = useState(false);
+    const [isAnimating, setIsAnimating] = useState(false);
 
     // 當擲骰結束 (或是換人回合時)，強制將骰子重置回手上
     useEffect(() => {
         if (!isRollingBoardDice) {
             diceControls.stop(); // 停止所有進行中的動畫(包含延遲消失)
             diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotateX: -15, rotateY: 15, rotateZ: 0 });
+            setIsAnimating(false);
         }
     }, [isRollingBoardDice, diceControls]);
 
@@ -49,6 +51,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
 
         // 只要滑動距離超過 30px 或速度夠快，且輪到該玩家，就判定為丟出 (不限方向)
         if ((distance > 30 || speed > 200) && isBoardTurn && !isRollingBoardDice && !disabled && onRollBoardDice) {
+            setIsAnimating(true);
             
             // 根據滑動向量計算丟出去的目標位置
             const dirX = info.offset.x;
@@ -69,8 +72,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                 x: [0, targetX * 0.5, targetX, targetX * 1.05, targetX, targetX * 1.02, targetX, targetX, targetX],
                 y: [0, apexY, landY, landY - 40, landY, landY - 15, landY, landY, landY], 
                 z: [0, -100, -300, -300, -300, -300, -300, -300, -300], 
-                scale: [1, 1.2, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4], 
-                opacity: [1, 1, 1, 1, 1, 1, 1, 1, 0], 
+                scale: [1, 1.2, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0], // 最後一格縮小至 0 代替透明度消失
                 rotateX: [0, rotX * 0.5, rotX, rotX + 30, rotX + 30, rotX + 35, rotX + 35, rotX + 35, rotX + 35],
                 rotateY: [0, rotY * 0.5, rotY, rotY + 15, rotY + 15, rotY + 20, rotY + 20, rotY + 20, rotY + 20],
                 rotateZ: [0, rotZ * 0.5, rotZ, rotZ + 10, rotZ + 10, rotZ + 15, rotZ + 15, rotZ + 15, rotZ + 15],
@@ -103,11 +105,12 @@ export const GameActions: React.FC<GameActionsProps> = ({
     };
 
     const isActive = isBoardTurn && !isRollingBoardDice && !disabled;
-    const faceBg = isActive 
+    const isVisualActive = isActive || isAnimating;
+    const faceBg = isVisualActive 
         ? "bg-gradient-to-br from-white to-slate-100 border-slate-300 shadow-[inset_0_0_15px_rgba(0,0,0,0.05)]" 
         : "bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 shadow-[inset_0_0_15px_rgba(0,0,0,0.5)]";
-    const dotBg = isActive ? "bg-slate-800" : "bg-slate-950";
-    const dot1Bg = isActive ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" : "bg-slate-950";
+    const dotBg = isVisualActive ? "bg-slate-800" : "bg-slate-950";
+    const dot1Bg = isVisualActive ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" : "bg-slate-950";
 
     return (
         <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none pb-safe">
@@ -147,7 +150,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                         {onRollBoardDice ? (
                             <div className="relative flex flex-col items-center gap-2">
                                 {/* 向上引導動畫 (輪到自己時顯示) */}
-                                {isActive && !isDragging && (
+                                {isActive && !isDragging && !isAnimating && (
                                     <motion.div 
                                         className="absolute -top-10 text-cyan-400 opacity-50"
                                         animate={{ y: [0, -10, 0], opacity: [0, 0.8, 0] }}
@@ -158,7 +161,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                 )}
 
                                 {/* 發光底圖 */}
-                                {isActive && !isDragging && (
+                                {isActive && !isDragging && !isAnimating && (
                                     <motion.div
                                         className="absolute inset-0 bg-cyan-500 rounded-full blur-2xl opacity-30 z-0"
                                         animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.5, 0.2] }}
@@ -208,7 +211,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                         }
                                     }}
                                     style={{ touchAction: "none", transformStyle: "preserve-3d" }}
-                                    className={`relative z-10 w-[64px] h-[64px] ${!isActive ? 'opacity-50 cursor-not-allowed filter grayscale-[0.5]' : 'cursor-grab active:cursor-grabbing'}`}
+                                    className={`relative z-10 w-[64px] h-[64px] ${!isVisualActive ? 'opacity-50 cursor-not-allowed filter grayscale-[0.5]' : 'cursor-grab active:cursor-grabbing'}`}
                                     title={!isBoardTurn ? "尚未輪到你" : (isRollingBoardDice ? "同步中..." : `滑動拋擲${hasCar ? ' (2顆)' : ' (1顆)'}`)}
                                 >
                                     {/* 骰子主體 (加上 transform-style 確保子元素 3D) */}
@@ -254,7 +257,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                             </div>
                                         </div>
 
-                                        {hasCar && isActive && (
+                                        {hasCar && isVisualActive && (
                                             <div className="absolute -top-3 -right-3 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-sm" style={{ transform: 'translateZ(40px)' }}>
                                                 <span className="text-[10px] font-black text-amber-900 leading-none tracking-tighter">x2</span>
                                             </div>
