@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, GraduationCap, Heart, Landmark, Newspaper, Sparkles, Wrench } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
@@ -17,6 +18,7 @@ const FIT_ZOOM = 0.62;
 const VIEWPORT_PADDING_X = 64;
 const VIEWPORT_PADDING_TOP = 80;
 const VIEWPORT_PADDING_BOTTOM = 32;
+const BOARD_MOVEMENT_TICK_MS = 80;
 
 const SQUARE_THEME: Record<BoardSquare['type'], {
   bg: string;
@@ -156,6 +158,33 @@ const getGridPosition = (index: number) => {
   return { gridColumn: `${column}`, gridRow: `${row}` };
 };
 
+const getAnimatedBoardPosition = (room: Room | null, playerUid: string, now: number) => {
+  const boardState = room?.boardState;
+  const settledPosition = boardState?.playerPositions?.[playerUid] || 0;
+  const movement = boardState?.movement;
+
+  if (!movement?.isActive || movement.playerUid !== playerUid) {
+    return settledPosition;
+  }
+
+  const elapsed = Math.max(0, now - movement.startedAt);
+  if (elapsed < movement.introDelayMs) {
+    return movement.startPosition;
+  }
+
+  const stepElapsed = elapsed - movement.introDelayMs;
+  const stepIndex = Math.min(
+    movement.path.length - 1,
+    Math.floor(stepElapsed / movement.stepDurationMs)
+  );
+
+  if (stepIndex < 0) {
+    return movement.startPosition;
+  }
+
+  return movement.path[stepIndex] ?? movement.startPosition;
+};
+
 const getAvatarStyle = (player: { photoPosition?: string; photoScale?: string }) => {
   let position = { x: 50, y: 50 };
   let scale = 1;
@@ -187,12 +216,12 @@ const renderPlayerToken = (player: {
   photoURL?: string;
   photoPosition?: string;
   photoScale?: string;
-}) => {
+}, isMoving: boolean = false) => {
   const isCustomAvatar = !!player.photoURL && (player.photoURL.startsWith('http') || player.photoURL.startsWith('data:image'));
 
   if (!isCustomAvatar) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#f8dfb5] to-[#c78f47] text-base shadow-inner">
+      <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br from-[#f8dfb5] to-[#c78f47] shadow-inner ${isMoving ? 'text-2xl' : 'text-base'}`}>
         🐝
       </div>
     );
@@ -211,20 +240,8 @@ const renderPlayerToken = (player: {
 const CardStage: React.FC<{
   card: BoardCardResult | null;
   isRevealed: boolean;
-  roomName: string;
-  roomId: string;
-  currentTurnName: string;
-}> = ({ card, isRevealed, roomName, roomId, currentTurnName }) => {
-  if (!card) {
-    return (
-      <div className="w-[580px] rounded-[28px] border border-[#d9bd95] bg-[linear-gradient(180deg,rgba(255,252,246,0.98),rgba(245,232,209,0.95))] px-10 py-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_28px_60px_-38px_rgba(92,64,33,0.62)]">
-        <div className="text-sm font-black tracking-[0.3em] text-[#9c7c58]">{roomName}</div>
-        <div className="mt-3 text-6xl font-black leading-none text-[#4f3c29]">{roomId}</div>
-        <div className="mt-6 text-xs font-black tracking-[0.3em] text-[#9c7c58]">目前回合</div>
-        <div className="mt-2 truncate text-4xl font-black text-[#4f3c29]">{currentTurnName}</div>
-      </div>
-    );
-  }
+}> = ({ card, isRevealed }) => {
+  if (!card) return null;
 
   const theme = SQUARE_THEME[DECK_TO_SQUARE_TYPE[card.deck]];
   const subtitle = `${card.subtitle || ''} ${card.cardId}`.trim();
@@ -291,6 +308,7 @@ const CardStage: React.FC<{
 export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }) => {
   const [room, setRoom] = useState<Room | null>(null);
   const [zoom, setZoom] = useState(FIT_ZOOM);
+  const [animationNow, setAnimationNow] = useState(() => Date.now());
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const boardFrameRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<{
@@ -309,6 +327,18 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     return () => unsubscribe();
   }, [roomCode]);
 
+  useEffect(() => {
+    const movement = room?.boardState?.movement;
+    if (!movement?.isActive) return;
+
+    setAnimationNow(Date.now());
+    const intervalId = window.setInterval(() => {
+      setAnimationNow(Date.now());
+    }, BOARD_MOVEMENT_TICK_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [room?.boardState?.movement]);
+
   const players = useMemo(() => {
     if (!room?.boardState) return [];
     return room.boardState.turnOrder.map(uid => {
@@ -319,10 +349,10 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         photoURL: member?.photoURL,
         photoPosition: member?.photoPosition,
         photoScale: member?.photoScale,
-        position: room.boardState?.playerPositions?.[uid] || 0
+        position: getAnimatedBoardPosition(room, uid, animationNow)
       };
     });
-  }, [room]);
+  }, [room, animationNow]);
 
   const playerGroups = useMemo(() => {
     return BOARD_SQUARES.reduce<Record<number, typeof players>>((acc, square) => {
@@ -371,7 +401,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
 
   const currentTurnUid = room?.boardState?.currentTurnUid || null;
   const currentTurnPosition = currentTurnUid
-    ? room?.boardState?.playerPositions?.[currentTurnUid] ?? null
+    ? players.find(player => player.uid === currentTurnUid)?.position ?? null
     : null;
 
   useEffect(() => {
@@ -405,6 +435,13 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const roomName = room.name || '蜂富人生';
   const currentTurnName = room.members.find(member => member.uid === boardState?.currentTurnUid)?.name || '尚未開始';
   const currentCard = boardState?.currentCard || null;
+  const movement = boardState?.movement;
+  const movingPlayerName = movement
+    ? room.members.find(member => member.uid === movement.playerUid)?.name || '玩家'
+    : '';
+  const movingPlayerPosition = movement
+    ? players.find(player => player.uid === movement.playerUid)?.position ?? movement.startPosition
+    : null;
   const revealState = boardState?.currentCardReveal;
   const isCardRevealed = !!(
     currentCard &&
@@ -467,39 +504,17 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
       <div
         onPointerDown={event => event.stopPropagation()}
         onDoubleClick={event => event.stopPropagation()}
-        className="fixed right-5 top-5 z-50 flex items-center gap-2 rounded-full border border-[#d2b58c] bg-[linear-gradient(180deg,rgba(255,251,244,0.98),rgba(242,228,204,0.96))] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_18px_36px_-28px_rgba(92,64,33,0.65)]"
+        className="fixed left-1/2 top-5 z-50 flex -translate-x-1/2 items-center gap-6 rounded-full border border-[#d2b58c] bg-[linear-gradient(180deg,rgba(255,251,244,0.98),rgba(242,228,204,0.96))] px-6 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_18px_36px_-28px_rgba(92,64,33,0.65)]"
       >
-        <button
-          type="button"
-          onClick={() => setZoomAroundPoint(Math.max(0.45, Number((zoom - 0.1).toFixed(2))))}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#d9bd98] bg-[#f8ead7] text-xl font-black text-[#6a4d2d]"
-          aria-label="縮小地圖"
-        >
-          -
-        </button>
-        <div className="min-w-[4.5rem] text-center text-sm font-black tracking-[0.08em] text-[#6a4d2d]">{zoomPercent}%</div>
-        <button
-          type="button"
-          onClick={() => setZoomAroundPoint(Math.min(1.4, Number((zoom + 0.1).toFixed(2))))}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#d9bd98] bg-[#f8ead7] text-xl font-black text-[#6a4d2d]"
-          aria-label="放大地圖"
-        >
-          +
-        </button>
-        <button
-          type="button"
-          onClick={() => setZoomAroundPoint(FIT_ZOOM)}
-          className="h-9 rounded-full border border-[#d9bd98] bg-[#f8ead7] px-4 text-sm font-black text-[#6a4d2d]"
-        >
-          適合螢幕
-        </button>
-        <button
-          type="button"
-          onClick={() => setZoomAroundPoint(1)}
-          className="h-9 rounded-full border border-[#d9bd98] bg-[#f8ead7] px-4 text-sm font-black text-[#6a4d2d]"
-        >
-          100%
-        </button>
+        <div className="flex flex-col items-center">
+          <div className="text-[10px] font-black tracking-[0.2em] text-[#9c7c58]">{roomName}</div>
+          <div className="text-lg font-black tracking-widest text-[#4f3c29]">{room.id}</div>
+        </div>
+        <div className="h-8 w-px bg-[#d9bd98]" />
+        <div className="flex flex-col items-center">
+          <div className="text-[10px] font-black tracking-[0.2em] text-[#9c7c58]">目前回合</div>
+          <div className="text-lg font-black text-[#4f3c29]">{currentTurnName}</div>
+        </div>
       </div>
 
       <div
@@ -539,26 +554,31 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                 const groupedPlayers = playerGroups[square.index] || [];
                 const hasPlayers = groupedPlayers.length > 0;
                 const isCorner = square.type === 'school' || square.type === 'hospital';
-                const isCurrentEventSquare = boardState?.currentEvent?.squareIndex === square.index;
+                const isCurrentEventSquare = movement?.isActive
+                  ? movingPlayerPosition === square.index
+                  : boardState?.currentEvent?.squareIndex === square.index;
 
                 return (
                   <div
                     key={square.id}
                     className={[
-                      'relative flex h-[126px] w-[126px] flex-col items-center justify-center overflow-hidden border text-center transition-all duration-300',
+                      'relative flex h-[126px] w-[126px] flex-col items-center justify-center border text-center transition-all duration-300',
                       isCorner ? 'rounded-[20px]' : 'rounded-[14px]',
                       isCurrentEventSquare ? 'z-20 -translate-y-1 ring-[3px] ring-[#8f6a3b]/45 shadow-[0_22px_40px_-20px_rgba(117,83,42,0.8)]' : 'hover:-translate-y-0.5',
                       theme.bg,
                       theme.border,
-                      theme.glow
+                      theme.glow,
+                      hasPlayers ? 'z-30' : 'z-10'
                     ].join(' ')}
                     style={getGridPosition(square.index)}
                   >
-                    <div className={`absolute inset-0 bg-gradient-to-br ${theme.surface}`} />
-                    <div className={`absolute inset-[1px] rounded-[inherit] bg-gradient-to-br ${theme.bevel} opacity-90`} />
-                    <div className="absolute inset-x-[10px] top-[8px] h-[22px] rounded-full bg-white/28 blur-md" />
-                    <div className="absolute inset-x-0 bottom-0 h-[30px] bg-gradient-to-t from-[#8f6a3b]/10 to-transparent" />
-                    <div className={`${theme.icon} mb-2`}>
+                    <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
+                      <div className={`absolute inset-0 bg-gradient-to-br ${theme.surface}`} />
+                      <div className={`absolute inset-[1px] rounded-[inherit] bg-gradient-to-br ${theme.bevel} opacity-90`} />
+                      <div className="absolute inset-x-[10px] top-[8px] h-[22px] rounded-full bg-white/28 blur-md" />
+                      <div className="absolute inset-x-0 bottom-0 h-[30px] bg-gradient-to-t from-[#8f6a3b]/10 to-transparent" />
+                    </div>
+                    <div className={`${theme.icon} relative z-10 mb-2`}>
                       {getSquareIcon(square, isCorner ? 30 : 24)}
                     </div>
                     <div className={`relative z-10 text-[22px] font-black leading-none drop-shadow-[0_1px_0_rgba(255,255,255,0.3)] ${theme.text}`}>
@@ -566,16 +586,40 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                     </div>
 
                     {hasPlayers && (
-                      <div className="pointer-events-none absolute bottom-2 left-1/2 grid w-[132px] -translate-x-1/2 grid-cols-3 justify-items-center gap-1">
-                        {groupedPlayers.slice(0, 6).map(player => (
-                          <div
-                            key={player.uid}
-                            className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-[#fff8ee] bg-[linear-gradient(180deg,#8f6b48,#6f5237)] shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_12px_20px_-10px_rgba(86,58,32,0.9)]"
-                            title={player.name}
-                          >
-                            {renderPlayerToken(player)}
-                          </div>
-                        ))}
+                      <div className="pointer-events-none absolute bottom-0 left-1/2 flex w-[140px] -translate-x-1/2 translate-y-1/3 flex-wrap justify-center gap-1">
+                        {groupedPlayers.slice(0, 6).map((player, idx) => {
+                          const isMoving = movement?.isActive && movement.playerUid === player.uid;
+                          const isCurrentTurn = currentTurnUid === player.uid;
+                          return (
+                            <motion.div
+                              key={player.uid}
+                              layoutId={`player-token-${player.uid}`}
+                              initial={{ scale: 0.5, opacity: 0 }}
+                              animate={{
+                                scale: isMoving ? 1.3 : isCurrentTurn ? 1.15 : 1,
+                                opacity: 1,
+                                y: isMoving ? -16 : 0
+                              }}
+                              transition={{
+                                type: "spring",
+                                stiffness: 400,
+                                damping: 28,
+                                mass: 0.8
+                              }}
+                              style={{
+                                zIndex: isMoving ? 100 : isCurrentTurn ? 40 : 30 - idx
+                              }}
+                              className={[
+                                'flex items-center justify-center overflow-hidden rounded-full border-2 bg-[linear-gradient(180deg,#8f6b48,#6f5237)] shadow-[0_12px_24px_-8px_rgba(86,58,32,0.9)]',
+                                isMoving ? 'h-16 w-16 border-[#ffefd6] ring-4 ring-[#ffefd6]/50' : 'h-14 w-14 border-[#fff8ee]',
+                                isCurrentTurn && !isMoving ? 'ring-2 ring-[#d8a66a]/70' : ''
+                              ].join(' ')}
+                              title={player.name}
+                            >
+                              {renderPlayerToken(player, isMoving)}
+                            </motion.div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -583,26 +627,36 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
               })}
             </div>
 
-            <div
-              className="absolute z-10 flex items-center justify-center rounded-[28px] border border-[#dcc4a2] bg-[linear-gradient(180deg,rgba(255,252,246,0.94),rgba(246,233,212,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.85),inset_0_0_50px_rgba(207,178,138,0.22),0_28px_40px_-28px_rgba(104,75,43,0.45)]"
-              style={{
-                left: BOARD_PADDING + TILE_SIZE * 2 + TILE_GAP * 2,
-                right: BOARD_PADDING + TILE_SIZE * 2 + TILE_GAP * 2,
-                top: BOARD_PADDING + TILE_SIZE * 2 + TILE_GAP * 2,
-                bottom: BOARD_PADDING + TILE_SIZE * 2 + TILE_GAP * 2
-              }}
-            >
-              <CardStage
-                card={currentCard}
-                isRevealed={isCardRevealed}
-                roomName={roomName}
-                roomId={room.id}
-                currentTurnName={currentTurnName}
-              />
-            </div>
+            <AnimatePresence>
+              {movement?.isActive && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="absolute left-1/2 top-[112px] z-20 -translate-x-1/2 rounded-full border border-[#d8b98f] bg-[linear-gradient(180deg,rgba(255,252,246,0.96),rgba(247,235,213,0.95))] px-6 py-3 text-center shadow-[0_18px_40px_-22px_rgba(104,75,43,0.55)]"
+                >
+                  <div className="text-xs font-black tracking-[0.28em] text-[#9b7b58]">移動中</div>
+                  <div className="mt-1 text-lg font-black text-[#4f3c29]">
+                    {movingPlayerName} 前進 <span className="mx-1 text-2xl text-[#d44c28]">{movement.rollTotal}</span> 格
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </main>
         </div>
       </div>
+
+      {currentCard && (
+        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center p-8 backdrop-blur-sm">
+          <div className="pointer-events-auto flex items-center justify-center rounded-[28px] border border-[#dcc4a2] bg-[linear-gradient(180deg,rgba(255,252,246,0.94),rgba(246,233,212,0.92))] p-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),inset_0_0_50px_rgba(207,178,138,0.22),0_28px_60px_-28px_rgba(104,75,43,0.55)]">
+            <CardStage
+              card={currentCard}
+              isRevealed={isCardRevealed}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

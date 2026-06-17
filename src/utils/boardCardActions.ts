@@ -447,7 +447,62 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
       };
     }
 
-    if (opportunityCard.monthlyExpenseChange) {
+    if (opportunityCard.cashLoss || opportunityCard.cashGain) {
+      const cashDelta = (opportunityCard.cashGain || 0) - (opportunityCard.cashLoss || 0);
+      
+      const expectedEntries: AccountEntry[] = [];
+      if (cashDelta !== 0) {
+        expectedEntries.push({
+          category: 'Assets',
+          name: '現金',
+          direction: cashDelta > 0 ? 'Increase' : 'Decrease'
+        });
+      }
+
+      let expensePayload;
+      if (opportunityCard.monthlyExpenseChange) {
+        const category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild' =
+          opportunityCard.id === 'C047'
+            ? 'transportEdu'
+            : 'basicLiving';
+        const isIncrease = opportunityCard.monthlyExpenseChange > 0;
+        expectedEntries.push({
+          category: 'Expenses',
+          name: expenseCategoryLabel(category),
+          direction: isIncrease ? 'Increase' : 'Decrease'
+        });
+        expensePayload = {
+          category,
+          amount: Math.abs(opportunityCard.monthlyExpenseChange),
+          isIncrease
+        };
+      }
+
+      if (expectedEntries.length > 0) {
+        return {
+          kind: 'financial',
+          label: '進入財務檢核',
+          txData: {
+            name: `機運卡：${opportunityCard.title}`,
+            amount: Math.abs(cashDelta),
+            cashChange: cashDelta,
+            source: cashDelta >= 0 ? 'income' : 'cash',
+            usage: cashDelta >= 0 ? 'cash' : 'expense',
+            expensePayload,
+            impacts: [
+              ...(cashDelta !== 0 ? [`現金 ${cashDelta > 0 ? '+' : '-'}${Math.abs(cashDelta).toLocaleString()} H`] : []),
+              ...(opportunityCard.monthlyExpenseChange ? [`${expensePayload ? expenseCategoryLabel(expensePayload.category) : ''}月支出 ${opportunityCard.monthlyExpenseChange > 0 ? '+' : '-'}${Math.abs(opportunityCard.monthlyExpenseChange).toLocaleString()} H`] : []),
+              ...(opportunityCard.happinessLoss ? [`幸福點數 -${opportunityCard.happinessLoss} 點`] : []),
+              ...(opportunityCard.drawCard ? [`抽取一張${opportunityCard.drawCard === 'happiness' ? '幸福卡' : '新聞卡'}`] : [])
+            ]
+          },
+          expectedEntries,
+          note: opportunityCard.insurancePays ? '若你要改用保險理賠，請改走保險流程。' : undefined
+        };
+      }
+    }
+
+    if (opportunityCard.monthlyExpenseChange && !(opportunityCard.cashLoss || opportunityCard.cashGain)) {
       const category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild' =
         opportunityCard.id === 'C047'
           ? 'transportEdu'
@@ -467,35 +522,17 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
             amount: Math.abs(opportunityCard.monthlyExpenseChange),
             isIncrease
           },
-          impacts: [`${expenseCategoryLabel(category)}月支出 ${isIncrease ? '+' : '-'}${Math.abs(opportunityCard.monthlyExpenseChange).toLocaleString()} H`]
+          impacts: [
+            `${expenseCategoryLabel(category)}月支出 ${isIncrease ? '+' : '-'}${Math.abs(opportunityCard.monthlyExpenseChange).toLocaleString()} H`,
+            ...(opportunityCard.happinessLoss ? [`幸福點數 -${opportunityCard.happinessLoss} 點`] : []),
+            ...(opportunityCard.drawCard ? [`抽取一張${opportunityCard.drawCard === 'happiness' ? '幸福卡' : '新聞卡'}`] : [])
+          ]
         },
         expectedEntries: [{
           category: 'Expenses',
           name: expenseCategoryLabel(category),
           direction: isIncrease ? 'Increase' : 'Decrease'
         }]
-      };
-    }
-
-    if (opportunityCard.cashLoss || opportunityCard.cashGain) {
-      const cashDelta = (opportunityCard.cashGain || 0) - (opportunityCard.cashLoss || 0);
-      return {
-        kind: 'financial',
-        label: '進入財務檢核',
-        txData: {
-          name: `機運卡：${opportunityCard.title}`,
-          amount: Math.abs(cashDelta),
-          cashChange: cashDelta,
-          source: cashDelta >= 0 ? 'income' : 'cash',
-          usage: cashDelta >= 0 ? 'cash' : 'expense',
-          impacts: [`現金 ${cashDelta >= 0 ? '+' : '-'}${Math.abs(cashDelta).toLocaleString()} H`]
-        },
-        expectedEntries: [{
-          category: 'Assets',
-          name: '現金',
-          direction: cashDelta >= 0 ? 'Increase' : 'Decrease'
-        }],
-        note: opportunityCard.insurancePays ? '若你要改用保險理賠，請改走保險流程。' : undefined
       };
     }
 

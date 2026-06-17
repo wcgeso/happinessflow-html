@@ -62,9 +62,9 @@ export const HAPPINESS_CARDS: HappinessCard[] = [
   { id: 'H025', title: '參與一場盛大的家族聚會', description: '帶著全家人一起出訪，參加一次盛大的兩天一夜家族聚會。許多久沒有見面的親人將會同聚一堂，聯繫情感。', category: '追求家庭幸福', happinessPoints: 2, cashCost: 15000 },
   { id: 'H026', title: '孩子的才藝活動', description: '孩子參加的才藝課程，將舉行一個發表活動。除夜了參加活動發表，晚上特別為孩子舉行一場慶功宴，犒賞孩子的努力。*（還沒有孩子的玩家無效）*', category: '追求家庭幸福', happinessPoints: 2, cashCost: 6000 },
   { id: 'H027', title: '為自己的伴侶準備一個驚喜', description: '在一個值得紀念的日子中，為自己的伴侶安排一個J特別的兩人約會，並為對方精心準備一份令人驚喜的禮物，來慶祝這一個對兩人有特別意義的日子。*（至少與心儀對象有過一次約會的玩家有效）*', category: '追求家庭幸福', happinessPoints: 2, cashCost: 6000 },
-  { id: 'H028', title: '給父母的回報', description: '感謝父母辛苦地把自己扶養長大，並提供良好的教育環境，讓自己成為一位優秀的人才。抽到卡片的玩家，自由決定是否要在月支出的其他欄多增加3,000，來獲得幸福點2點。', category: '追求家庭幸福', happinessPoints: 2, cashCost: 6000 },
+  { id: 'H028', title: '給父母的回報', description: '感謝父母辛苦地把自己扶養長大，並提供良好的教育環境，讓自己成為一位優秀的人才。抽到卡片的玩家，自由決定是否要在月支出的其他欄多增加3,000，來獲得幸福點2點。', category: '追求家庭幸福', happinessPoints: 2, monthlyExpenseIncrease: 3000 },
   { id: 'H029', title: '自己的健康是家庭幸福的來源', description: '健康出現了警訊。聽從醫生的建議，每天最少要運動三十分鐘，才能保持身邊的健康。為了這件事，你特別買了整組的家用運動設備。', category: '追求家庭幸福', happinessPoints: 2, cashCost: 10000 },
-  { id: 'H030', title: '自己的健康是家庭幸福的來源', description: '健康出現了警訊。聽從醫生的建議，調整飲食習慣，才能保持身邊的健康。所以每個月將多花 2,000，來為家人準備更為健康的飲食。抽到卡片的玩家，自由決定是否要在月支出的飲食欄多增加 2,000改善飲食，來獲得幸福點2點。', category: '追求家庭幸福', happinessPoints: 2, cashCost: 6000 },
+  { id: 'H030', title: '自己的健康是家庭幸福的來源', description: '健康出現了警訊。聽從醫生的建議，調整飲食習慣，才能保持身邊的健康。所以每個月將多花 2,000，來為家人準備更為健康的飲食。抽到卡片的玩家，自由決定是否要在月支出的飲食欄多增加 2,000改善飲食，來獲得幸福點2點。', category: '追求家庭幸福', happinessPoints: 2, monthlyExpenseIncrease: 2000 },
 
   // ─── 良好的人際關係（H031–H038）───
   // Monthly expense increase, +2 happiness; TODO: verify individual amounts (range: 2,000–3,000/month)
@@ -75,8 +75,8 @@ export const HAPPINESS_CARDS: HappinessCard[] = [
   { id: 'H035', title: '好友們的聚會', description: '好友之間常常會在特殊的節日上，像是生日、節慶等等，安排一些聚會，並互贈一些小禮物。提早為聚會的支出做規劃，對自己的財務計畫會有幫助。抽到卡片的玩家，自由決定是否要在月支出的娛樂欄多增加2,000，來獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 2000 },
   // TODO: verify exact titles for H036–H038
   { id: 'H036', title: '多讀好書', description: '豐富的知識和學識，可以增廣見聞，陶冶心性，在人際交往上，也會給自己帶來自信和成就感。所以養成閱讀的習慣，對自己和人際關係都有幫助。抽到卡片的玩家，自由決定是否要在月支出的教育欄多增加2,000，來獲得幸福點2點。《二、不獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 2000 },
-  { id: 'H037', title: '定期的旅遊', description: '讀萬卷書、行萬里路。定期安排一次旅遊，帶著家人或親友一起增廣見聞，看看這個美麗的世界。抽到卡片的玩家，自由決定是否要在月支出的娛樂欄多增加 3,000，來獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 2000 },
-  { id: 'H038', title: '得體的服飾', description: '參加各種聚會時，適當的服飾會給他人帶好良好的印象，也帶給自己足夠的自信。不過有些好服飾的價值頗高，提早為得體服飾支出做規劃，對自己的財務計畫會有幫助。抽到卡片的玩家，自由決定是否要在月支出的服飾欄多增加 2,000，來獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 3000 },
+  { id: 'H037', title: '定期的旅遊', description: '讀萬卷書、行萬里路。定期安排一次旅遊，帶著家人或親友一起增廣見聞，看看這個美麗的世界。抽到卡片的玩家，自由決定是否要在月支出的娛樂欄多增加 3,000，來獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 3000 },
+  { id: 'H038', title: '得體的服飾', description: '參加各種聚會時，適當的服飾會給他人帶好良好的印象，也帶給自己足夠的自信。不過有些好服飾的價值頗高，提早為得體服飾支出做規劃，對自己的財務計畫會有幫助。抽到卡片的玩家，自由決定是否要在月支出的服飾欄多增加 2,000，來獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 2000 },
 
   // ─── 幸福的社會（H039–H042）───
   // Monthly expense +2,000, +2 happiness each

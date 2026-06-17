@@ -32,7 +32,6 @@ const Quadrant: React.FC<QuadrantProps> = ({ title, color, icon, items, userEntr
             </div>
 
             <div className="mt-3">
-                <div className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">目前調整</div>
                 {userEntries.length > 0 && (
                     <div className="space-y-2">
                         {userEntries.map((entry, idx) => (
@@ -64,12 +63,10 @@ const Quadrant: React.FC<QuadrantProps> = ({ title, color, icon, items, userEntr
             </div>
 
             <div className="mt-3 border-t border-white/10 pt-3">
-                <div className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">選擇欄位</div>
                 <div className="relative">
                     <div className="flex min-h-[52px] w-full items-center justify-between rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3">
                         <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-500">目前欄位</div>
-                            <div className="mt-1 truncate text-sm font-black text-white">
+                            <div className="truncate text-sm font-black text-white">
                                 {selectedItem || '請選擇欄位'}
                             </div>
                         </div>

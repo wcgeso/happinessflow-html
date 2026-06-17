@@ -44,14 +44,18 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
     return (txData.impacts || []).slice(0, 4).map((impact, index) => {
       const isNegative = impact.includes('-');
       const isPositive = impact.includes('+');
+      const isHappiness = impact.includes('幸福點數');
       return {
         key: `${impact}_${index}`,
         text: impact,
-        tone: isNegative
+        tone: isHappiness
+          ? 'border-pink-500/30 bg-pink-500/10 text-pink-300'
+          : isNegative
           ? 'border-rose-500/25 bg-rose-500/10 text-rose-100'
           : isPositive
             ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-100'
-            : 'border-slate-700 bg-slate-900/80 text-slate-100'
+            : 'border-slate-700 bg-slate-900/80 text-slate-100',
+        isHappiness
       };
     });
   }, [txData.impacts]);
@@ -101,7 +105,7 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
       setErrorMessage(
         missingCount > 0
           ? `還有 ${missingCount} 個項目尚未完成，請再檢查一次。`
-          : '方向或項目仍有錯誤，請再檢查現金、收入或負債變化。'
+          : '方向或項目仍有錯誤，請再檢查各欄位的增減變化。'
       );
       return;
     }
@@ -148,9 +152,10 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
                       {impactSummary.map(item => (
                         <div
                           key={item.key}
-                          className={`rounded-2xl border px-3 py-3 text-sm font-bold leading-snug ${item.tone}`}
+                          className={`rounded-2xl border px-3 py-3 text-sm font-bold leading-snug ${item.tone} flex flex-col justify-center`}
                         >
                           {item.text}
+                          {item.isHappiness && <span className="text-[10px] opacity-70 mt-0.5 font-normal">*(自動結算不需檢核)*</span>}
                         </div>
                       ))}
                     </div>

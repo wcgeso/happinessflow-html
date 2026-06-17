@@ -338,24 +338,28 @@ export const GameView: React.FC<{
     const isActiveBoardCardHandled = !!(activeBoardCardKey && handledBoardCardKeys.includes(activeBoardCardKey));
 
     const handleBoardDiceRoll = async () => {
+        if (!room || !isBoardTurn || isRollingBoardDice || isProcessingEvent || disabled || gameState.movement?.isMoving) return null;
         setIsRollingBoardDice(true);
         try {
             const result = await rollBoardDice();
-            setGameState(prev => ({
-                ...prev,
-                boardPosition: result.position,
-                skipTurns: result.skipTurns,
-                lastBoardEvent: `擲出 ${result.total} 點，前進至第 ${result.position + 1} 格`,
-                pendingCardAction: result.detail
-            }));
-            showAlert(`擲出 ${result.total} 點，已完成移動並同步地圖事件`, 'success');
-            return { total: result.total, dice: result.dice };
+            return result;
         } catch (err: any) {
             showAlert(err.message || '擲骰失敗', 'error');
-            throw err;
-        } finally {
             setIsRollingBoardDice(false);
+            throw err;
         }
+    };
+
+    const handleBoardDiceAnimationComplete = (result: any) => {
+        setGameState(prev => ({
+            ...prev,
+            boardPosition: result.position,
+            skipTurns: result.skipTurns,
+            lastBoardEvent: `擲出 ${result.total} 點，前進至第 ${result.position + 1} 格`,
+            pendingCardAction: result.detail
+        }));
+        showAlert(`擲出 ${result.total} 點，已完成移動並同步地圖事件`, 'success');
+        setIsRollingBoardDice(false);
     };
 
     useEffect(() => {
@@ -627,6 +631,7 @@ export const GameView: React.FC<{
 
             <GameActions
                 onRollBoardDice={room?.isBoardGame ? handleBoardDiceRoll : undefined}
+                onRollAnimationComplete={room?.isBoardGame ? handleBoardDiceAnimationComplete : undefined}
                 onShowMedical={() => setShowMedicalClaimModal(true)}
                 onShowTargetDream={() => setShowTargetDreamModal(true)}
                 onShowTransaction={() => {

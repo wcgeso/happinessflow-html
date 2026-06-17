@@ -1,9 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { CirclePlus, Dices, Target, Landmark, Building, ChevronUp } from 'lucide-react';
 import { motion, useAnimation, useDragControls, PanInfo } from 'framer-motion';
+import { useRoom } from '../../context/RoomContext';
 
 interface GameActionsProps {
-    onRollBoardDice?: () => Promise<{ total: number, dice: number[] } | void> | void;
+    onRollBoardDice?: () => Promise<any> | void;
+    onRollAnimationComplete?: (result: any) => void;
+    onBuyRealEstate?: () => void;
     onShowMedical: () => void;
     onShowTransaction: () => void;
     onShowPayday: () => void;
@@ -18,6 +21,7 @@ interface GameActionsProps {
 
 export const GameActions: React.FC<GameActionsProps> = ({
     onRollBoardDice,
+    onRollAnimationComplete,
     onShowMedical,
     onShowTransaction,
     onShowPayday,
@@ -34,6 +38,19 @@ export const GameActions: React.FC<GameActionsProps> = ({
     const [isDragging, setIsDragging] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
     const [diceResult, setDiceResult] = useState<number | null>(null);
+    const { gameState } = useRoom();
+
+    // 骰子點數對應的角度 (X, Y)
+    // 假設: 面1是正面(0,0), 面6是背面(180,0), 面2是右面(0,-90), 面5是左面(0,90), 面3是上面(-90,0), 面4是下面(90,0)
+    // 要讓某一點數朝上 (即面向使用者的螢幕, Z 軸正向), 角度如下:
+    const diceRotations = {
+        1: { x: 0, y: 0 },
+        6: { x: 180, y: 0 },
+        3: { x: 0, y: -90 },
+        4: { x: 0, y: 90 },
+        2: { x: -90, y: 0 },
+        5: { x: 90, y: 0 }
+    };
 
     // 根據結果動態分配骰子面，確保 Top 面永遠是骰出的點數
     const getDiceFaces = (result: number | null) => {
@@ -118,7 +135,6 @@ export const GameActions: React.FC<GameActionsProps> = ({
             diceControls.stop(); // 停止所有進行中的動畫(包含延遲消失)
             diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotateX: -15, rotateY: 15, rotateZ: 0 });
             setIsAnimating(false);
-            setDiceResult(null);
         }
     }, [isRollingBoardDice, diceControls]);
 
@@ -131,53 +147,64 @@ export const GameActions: React.FC<GameActionsProps> = ({
         // 只要滑動距離超過 30px 或速度夠快，且輪到該玩家，就判定為丟出 (不限方向)
         if ((distance > 30 || speed > 200) && isBoardTurn && !isRollingBoardDice && !disabled && onRollBoardDice) {
             setIsAnimating(true);
-            
-            // 先取得結果
-            let rollResult: { total: number, dice: number[] } | void;
+
+            let rollResult: any;
             try {
                 rollResult = await onRollBoardDice();
             } catch (e) {
                 setIsAnimating(false);
                 return;
             }
-            
-            if (rollResult && typeof rollResult.total === 'number') {
-                setDiceResult(rollResult.total);
+
+            if (!rollResult || typeof rollResult.total !== 'number') {
+                setIsAnimating(false);
+                return;
             }
+
+            const actualDiceTotal = rollResult.total;
+            setDiceResult(actualDiceTotal);
             
+            // 計算動畫顯示點數與對應的目標角度
+            const displayValue = (actualDiceTotal % 6) || 6;
+            const targetRotation = diceRotations[displayValue as keyof typeof diceRotations];
+
             // 根據滑動向量計算丟出去的目標位置
             const dirX = info.offset.x;
             const dirY = info.offset.y;
-            
+
             // 基礎飛行距離與高度
             const targetX = dirX * 3;
             const apexY = Math.min(dirY * 2, -200); // 最高點
             const landY = apexY + 150; // 落地點 (比最高點低)
 
-            // 固定最終旋轉角度，確保平放且等角透視 (Top = 5)
-            // 由於面已經重新分配，我們只需要讓它回到與初始狀態一樣的 isometric 角度
-            // initial 是 rotateX: -15, rotateY: 15, rotateZ: 0
-            // 我們讓它轉兩圈後回到相同的角度：
-            const rotX = 720 - 15;
-            const rotY = 720 + 15;
-            const rotZ = 360;
+            // 計算旋轉角度：加上額外的圈數 (360度倍數) 讓它在空中翻滾，最後停在 targetRotation
+            const baseRotX = targetRotation.x + (Math.floor(Math.random() * 2) + 1) * 360;
+            const baseRotY = targetRotation.y + (Math.floor(Math.random() * 2) + 1) * 360;
+            const rotZ = (dirX + dirY) + (Math.random() * 180 + 180);
 
-            // 將「拋物線彈跳」與「延遲淡出」合併為單一動畫，防止瀏覽器在切換動畫時壓扁 3D 圖層
+            // 將「拋物線彈跳」與「延遲淡出」合併為單一動畫
             diceControls.start({
                 x: [0, targetX * 0.5, targetX, targetX * 1.05, targetX, targetX * 1.02, targetX, targetX, targetX],
-                y: [0, apexY, landY, landY - 40, landY, landY - 15, landY, landY, landY], 
-                z: [0, -100, -300, -300, -300, -300, -300, -300, -300], 
+                y: [0, apexY, landY, landY - 40, landY, landY - 15, landY, landY, landY],
+                z: [0, -100, -300, -300, -300, -300, -300, -300, -300],
                 scale: [1, 1.2, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0], // 最後一格縮小至 0 代替透明度消失
-                rotateX: [0, rotX * 0.5, rotX, rotX + 5, rotX, rotX + 2, rotX, rotX, rotX],
-                rotateY: [0, rotY * 0.5, rotY, rotY + 5, rotY, rotY + 2, rotY, rotY, rotY],
-                rotateZ: [0, rotZ * 0.5, rotZ, rotZ + 2, rotZ, rotZ + 1, rotZ, rotZ, rotZ],
-                transition: { 
+                rotateX: [0, baseRotX * 0.5, baseRotX, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x],
+                rotateY: [0, baseRotY * 0.5, baseRotY, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y],
+                rotateZ: [0, rotZ * 0.5, rotZ, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1],
+                transition: {
                     duration: 3.5, // 總時長 3.5 秒 (包含落地停留的 2 秒)
                     // 0~1.2s 是飛行與彈跳, 1.2s~3.2s 是靜止, 3.2s~3.5s 是淡出消失
-                    times: [0, 0.1, 0.2, 0.26, 0.29, 0.33, 0.35, 0.91, 1], 
-                    ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn", "linear", "easeInOut"] 
+                    times: [0, 0.1, 0.2, 0.26, 0.29, 0.33, 0.35, 0.91, 1],
+                    ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn", "linear", "easeInOut"]
                 }
             });
+
+            // 動畫結束後觸發遊戲邏輯
+            setTimeout(() => {
+                if (onRollAnimationComplete) {
+                    onRollAnimationComplete(rollResult);
+                }
+            }, 3500);
         } else {
             // 沒滑到位，彈回原位
             diceControls.start({
@@ -273,15 +300,22 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                                 setIsAnimating(false);
                                                 return;
                                             }
-                                            if (rollResult && typeof rollResult.total === 'number') {
-                                                setDiceResult(rollResult.total);
+                                            if (!rollResult || typeof rollResult.total !== 'number') {
+                                                setIsAnimating(false);
+                                                return;
                                             }
+                                            
+                                            const actualDiceTotal = rollResult.total;
+                                            setDiceResult(actualDiceTotal);
+
+                                            const displayValue = (actualDiceTotal % 6) || 6;
+                                            const targetRotation = diceRotations[displayValue as keyof typeof diceRotations];
 
                                             const targetX = (Math.random() - 0.5) * 150;
                                             const apexY = -250;
                                             const landY = -100;
-                                            const rotX = 720 - 15;
-                                            const rotY = 720 + 15;
+                                            const baseRotX = targetRotation.x + 720;
+                                            const baseRotY = targetRotation.y + 720;
                                             const rotZ = 360;
 
                                             diceControls.start({
@@ -289,15 +323,21 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                                 y: [0, apexY, landY, landY - 40, landY, landY - 15, landY, landY, landY],
                                                 z: [0, -100, -300, -300, -300, -300, -300, -300, -300],
                                                 scale: [1, 1.2, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0],
-                                                rotateX: [0, rotX * 0.5, rotX, rotX + 5, rotX, rotX + 2, rotX, rotX, rotX],
-                                                rotateY: [0, rotY * 0.5, rotY, rotY + 5, rotY, rotY + 2, rotY, rotY, rotY],
-                                                rotateZ: [0, rotZ * 0.5, rotZ, rotZ + 2, rotZ, rotZ + 1, rotZ, rotZ, rotZ],
+                                                rotateX: [0, baseRotX * 0.5, baseRotX, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x],
+                                                rotateY: [0, baseRotY * 0.5, baseRotY, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y],
+                                                rotateZ: [0, rotZ * 0.5, rotZ, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1],
                                                 transition: { 
                                                     duration: 3.5, 
                                                     times: [0, 0.1, 0.2, 0.26, 0.29, 0.33, 0.35, 0.91, 1],
                                                     ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn", "linear", "easeInOut"]
                                                 }
                                             });
+
+                                            setTimeout(() => {
+                                                if (onRollAnimationComplete) {
+                                                    onRollAnimationComplete(rollResult);
+                                                }
+                                            }, 3500);
                                         }
                                     }}
                                     style={{ touchAction: "none", transformStyle: "preserve-3d" }}

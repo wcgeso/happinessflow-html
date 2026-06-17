@@ -179,23 +179,23 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                         )}
 
                         {/* 中央：雙軌進度條區 (幸福與財富) */}
-                        <div className="flex-1 flex flex-col justify-center gap-2.5">
+                        <div className="flex-1 flex flex-col justify-center gap-3">
                             
                             {/* 上軌：幸福分數 (最醒目) */}
                             <div 
-                                className="flex flex-col gap-1 cursor-pointer group"
+                                className="flex flex-col gap-1.5 cursor-pointer group"
                                 onClick={onShowHappiness}
                             >
                                 <div className="flex justify-between items-end">
                                     <div className="flex items-center gap-1.5">
-                                        <Heart size={14} className="text-pink-500 fill-pink-500 group-hover:scale-110 transition-transform" />
-                                        <span className="text-xs font-black text-pink-400 tracking-wider">幸福指數</span>
+                                        <Heart size={16} className="text-pink-500 fill-pink-500 group-hover:scale-110 transition-transform" />
+                                        <span className="text-sm font-black text-pink-400 tracking-wider">幸福指數</span>
                                     </div>
-                                    <span className="text-sm font-black text-white drop-shadow-[0_0_8px_rgba(236,72,153,0.5)]">
-                                        {gameState.happinessTotal} <span className="text-[10px] text-slate-500">/ 100</span>
+                                    <span className="text-lg font-black text-white drop-shadow-[0_0_8px_rgba(236,72,153,0.5)]">
+                                        {gameState.happinessTotal} <span className="text-xs text-slate-500">/ 100</span>
                                     </span>
                                 </div>
-                                <div className="h-2 w-full bg-slate-800/80 rounded-full overflow-hidden shadow-inner border border-slate-700/30">
+                                <div className="h-2.5 w-full bg-slate-800/80 rounded-full overflow-hidden shadow-inner border border-slate-700/30">
                                     <div 
                                         className="h-full bg-gradient-to-r from-pink-600 to-pink-400 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(236,72,153,0.6)]"
                                         style={{ width: `${Math.min((gameState.happinessTotal / 100) * 100, 100)}%` }}
@@ -204,19 +204,19 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                             </div>
 
                             {/* 下軌：財務自由 */}
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-1.5">
                                 <div className="flex justify-between items-end">
-                                    <span className="text-[10px] font-black text-emerald-500 tracking-wider">財務自由</span>
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-[9px] text-slate-500 font-mono">
+                                    <span className="text-xs font-black text-emerald-500 tracking-wider">財務自由</span>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-[10px] text-slate-500 font-mono">
                                             {formatMoney(passiveIncome)} / {formatMoney(totalExpenses)}
                                         </span>
-                                        <span className={cn("text-xs font-black ml-1", isFinanciallyFree ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "text-slate-300")}>
+                                        <span className={cn("text-sm font-black ml-1", isFinanciallyFree ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "text-slate-300")}>
                                             {financialFreedomProgress.toFixed(0)}%
                                         </span>
                                     </div>
                                 </div>
-                                <div className="h-1.5 w-full bg-slate-800/80 rounded-full overflow-hidden shadow-inner border border-slate-700/30">
+                                <div className="h-2 w-full bg-slate-800/80 rounded-full overflow-hidden shadow-inner border border-slate-700/30">
                                     <div 
                                         className={cn("h-full rounded-full transition-all duration-1000", isFinanciallyFree ? "bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" : "bg-gradient-to-r from-emerald-700 to-emerald-500")}
                                         style={{ width: `${financialFreedomProgress}%` }}
@@ -227,14 +227,14 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                         </div>
 
                         {/* 右側：金流數據與設定 */}
-                        <div className="shrink-0 flex flex-col items-end justify-between h-full py-0.5 border-l border-slate-700/50 pl-3">
+                        <div className="shrink-0 flex flex-col items-end justify-between h-full py-0.5 border-l border-slate-700/50 pl-4">
                             
                             {/* 現金與月結餘 */}
-                            <div className="flex flex-col items-end mb-1">
-                                <div className="text-[10px] text-slate-500 font-bold mb-0.5">現金</div>
-                                <div className="text-base font-black text-white leading-none tracking-tight">{formatMoney(gameState.cash)}</div>
-                                <div className={cn("text-[10px] font-black mt-1", summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                                    {summary.monthlyCashflow >= 0 ? '+' : ''}{formatMoney(summary.monthlyCashflow)} /月
+                            <div className="flex flex-col items-end mb-2">
+                                <div className="text-xs text-slate-500 font-bold mb-0.5">現金</div>
+                                <div className="text-xl font-black text-white leading-none tracking-tight">{formatMoney(gameState.cash)}</div>
+                                <div className={cn("text-xs font-black mt-1.5", summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                                    {summary.monthlyCashflow >= 0 ? '+' : ''}{formatMoney(summary.monthlyCashflow)} <span className="text-[10px] text-slate-500 font-normal">/月</span>
                                 </div>
                             </div>
 

@@ -336,7 +336,7 @@ interface RoomContextValue {
     approveRequest: (requestId: string) => Promise<void>;
     rejectRequest: (requestId: string) => Promise<void>;
     clearRequest: (requestId: string) => Promise<void>;
-    rollBoardDice: () => Promise<{ position: number; detail: string; skipTurns: number; total: number; dice: number[] }>;
+    rollBoardDice: () => Promise<{ position: number; detail: string; skipTurns: number; total: number }>;
     revealBoardCard: (eventId: string, cardId: string) => Promise<void>;
     applyBoardMarketPrices: (updates: Record<string, number>, code: string, isBubble?: boolean) => Promise<void>;
     abandonRealEstateCard: (cardId: string) => Promise<void>;
@@ -785,8 +785,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             position: nextPosition,
             detail: detailMessages.join('\n'),
             skipTurns: nextSkipTurns[user.uid] || 0,
-            total,
-            dice
+            total
         };
     };
 

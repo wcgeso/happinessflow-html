@@ -187,6 +187,19 @@ export interface BoardCardRevealState {
   revealedBy?: string;
 }
 
+export interface BoardMovementState {
+  playerUid: string;
+  startPosition: number;
+  path: number[];
+  rollTotal: number;
+  dice: number[];
+  startedAt: number;
+  stepDurationMs: number;
+  introDelayMs: number;
+  landingDelayMs: number;
+  isActive: boolean;
+}
+
 export interface BoardState {
   currentTurnUid: string | null;
   turnOrder: string[];
@@ -201,7 +214,9 @@ export interface BoardState {
   currentCard: BoardCardResult | null;
   currentCardReveal?: BoardCardRevealState | null;
   currentEvent: BoardEventLog | null;
+  movement?: BoardMovementState | null;
   deckState: BoardDeckState;
+  realEstateMarket?: string[];
   updatedAt: number;
 }
 
