@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Star, Car, GraduationCap, Trophy, TrendingUp, Wallet, BarChart3, PieChart, Landmark, HelpCircle, ChevronDown, Clock, Users, Home, Heart, LogOut, Settings } from 'lucide-react';
+import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '../ui/ui';
 import { getProfessionIcon } from '../common/IconHelpers';
 import { cn, formatMoney } from '../../utils/gameUtils';
 import { useRoom } from '../../context/RoomContext';
@@ -15,6 +14,7 @@ interface GameHeaderProps {
     summary: any;
     onShowRankList: () => void;
     onShowPromotion: () => void;
+    onShowHappiness: () => void;
     onFinishGame: () => void;
     onShowStockMarket: () => void;
     onShowTutorial: () => void;
@@ -27,7 +27,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
     gameState, 
     summary,
     onShowRankList, 
-    onShowPromotion, 
+    onShowHappiness,
     onFinishGame,
     onShowStockMarket,
     onShowTutorial,
@@ -37,15 +37,18 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
 }) => {
     const { user } = useAuth();
     const { room, playerStates } = useRoom();
-    const [showAircraftTooltip, setShowAircraftTooltip] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
     const [showRoomInfo, setShowRoomInfo] = useState(false);
     const [showDevSettings, setShowDevSettings] = useState(false);
     const [timeLeft, setTimeLeft] = useState<string>('--:--');
 
     const isGM = user?.role === 'coach' || checkIsGM(user);
-
-    const hasAircraft = gameState.assets.some((a: any) => a.type === '飛行器' || a.type === '汽車');
-    const netAssets = summary.totalAssets - summary.totalLiabilities;
+    
+    // 計算財富自由進度 (被動收入 / 總支出)
+    const passiveIncome = summary.passiveIncome || 0;
+    const totalExpenses = summary.totalExpenses || 1; // 避免除以零
+    const financialFreedomProgress = Math.min((passiveIncome / totalExpenses) * 100, 100);
+    const isFinanciallyFree = financialFreedomProgress >= 100;
 
     // 格式化時間
     const formatTime = (seconds: number) => {
@@ -146,21 +149,23 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
      };
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-40 flex flex-col pt-safe bg-slate-900/95 backdrop-blur-md">
-            {/* Top Bar */}
-            <div className="relative z-20 border-b border-slate-800 px-4 py-2.5 shadow-md">
-                <div className="max-w-7xl mx-auto flex items-center justify-between relative">
-                    <div className="flex items-center gap-3">
+        <header className="fixed top-0 left-0 right-0 z-40 flex flex-col pt-safe pointer-events-none">
+            {/* Top Dashboard HUD */}
+            <div className="relative z-20 px-4 py-3">
+                <div className="max-w-7xl mx-auto flex items-start justify-between gap-4 pointer-events-auto">
+                    
+                    {/* 左側：身分與財務自由進度 */}
+                    <div className="flex flex-col gap-2">
                         {gameState.profession && (
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 bg-slate-900/90 backdrop-blur-md border border-slate-700/50 p-2 rounded-2xl shadow-lg">
                                 <div
-                                    className="w-8 h-8 rounded-full bg-slate-800 border border-yellow-500/50 flex items-center justify-center cursor-pointer hover:border-yellow-400 transition-colors"
+                                    className="w-10 h-10 rounded-xl bg-slate-800 border border-yellow-500/50 flex items-center justify-center cursor-pointer hover:border-yellow-400 transition-colors shadow-inner"
                                     onClick={onShowRankList}
                                 >
-                                    {getProfessionIcon(gameState.profession.id, { size: 16, className: "text-yellow-400" })}
+                                    {getProfessionIcon(gameState.profession.id, { size: 20, className: "text-yellow-400" })}
                                 </div>
-                                <div className="flex flex-col">
-                                    <div className="flex items-center gap-1">
+                                <div className="flex flex-col pr-2">
+                                    <div className="flex items-center gap-1 mb-0.5">
                                         {Array.from({ length: 5 }).map((_, i) => (
                                             <Star
                                                 key={i}
@@ -169,338 +174,216 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                             />
                                         ))}
                                     </div>
-                                    <span className="text-[10px] text-slate-500 font-bold leading-none mt-1">{gameState.currentRankTitle}</span>
+                                    <span className="text-xs text-slate-200 font-black leading-none tracking-wider">{gameState.currentRankTitle}</span>
                                 </div>
                             </div>
                         )}
-                    </div>
-
-                    <div className="flex gap-1.5 items-center h-8">
-                        <button 
-                            onClick={onFinishGame} 
-                            className="h-8 bg-amber-600 hover:bg-amber-500 text-white text-[10px] px-2.5 flex items-center gap-1.5 shrink-0 shadow-lg shadow-amber-900/20 rounded-lg border border-amber-500/50 transition-all active:scale-95"
-                        >
-                            <Trophy size={14} />
-                            <span className="font-black whitespace-nowrap uppercase tracking-wider">評分</span>
-                        </button>
-                        <div className="relative h-8 w-8 cursor-pointer hover:scale-105 transition-transform shrink-0">
-                            <div
-                                className={cn("w-full h-full flex items-center justify-center rounded-lg shadow-lg transition-colors text-white shadow-indigo-500/20", hasAircraft ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-600 hover:bg-slate-500')}
-                                onMouseEnter={() => setShowAircraftTooltip(true)}
-                                onMouseLeave={() => setShowAircraftTooltip(false)}
-                            >
-                                <Car size={14} className={!hasAircraft ? 'text-slate-300' : 'text-white'} />
+                        
+                        {/* 財務自由進度條 */}
+                        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/50 p-2.5 rounded-2xl shadow-lg w-52 flex flex-col gap-1.5">
+                            <div className="flex justify-between items-end">
+                                <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">財務自由進度</span>
+                                <span className={cn("text-xs font-black", isFinanciallyFree ? "text-emerald-400" : "text-slate-300")}>
+                                    {financialFreedomProgress.toFixed(0)}%
+                                </span>
                             </div>
-                            {showAircraftTooltip && (
-                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-40 bg-slate-800 text-white text-xs p-3 rounded border border-slate-600 z-[100] shadow-xl animate-in fade-in zoom-in-95 pointer-events-none">
-                                    <div className="relative">
-                                        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-slate-800"></div>
-                                        {hasAircraft ? '擁有汽車時可擲兩顆骰子' : '尚未擁有汽車'}
-                                    </div>
-                                </div>
-                            )}
+                            <div className="flex items-center justify-between text-[9px] font-bold text-slate-500 mb-0.5">
+                                <span>理財收入 {formatMoney(passiveIncome)}</span>
+                                <span className="text-slate-600">/</span>
+                                <span>總支出 {formatMoney(totalExpenses)}</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                    className={cn("h-full transition-all duration-1000", isFinanciallyFree ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" : "bg-blue-500")}
+                                    style={{ width: `${financialFreedomProgress}%` }}
+                                />
+                            </div>
                         </div>
-                        <button
-                            onClick={onShowStockMarket}
-                            className="h-8 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 rounded-lg shadow-lg text-[10px] px-2 flex items-center gap-1 shrink-0 transition-all active:scale-95 font-medium"
-                        >
-                            <TrendingUp size={12} className="text-emerald-400" />
-                            <span className="font-bold whitespace-nowrap">股市</span>
-                        </button>
-                        <button
-                            onClick={onLeaveRoom}
-                            className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl transition-all border border-rose-500/20 active:scale-95 ml-1"
-                            title="離開房間"
-                        >
-                            <LogOut size={18} />
-                        </button>
                     </div>
-                </div>
 
-                {/* 懸掛式倒數計時器 (同步玩家畫面風格) */}
-                <div className="absolute left-1/2 -translate-x-1/2 top-full flex items-center justify-center z-30">
-                    <button
-                        onClick={() => setShowRoomInfo(!showRoomInfo)}
-                        className={cn(
-                            "flex items-center gap-1 px-3 py-1 rounded-b-xl border-x border-b transition-all duration-500 active:scale-95 shadow-[0_10px_30px_-5px_rgba(0,0,0,0.5)]",
-                            showRoomInfo 
-                                ? "bg-blue-600 border-blue-400 text-white shadow-blue-900/40" 
-                                : !room?.isTimerPaused 
-                                    ? "bg-emerald-500 border-emerald-400 text-white"
-                                    : "bg-slate-900/90 backdrop-blur-sm border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
-                        )}
-                    >
-                        <div className="flex items-center gap-1.5">
-                            <span className={cn(
-                                "text-[10px] font-black tracking-widest transition-colors duration-300",
-                                (!room?.isTimerPaused) ? "text-white/90" : "text-white/60"
-                            )}>
-                                房號 {room?.id}
-                            </span>
-                            <div className={cn(
-                                "w-px h-2.5 transition-colors duration-300",
-                                (!room?.isTimerPaused) ? "bg-white/40" : "bg-white/20"
-                            )} />
-                            <Clock size={11} className={cn(
-                                "transition-colors duration-300",
-                                (!room?.isTimerPaused) ? "text-white" : showRoomInfo ? "text-white" : "text-slate-500"
-                            )} />
-                            <span className={cn(
-                                "text-[10px] font-black tracking-wider tabular-nums transition-colors duration-300",
-                                (!room?.isTimerPaused) ? "text-white" : (showRoomInfo ? "text-white" : "text-slate-400")
-                            )}>
-                                {timeLeft}
-                            </span>
-                        </div>
-                        <ChevronDown size={11} className={cn("transition-transform duration-300", showRoomInfo && "rotate-180")} />
-                    </button>
+                    {/* 右側：核心數值與設定 */}
+                    <div className="flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-2">
+                            {/* 現金區塊 */}
+                            <div className="flex flex-col items-end bg-slate-900/90 backdrop-blur-md border border-slate-700/50 px-4 py-2 rounded-2xl shadow-lg">
+                                <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-0.5">現金 (Cash)</div>
+                                <div className="text-xl font-black text-white tracking-tight">{formatMoney(gameState.cash)}</div>
+                            </div>
 
-                    {/* 開發者模式按鈕 (僅 GM/執行師 且在開發環境且開啟開發者模式顯示) */}
-                    {IS_DEV_VERSION && isGM && isDevMode && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setShowDevSettings(true);
-                            }}
-                            className="ml-2 w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500 hover:bg-amber-500/30 transition-all active:scale-90 shadow-lg shadow-amber-900/10"
-                            title="開發者設定"
-                        >
-                            <Settings size={14} className="animate-spin-slow" />
-                        </button>
-                    )}
-                </div>
-
-                {/* 開發者設定面板 (僅 GM/執行師 且在開發環境且開啟開發者模式顯示) */}
-                {IS_DEV_VERSION && isGM && isDevMode && (
-                    <DevSettingsModal
-                        isOpen={showDevSettings}
-                        onClose={() => setShowDevSettings(false)}
-                        onAddMoney={(amount) => {
-                            if (onAddMoney) onAddMoney(amount);
-                        }}
-                        currentCash={gameState.cash}
-                    />
-                )}
-
-                {/* 下拉房間資訊面板 (懸浮式設計) */}
-                <AnimatePresence>
-                    {showRoomInfo && (
-                        <motion.div 
-                            initial={{ height: 0, opacity: 0, y: 12 }}
-                            animate={{ height: 'auto', opacity: 1, y: 28 }}
-                            exit={{ height: 0, opacity: 0, y: 12 }}
-                            transition={{ duration: 0.3, ease: "easeInOut" }}
-                            className="fixed top-16 left-0 right-0 flex justify-center z-[100] px-3 pointer-events-none"
-                        >
-                            <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-[0_30px_70px_-15px_rgba(0,0,0,0.8)] ring-1 ring-white/5 overflow-hidden pointer-events-auto">
-                                <div className="p-5 space-y-5">
-                                    {/* 房間基本資訊 - 更加精緻的卡片感 */}
-                                    <div className="flex items-center justify-between bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700/50">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/20">
-                                                <Home size={18} className="text-white" />
-                                            </div>
-                                            <div>
-                                                <div className="text-sm font-black text-white tracking-wide">
-                                                    {displayRoomName}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right bg-slate-900/80 px-3 py-2.5 rounded-lg border border-slate-700/50 flex items-center justify-center">
-                                            <div className="text-xs font-black text-blue-400 font-mono tracking-wider">{room?.id}</div>
-                                        </div>
-                                    </div>
-
-                                    {/* 玩家列表 - 優化列表視覺與排序感 */}
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between px-1">
-                                            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-black uppercase tracking-widest">
-                                                <Users size={12} className="text-blue-500" />
-                                                <span>玩家列表</span>
-                                            </div>
-                                            <span className="text-[9px] text-slate-600 font-bold bg-slate-800 px-2 py-0.5 rounded-full">{sortedPlayers.length} 位玩家</span>
-                                        </div>
-                                        <div className="grid gap-2 max-h-[320px] overflow-y-auto pr-1 no-scrollbar">
-                                            {sortedPlayers.map((player) => (
-                                                <div 
-                                                    key={player.uid} 
-                                                    className={cn(
-                                                        "group flex items-center justify-between p-2.5 rounded-2xl border transition-all duration-300",
-                                                        player.isLeft 
-                                                            ? "bg-slate-900/40 border-slate-800/50 opacity-60 grayscale-[0.5]" 
-                                                            : "bg-slate-800/30 border-slate-700/30 hover:bg-slate-800/60"
-                                                    )}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="relative">
-                                                            <div className={cn(
-                                                                "w-9 h-9 rounded-xl border-2 bg-slate-800 flex items-center justify-center overflow-hidden shadow-inner",
-                                                                player.isLeft ? "border-slate-800" : "border-slate-700"
-                                                            )}>
-                                                                {renderPlayerAvatar(player)}
-                                                            </div>
-                                                            {player.isLeft && (
-                                                                <div className="absolute inset-0 bg-slate-950/40 flex items-center justify-center">
-                                                                    <div className="w-full h-full bg-slate-900/20 backdrop-blur-[1px]" />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className={cn(
-                                                                    "text-xs font-black transition-colors",
-                                                                    player.isLeft ? "text-slate-500" : "text-slate-200 group-hover:text-white"
-                                                                )}>
-                                                                    {player.name}
-                                                                </span>
-                                                                {player.isLeft && (
-                                                                    <span className="text-[9px] font-bold px-1.5 py-0.5 bg-slate-800 text-slate-500 rounded-md border border-slate-700/50">
-                                                                        已離開
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Heart size={12} className={player.isLeft ? "text-slate-600" : "text-pink-500"} fill="currentColor" />
-                                                        <div className={cn(
-                                                            "px-2.5 py-0.5 rounded-full text-[11px] font-black tabular-nums shadow-sm border",
-                                                            player.isLeft 
-                                                                ? "bg-slate-800/50 text-slate-500 border-slate-700/30" 
-                                                                : "bg-pink-500/10 text-pink-500 border-pink-500/20"
-                                                        )}>
-                                                            {player.happiness}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* 剩餘時間 - 強化警示感 */}
-                                    <div className="pt-1">
-                                        <div className="relative overflow-hidden group">
-                                            <div className="absolute inset-0 bg-blue-600/5 group-hover:bg-blue-600/10 transition-colors"></div>
-                                            <div className="relative flex items-center justify-between p-4 rounded-2xl border border-blue-500/20">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center">
-                                                        <Clock size={20} className="text-blue-400 animate-pulse" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Remaining Time</div>
-                                                        <div className="text-xs font-bold text-blue-400">遊戲剩餘時間</div>
-                                                    </div>
-                                                </div>
-                                                <span className="text-2xl font-black text-blue-400 tabular-nums tracking-tighter drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]">{timeLeft}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                {/* 關閉按鈕 - 縮小高度 */}
-                                <button 
-                                    onClick={() => setShowRoomInfo(false)}
-                                    className="w-full py-2 bg-slate-800/30 hover:bg-slate-800/60 border-t border-slate-800/50 text-slate-500 hover:text-white transition-all duration-300 flex flex-col items-center group"
+                            {/* 設定選單按鈕 */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowSettings(!showSettings)}
+                                    className={cn(
+                                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all border shadow-lg",
+                                        showSettings 
+                                            ? "bg-blue-600 border-blue-400 text-white shadow-blue-900/40" 
+                                            : "bg-slate-900/90 backdrop-blur-md border-slate-700/50 text-slate-400 hover:text-white"
+                                    )}
                                 >
-                                    <ChevronDown size={16} className="rotate-180 transition-transform group-hover:-translate-y-0.5" />
+                                    <Settings size={20} className={cn("transition-transform duration-500", showSettings && "rotate-90")} />
+                                </button>
+
+                                {/* 展開的設定選單 */}
+                                <AnimatePresence>
+                                    {showSettings && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.9, y: -10, transformOrigin: 'top right' }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                                            className="absolute top-full right-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8)] p-2 flex flex-col gap-1 z-50"
+                                        >
+                                            <div className="px-3 py-2 border-b border-slate-800 mb-1 flex justify-between items-center">
+                                                <span className="text-[10px] text-slate-500 font-bold tracking-widest">房間倒數</span>
+                                                <span className="text-xs font-mono text-white">{timeLeft}</span>
+                                            </div>
+                                            <button onClick={() => { onFinishGame(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-sm font-bold">
+                                                <Trophy size={16} className="text-amber-500" />
+                                                結算評分
+                                            </button>
+                                            <button onClick={() => { onShowStockMarket(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-sm font-bold">
+                                                <TrendingUp size={16} className="text-emerald-500" />
+                                                股市行情
+                                            </button>
+                                            <button onClick={() => { onShowTutorial(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-sm font-bold">
+                                                <HelpCircle size={16} className="text-blue-500" />
+                                                遊戲教學
+                                            </button>
+                                            <div className="h-px bg-slate-800 my-1" />
+                                            <button onClick={() => { setShowRoomInfo(true); setShowSettings(false); }} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-sm font-bold">
+                                                <div className="flex items-center gap-3">
+                                                    <Users size={16} className="text-indigo-400" />
+                                                    房間玩家
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono">
+                                                    {room?.id}
+                                                    <ChevronDown size={14} className="rotate-[-90deg]" />
+                                                </div>
+                                            </button>
+                                            {IS_DEV_VERSION && isGM && isDevMode && (
+                                                <button onClick={() => { setShowDevSettings(true); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-amber-500 transition-colors text-sm font-bold">
+                                                    <Settings size={16} />
+                                                    開發者設定
+                                                </button>
+                                            )}
+                                            <div className="h-px bg-slate-800 my-1" />
+                                            <button onClick={() => { onLeaveRoom(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-rose-500/20 text-rose-500 transition-colors text-sm font-bold">
+                                                <LogOut size={16} />
+                                                離開房間
+                                            </button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        </div>
+
+                        {/* 次要數值列 (月結餘與幸福指數) */}
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-700/50 px-3 py-1.5 rounded-xl shadow-lg">
+                                <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">月結餘</span>
+                                <span className={cn("text-sm font-black tabular-nums", summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                                    {summary.monthlyCashflow >= 0 ? '+' : ''}{formatMoney(summary.monthlyCashflow)}
+                                </span>
+                            </div>
+                            <button 
+                                onClick={onShowHappiness}
+                                className="flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-pink-500/30 px-3 py-1.5 rounded-xl shadow-[0_0_15px_rgba(236,72,153,0.15)] hover:bg-slate-800 transition-colors active:scale-95"
+                            >
+                                <Heart size={14} className="text-pink-500 fill-pink-500" />
+                                <span className="text-sm font-black text-white tabular-nums">{gameState.happinessTotal}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* 開發者設定面板 */}
+            {IS_DEV_VERSION && isGM && isDevMode && (
+                <DevSettingsModal
+                    isOpen={showDevSettings}
+                    onClose={() => setShowDevSettings(false)}
+                    onAddMoney={(amount) => {
+                        if (onAddMoney) onAddMoney(amount);
+                    }}
+                    currentCash={gameState.cash}
+                />
+            )}
+
+            {/* 房間與玩家資訊 Modal */}
+            <AnimatePresence>
+                {showRoomInfo && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-auto">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                            onClick={() => setShowRoomInfo(false)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+                        >
+                            <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-inner">
+                                        <Home size={20} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <div className="text-sm font-black text-white tracking-wide">{displayRoomName}</div>
+                                        <div className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">房號: {room?.id}</div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowRoomInfo(false)}
+                                    className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center hover:bg-slate-700 hover:text-white transition-colors"
+                                >
+                                    <X size={16} />
                                 </button>
                             </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-
-            {/* Stats Bar - 增加上方內距避免遮擋計時器 */}
-            <div className="relative z-10 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 px-4 pt-6 pb-2 shadow-inner">
-                <div className="max-w-7xl mx-auto space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                        {/* 現金 */}
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
-                            <div className="p-1.5 bg-blue-500/10 rounded-md shrink-0">
-                                <Wallet size={14} className="text-blue-400" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">現金</span>
-                                <span className="text-sm font-black text-white leading-tight truncate">{formatMoney(gameState.cash)}</span>
-                            </div>
-                        </div>
-
-                        {/* 理財收入 */}
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
-                            <div className="p-1.5 bg-emerald-500/10 rounded-md shrink-0">
-                                <Landmark size={14} className="text-emerald-400" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">理財收入</span>
-                                <span className="text-sm font-black text-emerald-400 leading-tight truncate">+{formatMoney(summary.passiveIncome)}</span>
-                            </div>
-                        </div>
-
-                        {/* 月結餘 */}
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
-                            <div className="p-1.5 bg-purple-500/10 rounded-md shrink-0">
-                                <BarChart3 size={14} className="text-purple-400" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">月結餘</span>
-                                <span className={cn(
-                                    "text-sm font-black leading-tight truncate",
-                                    summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-rose-400"
-                                )}>
-                                    {summary.monthlyCashflow >= 0 ? "+" : ""}{formatMoney(summary.monthlyCashflow)}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* 淨資產 */}
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 rounded-lg border border-slate-800/50">
-                            <div className="p-1.5 bg-amber-500/10 rounded-md shrink-0">
-                                <PieChart size={14} className="text-amber-400" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none">淨資產</span>
-                                <span className={cn(
-                                    "text-sm font-black leading-tight truncate",
-                                    netAssets >= 0 ? "text-blue-400" : "text-rose-400"
-                                )}>
-                                    {formatMoney(netAssets)}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 財務自由指標 */}
-                    {(() => {
-                        const isFree = summary.passiveIncome > summary.totalExpenses;
-                        return (
-                            <div className={cn(
-                                "flex items-center justify-between px-3 py-1.5 rounded-lg border transition-colors",
-                                isFree
-                                    ? "bg-emerald-500/10 border-emerald-500/30"
-                                    : "bg-slate-900/50 border-slate-800/50"
-                            )}>
-                                <span className={cn(
-                                    "text-xs font-black uppercase tracking-tighter leading-none shrink-0",
-                                    isFree ? "text-emerald-500" : "text-slate-500"
-                                )}>財務自由</span>
-                                <div className="flex items-center gap-1 text-[10px] font-black">
-                                    <span className="text-slate-500 font-bold">理財收入</span>
-                                    <span className="text-emerald-400">{formatMoney(summary.passiveIncome)}</span>
-                                    <span className="text-slate-600 text-xs">{">"}</span>
-                                    <span className="text-slate-500 font-bold">總支出</span>
-                                    <span className="text-rose-400">{formatMoney(summary.totalExpenses)}</span>
-                                    <span className={cn(
-                                        "ml-1 px-1.5 py-0.5 rounded text-[9px] font-black",
-                                        isFree ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800 text-slate-500"
-                                    )}>
-                                        {isFree ? "已達成" : "未達成"}
-                                    </span>
+                            
+                            <div className="p-4 max-h-[60vh] overflow-y-auto">
+                                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <Users size={12} /> 玩家列表 ({sortedPlayers.length})
+                                </h3>
+                                <div className="flex flex-col gap-2">
+                                    {sortedPlayers.length === 0 ? (
+                                        <div className="text-center py-8 flex flex-col items-center gap-2">
+                                            <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-600 mb-2">
+                                                <Users size={24} />
+                                            </div>
+                                            <div className="text-slate-400 text-sm font-bold">目前沒有其他玩家</div>
+                                            <div className="text-slate-600 text-xs">等待其他人加入房間...</div>
+                                        </div>
+                                    ) : (
+                                        sortedPlayers.map((p) => (
+                                            <div key={p.uid} className="flex items-center justify-between bg-slate-800/50 rounded-2xl p-3 border border-slate-700/50 hover:bg-slate-800 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-700 flex items-center justify-center shadow-inner border border-slate-600/50">
+                                                        {renderPlayerAvatar(p)}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <div className="text-sm font-bold text-slate-200">{p.name || '未命名玩家'}</div>
+                                                        <div className="text-[10px] text-slate-500">{p.isReady ? '🟢 已準備' : '🟡 準備中...'}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <div className="flex items-center gap-1.5 bg-pink-500/10 px-2 py-1 rounded-lg border border-pink-500/20">
+                                                        <Heart size={10} className="text-pink-500 fill-pink-500" />
+                                                        <span className="text-xs font-black text-pink-400 tabular-nums">{p.happiness || 0}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
                                 </div>
                             </div>
-                        );
-                    })()}
-                </div>
-            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </header>
     );
 };

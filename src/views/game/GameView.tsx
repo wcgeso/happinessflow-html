@@ -28,6 +28,7 @@ import { hydrateBoardCardResult } from '../../utils/boardCardDisplay';
 import { formatMoney } from '../../utils/gameUtils';
 import { TransactionData } from '../../types';
 import { BoardAssetSaleCandidate, BoardFinancialAction, buildBoardAssetSaleFinancialAction, resolveBoardCardAction } from '../../utils/boardCardActions';
+import { NEWS_CARD_MAP } from '../../constants/cards';
 
 export const GameView: React.FC<{ 
     onFinishGame: (meta: any) => void;
@@ -35,7 +36,7 @@ export const GameView: React.FC<{
 }> = ({ onFinishGame, isDevMode = false }) => {
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, leaveRoom, rollBoardDice, revealBoardCard, applyBoardMarketPrices } = useRoom();
+    const { room, leaveRoom, rollBoardDice, revealBoardCard, applyBoardMarketPrices, abandonRealEstateCard, buyRealEstateFromMarket } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -157,6 +158,7 @@ export const GameView: React.FC<{
     const [selectedBoardSaleAssetIds, setSelectedBoardSaleAssetIds] = useState<string[]>([]);
     const [appliedBoardMarketKeys, setAppliedBoardMarketKeys] = useState<string[]>([]);
     const [isApplyingBoardMarket, setIsApplyingBoardMarket] = useState(false);
+    const [showRealEstateMarketModal, setShowRealEstateMarketModal] = useState(false);
 
     const [promotionType, setPromotionType] = useState<PromotionType | null>(null);
     const [isRollingBoardDice, setIsRollingBoardDice] = useState(false);
@@ -343,10 +345,10 @@ export const GameView: React.FC<{
                 ...prev,
                 boardPosition: result.position,
                 skipTurns: result.skipTurns,
-                lastBoardEvent: boardState?.currentEvent?.summary || prev.lastBoardEvent,
+                lastBoardEvent: `擲出 ${result.total} 點，前進至第 ${result.position + 1} 格`,
                 pendingCardAction: result.detail
             }));
-            showAlert('已同步本回合擲骰與地圖事件', 'success');
+            showAlert(`擲出 ${result.total} 點，已完成移動並同步地圖事件`, 'success');
         } catch (err: any) {
             showAlert(err.message || '擲骰失敗', 'error');
         } finally {
@@ -407,8 +409,18 @@ export const GameView: React.FC<{
         setShowPromotionModal(true);
     }, [activeSchoolPromptKey, lastSchoolPromptKey, isActiveSchoolPromptPending]);
 
-    const markBoardCardHandled = () => {
+    const markBoardCardHandled = async () => {
         if (!activeBoardCardKey) return;
+
+        // 如果是房屋卡，且未被處理過，且不是透過購買行為（因為購買行為已經把狀態存到玩家身上），
+        // 我們就把這張卡推進 realEstateMarket。
+        if (activeBoardCard?.deck === 'news' && activeBoardCard?.cardId) {
+            const newsCard = NEWS_CARD_MAP[activeBoardCard.cardId];
+            if (newsCard && newsCard.type === 'real_estate') {
+                await abandonRealEstateCard(activeBoardCard.cardId);
+            }
+        }
+
         setHandledBoardCardKeys(prev => prev.includes(activeBoardCardKey) ? prev : [...prev, activeBoardCardKey]);
         setIsBoardCardDrawerOpen(false);
     };
@@ -449,10 +461,29 @@ export const GameView: React.FC<{
             showAlert('現金不足，無法套用這張卡片效果', 'error');
             return;
         }
+
         handleTransaction(txData);
         setBoardFinancialAction(null);
         showAlert('卡片效果已套用到財務報表', 'success');
         markBoardCardHandled();
+    };
+
+    const handleBuyRealEstateFromMarket = async (cardId: string, isSelfUse: boolean) => {
+        const cardAction = resolveBoardCardAction(cardId, gameState);
+        if (cardAction.kind === 'choice') {
+            const opt = cardAction.options.find(o => o.id === (isSelfUse ? 'self_use' : 'rental'));
+            if (opt && opt.action.kind === 'financial') {
+                const txData = opt.action.txData;
+                if ((gameState.cash + txData.cashChange) < 0) {
+                    showAlert('現金不足，無法購買', 'error');
+                    return;
+                }
+                handleTransaction(txData);
+                await buyRealEstateFromMarket(cardId);
+                showAlert('已從房市公告板購買房屋', 'success');
+                setShowRealEstateMarketModal(false);
+            }
+        }
     };
 
     const openQuickTransaction = (assetType: '保險' | '定存') => {
@@ -527,6 +558,7 @@ export const GameView: React.FC<{
                 summary={summary}
                 onShowRankList={() => setShowRankListModal(true)}
                 onShowPromotion={() => setShowPromotionModal(true)}
+                onShowHappiness={() => setShowHappinessModal(true)}
                 onFinishGame={() => setShowScoreView(true)}
                 onShowStockMarket={() => { setTransactionQuickPreset({ initialTab: 'broker' }); setShowTransactionModal(true); }}
                 onShowTutorial={() => setShowTutorial(true)}
@@ -573,15 +605,9 @@ export const GameView: React.FC<{
                 <HappinessWinAnimation onComplete={() => setShowWinAnimation(false)} />
             )}
 
-            <main className="flex-1 overflow-y-auto no-scrollbar px-4 pb-48 space-y-8 touch-pan-y" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 230px)' }}>
-                <div className="max-w-7xl mx-auto w-full space-y-6">
-                    <GameStats
-                        gameState={gameState}
-                        summary={summary}
-                        onOpenHappiness={() => setShowHappinessModal(true)}
-                    />
-
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <main className="fixed inset-0 overflow-y-auto no-scrollbar pt-[130px] pb-[120px] touch-pan-y">
+                <div className="max-w-4xl mx-auto w-full px-4 md:px-6 space-y-6">
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <FinancialStatement
                             gameState={gameState}
                             summary={summary}
@@ -595,16 +621,6 @@ export const GameView: React.FC<{
                         />
                     </div>
                 </div>
-                <div className="hidden lg:block space-y-6 h-[600px]">
-                    <HappinessPanel
-                        items={gameState.happiness}
-                        total={gameState.happinessTotal}
-                        onToggle={handleToggleHappiness}
-                        onAddCustomItem={handleAddHappinessItem}
-                        onRemoveCustomItem={handleRemoveHappinessItem}
-                        disabled={room?.status === 'finished'}
-                    />
-                </div>
             </main>
 
             <GameActions
@@ -615,6 +631,7 @@ export const GameView: React.FC<{
                     setTransactionQuickPreset(null);
                     setShowTransactionModal(true);
                 }}
+                onShowRealEstateMarket={() => setShowRealEstateMarketModal(true)}
                 onShowPayday={() => setShowPaydayModal(true)}
                 onShowSettlement={() => {
                     setShowScoreView(true);
@@ -851,6 +868,106 @@ export const GameView: React.FC<{
             )}
 
             {/* Modals */}
+            {showRealEstateMarketModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300 sm:p-4">
+                    <div className="bg-slate-900 sm:border border-slate-700 w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-[32px] p-6 space-y-6 shadow-2xl flex flex-col pt-safe">
+                        <div className="flex items-center justify-between shrink-0">
+                            <h2 className="text-2xl font-black text-white">房市公告板</h2>
+                            <button
+                                onClick={() => setShowRealEstateMarketModal(false)}
+                                className="text-slate-400 hover:text-white"
+                            >
+                                關閉
+                            </button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto space-y-4 pb-safe pr-2 -mr-2">
+                            {(!boardState?.realEstateMarket || boardState.realEstateMarket.length === 0) ? (
+                                <div className="text-center py-10 text-slate-500 font-medium">
+                                    目前市場上沒有釋出的房屋
+                                </div>
+                            ) : (
+                                boardState.realEstateMarket.map(cardId => {
+                                    const newsCard = NEWS_CARD_MAP[cardId];
+                                    if (!newsCard || newsCard.type !== 'real_estate') return null;
+                                    
+                                    const action = resolveBoardCardAction(cardId, gameState);
+                                    if (action.kind !== 'choice' && action.kind !== 'financial') return null;
+                                    
+                                    let selfUseOpt, rentalOpt;
+                                    if (action.kind === 'choice') {
+                                        selfUseOpt = action.options.find(o => o.id === 'self_use');
+                                        rentalOpt = action.options.find(o => o.id === 'rental');
+                                    } else {
+                                        // 只能出租的情況
+                                        rentalOpt = { action };
+                                    }
+                                    
+                                    const title = `不動產 ${newsCard.propertyLabel}`;
+                                    const price = newsCard.totalPrice;
+                                    
+                                    return (
+                                        <div key={cardId} className="bg-slate-800 rounded-2xl p-5 border border-slate-700 flex flex-col gap-4">
+                                            <div className="flex justify-between items-start border-b border-slate-700/50 pb-3">
+                                                <div>
+                                                    <div className="text-lg font-bold text-slate-200">{title}</div>
+                                                    <div className="text-sm text-slate-400 mt-1">{newsCard.title}</div>
+                                                </div>
+                                                <div className="text-emerald-400 font-black text-xl">{formatMoney(price)}</div>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm">
+                                                <div className="flex flex-col">
+                                                    <span className="text-slate-500">頭期款 (自備現金)</span>
+                                                    <span className="text-slate-200 font-bold">{formatMoney(newsCard.downPayment)}</span>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-slate-500">銀行貸款</span>
+                                                    <span className="text-rose-400 font-bold">{formatMoney(newsCard.loanAmount)}</span>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-slate-500">每月貸款利息</span>
+                                                    <span className="text-rose-400 font-bold">{formatMoney(newsCard.monthlyPayment)}</span>
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-slate-500">每月租金收入</span>
+                                                    <span className="text-emerald-400 font-bold">{formatMoney(newsCard.rent)}</span>
+                                                </div>
+                                                {newsCard.happinessBonus > 0 && (
+                                                    <div className="col-span-2 flex items-center gap-2 bg-fuchsia-500/10 text-fuchsia-400 px-3 py-2 rounded-lg">
+                                                        <span className="font-bold">自用額外獎勵：</span>
+                                                        <span>幸福點數 +{newsCard.happinessBonus}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            
+                                            <div className="flex gap-3 mt-2 pt-3 border-t border-slate-700/50">
+                                                {selfUseOpt && (
+                                                    <button
+                                                        onClick={() => handleBuyRealEstateFromMarket(cardId, true)}
+                                                        className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-black transition-all active:scale-95"
+                                                    >
+                                                        自用購買
+                                                    </button>
+                                                )}
+                                                {rentalOpt && (
+                                                    <button
+                                                        onClick={() => handleBuyRealEstateFromMarket(cardId, false)}
+                                                        className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-black transition-all active:scale-95"
+                                                    >
+                                                        出租購買
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showTransactionModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <TransactionForm
