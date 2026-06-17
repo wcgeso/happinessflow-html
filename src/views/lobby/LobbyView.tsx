@@ -559,17 +559,17 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
       <div className="relative z-10 flex-1 flex flex-col px-6 py-4 max-w-4xl mx-auto w-full overflow-hidden md:overflow-y-auto no-scrollbar">
         {/* Main Content Area - Auto Scaling */}
-        <div className="flex-1 flex flex-col justify-center gap-6 lg:gap-8 md:justify-start md:pb-8">
-          {/* Logo Section - Common to both modes */}
-          <div className="text-center relative top-4">
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight mb-2">
-              {viewMode === 'gm' ? 'GM 控制台' : viewMode === 'coach' ? '蜂富執行師' : '蜂富人生'}
-            </h1>
-            <div className="flex items-center justify-center gap-2 mb-3">
-              <div className="h-[1px] w-5 bg-gradient-to-r from-transparent to-amber-500/40"></div>
-              <span className="text-amber-500/80 font-bold tracking-[0.25em] text-[10px] md:text-xs uppercase">
-                {viewMode === 'gm' ? 'Game Management' : 'Happiness Flow'}
-              </span>
+          <div className="flex-1 flex flex-col justify-center gap-6 lg:gap-8 md:justify-start md:pb-8">
+            {/* Logo Section - Common to both modes */}
+            <div className="text-center relative top-4">
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight mb-2">
+                {viewMode === 'gm' ? 'GM 控制台' : viewMode === 'coach' ? '蜂富執行師' : '幸福流'}
+              </h1>
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <div className="h-[1px] w-5 bg-gradient-to-r from-transparent to-amber-500/40"></div>
+                <span className="text-amber-500/80 font-bold tracking-[0.25em] text-[10px] md:text-xs uppercase">
+                  {viewMode === 'gm' ? 'Game Management' : 'Happiness Flow'}
+                </span>
               <div className="h-[1px] w-5 bg-gradient-to-l from-transparent to-amber-500/40"></div>
             </div>
           </div>

@@ -208,14 +208,14 @@ export const AuthView: React.FC = () => {
                     <div className="text-center mb-6 md:mb-8 flex flex-col items-center gap-0">
                     {/* App Logo */}
                     <div className="relative group transition-transform hover:scale-105 duration-500">
-                        {/* Gold glow */}
-                        <div className="absolute inset-0 bg-amber-400/10 blur-3xl group-hover:bg-amber-400/20 transition-all duration-500 scale-110"></div>
-                        <img
-                            src="/logo.png?v=3"
-                            alt="蜂富人生"
-                            className="w-64 md:w-72 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)]"
-                        />
-                    </div>
+                            {/* Gold glow */}
+                            <div className="absolute inset-0 bg-amber-400/10 blur-3xl group-hover:bg-amber-400/20 transition-all duration-500 scale-110"></div>
+                            <img 
+                                src="/logo.png?v=3" 
+                                alt="幸福流" 
+                                className="w-64 md:w-72 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)]"
+                            />
+                        </div>
 
                     {/* English title & tagline */}
                     <div className="flex items-center justify-center gap-2.5 mt-5">
