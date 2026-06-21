@@ -563,7 +563,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             {/* Logo Section - Common to both modes */}
             <div className="text-center relative top-4">
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight mb-2">
-                {viewMode === 'gm' ? 'GM 控制台' : viewMode === 'coach' ? '蜂富執行師' : '幸福流'}
+                {viewMode === 'gm' ? 'GM 控制台' : viewMode === 'coach' ? '執行師' : '幸福流'}
               </h1>
               <div className="flex items-center justify-center gap-2 mb-3">
                 <div className="h-[1px] w-5 bg-gradient-to-r from-transparent to-amber-500/40"></div>

@@ -65,7 +65,7 @@ export const getUserTitle = (user: User | null, roleOverride?: 'coach' | 'player
         const exp = user.experience || 0;
         if (exp >= 40) return '傳奇執行師';
         if (exp >= 20) return '資深執行師';
-        return '蜂富執行師';
+        return '執行師';
     } else {
         const exp = user.experience || 0;
         if (exp >= 1000 || user.title === '蜂后傳奇') return '蜂后傳奇';

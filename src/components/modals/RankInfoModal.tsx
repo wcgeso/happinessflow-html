@@ -99,7 +99,7 @@ const PLAYER_RANKS = [
 
 const COACH_RANKS = [
     {
-        title: '蜂富執行師',
+        title: '執行師',
         minGames: 0,
         maxGames: 19,
         badge: '/assets/badges/蜂富執行師-去背.png',
@@ -265,7 +265,7 @@ export const RankInfoModal: React.FC<RankInfoModalProps> = ({
                             </div>
                             <div>
                                 <h2 className="text-sm font-black text-white">執行師位階</h2>
-                                <p className="text-[10px] text-slate-500 font-bold">蜂富執行師專屬，以執行場次累積</p>
+                                <p className="text-[10px] text-slate-500 font-bold">執行師專屬，以執行場次累積</p>
                             </div>
                         </div>
 
