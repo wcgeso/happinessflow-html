@@ -23,7 +23,7 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
     
     if (actionType === 'borrow') {
       onTransaction({
-        name: '銀行借款',
+        name: '申請信用貸款',
         amount: amount,
         cashChange: amount,
         source: 'cash',
@@ -41,7 +41,7 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
       });
     } else {
       onTransaction({
-        name: '償還借款',
+        name: '償還信用貸款',
         amount: amount,
         cashChange: -amount,
         source: 'cash',
@@ -81,13 +81,13 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
             onClick={() => { setActionType('borrow'); setAmount(100000); }}
             className={`flex-1 py-3 rounded-xl font-black tracking-widest text-[14px] transition-all ${actionType === 'borrow' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            我要借款
+            申請貸款
           </button>
           <button
             onClick={() => { setActionType('repay'); setAmount(Math.min(100000, currentLoan)); }}
             className={`flex-1 py-3 rounded-xl font-black tracking-widest text-[14px] transition-all ${actionType === 'repay' ? 'bg-emerald-600/20 text-emerald-400 shadow-inner border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            我要還款
+            償還貸款
           </button>
         </div>
 
@@ -146,7 +146,7 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
                   : 'bg-emerald-600 text-white hover:bg-emerald-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]'
             }`}
           >
-            確認{actionType === 'borrow' ? '借款' : '還款'}
+            確認{actionType === 'borrow' ? '申請貸款' : '償還貸款'}
             <ArrowRight size={18} />
           </button>
         </div>

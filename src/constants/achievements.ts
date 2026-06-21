@@ -65,13 +65,13 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'soul_billionaire', title: '心靈富翁', description: '結算時幸福項目勾選數超過總項目的一半', category: 'dream', icon: 'Smile' },
 
   // --- 五、資產類 (Asset) - 15項 ---
-  { id: 'first_aircraft', title: '一飛衝天', description: '獲得飛行器', category: 'asset', icon: 'Plane' },
-  { id: 'repair_aircraft', title: '飛行器維修員', description: '曾進行維修飛行器交易項目', category: 'asset', icon: 'Settings' },
+  { id: 'first_aircraft', title: '一飛衝天', description: '獲得汽車', category: 'asset', icon: 'Plane' },
+  { id: 'repair_aircraft', title: '汽車維修員', description: '曾進行維修汽車交易項目', category: 'asset', icon: 'Settings' },
   { id: 'first_house', title: '首購族', description: '獲得第 1 間房產', category: 'asset', icon: 'Home' },
   { id: 'luxury_house_2', title: '豪宅主人', description: '同時持有 2 間「五房三廳」豪華住宅房產', category: 'asset', icon: 'Building' },
   { id: 'landlord_5', title: '大地主', description: '單局內同時持有不動產超過 5 間', category: 'asset', icon: 'Map' },
   { id: 'rent_king', title: '包租公/婆', description: '房租收入超過工作基本工資', category: 'asset', icon: 'Key' },
-  { id: 'asset_allocator', title: '資產配置大師', description: '同時持有 股票/不動產/企業/保險/定存/飛行器 6 種資產', category: 'asset', icon: 'PieChart' },
+  { id: 'asset_allocator', title: '資產配置大師', description: '同時持有 股票/不動產/企業/保險/定存/汽車 6 種資產', category: 'asset', icon: 'PieChart' },
   { id: 'deposit_5m', title: '定存族', description: '持有定存總額超過 500 萬', category: 'asset', icon: 'Banknote' },
   { id: 'invest_pro_40m', title: '投資奇才', description: '賣出股票總獲利超過 3,000 萬', category: 'asset', icon: 'BarChart' },
   { id: 'risk_manager', title: '風險管理師', description: '單局同時持有 3 種不同的保險項目', category: 'asset', icon: 'Shield' },

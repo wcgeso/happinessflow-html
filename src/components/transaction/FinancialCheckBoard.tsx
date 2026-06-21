@@ -26,35 +26,30 @@ const Quadrant: React.FC<QuadrantProps> = ({ title, color, icon, items, userEntr
                         <div className="text-base font-black">{title}</div>
                     </div>
                 </div>
-                <div className="shrink-0 rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-[11px] font-bold text-slate-300">
-                    已填 {userEntries.length}
-                </div>
             </div>
 
-            <div className="mt-3">
+            <div className="mt-3 min-h-[240px]">
                 {userEntries.length > 0 && (
                     <div className="space-y-2">
                         {userEntries.map((entry, idx) => (
                             <div
                                 key={idx}
-                                className="flex items-center justify-between gap-2 rounded-2xl border border-white/8 bg-slate-950/70 px-3 py-2.5 text-sm animate-in slide-in-from-top-1"
+                                className="flex items-center gap-2 rounded-2xl border border-white/8 bg-slate-950/70 px-3 py-2.5 text-sm animate-in slide-in-from-top-1"
                             >
-                                <div className="min-w-0">
-                                    <div className="truncate font-bold text-white">{entry.name}</div>
-                                    <div className={`mt-1 inline-flex rounded-full px-2 py-1 text-[11px] font-black ${
-                                        entry.direction === 'Increase'
-                                            ? 'bg-emerald-500/15 text-emerald-300'
-                                            : 'bg-rose-500/15 text-rose-300'
+                                <div className="flex min-w-0 flex-1 items-center gap-2">
+                                    <span className="truncate font-bold text-white">{entry.name}</span>
+                                    <span className={`shrink-0 text-base font-black leading-none ${
+                                        entry.direction === 'Increase' ? 'text-emerald-400' : 'text-rose-400'
                                     }`}>
-                                        {entry.direction === 'Increase' ? '這一欄增加' : '這一欄減少'}
-                                    </div>
+                                        {entry.direction === 'Increase' ? '↑' : '↓'}
+                                    </span>
                                 </div>
                                 <button
                                     onClick={() => onToggle(entry.name, entry.direction)}
-                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-slate-900 text-slate-400 transition-colors hover:text-white"
+                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-slate-900 text-slate-400 transition-colors hover:text-white"
                                     aria-label={`移除 ${entry.name}`}
                                 >
-                                        <X size={16} />
+                                    <X size={14} />
                                 </button>
                             </div>
                         ))}

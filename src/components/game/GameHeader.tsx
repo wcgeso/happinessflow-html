@@ -166,7 +166,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-slate-700/50 flex flex-col items-center justify-center shadow-inner group-hover:border-yellow-500/50 transition-colors">
                                     {getProfessionIcon(gameState.profession.id, { size: 24, className: "text-yellow-400 mb-0.5 drop-shadow-md" })}
                                     <div className="flex items-center gap-0.5">
-                                        {Array.from({ length: 3 }).map((_, i) => (
+                                        {Array.from({ length: 5 }).map((_, i) => (
                                             <Star
                                                 key={i}
                                                 size={8}

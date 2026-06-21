@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { CheckCircle2, X, HelpCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { X, HelpCircle, PartyPopper } from 'lucide-react';
 import { AccountCategory, AccountEntry, ChangeDirection, TransactionData } from '../../types';
 import { FinancialCheckBoard } from '../transaction/FinancialCheckBoard';
 import { Button } from '../ui/ui';
@@ -8,15 +8,16 @@ interface BoardFinancialCheckModalProps {
   title: string;
   txData: TransactionData;
   expectedEntries: AccountEntry[];
-  onApply: (txData: TransactionData) => void;
+  onApply: (txData: TransactionData) => Promise<boolean | void> | boolean | void;
   onClose: () => void;
+  isCompleted?: boolean;
 }
 
 const DEFAULT_ITEMS = {
-  Assets: ['現金', '股票', '定存', '飛行器', '不動產', '企業', '現金（企業貸款）'],
-  Liabilities: ['信用貸款', '不動產貸款', '企業貸款', '飛行器貸款'],
+  Assets: ['現金', '定存', '汽車', '企業', '現金（企業貸款）'],
+  Liabilities: ['信用貸款', '不動產貸款', '企業貸款', '汽車貸款'],
   Income: ['租金收入', '企業收益', '定存利息'],
-  Expenses: ['信貸利息', '不動產貸款利息', '企業貸款利息', '飛行器貸款利息', '保險支出', '餐飲、服飾、居住類', '交通、教育、娛樂類', '其他、醫療、育兒類']
+  Expenses: ['信貸利息', '不動產貸款利息', '企業貸款利息', '汽車貸款利息', '保險支出', '餐飲、服飾、居住類', '交通、教育、娛樂類', '其他、醫療、育兒類']
 };
 
 export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> = ({
@@ -24,41 +25,28 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
   txData,
   expectedEntries,
   onApply,
-  onClose
+  onClose,
+  isCompleted = false
 }) => {
   const [userEntries, setUserEntries] = useState<AccountEntry[]>([]);
   const [isVerified, setIsVerified] = useState(false);
+  const [isApplied, setIsApplied] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const selectedSummary = useMemo(() => {
-    return userEntries.map(entry => ({
-      key: `${entry.category}_${entry.name}_${entry.direction}`,
-      label: `${entry.name}${entry.direction === 'Increase' ? '增加' : '減少'}`,
-      tone: entry.direction === 'Increase'
-        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-        : 'border-rose-500/30 bg-rose-500/10 text-rose-200'
-    }));
-  }, [userEntries]);
+  useEffect(() => {
+    setUserEntries([]);
+    setIsVerified(false);
+    setIsApplied(false);
+    setIsApplying(false);
+    setErrorMessage(null);
+  }, [title, txData.name]);
 
-  const impactSummary = useMemo(() => {
-    return (txData.impacts || []).slice(0, 4).map((impact, index) => {
-      const isNegative = impact.includes('-');
-      const isPositive = impact.includes('+');
-      const isHappiness = impact.includes('幸福點數');
-      return {
-        key: `${impact}_${index}`,
-        text: impact,
-        tone: isHappiness
-          ? 'border-pink-500/30 bg-pink-500/10 text-pink-300'
-          : isNegative
-          ? 'border-rose-500/25 bg-rose-500/10 text-rose-100'
-          : isPositive
-            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-100'
-            : 'border-slate-700 bg-slate-900/80 text-slate-100',
-        isHappiness
-      };
-    });
-  }, [txData.impacts]);
+  useEffect(() => {
+    if (isCompleted) {
+      setIsApplied(true);
+    }
+  }, [isCompleted]);
 
   const possibleItems = useMemo(() => {
     const merge = (category: AccountCategory, defaults: string[]) => {
@@ -112,75 +100,56 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
 
     setErrorMessage(null);
     setIsVerified(true);
+    void handleApply();
+  };
+
+  const handleApply = async () => {
+    if (isApplying) return;
+    setIsApplying(true);
+    try {
+      const result = await onApply(txData);
+      if (result !== false) {
+        setIsApplied(true);
+      } else {
+        setIsVerified(false);
+      }
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-[10020] bg-slate-950 text-white animate-in fade-in duration-200">
-      <div className="flex h-full flex-col">
-        <div className="shrink-0 border-b border-slate-800 bg-slate-950/95 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+14px)] backdrop-blur-xl">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              onClick={onClose}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-900 text-slate-300 transition-colors hover:text-white"
-              title="關閉"
-            >
-              <X size={20} />
-            </button>
-            <div className="min-w-0 flex-1 text-center">
-              <div className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Financial Check</div>
-              <h3 className="mt-1 flex items-center justify-center gap-2 text-lg font-black text-white">
-                <HelpCircle className="text-yellow-400" size={18} /> 財務檢核
-              </h3>
-            </div>
-            <div className="w-11" />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-4 py-4 pb-36 no-scrollbar">
-          {!isVerified ? (
-            <div className="animate-in fade-in duration-300">
-              <div className="mb-4 rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
-                <div className="flex items-center gap-2 text-blue-200">
-                  <HelpCircle size={16} />
-                  <span className="text-sm font-bold">請問這張卡會如何影響財務報表？</span>
+    <div className="fixed inset-0 z-[10020] bg-black/92 text-white animate-in fade-in duration-200">
+      <div className="flex h-full items-center justify-center px-4 py-6 pt-[calc(env(safe-area-inset-top)+12px)] pb-[calc(env(safe-area-inset-bottom)+12px)]">
+        <div className="flex h-full max-h-[920px] w-full max-w-[870px] flex-col overflow-hidden rounded-[30px] border border-[#4c5a73] bg-[#171f33] shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
+          <div className="shrink-0 border-b border-[#3b4760] bg-[#283247] px-6 py-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-yellow-400/50 bg-[#202a3d] text-yellow-400">
+                  <HelpCircle size={24} />
                 </div>
-                <div className="mt-3 text-sm font-bold leading-relaxed text-slate-100">{title}</div>
-                {txData.impacts && txData.impacts.length > 0 && (
-                  <>
-                    <div className="mt-4 text-[10px] font-black uppercase tracking-[0.28em] text-slate-500">事件重點</div>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      {impactSummary.map(item => (
-                        <div
-                          key={item.key}
-                          className={`rounded-2xl border px-3 py-3 text-sm font-bold leading-snug ${item.tone} flex flex-col justify-center`}
-                        >
-                          {item.text}
-                          {item.isHappiness && <span className="text-[10px] opacity-70 mt-0.5 font-normal">*(自動結算不需檢核)*</span>}
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
+                <h3 className="text-[clamp(1.8rem,2.5vw,2.4rem)] font-black tracking-tight text-white">
+                  財務檢核
+                </h3>
               </div>
+              <button
+                onClick={onClose}
+                className="text-[clamp(1.25rem,1.9vw,1.8rem)] font-black text-slate-400 transition-colors hover:text-white"
+                title="取消"
+              >
+                取消
+              </button>
+            </div>
+          </div>
 
-              {selectedSummary.length > 0 && (
-                <div className="mb-4 rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-500">目前已選</div>
-                    <div className="text-xs font-bold text-slate-400">{selectedSummary.length} 項</div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {selectedSummary.map(item => (
-                      <div
-                        key={item.key}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-black ${item.tone}`}
-                      >
-                        {item.label}
-                      </div>
-                    ))}
-                  </div>
+          <div className="flex-1 overflow-y-auto px-6 py-6 no-scrollbar">
+          {!isApplied ? (
+            <div className="animate-in fade-in duration-300">
+              <div className="mb-5 rounded-[22px] border border-[#243665] bg-[#1d2740] px-6 py-5 text-center">
+                <div className="text-[clamp(1.1rem,1.6vw,1.6rem)] font-black tracking-tight text-[#93a4c7]">
+                  請問此筆交易如何影響財務報表？
                 </div>
-              )}
+              </div>
 
               <FinancialCheckBoard
                 possibleItemsAssets={possibleItems.assets}
@@ -192,41 +161,71 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
               />
 
               {errorMessage && (
-                <div className="mt-4 rounded-3xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-bold text-rose-300">
+                <div className="mt-4 rounded-[18px] border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-bold text-rose-300">
                   {errorMessage}
+                </div>
+              )}
+              {isApplying && (
+                <div className="mt-4 rounded-[18px] border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm font-bold text-cyan-100">
+                  正在套用交易，請稍候...
+                </div>
+              )}
+              {isVerified && !isApplying && !isApplied && (
+                <div className="mt-4 rounded-[18px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-100">
+                  請先完成周轉，再回來重新確認並套用交易。
                 </div>
               )}
             </div>
           ) : (
             <div className="flex min-h-full flex-col items-center justify-center px-4 text-center">
-              <div className="rounded-full bg-emerald-500/15 p-4 text-emerald-400">
-                <CheckCircle2 size={40} />
+              <div className="rounded-full bg-cyan-400/15 p-4 text-cyan-300">
+                <PartyPopper size={40} />
               </div>
-              <div className="mt-5 text-2xl font-black text-white">檢核完成</div>
+              <div className="mt-5 text-2xl font-black text-white">交易完成</div>
               <div className="mt-3 max-w-md text-sm leading-relaxed text-slate-300">
-                已完成這次財務檢核，關閉後會回到遊戲流程。
+                這筆交易已經完成，財務狀態也已同步更新。
+              </div>
+              {txData.impacts && txData.impacts.length > 0 && (
+                <div className="mt-5 grid w-full max-w-md gap-2">
+                  {txData.impacts.map((impact, index) => (
+                    <div
+                      key={`${impact}_${index}`}
+                      className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm font-bold text-cyan-100"
+                    >
+                      {impact}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="mt-4 max-w-md text-xs leading-relaxed text-slate-500">
+                關閉後會依照事件順序繼續下一個流程。
               </div>
             </div>
           )}
-        </div>
+          </div>
 
-        <div className="shrink-0 border-t border-slate-800 bg-slate-950/95 px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-3 backdrop-blur-xl">
-          {!isVerified ? (
+          <div className="shrink-0 border-t border-[#313d57] bg-[#171f33] px-6 py-5">
+          {!isApplied ? (
             <div className="flex gap-3">
-              <Button variant="secondary" onClick={onClose} className="flex-1 py-3 text-sm">
-                取消
+              <Button variant="secondary" onClick={onClose} className="flex-1 rounded-[18px] bg-[#44526b] py-4 text-lg font-black text-white hover:bg-[#50607c]" disabled={isApplying}>
+                上一步
               </Button>
-              <Button onClick={handleVerify} className="flex-[1.4] bg-emerald-600 py-3 text-sm font-bold hover:bg-emerald-500">
-                確認檢核答案
+              <Button
+                onClick={handleVerify}
+                disabled={isApplying}
+                className="flex-[1.4] rounded-[18px] bg-[#21c488] py-4 text-lg font-black text-white hover:bg-[#29d394] disabled:opacity-60"
+              >
+                {isApplying ? '處理中...' : '確認檢核答案'}
               </Button>
             </div>
           ) : (
             <div className="flex">
-              <Button onClick={() => onApply(txData)} className="w-full bg-cyan-400 py-3 font-black text-slate-950 hover:bg-cyan-300">
-                關閉
+              <Button onClick={onClose} className="w-full rounded-[18px] bg-[#21c488] py-4 text-lg font-black text-white hover:bg-[#29d394]">
+                返回遊戲
               </Button>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

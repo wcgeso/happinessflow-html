@@ -6,16 +6,26 @@ export const hydrateBoardCardResult = (card: BoardCardResult | null, gameState: 
   if (!card) return null;
 
   const happinessCard = HAPPINESS_CARD_MAP[card.cardId];
-  if (happinessCard?.category === '家庭重要歷程') {
-    const stage = getFamilyMilestoneStageByCardId(card.cardId);
-    const familyMilestoneStatus = getFamilyMilestoneStatus(gameState);
+  if (happinessCard) {
+    const isFamilyMilestone = happinessCard.category === '家庭重要歷程';
+    const stage = isFamilyMilestone ? getFamilyMilestoneStageByCardId(card.cardId) : null;
+    const familyMilestoneStatus = isFamilyMilestone ? getFamilyMilestoneStatus(gameState) : null;
 
     return {
       ...card,
-      title: stage?.label.replace(/^\d+\.\s*/, '') || happinessCard.title,
-      description: happinessCard.description || '家庭重要歷程事件。',
+      title: isFamilyMilestone ? stage?.label.replace(/^\d+\.\s*/, '') || happinessCard.title : happinessCard.title,
+      subtitle: happinessCard.category,
+      description: happinessCard.description || `${happinessCard.category}事件。`,
       familyMilestoneStatus,
       effectLines: [
+        ...(isFamilyMilestone && familyMilestoneStatus ? [
+          ...familyMilestoneStatus.stageLines,
+          `目前進度：第 ${familyMilestoneStatus.currentStage} 階段`
+        ] : []),
+        `幸福 +${happinessCard.happinessPoints}`,
+        ...(happinessCard.cashCost ? [`一次性支出 ${happinessCard.cashCost.toLocaleString()}`] : []),
+        ...(happinessCard.monthlyExpenseIncrease ? [`月支出 ${happinessCard.monthlyExpenseIncrease > 0 ? '+' : ''}${happinessCard.monthlyExpenseIncrease.toLocaleString()}`] : []),
+        ...(happinessCard.childrenIncrease ? [`孩子數 +${happinessCard.childrenIncrease}`] : []),
         ...(happinessCard.otherPlayersCanJoin ? [`其他玩家可擲骰加入（至少 ${happinessCard.joinDiceMin || 0} 點）`] : []),
         ...(happinessCard.requiresStorySharing ? ['需要玩家分享故事'] : [])
       ]
@@ -96,4 +106,3 @@ export const hydrateBoardCardResult = (card: BoardCardResult | null, gameState: 
 
   return card;
 };
-

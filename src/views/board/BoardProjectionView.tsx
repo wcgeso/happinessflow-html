@@ -1,12 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, GraduationCap, Heart, Landmark, Newspaper, Sparkles, Wrench } from 'lucide-react';
+import { Activity, GraduationCap, Heart, Landmark, Newspaper, ScrollText, Sparkles, Wrench } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
 import SafeImage from '../../components/common/SafeImage';
+import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
+import { STOCK_NAMES } from '../../constants';
 import { BOARD_SQUARES } from '../../constants/board';
+import { normalizeCardCopy } from '../../constants/cards';
 import { Room } from '../../context/RoomContext';
-import { BoardCardResult, BoardSquare } from '../../types';
+import { BoardCardLogEntry, BoardCardResult, BoardSquare } from '../../types';
+import { hydrateBoardCardResult } from '../../utils/boardCardDisplay';
 
 const TILE_SIZE = 126;
 const TILE_GAP = 16;
@@ -14,7 +18,7 @@ const BOARD_PADDING = 84;
 const BOARD_GRID_SIZE = TILE_SIZE * 14 + TILE_GAP * 13;
 const BOARD_WIDTH = BOARD_GRID_SIZE + BOARD_PADDING * 2;
 const BOARD_HEIGHT = BOARD_GRID_SIZE + BOARD_PADDING * 2;
-const FIT_ZOOM = 0.62;
+const FIT_ZOOM_FALLBACK = 0.62;
 const VIEWPORT_PADDING_X = 64;
 const VIEWPORT_PADDING_TOP = 80;
 const VIEWPORT_PADDING_BOTTOM = 32;
@@ -115,6 +119,11 @@ const DECK_TO_SQUARE_TYPE: Record<BoardCardResult['deck'], BoardSquare['type']> 
   news: 'news',
   opportunity: 'opportunity'
 };
+
+const STOCK_SYMBOL_COLUMNS = [
+  ['A10', 'A20', 'A30', 'A40'],
+  ['B50', 'B60', 'B70', 'B80']
+] as const;
 
 const getSquareIcon = (square: BoardSquare, size = 18) => {
   switch (square.type) {
@@ -245,11 +254,28 @@ const CardStage: React.FC<{
 
   const theme = SQUARE_THEME[DECK_TO_SQUARE_TYPE[card.deck]];
   const subtitle = `${card.subtitle || ''} ${card.cardId}`.trim();
+  const normalizedDescription = normalizeCardCopy(card.description);
+  const flavorText = (() => {
+    const starIndex = normalizedDescription.indexOf('*');
+    return starIndex === -1 ? normalizedDescription : normalizedDescription.substring(0, starIndex).trim();
+  })();
+  const ruleText = (() => {
+    const starIndex = normalizedDescription.indexOf('*');
+    return starIndex === -1 ? '' : normalizedDescription.substring(starIndex).replace(/\*/g, '').trim();
+  })();
+  const normalizedEffectLines = (card.effectLines || []).map(line => normalizeCardCopy(line));
+  const stockEffectMap = normalizedEffectLines.reduce<Record<string, string>>((acc, line) => {
+    const [label, ...rest] = line.split('：');
+    if (!label || rest.length === 0) return acc;
+    acc[label.trim()] = rest.join('：').trim();
+    return acc;
+  }, {});
+  const isStockCard = card.deck === 'news' && normalizedEffectLines.length === 8 && normalizedEffectLines.some(line => line.includes('A10'));
 
   return (
-    <div className="w-[560px]" style={{ perspective: '1400px' }}>
+    <div className="w-[min(92vw,560px)]" style={{ perspective: '1400px' }}>
       <div
-        className="relative aspect-[16/10] w-full transition-transform duration-700"
+        className="relative h-[min(78vh,760px)] min-h-[420px] w-full transition-transform duration-700"
         style={{
           transformStyle: 'preserve-3d',
           transform: isRevealed ? 'rotateY(180deg)' : 'rotateY(0deg)'
@@ -275,29 +301,63 @@ const CardStage: React.FC<{
           style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
         >
           <div className={`h-3 bg-gradient-to-r ${theme.cardBack}`} />
-          <div className="flex h-[calc(100%-12px)] flex-col p-6">
+          <div className="flex h-[calc(100%-12px)] min-h-0 flex-col overflow-hidden p-5 sm:p-6">
             <div className="flex items-center gap-2 text-xs font-black tracking-[0.24em] text-[#9c7c58]">
               {getCardIcon(card.deck, 18)}
               <span>{theme.label}</span>
             </div>
-            <div className="mt-3 text-4xl font-black leading-tight">{card.title}</div>
+            <div className="mt-3 text-2xl font-black leading-tight sm:text-3xl">{card.title}</div>
             {subtitle && (
               <div className="mt-3 w-fit rounded-full border border-[#d6bd9a] bg-[#f4e6d0] px-3 py-1 text-xs font-black tracking-[0.12em] text-[#76573a]">
                 {subtitle}
               </div>
             )}
-            <p className="mt-5 line-clamp-4 text-base font-semibold leading-relaxed text-[#715742]">
-              {card.description}
-            </p>
-            {!!card.effectLines?.length && (
-              <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
-                {card.effectLines.slice(0, 4).map((line, index) => (
-                  <div key={`${card.cardId}_${index}`} className="rounded-[12px] border border-[#ead6b9] bg-[#fffdf8] px-3 py-2 text-sm font-black text-[#5f4933]">
-                    {line}
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+              {flavorText && (
+                <p className="whitespace-pre-wrap text-sm font-semibold leading-relaxed text-[#715742] sm:text-base">
+                  {flavorText}
+                </p>
+              )}
+              {ruleText && (
+                <div className="mt-4 rounded-[18px] border border-[#e5cfac] bg-[#fff6e6] px-4 py-4 text-sm font-bold leading-relaxed text-[#6f5336] whitespace-pre-wrap">
+                  {ruleText}
+                </div>
+              )}
+              {!!normalizedEffectLines.length && (
+                isStockCard ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {STOCK_SYMBOL_COLUMNS.map((column, columnIndex) => (
+                      <div key={`${card.cardId}_column_${columnIndex}`} className="rounded-[18px] border border-[#ead6b9] bg-[#fffdf8] p-3">
+                        <div className="mb-3 text-[11px] font-black tracking-[0.24em] text-[#9c7c58]">
+                          {columnIndex === 0 ? 'A 區股票' : 'B 區股票'}
+                        </div>
+                        <div className="space-y-2">
+                          {column.map(symbol => (
+                            <div key={`${card.cardId}_${symbol}`} className="flex items-center justify-between gap-3 rounded-[12px] border border-[#f0e2ca] bg-white px-3 py-2 text-sm font-black text-[#5f4933]">
+                              <div className="min-w-0">
+                                <div>{symbol}</div>
+                                <div className="text-[11px] font-bold text-[#8b6a45]">
+                                  {STOCK_NAMES[symbol] || '未命名股票'}
+                                </div>
+                              </div>
+                              <span className="text-right">{stockEffectMap[symbol] || '-'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                ) : (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {normalizedEffectLines.map((line, index) => (
+                      <div key={`${card.cardId}_${index}`} className="rounded-[14px] border border-[#ead6b9] bg-[#fffdf8] px-4 py-3 text-sm font-black leading-relaxed text-[#5f4933] whitespace-pre-wrap">
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -307,8 +367,9 @@ const CardStage: React.FC<{
 
 export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }) => {
   const [room, setRoom] = useState<Room | null>(null);
-  const [zoom, setZoom] = useState(FIT_ZOOM);
+  const [zoom, setZoom] = useState(FIT_ZOOM_FALLBACK);
   const [animationNow, setAnimationNow] = useState(() => Date.now());
+  const [showBoardCardLog, setShowBoardCardLog] = useState(false);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const boardFrameRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<{
@@ -318,6 +379,14 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     scrollLeft: number;
     scrollTop: number;
   } | null>(null);
+
+  const computeFitZoom = React.useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return FIT_ZOOM_FALLBACK;
+    const vw = viewport.clientWidth - VIEWPORT_PADDING_X;
+    const vh = viewport.clientHeight - VIEWPORT_PADDING_TOP - VIEWPORT_PADDING_BOTTOM;
+    return Math.min(vw / BOARD_WIDTH, vh / BOARD_HEIGHT);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'rooms', roomCode), snapshot => {
@@ -382,6 +451,18 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     });
   };
 
+  // 視窗 resize 或第一次掛載時，重新計算 fitZoom 作為初始縮放
+  useEffect(() => {
+    const apply = () => {
+      const fit = computeFitZoom();
+      setZoom(fit);
+    };
+    apply();
+    window.addEventListener('resize', apply);
+    return () => window.removeEventListener('resize', apply);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -391,7 +472,8 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
 
       event.preventDefault();
       const delta = -event.deltaY * 0.0025;
-      const nextZoom = Math.min(1.4, Math.max(0.45, Number((zoom + delta).toFixed(3))));
+      const fitZoom = computeFitZoom();
+      const nextZoom = Math.min(1.4, Math.max(fitZoom, Number((zoom + delta).toFixed(3))));
       setZoomAroundPoint(nextZoom, event.clientX, event.clientY);
     };
 
@@ -403,13 +485,22 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const currentTurnPosition = currentTurnUid
     ? players.find(player => player.uid === currentTurnUid)?.position ?? null
     : null;
+  const movement = room?.boardState?.movement;
+  const movingPlayerPosition = movement
+    ? players.find(player => player.uid === movement.playerUid)?.position ?? movement.startPosition
+    : null;
+  const focusUid = movement?.isActive ? movement.playerUid : currentTurnUid;
+  const focusPosition = movement?.isActive ? movingPlayerPosition : currentTurnPosition;
+  const boardCardLog = useMemo(() => {
+    return (room?.boardState?.cardLog || []).slice(0, 12) as BoardCardLogEntry[];
+  }, [room]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
     const boardFrame = boardFrameRef.current;
-    if (!viewport || !boardFrame || currentTurnPosition === null) return;
+    if (!viewport || !boardFrame || focusPosition === null) return;
 
-    const { column, row } = getGridCoordinates(currentTurnPosition);
+    const { column, row } = getGridCoordinates(focusPosition);
     const tileCenterX = BOARD_PADDING + (column - 1) * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2;
     const tileCenterY = BOARD_PADDING + (row - 1) * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2;
 
@@ -425,7 +516,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         behavior: 'smooth'
       });
     });
-  }, [currentTurnUid, currentTurnPosition]);
+  }, [focusUid, focusPosition, zoom]);
 
   if (!room) {
     return <div className="flex h-screen items-center justify-center bg-[#efe2ce] text-[#5a4430]">找不到房間 {roomCode}</div>;
@@ -434,14 +525,15 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const boardState = room.boardState;
   const roomName = room.name || '蜂富人生';
   const currentTurnName = room.members.find(member => member.uid === boardState?.currentTurnUid)?.name || '尚未開始';
-  const currentCard = boardState?.currentCard || null;
-  const movement = boardState?.movement;
+  const currentPlayerState = boardState?.currentEvent?.playerUid
+    ? room.playerStates?.[boardState.currentEvent.playerUid] || null
+    : null;
+  const currentCard = currentPlayerState
+    ? hydrateBoardCardResult(boardState?.currentCard || null, currentPlayerState)
+    : boardState?.currentCard || null;
   const movingPlayerName = movement
     ? room.members.find(member => member.uid === movement.playerUid)?.name || '玩家'
     : '';
-  const movingPlayerPosition = movement
-    ? players.find(player => player.uid === movement.playerUid)?.position ?? movement.startPosition
-    : null;
   const revealState = boardState?.currentCardReveal;
   const isCardRevealed = !!(
     currentCard &&
@@ -488,7 +580,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   };
 
   const handleDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    setZoomAroundPoint(zoom < 1 ? 1 : FIT_ZOOM, event.clientX, event.clientY);
+    setZoomAroundPoint(zoom < 1 ? 1 : computeFitZoom(), event.clientX, event.clientY);
   };
 
   return (
@@ -516,6 +608,36 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
           <div className="text-lg font-black text-[#4f3c29]">{currentTurnName}</div>
         </div>
       </div>
+
+      <div
+        className="fixed right-5 top-5 z-[10031]"
+        onPointerDown={event => event.stopPropagation()}
+        onDoubleClick={event => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => setShowBoardCardLog(prev => !prev)}
+          className="flex items-center gap-2 rounded-full border border-[#d2b58c] bg-[linear-gradient(180deg,rgba(255,251,244,0.98),rgba(242,228,204,0.96))] px-4 py-3 text-sm font-black text-[#4f3c29] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_18px_36px_-28px_rgba(92,64,33,0.65)]"
+        >
+          <ScrollText size={16} className="text-[#9c7c58]" />
+          <span>抽卡日誌</span>
+          <span className="rounded-full bg-[#f4e6d0] px-2 py-0.5 text-xs text-[#76573a]">
+            {boardCardLog.length}
+          </span>
+        </button>
+      </div>
+
+      {showBoardCardLog && (
+        <div
+          onPointerDown={event => event.stopPropagation()}
+          onDoubleClick={event => event.stopPropagation()}
+        >
+          <BoardCardLogPanel
+            entries={boardCardLog}
+            onClose={() => setShowBoardCardLog(false)}
+          />
+        </div>
+      )}
 
       <div
         className="min-h-full min-w-full"
@@ -648,8 +770,8 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
       </div>
 
       {currentCard && (
-        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center p-8 backdrop-blur-sm">
-          <div className="pointer-events-auto flex items-center justify-center rounded-[28px] border border-[#dcc4a2] bg-[linear-gradient(180deg,rgba(255,252,246,0.94),rgba(246,233,212,0.92))] p-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),inset_0_0_50px_rgba(207,178,138,0.22),0_28px_60px_-28px_rgba(104,75,43,0.55)]">
+          <div className="pointer-events-none fixed inset-0 z-[10020] flex items-center justify-center p-4 sm:p-8">
+          <div className="pointer-events-auto flex items-center justify-center">
             <CardStage
               card={currentCard}
               isRevealed={isCardRevealed}

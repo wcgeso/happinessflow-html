@@ -46,14 +46,14 @@ export const STOCK_SYMBOLS = [
 ];
 
 export const STOCK_NAMES: Record<string, string> = {
-  'A10': '蜜乳食品',
-  'A20': '工蜂紡織',
-  'A30': '皇家建設',
-  'A40': '飛翅運輸',
-  'B50': '綠草出版',
-  'B60': '蜂寶樂園',
-  'B70': '花粉製藥',
-  'B80': '紫花銀行'
+  'A10': '禾田食品',
+  'A20': '品新紡織',
+  'A30': '高成建設',
+  'A40': '遠順運輸',
+  'B50': '青林出版',
+  'B60': '樂禾娛樂',
+  'B70': '安研生技',
+  'B80': '冠城金融'
 };
 
 export const REAL_ESTATE_PRESETS: Record<string, {
@@ -147,7 +147,7 @@ export const ENTERPRISES: Enterprise[] = [
   { id: 'C01', name: '甜蜜蜜食品廠', cost: 50000000, income: 5000000, relatedProfessionId: 'honey_brewer', relatedBonusPercent: 10, happyPoints: 10 },
   { id: 'C02', name: '小黃蜂服飾場', cost: 50000000, income: 4500000, relatedProfessionId: 'fashion_designer', relatedBonusPercent: 10, happyPoints: 10 },
   { id: 'C03', name: '蜂巢建設公司', cost: 65000000, income: 5500000, relatedProfessionId: 'nest_builder', relatedBonusPercent: 20, happyPoints: 10 },
-  { id: 'C04', name: '飛行器4S店', cost: 60000000, income: 5000000, relatedProfessionId: 'pilot', relatedBonusPercent: 50, happyPoints: 10 },
+  { id: 'C04', name: '汽車4S店', cost: 60000000, income: 5000000, relatedProfessionId: 'pilot', relatedBonusPercent: 50, happyPoints: 10 },
   { id: 'C05', name: '蜂寶寶育兒園', cost: 55000000, income: 6000000, relatedProfessionId: 'teacher', relatedBonusPercent: 20, happyPoints: 10 },
   { id: 'C06', name: '皇家歌劇院', cost: 70000000, income: 6000000, relatedProfessionId: 'artist', relatedBonusPercent: 40, happyPoints: 10 },
   { id: 'C07', name: '蜂皇乳生技公司', cost: 65000000, income: 5500000, relatedProfessionId: 'doctor', relatedBonusPercent: 50, happyPoints: 10 },
@@ -164,9 +164,9 @@ export const DREAMS: Dream[] = [
   { id: 'D05', name: '蓋歷史博物館', cost: 60000000, happyPoints: 10 },
   { id: 'D06', name: '蓋蜂皇巨大雕像', cost: 40000000, happyPoints: 10 },
   { id: 'D07', name: '建安養照護中心', cost: 70000000, happyPoints: 10 },
-  { id: 'D08', name: '捐救護飛行器', cost: 50000000, happyPoints: 10 },
+  { id: 'D08', name: '捐救護汽車', cost: 50000000, happyPoints: 10 },
   { id: 'D09', name: '買私人別墅', cost: 40000000, happyPoints: 10 },
-  { id: 'D10', name: '買豪華飛行器', cost: 30000000, happyPoints: 10 },
+  { id: 'D10', name: '買豪華汽車', cost: 30000000, happyPoints: 10 },
 ];
 
 export const PROFESSIONS: Profession[] = [

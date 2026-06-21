@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAuth } from './AuthContext';
-import { BoardCardResult, BoardDeckState, BoardEventLog, BoardState, GameState } from '../types';
+import { BoardCardLogEntry, BoardCardResult, BoardDeckState, BoardEventLog, BoardQueuedEvent, BoardState, GameState } from '../types';
 import { cleanObject, safeAsync } from '../utils/utils';
 import { BOARD_SQUARES, createInitialDeckState, getSquareByIndex } from '../constants/board';
 import { HAPPINESS_CARDS, NEWS_CARDS, OPPORTUNITY_CARDS } from '../constants/cards';
@@ -274,7 +274,20 @@ const hasCarAsset = (state?: GameState | null) => {
 const BOARD_MOVE_INTRO_DELAY_MS = 600;
 const BOARD_MOVE_STEP_DURATION_MS = 380;
 const BOARD_MOVE_LANDING_DELAY_MS = 600;
+const BOARD_DICE_ROLL_ANIMATION_MS = 3500;
+const BOARD_MOVE_STALE_BUFFER_MS = 2000;
+const BOARD_CARD_LOG_LIMIT = 40;
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const getBoardMovementSettleMs = (movement: {
+    path: unknown[];
+    stepDurationMs: number;
+    introDelayMs: number;
+    landingDelayMs: number;
+}) => Math.max(
+    BOARD_DICE_ROLL_ANIMATION_MS,
+    movement.introDelayMs + movement.path.length * movement.stepDurationMs + movement.landingDelayMs
+);
 
 const createInitialBoardState = (members: RoomMember[], playerStates?: Record<string, GameState>): BoardState => {
     const playerMembers = members.filter(member => member.role !== 'coach');
@@ -291,11 +304,55 @@ const createInitialBoardState = (members: RoomMember[], playerStates?: Record<st
         currentCard: null,
         currentCardReveal: null,
         currentEvent: null,
+        pendingEvents: [],
         movement: null,
         deckState: createInitialDeckState(),
         realEstateMarket: [],
+        cardLog: [],
         updatedAt: Date.now()
     };
+};
+
+const activateBoardQueueEntry = (entry?: BoardQueuedEvent | null) => ({
+    currentEvent: entry?.event || null,
+    currentCard: entry?.card || null,
+    currentCardReveal: entry?.card ? {
+        eventId: entry.event.id,
+        cardId: entry.card.cardId,
+        isRevealed: false
+    } : null
+});
+
+const shiftBoardQueue = (boardState: BoardState) => {
+    const queue = [...(boardState.pendingEvents || [])];
+    const nextEntry = queue.shift() || null;
+
+    return {
+        ...activateBoardQueueEntry(nextEntry),
+        pendingEvents: queue
+    };
+};
+
+const appendBoardCardLog = (
+    boardState: BoardState,
+    card: BoardCardResult | null,
+    event: BoardEventLog | null
+) => {
+    if (!card || !event) {
+        return boardState.cardLog || [];
+    }
+
+    const nextEntry: BoardCardLogEntry = {
+        ...card,
+        id: `${event.id}_${card.cardId}`,
+        eventId: event.id,
+        playerUid: event.playerUid,
+        playerName: event.playerName,
+        summary: event.summary,
+        drawnAt: event.timestamp
+    };
+
+    return [nextEntry, ...(boardState.cardLog || [])].slice(0, BOARD_CARD_LOG_LIMIT);
 };
 
 const getNextTurnUid = (boardState: BoardState) => {
@@ -319,6 +376,183 @@ const getNextTurnUid = (boardState: BoardState) => {
     return { nextUid: boardState.currentTurnUid, skipTurns };
 };
 
+const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
+    const boardState = roomData.boardState;
+    const movement = boardState?.movement;
+    if (!boardState || !movement || movement.playerUid !== playerUid) return null;
+
+    const playerState = roomData.playerStates?.[playerUid];
+    const nextPosition = movement.path[movement.path.length - 1] ?? movement.startPosition;
+    const detailMessages: string[] = [];
+    const nextSkipTurns = { ...boardState.skipTurns };
+    let passedBankThisTurn = false;
+    let passedSchoolThisTurn = false;
+    const routeEvents: Array<{ type: 'bank' | 'school'; squareIndex: number }> = [];
+    const queuedRouteTypes = new Set<'bank' | 'school'>();
+    const playerName = roomData.members.find(member => member.uid === playerUid)?.name || '玩家';
+    const eventTimestamp = Date.now();
+
+    for (let step = 0; step < movement.path.length; step += 1) {
+        const square = getSquareByIndex(movement.path[step]);
+        if (square.type === 'bank') {
+            passedBankThisTurn = true;
+            if (!queuedRouteTypes.has('bank')) {
+                queuedRouteTypes.add('bank');
+                routeEvents.push({ type: 'bank', squareIndex: movement.path[step] });
+            }
+            detailMessages.push(`經過${square.label}，請完成月結餘確認`);
+        }
+        if (square.type === 'school') {
+            passedSchoolThisTurn = true;
+            if (!queuedRouteTypes.has('school')) {
+                queuedRouteTypes.add('school');
+                routeEvents.push({ type: 'school', squareIndex: movement.path[step] });
+            }
+            detailMessages.push(`經過${square.label}，可前往升等考試`);
+        }
+        if (square.type === 'repair' && hasCarAsset(playerState)) {
+            const feeRoll = Math.floor(Math.random() * 6) + 1;
+            detailMessages.push(`經過維修廠，汽車保養費 ${feeRoll * 2000}，請自行登錄`);
+        }
+    }
+
+    const landedSquare = getSquareByIndex(nextPosition);
+    let deckState = boardState.deckState;
+    const queuedEvents: BoardQueuedEvent[] = [];
+
+    routeEvents.forEach((routeEvent, routeIndex) => {
+        const isBank = routeEvent.type === 'bank';
+        queuedEvents.push({
+            event: {
+                id: `${playerUid}_${eventTimestamp}_${routeEvent.type}`,
+                playerUid,
+                playerName,
+                type: routeEvent.type,
+                summary: `${playerName} 經過${isBank ? '銀行' : '學校'}`,
+                detail: isBank
+                    ? '先領取月結餘，再決定是否購買保險或定存'
+                    : '請完成升等考試',
+                squareIndex: routeEvent.squareIndex,
+                timestamp: eventTimestamp + routeIndex,
+                rollTotal: movement.rollTotal
+            }
+        });
+    });
+
+    if (landedSquare.type === 'happiness' || landedSquare.type === 'opportunity' || landedSquare.type === 'news') {
+        const drawResult = drawBoardCard(deckState, landedSquare.type, playerState);
+        if (drawResult) {
+            deckState = drawResult.deckState;
+            detailMessages.push(`抽到${landedSquare.label}卡：${drawResult.card.title}`);
+            queuedEvents.push({
+                event: {
+                    id: `${playerUid}_${eventTimestamp}_${landedSquare.type}`,
+                    playerUid,
+                    playerName,
+                    type: 'card',
+                    summary: `${playerName} 停在${landedSquare.label}`,
+                    detail: `抽到${landedSquare.label}卡：${drawResult.card.title}`,
+                    squareIndex: nextPosition,
+                    timestamp: eventTimestamp + routeEvents.length,
+                    rollTotal: movement.rollTotal
+                },
+                card: drawResult.card
+            });
+        }
+    } else if (landedSquare.type === 'hospital') {
+        nextSkipTurns[playerUid] = Math.max(nextSkipTurns[playerUid] || 0, landedSquare.pauseTurns || 1);
+        detailMessages.push('抵達醫院，請再擲一次骰子決定醫藥費，並暫停一回合');
+        queuedEvents.push({
+            event: {
+                id: `${playerUid}_${eventTimestamp}_hospital`,
+                playerUid,
+                playerName,
+                type: 'hospital',
+                summary: `${playerName} 抵達醫院`,
+                detail: '棋子到達後再擲一次骰子，醫藥費 = 點數 x 1000',
+                squareIndex: nextPosition,
+                timestamp: eventTimestamp + routeEvents.length,
+                rollTotal: movement.rollTotal
+            }
+        });
+    } else if (landedSquare.type === 'repair') {
+        const repairRoll = Math.floor(Math.random() * 6) + 1;
+        if (hasCarAsset(playerState)) {
+            detailMessages.push(`踩到維修廠，保養費 ${repairRoll * 2000}，並暫停一回合`);
+            nextSkipTurns[playerUid] = Math.max(nextSkipTurns[playerUid] || 0, landedSquare.pauseTurns || 1);
+        } else {
+            detailMessages.push('踩到維修廠，但目前沒有汽車');
+        }
+    } else if (landedSquare.type === 'school') {
+        detailMessages.push('可選擇報名升等考試');
+    } else if (landedSquare.type === 'bank') {
+        passedBankThisTurn = true;
+        detailMessages.push('請確認本回合月結餘');
+    }
+
+    const nextTurn = getNextTurnUid({
+        ...boardState,
+        currentTurnUid: playerUid,
+        skipTurns: nextSkipTurns
+    });
+    const event: BoardEventLog = {
+        id: `${playerUid}_${eventTimestamp}`,
+        playerUid,
+        playerName,
+        summary: `${playerName} 擲出 ${movement.rollTotal} 點，停在 ${landedSquare.label}`,
+        detail: detailMessages.join('｜'),
+        squareIndex: nextPosition,
+        timestamp: eventTimestamp,
+        rollTotal: movement.rollTotal
+    };
+    const [currentQueueEntry, ...remainingQueue] = queuedEvents;
+
+    const nextPlayerStates = { ...(roomData.playerStates || {}) };
+    const updatedPlayerState = playerState ? cleanObject({
+        ...playerState,
+        boardPosition: nextPosition,
+        skipTurns: nextSkipTurns[playerUid] || 0,
+        lastBoardEvent: event.summary,
+        pendingCardAction: detailMessages.join('\n'),
+        bankServiceWindowActive: passedBankThisTurn ? true : playerState.bankServiceWindowActive,
+        bankServiceGrantedAtEventId: passedBankThisTurn ? `${playerUid}_${eventTimestamp}_bank` : playerState.bankServiceGrantedAtEventId
+    }) : undefined;
+
+    if (updatedPlayerState) {
+        nextPlayerStates[playerUid] = updatedPlayerState;
+    }
+
+    const nextTurnUid = nextTurn?.nextUid || playerUid;
+    const nextTurnPlayerState = nextPlayerStates[nextTurnUid];
+    if (nextTurnUid !== playerUid && nextTurnPlayerState?.bankServiceWindowActive) {
+        nextPlayerStates[nextTurnUid] = cleanObject({
+            ...nextTurnPlayerState,
+            bankServiceWindowActive: false,
+            bankServiceGrantedAtEventId: undefined
+        }) as GameState;
+    }
+
+    return cleanObject({
+        boardState: {
+            ...boardState,
+            playerPositions: {
+                ...boardState.playerPositions,
+                [playerUid]: nextPosition
+            },
+            skipTurns: nextTurn?.skipTurns || nextSkipTurns,
+            currentTurnUid: nextTurn?.nextUid || playerUid,
+            lastRoll: boardState.lastRoll,
+            ...activateBoardQueueEntry(currentQueueEntry),
+            pendingEvents: remainingQueue,
+            movement: null,
+            deckState,
+            cardLog: appendBoardCardLog(boardState, currentQueueEntry?.card || null, currentQueueEntry?.event || null),
+            updatedAt: eventTimestamp
+        },
+        ...(Object.keys(nextPlayerStates).length > 0 ? { playerStates: nextPlayerStates } : {})
+    });
+};
+
 interface RoomContextValue {
     room: Room | null;
     isLoadingRoom: boolean;
@@ -338,6 +572,22 @@ interface RoomContextValue {
     clearRequest: (requestId: string) => Promise<void>;
     rollBoardDice: () => Promise<{ position: number; detail: string; skipTurns: number; total: number }>;
     revealBoardCard: (eventId: string, cardId: string) => Promise<void>;
+    dismissBoardCard: (eventId: string, cardId: string) => Promise<void>;
+    advanceBoardEventQueue: (expectedType?: 'bank' | 'school' | 'hospital' | 'card' | 'exam_happiness' | 'followup') => Promise<void>;
+    drawPostExamHappinessCard: (success: boolean) => Promise<void>;
+    drawBoardFollowupCard: (deck: 'happiness' | 'news', summary: string, detail?: string) => Promise<void>;
+    applyBoardExpenseToAllPlayers: (payload: {
+        amount: number;
+        category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild';
+        isIncrease: boolean;
+        summary: string;
+        detail?: string;
+    }) => Promise<void>;
+    moveCurrentPlayerToSquare: (payload: {
+        squareType: 'school' | 'hospital' | 'bank';
+        skipTurns?: number;
+        detail?: string;
+    }) => Promise<number | null>;
     applyBoardMarketPrices: (updates: Record<string, number>, code: string, isBubble?: boolean) => Promise<void>;
     abandonRealEstateCard: (cardId: string) => Promise<void>;
     buyRealEstateFromMarket: (cardId: string) => Promise<void>;
@@ -370,6 +620,24 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (snapshot.exists()) {
                 const data = snapshot.data() as Room;
                 console.log('房間數據更新:', data.id, '狀態:', data.status, '成員數:', data.members?.length);
+
+                const movement = data.boardState?.movement;
+                if (
+                    movement?.isActive &&
+                    (data.hostId === user.uid || movement.playerUid === user.uid)
+                ) {
+                    const movementDeadline = movement.startedAt + getBoardMovementSettleMs(movement);
+
+                    if (Date.now() > movementDeadline + BOARD_MOVE_STALE_BUFFER_MS) {
+                        const staleResolution = buildBoardMovementResolution(data, movement.playerUid);
+                        if (staleResolution) {
+                            console.warn('偵測到過期的棋盤移動狀態，自動補完收尾:', data.id, movement.playerUid);
+                            safeAsync(updateDoc(doc(db, 'rooms', targetRoomId), staleResolution)).catch(err => {
+                                console.error('自動補完棋盤移動失敗:', err);
+                            });
+                        }
+                    }
+                }
 
                 // 檢查自己是否還在成員名單中
                 const isHost = data.hostId === user.uid;
@@ -654,67 +922,20 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         }
 
-        const landedSquare = getSquareByIndex(nextPosition);
-        let deckState = boardState.deckState;
-        let currentCard: BoardCardResult | null = null;
-        let detailMessages = [...passedMessages];
-        const nextSkipTurns = { ...boardState.skipTurns };
-
-        if (landedSquare.type === 'happiness' || landedSquare.type === 'opportunity' || landedSquare.type === 'news') {
-            const drawResult = drawBoardCard(deckState, landedSquare.type, playerState);
-            if (drawResult) {
-                deckState = drawResult.deckState;
-                currentCard = drawResult.card;
-                detailMessages.push(`抽到${landedSquare.label}卡：${currentCard.title}`);
-            }
-        } else if (landedSquare.type === 'hospital') {
-            const hospitalRoll = Math.floor(Math.random() * 6) + 1;
-            nextSkipTurns[user.uid] = Math.max(nextSkipTurns[user.uid] || 0, landedSquare.pauseTurns || 1);
-            detailMessages.push(`住院醫藥費 ${hospitalRoll * 1000}，並暫停一回合`);
-        } else if (landedSquare.type === 'repair') {
-            const repairRoll = Math.floor(Math.random() * 6) + 1;
-            if (hasCarAsset(playerState)) {
-                detailMessages.push(`踩到維修廠，保養費 ${repairRoll * 2000}，並暫停一回合`);
-                nextSkipTurns[user.uid] = Math.max(nextSkipTurns[user.uid] || 0, landedSquare.pauseTurns || 1);
-            } else {
-                detailMessages.push('踩到維修廠，但目前沒有汽車');
-            }
-        } else if (landedSquare.type === 'school') {
-            detailMessages.push('可選擇報名升等考試');
-        } else if (landedSquare.type === 'bank') {
-            detailMessages.push('請確認本回合月結餘');
-        }
-
         const rollTimestamp = Date.now();
-        const movementDurationMs =
-            BOARD_MOVE_INTRO_DELAY_MS +
-            path.length * BOARD_MOVE_STEP_DURATION_MS +
-            BOARD_MOVE_LANDING_DELAY_MS;
-
-        const nextTurn = getNextTurnUid({
-            ...boardState,
-            currentTurnUid: user.uid,
-            skipTurns: nextSkipTurns
-        });
-
-        const event: BoardEventLog = {
-            id: `${user.uid}_${Date.now()}`,
+        const movement = {
             playerUid: user.uid,
-            playerName: room.members.find(member => member.uid === user.uid)?.name || user.name || '玩家',
-            summary: `${room.members.find(member => member.uid === user.uid)?.name || user.name || '玩家'} 擲出 ${total} 點，停在 ${landedSquare.label}`,
-            detail: detailMessages.join('｜'),
-            squareIndex: nextPosition,
-            timestamp: rollTimestamp + movementDurationMs,
-            rollTotal: total
+            startPosition,
+            path,
+            rollTotal: total,
+            dice,
+            startedAt: rollTimestamp,
+            stepDurationMs: BOARD_MOVE_STEP_DURATION_MS,
+            introDelayMs: BOARD_MOVE_INTRO_DELAY_MS + BOARD_DICE_ROLL_ANIMATION_MS,
+            landingDelayMs: BOARD_MOVE_LANDING_DELAY_MS,
+            isActive: true
         };
-
-        const updatedPlayerState = playerState ? cleanObject({
-            ...playerState,
-            boardPosition: nextPosition,
-            skipTurns: nextSkipTurns[user.uid] || 0,
-            lastBoardEvent: event.summary,
-            pendingCardAction: detailMessages.join('\n')
-        }) : undefined;
+        const settleDelayMs = getBoardMovementSettleMs(movement);
 
         await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
             boardState: {
@@ -729,62 +950,51 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 currentCard: null,
                 currentCardReveal: null,
                 currentEvent: null,
-                movement: {
-                    playerUid: user.uid,
-                    startPosition,
-                    path,
-                    rollTotal: total,
-                    dice,
-                    startedAt: rollTimestamp,
-                    stepDurationMs: BOARD_MOVE_STEP_DURATION_MS,
-                    introDelayMs: BOARD_MOVE_INTRO_DELAY_MS,
-                    landingDelayMs: BOARD_MOVE_LANDING_DELAY_MS,
-                    isActive: true
-                },
+                movement,
                 updatedAt: rollTimestamp
-            }
-        })));
-
-        await wait(movementDurationMs);
-
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
-            boardState: {
-                ...boardState,
-                playerPositions: {
-                    ...boardState.playerPositions,
-                    [user.uid]: nextPosition
-                },
-                skipTurns: nextTurn?.skipTurns || nextSkipTurns,
-                currentTurnUid: nextTurn?.nextUid || user.uid,
-                lastRoll: {
-                    uid: user.uid,
-                    dice,
-                    total,
-                    timestamp: rollTimestamp
-                },
-                currentCard,
-                currentCardReveal: currentCard ? {
-                    eventId: event.id,
-                    cardId: currentCard.cardId,
-                    isRevealed: false
-                } : null,
-                currentEvent: event,
-                movement: null,
-                deckState,
-                updatedAt: Date.now()
             },
-            ...(updatedPlayerState ? {
+            ...(playerState?.bankServiceWindowActive ? {
                 playerStates: {
                     ...(room.playerStates || {}),
-                    [user.uid]: updatedPlayerState
+                    [user.uid]: cleanObject({
+                        ...playerState,
+                        bankServiceWindowActive: false,
+                        bankServiceGrantedAtEventId: undefined
+                    })
                 }
             } : {})
         })));
 
+        void (async () => {
+            await wait(settleDelayMs);
+
+            try {
+                const latestSnap = await safeAsync(getDoc(doc(db, 'rooms', room.id)));
+                if (!latestSnap?.exists()) return;
+
+                const latestRoom = latestSnap.data() as Room;
+                const latestMovement = latestRoom.boardState?.movement;
+                if (
+                    !latestMovement?.isActive ||
+                    latestMovement.playerUid !== user.uid ||
+                    latestMovement.startedAt !== rollTimestamp
+                ) {
+                    return;
+                }
+
+                const resolution = buildBoardMovementResolution(latestRoom, user.uid);
+                if (!resolution) return;
+
+                await safeAsync(updateDoc(doc(db, 'rooms', room.id), resolution));
+            } catch (err) {
+                console.error('棋盤移動結算失敗:', err);
+            }
+        })();
+
         return {
             position: nextPosition,
-            detail: detailMessages.join('\n'),
-            skipTurns: nextSkipTurns[user.uid] || 0,
+            detail: passedMessages.join('\n'),
+            skipTurns: room.playerStates?.[user.uid]?.skipTurns || 0,
             total
         };
     };
@@ -889,23 +1099,255 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
     };
 
+    const advanceBoardEventQueue = async (expectedType?: 'bank' | 'school' | 'hospital' | 'card' | 'exam_happiness' | 'followup') => {
+        if (!room?.id || !room.isBoardGame || !room.boardState) return;
+
+        const { boardState } = room;
+        if (expectedType && boardState.currentEvent?.type !== expectedType) return;
+
+        const nextState = shiftBoardQueue(boardState);
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
+            boardState: {
+                ...boardState,
+                ...nextState,
+                cardLog: nextState.currentCard
+                    ? appendBoardCardLog(boardState, nextState.currentCard, nextState.currentEvent)
+                    : boardState.cardLog || [],
+                updatedAt: Date.now()
+            }
+        })));
+    };
+
+    const dismissBoardCard = async (eventId: string, cardId: string) => {
+        if (!room?.id || !room.isBoardGame || !room.boardState) return;
+
+        const { boardState } = room;
+        const isCurrentCard =
+            boardState.currentEvent?.id === eventId &&
+            boardState.currentCard?.cardId === cardId;
+
+        if (!isCurrentCard) return;
+
+        const nextState = shiftBoardQueue(boardState);
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
+            boardState: {
+                ...boardState,
+                ...nextState,
+                cardLog: nextState.currentCard
+                    ? appendBoardCardLog(boardState, nextState.currentCard, nextState.currentEvent)
+                    : boardState.cardLog || [],
+                updatedAt: Date.now()
+            }
+        })));
+    };
+
+    const drawPostExamHappinessCard = async (success: boolean) => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+
+        const drawResult = drawBoardCard(room.boardState.deckState, 'happiness', room.playerStates?.[user.uid]);
+        if (!drawResult) return;
+
+        const timestamp = Date.now();
+        const eventId = `${user.uid}_${timestamp}_exam_happiness`;
+        const playerName = room.members.find(member => member.uid === user.uid)?.name || user.name || '玩家';
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
+            boardState: {
+                ...room.boardState,
+                deckState: drawResult.deckState,
+                currentCard: drawResult.card,
+                currentCardReveal: {
+                    eventId,
+                    cardId: drawResult.card.cardId,
+                    isRevealed: false
+                },
+                currentEvent: {
+                    id: eventId,
+                    playerUid: user.uid,
+                    playerName,
+                    type: 'exam_happiness',
+                    summary: `${playerName}${success ? '考完升等考試' : '完成升等考試'}後抽到幸福卡`,
+                    detail: `考試結束後抽到幸福卡：${drawResult.card.title}`,
+                    squareIndex: room.boardState.playerPositions?.[user.uid] || 0,
+                    timestamp,
+                    rollTotal: room.boardState.lastRoll?.total || 0
+                },
+                pendingEvents: room.boardState.pendingEvents || [],
+                cardLog: appendBoardCardLog(room.boardState, drawResult.card, {
+                    id: eventId,
+                    playerUid: user.uid,
+                    playerName,
+                    type: 'exam_happiness',
+                    summary: `${playerName}${success ? '考完升等考試' : '完成升等考試'}後抽到幸福卡`,
+                    detail: `考試結束後抽到幸福卡：${drawResult.card.title}`,
+                    squareIndex: room.boardState.playerPositions?.[user.uid] || 0,
+                    timestamp,
+                    rollTotal: room.boardState.lastRoll?.total || 0
+                }),
+                updatedAt: timestamp
+            }
+        })));
+    };
+
+    const drawBoardFollowupCard = async (deck: 'happiness' | 'news', summary: string, detail?: string) => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+
+        const drawResult = drawBoardCard(room.boardState.deckState, deck, room.playerStates?.[user.uid]);
+        if (!drawResult) return;
+
+        const timestamp = Date.now();
+        const eventId = `${user.uid}_${timestamp}_${deck}_followup`;
+        const playerName = room.members.find(member => member.uid === user.uid)?.name || user.name || '玩家';
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
+            boardState: {
+                ...room.boardState,
+                deckState: drawResult.deckState,
+                currentCard: drawResult.card,
+                currentCardReveal: {
+                    eventId,
+                    cardId: drawResult.card.cardId,
+                    isRevealed: false
+                },
+                currentEvent: {
+                    id: eventId,
+                    playerUid: user.uid,
+                    playerName,
+                    type: 'followup',
+                    summary,
+                    detail: detail || `接續效果抽到${deck === 'happiness' ? '幸福卡' : '新聞卡'}：${drawResult.card.title}`,
+                    squareIndex: room.boardState.playerPositions?.[user.uid] || 0,
+                    timestamp,
+                    rollTotal: room.boardState.lastRoll?.total || 0
+                },
+                pendingEvents: room.boardState.pendingEvents || [],
+                cardLog: appendBoardCardLog(room.boardState, drawResult.card, {
+                    id: eventId,
+                    playerUid: user.uid,
+                    playerName,
+                    type: 'followup',
+                    summary,
+                    detail: detail || `接續效果抽到${deck === 'happiness' ? '幸福卡' : '新聞卡'}：${drawResult.card.title}`,
+                    squareIndex: room.boardState.playerPositions?.[user.uid] || 0,
+                    timestamp,
+                    rollTotal: room.boardState.lastRoll?.total || 0
+                }),
+                updatedAt: timestamp
+            }
+        })));
+    };
+
+    const applyBoardExpenseToAllPlayers = async (payload: {
+        amount: number;
+        category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild';
+        isIncrease: boolean;
+        summary: string;
+        detail?: string;
+    }) => {
+        if (!room?.id || !room.isBoardGame || !room.playerStates) return;
+
+        const nextPlayerStates = Object.fromEntries(
+            Object.entries(room.playerStates).map(([uid, state]) => {
+                const currentVal = state.expenses?.[payload.category] || 0;
+                const nextVal = payload.isIncrease
+                    ? currentVal + payload.amount
+                    : Math.max(0, currentVal - payload.amount);
+
+                return [uid, cleanObject({
+                    ...state,
+                    expenses: {
+                        ...state.expenses,
+                        [payload.category]: nextVal
+                    },
+                    pendingCardAction: payload.detail || payload.summary,
+                    lastBoardEvent: payload.summary
+                })];
+            })
+        );
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
+            playerStates: nextPlayerStates
+        })));
+    };
+
+    const moveCurrentPlayerToSquare = async (payload: {
+        squareType: 'school' | 'hospital' | 'bank';
+        skipTurns?: number;
+        detail?: string;
+    }) => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return null;
+
+        const currentPosition = room.boardState.playerPositions?.[user.uid] || 0;
+        const nextIndex = BOARD_SQUARES.find((square, index) =>
+            index !== currentPosition &&
+            square.type === payload.squareType &&
+            ((index - currentPosition + BOARD_SQUARES.length) % BOARD_SQUARES.length) > 0
+        )?.index;
+
+        if (nextIndex === undefined) return null;
+
+        const playerState = room.playerStates?.[user.uid];
+        const nextSkipTurns = Math.max(playerState?.skipTurns || 0, payload.skipTurns || 0);
+        const timestamp = Date.now();
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
+            boardState: {
+                ...room.boardState,
+                playerPositions: {
+                    ...room.boardState.playerPositions,
+                    [user.uid]: nextIndex
+                },
+                skipTurns: {
+                    ...(room.boardState.skipTurns || {}),
+                    [user.uid]: nextSkipTurns
+                },
+                updatedAt: timestamp
+            },
+            playerStates: {
+                ...(room.playerStates || {}),
+                [user.uid]: cleanObject({
+                    ...playerState,
+                    boardPosition: nextIndex,
+                    skipTurns: nextSkipTurns,
+                    lastBoardEvent: payload.detail || `移動到${payload.squareType}`,
+                    pendingCardAction: payload.detail,
+                    bankServiceWindowActive: false,
+                    bankServiceGrantedAtEventId: undefined
+                })
+            }
+        })));
+
+        return nextIndex;
+    };
+
     const applyBoardMarketPrices = async (updates: Record<string, number>, code: string, isBubble: boolean = false) => {
         if (!room || !user) return;
-        if (!room.isBoardGame || room.boardState?.currentTurnUid !== user.uid) return;
+        if (!room.isBoardGame) return;
+
+        const isCurrentTurnPlayer = room.boardState?.currentTurnUid === user.uid;
+        const isCurrentBoardEventPlayer =
+            room.boardState?.currentEvent?.playerUid === user.uid &&
+            !!room.boardState?.currentCard;
+
+        if (!isCurrentTurnPlayer && !isCurrentBoardEventPlayer) return;
 
         try {
             const roomRef = doc(db, 'rooms', room.id);
             const currentPrices = room.marketPrices || {};
+            const nextPrices = {
+                ...currentPrices,
+                ...updates
+            };
 
             await safeAsync(updateDoc(roomRef, {
                 marketUpdates: {
-                    updates,
+                    updates: nextPrices,
                     code,
                     isBubble,
                     timestamp: Date.now()
                 },
                 previousMarketPrices: currentPrices,
-                marketPrices: updates
+                marketPrices: nextPrices
             }));
         } catch (err: any) {
             console.error('套用棋盤行情失敗:', err);
@@ -1005,6 +1447,12 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             clearRequest,
             rollBoardDice,
             revealBoardCard,
+            dismissBoardCard,
+            advanceBoardEventQueue,
+            drawPostExamHappinessCard,
+            drawBoardFollowupCard,
+            applyBoardExpenseToAllPlayers,
+            moveCurrentPlayerToSquare,
             applyBoardMarketPrices,
             abandonRealEstateCard,
             buyRealEstateFromMarket

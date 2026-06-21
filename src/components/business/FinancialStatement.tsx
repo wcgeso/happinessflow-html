@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, FinancialSummary, Asset } from '../../types';
-import { STOCK_NAMES, REAL_ESTATE_PRESETS } from '../../constants';
+import { REAL_ESTATE_PRESETS } from '../../constants';
 import { TrendingUp, Building, ChevronDown, ShieldCheck, ArrowUpCircle, ExternalLink, Wallet, Landmark, BarChart3, PieChart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { HistoryTable } from './HistoryTable';
@@ -9,6 +9,7 @@ import { BizUpgradeModal } from '../modals/BizUpgradeModal';
 import { HouseConversionModal } from '../modals/HouseConversionModal';
 import { cn } from '../../utils/gameUtils';
 import { useGame } from '../../context/GameContext';
+import { extractAssetSymbol, getBusinessAssetLabel, getRealEstateAssetLabel, getStockAssetLabel } from '../../utils/assetLabels';
 
 interface FinancialStatementProps {
   gameState: GameState;
@@ -29,56 +30,10 @@ const formatMoney = (amount: number, isMasked?: boolean) => {
   return `${amount.toLocaleString()} H`;
 };
 
-const reHouseTypeMap: Record<string, string> = {
-  '1room': '單間小套房',
-  '2room': '兩房一廳',
-  '3room': '三房兩廳',
-  '5room': '五房三廳',
-  'store': '店面'
-};
-
 const getAssetDisplayName = (asset: Asset) => {
-  if (asset.type === '不動產' && asset.houseType) {
-    const symbolMatch = asset.name.match(/[A-Z]\d+/);
-    const symbol = symbolMatch ? symbolMatch[0] : asset.name;
-    return `${symbol} (${reHouseTypeMap[asset.houseType] || asset.houseType})`;
-  }
-  if (asset.type === '企業') {
-    const match = asset.name.match(/[A-Z]\d+/);
-
-    // 如果沒有代號（目標企業），直接顯示企業名稱，移除「企業」前綴
-    if (!match) {
-      const enterpriseName = asset.name.replace(/^企業\s*/, '');
-      return <span className="text-slate-200">{enterpriseName}</span>;
-    }
-
-    // 有代號的企業（N056, N058等），顯示代號和類型標籤
-    const symbol = match[0];
-    const isPartTime = (symbol === 'N056' || symbol === 'N058') && !asset.isUpgraded;
-    const bizTypeLabel = isPartTime ? '兼職工作室' : (asset.isUpgraded ? '小型企業' : '優質企業');
-    return (
-      <div className="flex items-center gap-1.5">
-        <span className="text-slate-200">{symbol}</span>
-        <span className={cn(
-          "text-[9px] font-bold px-1 rounded-sm",
-          isPartTime ? "bg-amber-900/30 text-amber-500/80" : "bg-emerald-900/30 text-emerald-500/80"
-        )}>
-          {bizTypeLabel}
-        </span>
-      </div>
-    );
-  }
-  if (asset.type === '股票') {
-    const match = asset.name.match(/([A-Z]\d+)/);
-    const symbol = match ? match[1] : asset.name;
-    const stockName = STOCK_NAMES[symbol] || '';
-    return (
-      <div className="flex items-center gap-1.5">
-        <span className="text-slate-200">{symbol}</span>
-        {stockName && <span className="text-[10px] text-slate-500 font-medium">{stockName}</span>}
-      </div>
-    );
-  }
+  if (asset.type === '不動產') return getRealEstateAssetLabel(asset.name, asset.houseType);
+  if (asset.type === '企業') return getBusinessAssetLabel(asset.name, asset.name);
+  if (asset.type === '股票') return getStockAssetLabel(asset.name);
   return asset.name;
 };
 
@@ -179,18 +134,18 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   const creditLoans = (gameState.liabilities || []).filter(l => l.type === '信用貸款');
   const realEstateLoans = (gameState.liabilities || []).filter(l => l.type === '不動產貸款');
   const businessLoans = (gameState.liabilities || []).filter(l => l.type === '企業貸款');
-  const aircraftLoans = (gameState.liabilities || []).filter(l => l.type === '飛行器貸款');
+  const aircraftLoans = (gameState.liabilities || []).filter(l => l.type === '飛行器貸款' || l.type === '汽車貸款');
 
   const creditLoanInterest = ((gameState.liabilities || []).filter(l => l.type === '信用貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0)) + ((gameState.loans || 0) * 0.1);
   const realEstateLoanInterest = (gameState.liabilities || []).filter(l => l.type === '不動產貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
   const businessLoanInterest = (gameState.liabilities || []).filter(l => l.type === '企業貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
-  const aircraftLoanInterest = (gameState.liabilities || []).filter(l => l.type === '飛行器貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+  const aircraftLoanInterest = (gameState.liabilities || []).filter(l => l.type === '飛行器貸款' || l.type === '汽車貸款').reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
 
   const totalMonthlyInterest = creditLoanInterest + realEstateLoanInterest + businessLoanInterest + aircraftLoanInterest;
 
   const medicalInsuranceCount = gameState.medicalInsuranceCount || 0;
   const houseInsuranceCount = (gameState.assets || []).filter(a => a.type === '不動產' && a.isInsured).length;
-  const aircraftInsuranceCount = (gameState.assets || []).some(a => (a.type as any) === '飛行器' && a.isInsured) ? 1 : 0;
+  const aircraftInsuranceCount = (gameState.assets || []).some(a => ((a.type as any) === '汽車' || (a.type as any) === '飛行器') && a.isInsured) ? 1 : 0;
 
   const medicalInsCost = medicalInsuranceCount * 2000;
   const houseInsCost = houseInsuranceCount * 2000;
@@ -444,8 +399,8 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                           )}
                           {aircraftInsCost > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
-                              <div className="text-[9px] font-black uppercase tracking-widest text-yellow-300">飛行器保險</div>
-                              <TAccountSubItem label="飛行器保險" value={aircraftInsCost} isMasked={isMasked} />
+                              <div className="text-[9px] font-black uppercase tracking-widest text-yellow-300">汽車保險</div>
+                              <TAccountSubItem label="汽車保險" value={aircraftInsCost} isMasked={isMasked} />
                             </div>
                           )}
                         </div>
@@ -479,7 +434,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                           )}
                           {aircraftLoans.length > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
-                              <div className="text-[9px] font-black uppercase tracking-widest text-yellow-300">飛行器貸款利息</div>
+                              <div className="text-[9px] font-black uppercase tracking-widest text-yellow-300">汽車貸款利息</div>
                               {aircraftLoans.map(l => <TAccountSubItem key={l.id} label={l.name.match(/\(([^)]+)\)/)?.[1] || l.name} value={l.monthlyPayment} isMasked={isMasked} />)}
                             </div>
                           )}
@@ -595,8 +550,8 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                         )}
                         {aircraftLoans.length > 0 && (
                           <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
-                            <div className="text-[9px] font-black uppercase tracking-widest text-yellow-300">飛行器貸款</div>
-                            {aircraftLoans.map(l => <TAccountSubItem key={l.id} label="飛行器" value={l.totalOwed} />)}
+                            <div className="text-[9px] font-black uppercase tracking-widest text-yellow-300">汽車貸款</div>
+                            {aircraftLoans.map(l => <TAccountSubItem key={l.id} label="汽車" value={l.totalOwed} />)}
                           </div>
                         )}
                         {(gameState.liabilities || []).length === 0 && (gameState.loans || 0) === 0 && (
@@ -731,8 +686,8 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
       let currentPrice = item.lastPurchasePrice || Math.floor(item.cost / item.quantity);
       let ticker = null;
       if (isStock) {
-        const tickerMatch = item.name.match(/[A-Z]\d+/);
-        ticker = tickerMatch ? tickerMatch[0] : null;
+        const tickerMatch = extractAssetSymbol(item.name);
+        ticker = tickerMatch || null;
         if (ticker && marketPrices[ticker]) {
           currentPrice = marketPrices[ticker];
         }
@@ -742,8 +697,7 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
       const displayValue = isStock ? (item.quantity * currentPrice) : item.cost;
 
       // Check for upgrade eligibility (N056, N058 and not yet upgraded)
-      const symbolMatch = item.name.match(/[A-Z]\d+/);
-      const symbol = symbolMatch ? symbolMatch[0] : '';
+      const symbol = extractAssetSymbol(item.name);
       const isEligibleForUpgrade = item.type === '企業' && (symbol === 'N056' || symbol === 'N058') && !item.isUpgraded;
 
       return (
@@ -754,10 +708,7 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
                 <>
                   <div className="flex items-center gap-1.5 w-full">
                     <span className="text-[11px] text-slate-200 font-bold">
-                      {item.name.match(/[A-Z]\d+/)?.[0] || item.name}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      ({reHouseTypeMap[item.houseType] || item.houseType})
+                      {getRealEstateAssetLabel(item.name, item.houseType)}
                     </span>
                     <button
                       onClick={(e) => {

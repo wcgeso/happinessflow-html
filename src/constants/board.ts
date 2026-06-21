@@ -10,7 +10,7 @@ const shuffle = <T,>(items: T[]): T[] => {
   return next;
 };
 
-const BANK_INTERVAL = 8;
+const BANK_POSITIONS = new Set([6, 15, 24, 32, 41, 50]);
 const REPAIR_INDEX = 27;
 
 const lerp = (start: number, end: number, steps: number, step: number) => {
@@ -56,7 +56,7 @@ const buildBoardSquares = (): BoardSquare[] => {
   let alternatingIndex = 0;
 
   return path.map((point, index) => {
-    if (index === 0 || index === 39) {
+    if (index === 0 || index === 26) {
       return {
         id: index === 0 ? 'school-top-left' : 'school-bottom-right',
         index,
@@ -68,7 +68,7 @@ const buildBoardSquares = (): BoardSquare[] => {
       };
     }
 
-    if (index === 13 || index === 26) {
+    if (index === 13 || index === 39) {
       return {
         id: index === 13 ? 'hospital-top-right' : 'hospital-bottom-left',
         index,
@@ -76,12 +76,12 @@ const buildBoardSquares = (): BoardSquare[] => {
         type: 'hospital',
         x: point.x,
         y: point.y,
-        trigger: '醫藥費為骰點 x 1000，停一回合',
+        trigger: '棋子到達後再擲一次骰子，醫藥費為骰點 x 1000，停一回合',
         pauseTurns: 1
       };
     }
 
-    if ((index + 1) % BANK_INTERVAL === 0) {
+    if (BANK_POSITIONS.has(index)) {
       return {
         id: `bank-${index + 1}`,
         index,

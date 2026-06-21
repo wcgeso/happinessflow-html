@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GraduationCap, BookOpen, BrainCircuit, CheckCircle2, ChevronRight, X, ArrowLeft } from 'lucide-react';
+import { GraduationCap, BookOpen, BrainCircuit, CheckCircle2, ChevronRight, X } from 'lucide-react';
 import { Button, Card } from '../ui/ui';
 import { cn } from '../../utils/gameUtils';
 
@@ -77,11 +77,10 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
                         </Button>
                         <Button
                             variant="secondary"
-                            onClick={onBack}
-                            className="w-full py-4 text-slate-400 font-bold hover:text-white transition-colors border-none flex items-center justify-center gap-2"
+                            onClick={onClose}
+                            className="w-full py-4 text-slate-400 font-bold hover:text-white transition-colors border-none"
                         >
-                            <ArrowLeft size={18} />
-                            <span>上一頁</span>
+                            <span>關閉</span>
                         </Button>
                     </div>
                 </div>

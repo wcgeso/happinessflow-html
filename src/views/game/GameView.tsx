@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
 import { useGameLogic } from '../../hooks/useGameLogic';
-import { AlertCircle, CheckCircle2, Bell, LogOut } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Bell, LogOut, ScrollText } from 'lucide-react';
 import { useRoom } from '../../context/RoomContext';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
 import { HappinessPanel } from '../../components/business/HappinessPanel';
@@ -26,9 +26,10 @@ import { BoardFinancialCheckModal } from '../../components/game/BoardFinancialCh
 import { HappinessWinAnimation } from '../../components/game/HappinessWinAnimation';
 import { hydrateBoardCardResult } from '../../utils/boardCardDisplay';
 import { formatMoney } from '../../utils/gameUtils';
-import { TransactionData } from '../../types';
-import { BoardAssetSaleCandidate, BoardFinancialAction, buildBoardAssetSaleFinancialAction, resolveBoardCardAction } from '../../utils/boardCardActions';
+import { BoardCardResult, TransactionData } from '../../types';
+import { BoardAssetSaleCandidate, BoardFinancialAction, buildBoardAssetSaleFinancialAction, isForcedBoardCard, resolveBoardCardAction } from '../../utils/boardCardActions';
 import { NEWS_CARD_MAP } from '../../constants/cards';
+import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
 
 export const GameView: React.FC<{ 
     onFinishGame: (meta: any) => void;
@@ -36,7 +37,7 @@ export const GameView: React.FC<{
 }> = ({ onFinishGame, isDevMode = false }) => {
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, leaveRoom, rollBoardDice, revealBoardCard, applyBoardMarketPrices, abandonRealEstateCard, buyRealEstateFromMarket } = useRoom();
+    const { room, leaveRoom, rollBoardDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, drawPostExamHappinessCard, drawBoardFollowupCard, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, abandonRealEstateCard, buyRealEstateFromMarket } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -159,6 +160,18 @@ export const GameView: React.FC<{
     const [appliedBoardMarketKeys, setAppliedBoardMarketKeys] = useState<string[]>([]);
     const [isApplyingBoardMarket, setIsApplyingBoardMarket] = useState(false);
     const [showRealEstateMarketModal, setShowRealEstateMarketModal] = useState(false);
+    const [pendingForcedBoardPayment, setPendingForcedBoardPayment] = useState<TransactionData | null>(null);
+    const [showForcedBoardPaymentModal, setShowForcedBoardPaymentModal] = useState(false);
+    const [shouldResumeBankFollowup, setShouldResumeBankFollowup] = useState(false);
+    const [isBoardFinancialCompleted, setIsBoardFinancialCompleted] = useState(false);
+    const [pendingHandledBoardCard, setPendingHandledBoardCard] = useState<{ key: string; card: BoardCardResult | null } | null>(null);
+    const [pendingBoardStepAdvance, setPendingBoardStepAdvance] = useState<'hospital' | null>(null);
+    const [pendingBoardLifelongRoll, setPendingBoardLifelongRoll] = useState<PromotionType | null>(null);
+    const [pendingMarketPurchaseCardId, setPendingMarketPurchaseCardId] = useState<string | null>(null);
+    const [showHospitalRollModal, setShowHospitalRollModal] = useState(false);
+    const [hospitalRollValue, setHospitalRollValue] = useState<number | null>(null);
+    const [lastHospitalPromptKey, setLastHospitalPromptKey] = useState<string | null>(null);
+    const [showBoardCardLog, setShowBoardCardLog] = useState(false);
 
     const [promotionType, setPromotionType] = useState<PromotionType | null>(null);
     const [isRollingBoardDice, setIsRollingBoardDice] = useState(false);
@@ -236,12 +249,31 @@ export const GameView: React.FC<{
     };
 
     const handleTransaction = (data: any) => {
+        if (pendingForcedBoardPayment) {
+            const applied = handleTransactionSubmit(data);
+            if (!applied) return;
+
+            setShowTransactionModal(false);
+            setTransactionQuickPreset(null);
+
+            const cashAfterTurnaround = gameState.cash + data.cashChange;
+            if ((cashAfterTurnaround + pendingForcedBoardPayment.cashChange) < 0) {
+                setShowForcedBoardPaymentModal(true);
+                showAlert('周轉後現金仍不足，請繼續賣資產或改用借款', 'error');
+            } else {
+                showAlert('周轉完成，請回到財務檢核套用卡片', 'success');
+            }
+            return;
+        }
+
         setBoardFinancialAction({
             kind: 'financial',
             label: '確認交易內容',
             txData: data,
-            expectedEntries: []
+            expectedEntries: data.financialCheckEntries || []
         });
+        setPendingBoardLifelongRoll(null);
+        setIsBoardFinancialCompleted(false);
         setShowTransactionModal(false);
         setTransactionQuickPreset(null);
     };
@@ -292,37 +324,51 @@ export const GameView: React.FC<{
     };
 
     const handleDiceModalClose = () => {
+        const currentPromotionType = promotionType;
+        const shouldDrawExamHappiness = currentPromotionType === 'normal' && !activeBoardCard;
         setShowDiceModal(false);
 
         // 如果是終身學習且成功，在此時顯示 Alert
-        if (lastDiceSuccess && promotionType && promotionType !== 'normal') {
+        if (lastDiceSuccess && currentPromotionType && currentPromotionType !== 'normal') {
             const messages: Record<string, string> = {
                 'enhance_profession': '職業能力已提升，職位晉升一級！',
                 'stock_ability': '已獲得投資股票的能力，現有持股已翻倍！',
                 'real_estate_ability': '已獲得投資不動產的能力，房租收入已增加！'
             };
-            showAlert(`🎉 ${messages[promotionType as string] || '學習成功！'}`, 'success');
+            showAlert(`🎉 ${messages[currentPromotionType as string] || '學習成功！'}`, 'success');
         }
 
         // 重置成功狀態
         setLastDiceSuccess(false);
+        setPromotionType(null);
+
+        if (shouldDrawExamHappiness) {
+            void drawPostExamHappinessCard(lastDiceSuccess);
+        } else if (currentPromotionType === 'normal' && boardState?.currentEvent?.type === 'school') {
+            void advanceBoardEventQueue('school');
+        }
     };
 
     const boardState = room?.boardState || null;
+    const currentPlayerRoomState = user?.uid ? room?.playerStates?.[user.uid] : null;
     const isBoardTurn = !!(room?.isBoardGame && boardState?.currentTurnUid === user?.uid);
+    const canUseBankProducts = !room?.isBoardGame || !!currentPlayerRoomState?.bankServiceWindowActive;
     const hasCar = gameState.assets.some(asset => asset.type === '汽車' || asset.type === '飛行器');
     const activeBoardCard = boardState?.currentEvent?.playerUid === user?.uid ? boardState?.currentCard || null : null;
-    const activeBankPromptKey = boardState?.currentEvent?.playerUid === user?.uid &&
-        boardState?.currentEvent?.detail?.includes('月結餘')
-        ? `${boardState.currentEvent.id}_bank`
+    const activeBankPromptKey = currentPlayerRoomState?.bankServiceWindowActive && currentPlayerRoomState?.bankServiceGrantedAtEventId
+        ? `${currentPlayerRoomState.bankServiceGrantedAtEventId}_bank`
         : null;
     const isActiveBankPromptPending = !!(activeBankPromptKey && !handledBankPromptKeys.includes(activeBankPromptKey));
 
     const activeSchoolPromptKey = boardState?.currentEvent?.playerUid === user?.uid &&
-        (boardState?.currentEvent?.type === 'school' || boardState?.currentEvent?.detail?.includes('學校'))
+        boardState?.currentEvent?.type === 'school'
         ? `${boardState.currentEvent.id}_school`
         : null;
     const isActiveSchoolPromptPending = !!(activeSchoolPromptKey && !handledSchoolPromptKeys.includes(activeSchoolPromptKey));
+    const activeHospitalPromptKey = boardState?.currentEvent?.playerUid === user?.uid &&
+        boardState?.currentEvent?.type === 'hospital'
+        ? `${boardState.currentEvent.id}_hospital`
+        : null;
 
     const activeBoardCardKey = activeBoardCard && boardState?.currentEvent
         ? `${boardState.currentEvent.id}_${activeBoardCard.cardId}`
@@ -335,10 +381,92 @@ export const GameView: React.FC<{
         () => hydrateBoardCardResult(activeBoardCard, gameState),
         [activeBoardCard, gameState]
     );
+    const boardChoiceHasDismissOption = activeBoardCardAction?.kind === 'choice' &&
+        activeBoardCardAction.options.some(option => option.action.kind === 'dismiss');
+    const isForcedActiveBoardCard = !!(activeBoardCard && isForcedBoardCard(activeBoardCard.cardId));
     const isActiveBoardCardHandled = !!(activeBoardCardKey && handledBoardCardKeys.includes(activeBoardCardKey));
+    const isGameFinished = room?.status === 'finished';
+    const isNonBoardOverlayOpen =
+        showTransactionModal ||
+        showRankListModal ||
+        showLifelongModal ||
+        showMedicalClaimModal ||
+        showTargetDreamModal ||
+        showRealEstateMarketModal;
+    const isProcessingEvent =
+        showPaydayModal ||
+        showPromotionModal ||
+        showDiceModal ||
+        showHospitalRollModal ||
+        isBoardCardDrawerOpen ||
+        !!boardFinancialAction ||
+        isNonBoardOverlayOpen ||
+        isActiveBankPromptPending ||
+        isActiveSchoolPromptPending ||
+        (!!activeBoardCardKey && !isActiveBoardCardHandled);
+    const visibleFlowModal =
+        showTransactionModal ? 'transaction' :
+        !!boardFinancialAction ? 'financial' :
+        showDiceModal ? 'dice' :
+        showPromotionModal ? 'promotion' :
+        showPaydayModal ? 'payday' :
+        showHospitalRollModal ? 'hospital' :
+        isBoardCardDrawerOpen ? 'board-card' :
+        null;
+    const canOpenNextBoardStep =
+        !showDiceModal &&
+        !showPromotionModal &&
+        !showPaydayModal &&
+        !showHospitalRollModal &&
+        !isBoardCardDrawerOpen &&
+        !boardFinancialAction &&
+        !isNonBoardOverlayOpen;
+    const activeRoomMovement = boardState?.movement?.isActive ? boardState.movement : null;
+
+    const applyLocalBoardMarketPrices = (prices: Record<string, number>, code: string) => {
+        setGameState(prev => {
+            const hasChanges = Object.entries(prices).some(([symbol, price]) => prev.marketPrices[symbol] !== price);
+            if (!hasChanges) return prev;
+
+            return {
+                ...prev,
+                previousMarketPrices: { ...prev.marketPrices },
+                marketPrices: {
+                    ...prev.marketPrices,
+                    ...prices
+                },
+                lastPublishedCode: code,
+                lastMarketUpdateTimestamp: Date.now()
+            };
+        });
+    };
+    const forcedBoardPaymentShortfall = pendingForcedBoardPayment
+        ? Math.max(0, -(gameState.cash + pendingForcedBoardPayment.cashChange))
+        : 0;
+
+    const getBoardRollBlockReason = () => {
+        if (!room) return '房間尚未同步完成';
+        if (!isBoardTurn) return '現在不是你的回合';
+        if (isRollingBoardDice) return '骰子仍在同步中';
+        if (activeRoomMovement) return '棋偶仍在移動中';
+        if (isGameFinished) return '本局已結算';
+        if (showPaydayModal) return '請先完成銀行流程';
+        if (showPromotionModal) return '請先完成學校流程';
+        if (showDiceModal) return '請先完成擲骰結果';
+        if (isBoardCardDrawerOpen || (!!activeBoardCardKey && !isActiveBoardCardHandled)) return '請先完成目前卡片';
+        if (boardFinancialAction) return '請先完成財務檢核';
+        if (isNonBoardOverlayOpen) return '請先關閉目前視窗';
+        if (isActiveBankPromptPending) return '請先完成銀行流程';
+        if (isActiveSchoolPromptPending) return '請先完成學校流程';
+        return null;
+    };
 
     const handleBoardDiceRoll = async () => {
-        if (!room || !isBoardTurn || isRollingBoardDice || isProcessingEvent || disabled || gameState.movement?.isMoving) return null;
+        const blockReason = getBoardRollBlockReason();
+        if (blockReason || isProcessingEvent) {
+            showAlert(blockReason || '請先完成目前事件', 'info');
+            return null;
+        }
         setIsRollingBoardDice(true);
         try {
             const result = await rollBoardDice();
@@ -358,19 +486,24 @@ export const GameView: React.FC<{
             lastBoardEvent: `擲出 ${result.total} 點，前進至第 ${result.position + 1} 格`,
             pendingCardAction: result.detail
         }));
-        showAlert(`擲出 ${result.total} 點，已完成移動並同步地圖事件`, 'success');
+        if (result.detail) {
+            showAlert(`擲出 ${result.total} 點\n${result.detail}`, 'info', true);
+        } else {
+            showAlert(`擲出 ${result.total} 點，已完成移動並同步地圖事件`, 'success');
+        }
         setIsRollingBoardDice(false);
     };
 
     useEffect(() => {
         if (!activeBoardCardKey || activeBoardCardKey === lastBoardCardKey) return;
-        if (showPaydayModal || isActiveBankPromptPending) return;
+        if (!canOpenNextBoardStep || isActiveBankPromptPending || isActiveSchoolPromptPending) return;
 
         setLastBoardCardKey(activeBoardCardKey);
+        hideAlert();
         setIsBoardCardDrawerOpen(true);
         setIsBoardCardRevealed(false);
         setSelectedBoardSaleAssetIds([]);
-    }, [activeBoardCardKey, lastBoardCardKey, showPaydayModal, isActiveBankPromptPending]);
+    }, [activeBoardCardKey, lastBoardCardKey, canOpenNextBoardStep, isActiveBankPromptPending, isActiveSchoolPromptPending, hideAlert]);
 
     useEffect(() => {
         if (!activeBoardCardKey || !activeBoardCardAction || activeBoardCardAction.kind !== 'market') return;
@@ -378,6 +511,7 @@ export const GameView: React.FC<{
 
         let isCancelled = false;
         setIsApplyingBoardMarket(true);
+        applyLocalBoardMarketPrices(activeBoardCardAction.prices, activeBoardCardAction.code);
 
         applyBoardMarketPrices(activeBoardCardAction.prices, activeBoardCardAction.code, activeBoardCardAction.isBubble)
             .then(() => {
@@ -402,33 +536,69 @@ export const GameView: React.FC<{
 
     useEffect(() => {
         if (!activeBankPromptKey || activeBankPromptKey === lastBankPromptKey || !isActiveBankPromptPending) return;
+        if (!canOpenNextBoardStep) return;
         setLastBankPromptKey(activeBankPromptKey);
         setHandledBankPromptKeys(prev => prev.includes(activeBankPromptKey) ? prev : [...prev, activeBankPromptKey]);
         setPaydayStep('confirm');
+        hideAlert();
         setShowPaydayModal(true);
-    }, [activeBankPromptKey, lastBankPromptKey, isActiveBankPromptPending, summary.monthlyCashflow]);
+    }, [activeBankPromptKey, lastBankPromptKey, isActiveBankPromptPending, summary.monthlyCashflow, canOpenNextBoardStep, hideAlert]);
 
     useEffect(() => {
         if (!activeSchoolPromptKey || activeSchoolPromptKey === lastSchoolPromptKey || !isActiveSchoolPromptPending) return;
+        if (!canOpenNextBoardStep) return;
         setLastSchoolPromptKey(activeSchoolPromptKey);
         setHandledSchoolPromptKeys(prev => prev.includes(activeSchoolPromptKey) ? prev : [...prev, activeSchoolPromptKey]);
+        hideAlert();
         setShowPromotionModal(true);
-    }, [activeSchoolPromptKey, lastSchoolPromptKey, isActiveSchoolPromptPending]);
+    }, [activeSchoolPromptKey, lastSchoolPromptKey, isActiveSchoolPromptPending, canOpenNextBoardStep, hideAlert]);
 
-    const markBoardCardHandled = async () => {
-        if (!activeBoardCardKey) return;
+    useEffect(() => {
+        if (!activeHospitalPromptKey || activeHospitalPromptKey === lastHospitalPromptKey) return;
+        if (!canOpenNextBoardStep) return;
+        setLastHospitalPromptKey(activeHospitalPromptKey);
+        setShowDiceModal(false);
+        setPromotionType(null);
+        setLastDiceSuccess(false);
+        setHospitalRollValue(null);
+        hideAlert();
+        setShowHospitalRollModal(true);
+    }, [activeHospitalPromptKey, lastHospitalPromptKey, canOpenNextBoardStep, hideAlert]);
 
-        // 如果是房屋卡，且未被處理過，且不是透過購買行為（因為購買行為已經把狀態存到玩家身上），
-        // 我們就把這張卡推進 realEstateMarket。
-        if (activeBoardCard?.deck === 'news' && activeBoardCard?.cardId) {
-            const newsCard = NEWS_CARD_MAP[activeBoardCard.cardId];
-            if (newsCard && newsCard.type === 'real_estate') {
-                await abandonRealEstateCard(activeBoardCard.cardId);
+    useEffect(() => {
+        if (!pendingForcedBoardPayment || forcedBoardPaymentShortfall > 0) return;
+        setShowForcedBoardPaymentModal(false);
+    }, [pendingForcedBoardPayment, forcedBoardPaymentShortfall]);
+
+    const markBoardCardHandled = async (
+        cardKey: string | null = activeBoardCardKey,
+        card: typeof activeBoardCard = activeBoardCard
+    ) => {
+        if (!cardKey) return;
+
+        const eventId = boardState?.currentEvent?.id;
+        setHandledBoardCardKeys(prev => prev.includes(cardKey) ? prev : [...prev, cardKey]);
+        setIsBoardCardDrawerOpen(false);
+
+        if (eventId && card?.cardId) {
+            try {
+                await dismissBoardCard(eventId, card.cardId);
+            } catch (err: any) {
+                showAlert(err?.message || '卡片結案失敗，請再試一次', 'error');
             }
         }
 
-        setHandledBoardCardKeys(prev => prev.includes(activeBoardCardKey) ? prev : [...prev, activeBoardCardKey]);
-        setIsBoardCardDrawerOpen(false);
+        // 房市新訊關閉後要先解除目前事件鎖定，避免背景同步失敗時卡住下一次擲骰。
+        if (card?.deck === 'news' && card?.cardId) {
+            const newsCard = NEWS_CARD_MAP[card.cardId];
+            if (newsCard && newsCard.type === 'real_estate') {
+                try {
+                    await abandonRealEstateCard(card.cardId);
+                } catch (err: any) {
+                    showAlert(err?.message || '房市公告板同步失敗，但本回合可繼續進行', 'error');
+                }
+            }
+        }
     };
 
     const handleBoardCardReveal = () => {
@@ -436,6 +606,14 @@ export const GameView: React.FC<{
         if (boardState?.currentEvent?.id && activeBoardCard?.cardId) {
             revealBoardCard(boardState.currentEvent.id, activeBoardCard.cardId);
         }
+    };
+
+    const handleCloseBoardCardDrawer = () => {
+        if (activeBoardCardKey && !isActiveBoardCardHandled) {
+            void markBoardCardHandled();
+            return;
+        }
+        setIsBoardCardDrawerOpen(false);
     };
 
     const handleApplyDirectHappiness = () => {
@@ -462,16 +640,107 @@ export const GameView: React.FC<{
         markBoardCardHandled();
     };
 
-    const handleApplyBoardFinancialTx = (txData: TransactionData) => {
+    const applyResolvedBoardFinancialTx = async (txData: TransactionData) => {
+        const handledCardKey = activeBoardCardKey;
+        const handledCard = activeBoardCard;
+        const nextLifelongRoll = txData.usage === 'lifelong_learning' && txData.lifelongLearningPayload
+            ? txData.lifelongLearningPayload.learningType as PromotionType
+            : null;
+
+        const applied = handleTransactionSubmit(txData);
+        if (!applied) return false;
+
+        if (boardFinancialAction?.afterApply?.affectsAllPlayersExpense) {
+            const effect = boardFinancialAction.afterApply.affectsAllPlayersExpense;
+            await applyBoardExpenseToAllPlayers({
+                amount: effect.amount,
+                category: effect.category,
+                isIncrease: effect.isIncrease,
+                summary: boardFinancialAction.txData.name,
+                detail: `全體玩家${effect.isIncrease ? '增加' : '減少'}${formatMoney(effect.amount)} 的${effect.category === 'basicLiving' ? '餐飲、服飾、居住類' : effect.category === 'transportEdu' ? '交通、教育、娛樂類' : '其他、醫療、育兒類'}月支出`
+            });
+            setGameState(prev => {
+                const currentVal = prev.expenses[effect.category] || 0;
+                return {
+                    ...prev,
+                    expenses: {
+                        ...prev.expenses,
+                        [effect.category]: effect.isIncrease ? currentVal + effect.amount : Math.max(0, currentVal - effect.amount)
+                    }
+                };
+            });
+        }
+
+        if (boardFinancialAction?.afterApply?.moveToSquare) {
+            const move = boardFinancialAction.afterApply.moveToSquare;
+            const nextIndex = await moveCurrentPlayerToSquare(move);
+            if (nextIndex !== null) {
+                setGameState(prev => ({
+                    ...prev,
+                    boardPosition: nextIndex,
+                    skipTurns: Math.max(prev.skipTurns || 0, move.skipTurns || 0),
+                    pendingCardAction: move.detail || prev.pendingCardAction
+                }));
+            }
+        }
+
+        if (boardFinancialAction?.afterApply?.drawCard) {
+            await drawBoardFollowupCard(
+                boardFinancialAction.afterApply.drawCard,
+                `${boardFinancialAction.txData.name} 後續抽卡`,
+                `卡片效果觸發，再抽一張${boardFinancialAction.afterApply.drawCard === 'happiness' ? '幸福卡' : '新聞卡'}`
+            );
+        }
+
+        setPendingHandledBoardCard(handledCardKey ? { key: handledCardKey, card: handledCard } : null);
+        setPendingBoardLifelongRoll(nextLifelongRoll);
+        setIsBoardFinancialCompleted(true);
+        setPendingForcedBoardPayment(null);
+        setShowForcedBoardPaymentModal(false);
+        return true;
+    };
+
+    const handleApplyBoardFinancialTx = async (txData: TransactionData) => {
         if ((gameState.cash + txData.cashChange) < 0) {
-            showAlert('現金不足，無法套用這張卡片效果', 'error');
+            setPendingForcedBoardPayment(txData);
+            setShowForcedBoardPaymentModal(true);
+            return false;
+        }
+
+        return applyResolvedBoardFinancialTx(txData);
+    };
+
+    const finalizeBoardFinancialFlow = async () => {
+        if (pendingHandledBoardCard) {
+            await markBoardCardHandled(pendingHandledBoardCard.key, pendingHandledBoardCard.card);
+        }
+        if (pendingBoardStepAdvance) {
+            await advanceBoardEventQueue(pendingBoardStepAdvance);
+        }
+        setPendingHandledBoardCard(null);
+        setPendingBoardStepAdvance(null);
+        setIsBoardFinancialCompleted(false);
+        setBoardFinancialAction(null);
+
+        if (pendingMarketPurchaseCardId) {
+            await buyRealEstateFromMarket(pendingMarketPurchaseCardId);
+            setPendingMarketPurchaseCardId(null);
+            setShowRealEstateMarketModal(false);
+            showAlert('已從房市公告板購買房屋', 'success');
+        }
+
+        if (pendingBoardLifelongRoll) {
+            setPromotionType(pendingBoardLifelongRoll);
+            setPendingBoardLifelongRoll(null);
+            setShowDiceModal(true);
             return;
         }
 
-        handleTransaction(txData);
-        setBoardFinancialAction(null);
-        showAlert('卡片效果已套用到財務報表', 'success');
-        markBoardCardHandled();
+        if (shouldResumeBankFollowup) {
+            hideAlert();
+            setPaydayStep('followup');
+            setShowPaydayModal(true);
+        }
     };
 
     const handleBuyRealEstateFromMarket = async (cardId: string, isSelfUse: boolean) => {
@@ -479,24 +748,78 @@ export const GameView: React.FC<{
         if (cardAction.kind === 'choice') {
             const opt = cardAction.options.find(o => o.id === (isSelfUse ? 'self_use' : 'rental'));
             if (opt && opt.action.kind === 'financial') {
-                const txData = opt.action.txData;
-                if ((gameState.cash + txData.cashChange) < 0) {
-                    showAlert('現金不足，無法購買', 'error');
+                if ((gameState.cash + opt.action.txData.cashChange) < 0) {
+                    showAlert('現金不足，無法支付頭期款', 'error');
                     return;
                 }
-                handleTransaction(txData);
-                await buyRealEstateFromMarket(cardId);
-                showAlert('已從房市公告板購買房屋', 'success');
+                setPendingMarketPurchaseCardId(cardId);
+                setBoardFinancialAction(opt.action);
+                setIsBoardFinancialCompleted(false);
                 setShowRealEstateMarketModal(false);
             }
         }
     };
 
     const openQuickTransaction = (assetType: '保險' | '定存') => {
+        if (!canUseBankProducts) {
+            showAlert('本回合尚未經過銀行，暫時不能購買保險或定存', 'error');
+            return;
+        }
+        setShouldResumeBankFollowup(true);
         setTransactionQuickPreset({ mode: 'buy', assetType });
         setShowPaydayModal(false);
         setPaydayStep('confirm');
+        hideAlert();
         setShowTransactionModal(true);
+    };
+
+    const handleForcedBoardBorrow = async () => {
+        if (!pendingForcedBoardPayment || forcedBoardPaymentShortfall <= 0) return;
+
+        const borrowed = handleTransactionSubmit({
+            name: `${pendingForcedBoardPayment.name} 周轉借款`,
+            amount: forcedBoardPaymentShortfall,
+            source: 'loan',
+            usage: 'cash',
+            cashChange: forcedBoardPaymentShortfall,
+            impacts: [
+                `現金 +${forcedBoardPaymentShortfall.toLocaleString()} H`,
+                `信用貸款 +${forcedBoardPaymentShortfall.toLocaleString()} H`
+            ]
+        });
+        if (!borrowed) return;
+
+        setShowForcedBoardPaymentModal(false);
+        setPendingForcedBoardPayment(null);
+        await applyResolvedBoardFinancialTx(pendingForcedBoardPayment);
+    };
+
+    const handleForcedBoardSellAssets = () => {
+        setShowForcedBoardPaymentModal(false);
+        setTransactionQuickPreset({ initialTab: 'broker', mode: 'sell' });
+        setShowTransactionModal(true);
+    };
+
+    const handleForcedBoardForceDebt = async () => {
+        if (!pendingForcedBoardPayment || forcedBoardPaymentShortfall <= 0) return;
+
+        const borrowed = handleTransactionSubmit({
+            name: `${pendingForcedBoardPayment.name} 強制計入負債`,
+            amount: forcedBoardPaymentShortfall,
+            source: 'loan',
+            usage: 'cash',
+            cashChange: forcedBoardPaymentShortfall,
+            impacts: [
+                `現金 +${forcedBoardPaymentShortfall.toLocaleString()} H`,
+                `信用貸款 +${forcedBoardPaymentShortfall.toLocaleString()} H`
+            ]
+        });
+        if (!borrowed) return;
+
+        setShowForcedBoardPaymentModal(false);
+        setPendingForcedBoardPayment(null);
+        await applyResolvedBoardFinancialTx(pendingForcedBoardPayment);
+        showAlert('現金不足，已強制計入信用貸款並完成本回合事件', 'info');
     };
 
     const handleBoardAssetSaleConfirm = (items: BoardAssetSaleCandidate[]) => {
@@ -511,6 +834,34 @@ export const GameView: React.FC<{
         }
 
         setBoardFinancialAction(action);
+        setIsBoardFinancialCompleted(false);
+    };
+
+    const handleHospitalRollConfirm = () => {
+        if (!hospitalRollValue) return;
+
+        const medicalFee = hospitalRollValue * 1000;
+        setShowHospitalRollModal(false);
+        setPendingBoardStepAdvance('hospital');
+        setBoardFinancialAction({
+            kind: 'financial',
+            label: '進入財務檢核',
+            txData: {
+                name: '棋盤事件：醫院醫藥費',
+                amount: medicalFee,
+                cashChange: -medicalFee,
+                source: 'cash',
+                usage: 'expense',
+                impacts: [
+                    `醫療支出 ${medicalFee.toLocaleString()} H`,
+                    `醫藥費骰點 ${hospitalRollValue} 點`
+                ]
+            },
+            expectedEntries: [
+                { category: 'Assets', name: '現金', direction: 'Decrease' }
+            ]
+        });
+        setIsBoardFinancialCompleted(false);
     };
 
     return (
@@ -572,6 +923,32 @@ export const GameView: React.FC<{
                 onAddMoney={addMoney}
                 isDevMode={isDevMode}
             />
+
+            {room?.isBoardGame && (
+                <button
+                    type="button"
+                    onClick={() => setShowBoardCardLog(true)}
+                    className="fixed right-4 top-[92px] z-50 flex items-center gap-2 rounded-full border border-amber-300/30 bg-slate-900/95 px-4 py-2.5 text-xs font-black text-amber-100 shadow-xl backdrop-blur-md"
+                >
+                    <ScrollText size={16} />
+                    抽卡日誌
+                </button>
+            )}
+
+            {showBoardCardLog && (
+                <>
+                    <button
+                        type="button"
+                        aria-label="關閉抽卡日誌"
+                        onClick={() => setShowBoardCardLog(false)}
+                        className="fixed inset-0 z-[10029] bg-black/65 backdrop-blur-sm"
+                    />
+                    <BoardCardLogPanel
+                        entries={(room?.boardState?.cardLog || []).slice(0, 12)}
+                        onClose={() => setShowBoardCardLog(false)}
+                    />
+                </>
+            )}
 
             {showLeaveConfirm && (
                 <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
@@ -653,23 +1030,30 @@ export const GameView: React.FC<{
             {displayBoardCard && (
                 <BoardCardDrawer
                     card={displayBoardCard}
-                    isOpen={isBoardCardDrawerOpen}
+                    isOpen={visibleFlowModal === 'board-card'}
                     isRevealed={isBoardCardRevealed}
                     onReveal={handleBoardCardReveal}
-                    onClose={() => setIsBoardCardDrawerOpen(false)}
+                    onClose={handleCloseBoardCardDrawer}
+                    closeDisabled={visibleFlowModal !== 'board-card' || boardChoiceHasDismissOption}
                     actionArea={isBoardCardRevealed && activeBoardCardAction ? (
                         <div className="space-y-3 px-2 pt-1">
                             {activeBoardCardAction.kind === 'financial' && (
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className={`grid gap-3 ${isForcedActiveBoardCard ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                                    {!isForcedActiveBoardCard && (
+                                        <button
+                                            onClick={markBoardCardHandled}
+                                            disabled={isActiveBoardCardHandled}
+                                            className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            關閉
+                                        </button>
+                                    )}
                                     <button
-                                        onClick={markBoardCardHandled}
-                                        disabled={isActiveBoardCardHandled}
-                                        className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        關閉
-                                    </button>
-                                    <button
-                                        onClick={() => setBoardFinancialAction(activeBoardCardAction)}
+                                        onClick={() => {
+                                            setIsBoardCardDrawerOpen(false);
+                                            setBoardFinancialAction(activeBoardCardAction);
+                                            setIsBoardFinancialCompleted(false);
+                                        }}
                                         disabled={isActiveBoardCardHandled}
                                         className="rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
@@ -679,14 +1063,16 @@ export const GameView: React.FC<{
                             )}
 
                             {activeBoardCardAction.kind === 'happiness' && (
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        onClick={markBoardCardHandled}
-                                        disabled={isActiveBoardCardHandled}
-                                        className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        關閉
-                                    </button>
+                                <div className={`grid gap-3 ${isForcedActiveBoardCard ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                                    {!isForcedActiveBoardCard && (
+                                        <button
+                                            onClick={markBoardCardHandled}
+                                            disabled={isActiveBoardCardHandled}
+                                            className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            關閉
+                                        </button>
+                                    )}
                                     <button
                                         onClick={handleApplyDirectHappiness}
                                         disabled={isActiveBoardCardHandled}
@@ -698,9 +1084,10 @@ export const GameView: React.FC<{
                             )}
 
                             {activeBoardCardAction.kind === 'market' && (
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className={`grid gap-3 ${isForcedActiveBoardCard ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                     <button
                                         onClick={() => {
+                                            applyLocalBoardMarketPrices(activeBoardCardAction.prices, activeBoardCardAction.code);
                                             setTransactionQuickPreset({ initialTab: 'broker' });
                                             setShowTransactionModal(true);
                                             markBoardCardHandled();
@@ -710,13 +1097,15 @@ export const GameView: React.FC<{
                                     >
                                         前往交易
                                     </button>
-                                    <button
-                                        onClick={markBoardCardHandled}
-                                        disabled={isActiveBoardCardHandled}
-                                        className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        關閉
-                                    </button>
+                                    {!isForcedActiveBoardCard && (
+                                        <button
+                                            onClick={markBoardCardHandled}
+                                            disabled={isActiveBoardCardHandled}
+                                            className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            關閉
+                                        </button>
+                                    )}
                                 </div>
                             )}
 
@@ -736,27 +1125,32 @@ export const GameView: React.FC<{
                                                             markBoardCardHandled();
                                                             return;
                                                         }
+                                                        setIsBoardCardDrawerOpen(false);
                                                         setBoardFinancialAction(option.action);
+                                                        setIsBoardFinancialCompleted(false);
                                                     }}
                                                     disabled={isActiveBoardCardHandled || isInsufficientCash}
+                                                    title={isInsufficientCash ? '現金不足，無法支付頭期款' : undefined}
                                                     className={`rounded-2xl py-3.5 text-sm font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                                                         option.id === 'reject'
                                                             ? 'bg-slate-800 text-slate-200 hover:bg-slate-700'
                                                             : 'bg-emerald-600 text-white hover:bg-emerald-500'
                                                     }`}
                                                 >
-                                                    {isInsufficientCash ? '現金不足' : option.label}
+                                                    {isInsufficientCash ? `${option.label}（現金不足）` : option.label}
                                                 </button>
                                             );
                                         })}
                                     </div>
-                                    <button
-                                        onClick={markBoardCardHandled}
-                                        disabled={isActiveBoardCardHandled}
-                                        className="w-full rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        關閉
-                                    </button>
+                                    {!boardChoiceHasDismissOption && (
+                                        <button
+                                            onClick={markBoardCardHandled}
+                                            disabled={isActiveBoardCardHandled}
+                                            className="w-full rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            關閉
+                                        </button>
+                                    )}
                                 </div>
                             )}
 
@@ -864,13 +1258,26 @@ export const GameView: React.FC<{
                 />
             )}
 
-            {boardFinancialAction && (
+            {boardFinancialAction && visibleFlowModal === 'financial' && (
                 <BoardFinancialCheckModal
                     title={boardFinancialAction.txData.name}
                     txData={boardFinancialAction.txData}
                     expectedEntries={boardFinancialAction.expectedEntries}
                     onApply={handleApplyBoardFinancialTx}
-                    onClose={() => setBoardFinancialAction(null)}
+                    isCompleted={isBoardFinancialCompleted}
+                    onClose={() => {
+                        if (isBoardFinancialCompleted) {
+                            void finalizeBoardFinancialFlow();
+                            return;
+                        }
+                        setPendingHandledBoardCard(null);
+                        setPendingBoardLifelongRoll(null);
+                        setBoardFinancialAction(null);
+                        if (activeBoardCardKey && !isActiveBoardCardHandled) {
+                            setIsBoardCardDrawerOpen(true);
+                            setIsBoardCardRevealed(true);
+                        }
+                    }}
                 />
             )}
 
@@ -975,7 +1382,7 @@ export const GameView: React.FC<{
                 </div>
             )}
 
-            {showTransactionModal && (
+            {showTransactionModal && visibleFlowModal === 'transaction' && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <TransactionForm
                         profession={gameState.profession}
@@ -996,13 +1403,70 @@ export const GameView: React.FC<{
                         onCancel={() => {
                             setShowTransactionModal(false);
                             setTransactionQuickPreset(null);
+                            if (pendingForcedBoardPayment) {
+                                if (forcedBoardPaymentShortfall > 0) {
+                                    setShowForcedBoardPaymentModal(true);
+                                } else {
+                                    showAlert('周轉完成，請回到財務檢核套用卡片', 'success');
+                                }
+                                return;
+                            }
+                            if (shouldResumeBankFollowup) {
+                                setPaydayStep('followup');
+                                setShowPaydayModal(true);
+                            }
                         }}
                         disabled={room?.status === 'finished'}
                         initialTab={transactionQuickPreset?.initialTab}
                         initialMode={transactionQuickPreset?.mode}
                         initialAssetType={transactionQuickPreset?.assetType}
+                        canUseBankProducts={canUseBankProducts}
                         onShowAlert={showAlert}
-                    />
+                />
+            </div>
+            )}
+
+            {showForcedBoardPaymentModal && pendingForcedBoardPayment && (
+                <div className="fixed inset-0 z-[10030] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-[32px] border border-slate-700 bg-slate-900 p-6 shadow-2xl space-y-5">
+                        <div className="space-y-2">
+                            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-400">現金不足</div>
+                            <h3 className="text-2xl font-black text-white">需要先周轉資金</h3>
+                            <p className="text-sm leading-relaxed text-slate-300">
+                                這張卡必須強制支付，目前還差 <span className="font-black text-rose-300">{formatMoney(forcedBoardPaymentShortfall)}</span>。
+                            </p>
+                            <p className="text-xs leading-relaxed text-slate-500">
+                                你可以先賣股票或資產、直接借信用貸款，或強制把差額記入負債並結束這次事件。
+                            </p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <button
+                                onClick={handleForcedBoardSellAssets}
+                                className="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white transition-colors hover:bg-emerald-500"
+                            >
+                                先賣股票 / 資產周轉
+                            </button>
+                            <button
+                                onClick={handleForcedBoardBorrow}
+                                className="w-full rounded-2xl bg-cyan-500 py-4 text-sm font-black text-slate-950 transition-colors hover:bg-cyan-400"
+                            >
+                                借信用貸款補差額
+                            </button>
+                            <button
+                                onClick={handleForcedBoardForceDebt}
+                                className="w-full rounded-2xl bg-rose-600 py-4 text-sm font-black text-white transition-colors hover:bg-rose-500"
+                            >
+                                強制結束並計入負債
+                            </button>
+                            <button
+                                onClick={() => setShowForcedBoardPaymentModal(false)}
+                                className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700"
+                            >
+                                稍後再處理
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -1032,7 +1496,7 @@ export const GameView: React.FC<{
                 />
             )}
 
-            {showPaydayModal && (
+            {showPaydayModal && visibleFlowModal === 'payday' && (
                 <PaydayModal
                     isOpen={showPaydayModal}
                     step={paydayStep}
@@ -1041,25 +1505,71 @@ export const GameView: React.FC<{
                     onOpenInsurance={() => openQuickTransaction('保險')}
                     onOpenDeposit={() => openQuickTransaction('定存')}
                     onSkipFollowup={() => {
+                        setShouldResumeBankFollowup(false);
                         setShowPaydayModal(false);
                         setPaydayStep('confirm');
+                        void advanceBoardEventQueue('bank');
                     }}
                     onClose={() => {
                         if (paydayStep === 'confirm') {
                             handlePaydayConfirm();
+                            if (canUseBankProducts) {
+                                setPaydayStep('followup');
+                                return;
+                            }
                         }
+                        setShouldResumeBankFollowup(false);
                         setShowPaydayModal(false);
                         setPaydayStep('confirm');
+                        void advanceBoardEventQueue('bank');
                     }}
                     disabled={room?.status === 'finished'}
                 />
+            )}
+
+            {showHospitalRollModal && visibleFlowModal === 'hospital' && (
+                <div className="fixed inset-0 z-[10020] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-[32px] border border-slate-700 bg-slate-900 p-6 shadow-2xl space-y-5">
+                        <div className="space-y-2 text-center">
+                            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-rose-300">醫院事件</div>
+                            <h3 className="text-2xl font-black text-white">確認醫藥費</h3>
+                            <p className="text-sm leading-relaxed text-slate-300">
+                                棋子到達醫院後，要再擲一次骰子，醫藥費 = 點數 x 1,000。
+                            </p>
+                        </div>
+
+                        <div className="rounded-3xl border border-slate-800 bg-slate-950/70 px-5 py-6 text-center">
+                            <div className="text-[11px] font-black tracking-[0.28em] text-slate-500">第二次骰點</div>
+                            <div className="mt-3 text-5xl font-black text-white">{hospitalRollValue ?? '？'}</div>
+                            <div className="mt-3 text-sm font-bold text-slate-400">
+                                {hospitalRollValue ? `醫藥費 ${formatMoney(hospitalRollValue * 1000)}` : '先擲骰確認點數'}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => setHospitalRollValue(Math.floor(Math.random() * 6) + 1)}
+                                className="rounded-2xl bg-cyan-500 py-4 text-sm font-black text-slate-950 transition-colors hover:bg-cyan-400"
+                            >
+                                擲第二次骰子
+                            </button>
+                            <button
+                                onClick={handleHospitalRollConfirm}
+                                disabled={!hospitalRollValue}
+                                className="rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                進入財務流程
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {showMedicalClaimModal && (
                 <MedicalClaimModal
                     isOpen={showMedicalClaimModal}
                     insuranceCount={gameState.medicalInsuranceCount}
-                    hasInsuredAircraft={gameState.assets.some(a => a.type === '飛行器' && a.isInsured)}
+                    hasInsuredAircraft={gameState.assets.some(a => (a.type === '汽車' || a.type === '飛行器') && a.isInsured)}
                     formatMoney={formatMoney}
                     onConfirm={onModalMedicalConfirm}
                     onClose={() => setShowMedicalClaimModal(false)}
@@ -1067,7 +1577,7 @@ export const GameView: React.FC<{
                 />
             )}
 
-            {showPromotionModal && (
+            {showPromotionModal && visibleFlowModal === 'promotion' && (
                 <PromotionModal
                     isOpen={showPromotionModal}
                     onConfirm={onPromotionRegister}
@@ -1081,7 +1591,7 @@ export const GameView: React.FC<{
                 />
             )}
 
-            {showDiceModal && (
+            {showDiceModal && visibleFlowModal === 'dice' && (
                 <DiceRollContainer
                     isOpen={showDiceModal}
                     onClose={handleDiceModalClose}

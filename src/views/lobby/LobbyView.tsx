@@ -272,8 +272,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         case 'soul_billionaire': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.happiness.filter(i => i.checked).length >= 10); break;
 
         // --- 資產類 ---
-        case 'first_aircraft': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.assets.some(a => a.type === '飛行器')); break;
-        case 'repair_aircraft': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.history.some(t => t.name.includes('維修飛行器'))); break;
+        case 'first_aircraft': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.assets.some(a => a.type === '汽車' || a.type === '飛行器')); break;
+        case 'repair_aircraft': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.history.some(t => t.name.includes('維修汽車') || t.name.includes('維修飛行器'))); break;
         case 'first_house': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.assets.some(a => a.type === '不動產')); break;
         case 'luxury_house_2': isUnlocked = gameHistory.some(h => h.gameStateSnapshot?.assets.filter(a => a.type === '不動產' && a.name?.includes('五房三廳')).length >= 2); break;
         // case 'stock_god': ...
@@ -284,7 +284,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             const assets = h.gameStateSnapshot?.assets || [];
             const types = new Set(assets.map(a => a.type as string));
             const hasInsurance = types.has('保險') || assets.some(a => a.name?.includes('保險'));
-            return types.has('股票') && types.has('不動產') && types.has('企業') && types.has('定存') && types.has('飛行器') && hasInsurance;
+            return types.has('股票') && types.has('不動產') && types.has('企業') && types.has('定存') && (types.has('汽車') || types.has('飛行器')) && hasInsurance;
           });
           break;
         case 'deposit_5m': isUnlocked = gameHistory.some(h => (h.gameStateSnapshot?.assets.filter(a => a.type === '定存').reduce((s, a) => s + a.cost, 0) || 0) >= 5000000); break;
@@ -312,7 +312,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               if (t.name.includes('房產') || t.name.includes('不動產')) return '不動產';
               if (t.name.includes('事業') || t.name.includes('企業')) return '企業';
               if (t.name.includes('定存')) return '定存';
-              if (t.name.includes('飛行器')) return '飛行器';
+              if (t.name.includes('汽車') || t.name.includes('飛行器')) return '汽車';
               if (t.name.includes('保險')) return '保險';
               return '';
             }).filter(Boolean));
@@ -321,7 +321,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             const hasInsurance = h.gameStateSnapshot?.assets.some(a => a.name.includes('保險')) || tradedTypes.has('保險');
 
             const combined = new Set([...heldTypes, ...tradedTypes]);
-            return combined.has('股票') && combined.has('不動產') && combined.has('企業') && combined.has('定存') && combined.has('飛行器') && hasInsurance;
+            return combined.has('股票') && combined.has('不動產') && combined.has('企業') && combined.has('定存') && combined.has('汽車') && hasInsurance;
           });
           break;
         }

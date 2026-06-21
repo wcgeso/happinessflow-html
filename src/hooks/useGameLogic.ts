@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useGame } from '../context/GameContext';
-import { GameRecord, Transaction, Asset, TransactionData, HappinessItem } from '../types';
+import { GameRecord, Transaction, Asset, TransactionData, HappinessItem, GameState } from '../types';
 import { formatMoney } from '../utils/gameUtils';
+import { extractAssetSymbol, getAssetDisplayLabel, getStockAssetLabel } from '../utils/assetLabels';
 
 // Simple ID generator
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -13,12 +14,130 @@ export const useGameLogic = () => {
 
     const [happinessSubMode, setHappinessSubMode] = useState<'history' | 'pay' | 'inc_exp'>('history');
 
+    const deriveTransactionLabels = (data: TransactionData) => {
+        if (data.insuranceType) {
+            return { sourceLabel: '生活支出', usageLabel: '保險投保' };
+        }
+        if (data.usage === 'asset' && data.stockList?.length) {
+            return {
+                sourceLabel: data.cashChange >= 0 ? '投資回收' : '投資支出',
+                usageLabel: data.cashChange >= 0 ? '賣出股票' : '買入股票'
+            };
+        }
+        if (data.usage === 'asset' && data.assetDetails?.type === '定存') {
+            return { sourceLabel: '投資支出', usageLabel: '辦理定存' };
+        }
+        if (data.usage === 'cash' && data.relatedAssetId) {
+            return { sourceLabel: '投資回收', usageLabel: '解約或出售資產' };
+        }
+        if (data.usage === 'cash' && data.source === 'loan') {
+            return { sourceLabel: '銀行借貸', usageLabel: '借入現金' };
+        }
+        if (data.usage === 'liability') {
+            return { sourceLabel: '現金支付', usageLabel: '償還貸款' };
+        }
+        if (data.usage === 'expense_update') {
+            return { sourceLabel: '生活事件', usageLabel: '調整月支出' };
+        }
+        if (data.usage === 'happiness_event') {
+            return { sourceLabel: '幸福事件', usageLabel: '幸福卡效果' };
+        }
+        if (data.usage === 'lifelong_learning') {
+            return { sourceLabel: '進修事件', usageLabel: '終身學習' };
+        }
+        if (data.usage === 'stock_update') {
+            return { sourceLabel: '投資收益', usageLabel: '股票配發' };
+        }
+
+        return {
+            sourceLabel: data.source === 'income' ? '收入' : data.source === 'loan' ? '借貸' : data.usage === 'asset' ? '資產交易' : '支出',
+            usageLabel: data.usage === 'asset' ? '買入資產' : data.usage === 'liability' ? '償還負債' : '一般支出'
+        };
+    };
+
     const addMoney = (amount: number) => {
         setGameState(prev => ({
             ...prev,
             cash: prev.cash + amount
         }));
         showAlert(`🛠️ 開發者操作：${amount > 0 ? '增加' : '減少'}現金 ${formatMoney(Math.abs(amount))}`, 'success');
+    };
+
+    const applyLifelongLearningEffect = (
+        baseState: GameState,
+        learningType: 'enhance_profession' | 'stock_ability' | 'real_estate_ability',
+        requiredRoll: number,
+        forcedRoll?: number
+    ) => {
+        const nextState: GameState = {
+            ...baseState,
+            abilities: { ...baseState.abilities },
+            assets: [...baseState.assets],
+            profession: baseState.profession ? { ...baseState.profession } : baseState.profession
+        };
+        const diceRoll = forcedRoll ?? (Math.floor(Math.random() * 6) + 1);
+        const success = diceRoll >= requiredRoll;
+
+        const snapshot = {
+            previousAbilities: { ...baseState.abilities },
+            previousAssets: baseState.assets.map(asset => ({ ...asset })),
+            previousRankLevel: baseState.currentRankLevel,
+            previousRankTitle: baseState.currentRankTitle,
+            previousProfessionSalary: baseState.profession?.salary || 0
+        };
+
+        if (success) {
+            if (learningType === 'enhance_profession') {
+                nextState.abilities = {
+                    ...nextState.abilities,
+                    professionAbilityCount: (nextState.abilities?.professionAbilityCount || 0) + 1
+                };
+                const currentLevel = baseState.currentRankLevel;
+                const nextPromo = baseState.profession?.promotions[currentLevel - 1];
+                if (nextPromo) {
+                    nextState.currentRankLevel = currentLevel + 1;
+                    nextState.currentRankTitle = nextPromo.rankTitle;
+                    if (nextState.profession) {
+                        nextState.profession = {
+                            ...nextState.profession,
+                            salary: nextState.profession.salary + nextPromo.bonus
+                        };
+                    }
+                }
+            } else if (learningType === 'stock_ability') {
+                nextState.abilities = {
+                    ...nextState.abilities,
+                    stockAbilityCount: (nextState.abilities?.stockAbilityCount || 0) + 1
+                };
+                nextState.assets = nextState.assets.map(asset => {
+                    if (asset.type === '股票' && asset.quantity) {
+                        const doubledQty = asset.quantity * 2;
+                        return {
+                            ...asset,
+                            quantity: doubledQty,
+                            cost: doubledQty * (asset.lastPurchasePrice || 0)
+                        };
+                    }
+                    return asset;
+                });
+            } else if (learningType === 'real_estate_ability') {
+                nextState.abilities = {
+                    ...nextState.abilities,
+                    realEstateAbilityCount: (nextState.abilities?.realEstateAbilityCount || 0) + 1
+                };
+            }
+        }
+
+        return {
+            nextState,
+            result: {
+                learningType,
+                requiredRoll,
+                diceRoll,
+                success,
+                ...snapshot
+            }
+        };
     };
 
     const handleDeleteTransactionRecord = (id: string) => {
@@ -46,7 +165,7 @@ export const useGameLogic = () => {
                     if (data.stockList && data.stockList.length > 0) {
                         const updatedAssets = [...newState.assets];
                         data.stockList.forEach((stock: any) => {
-                            const assetIdx = updatedAssets.findIndex(a => a.type === '股票' && a.name === `股票 ${stock.symbol}`);
+                            const assetIdx = updatedAssets.findIndex(a => a.type === '股票' && extractAssetSymbol(a.name) === stock.symbol);
                             if (assetIdx !== -1) {
                                 const asset = updatedAssets[assetIdx];
                                 const newQty = (asset.quantity || 0) - stock.qty;
@@ -57,10 +176,14 @@ export const useGameLogic = () => {
                         newState.assets = updatedAssets;
                     } else if (data.assetDetails) {
                         const details = data.assetDetails;
-                        const assetName = `${details.type} ${details.symbol || ''}`.trim();
-                        newState.assets = newState.assets.filter(a => a.name !== assetName);
+                        newState.assets = newState.assets.filter(a => {
+                            if (details.symbol) {
+                                return !(a.type === details.type && extractAssetSymbol(a.name) === details.symbol);
+                            }
+                            return a.name !== `${details.type} ${details.symbol || ''}`.trim();
+                        });
                         if (details.loanAmount && details.loanAmount > 0) {
-                            const loanName = `${details.type === '不動產' ? '不動產貸款' : details.type === '企業' ? '企業貸款' : '飛行器貸款'} (${details.symbol || ''})`.trim();
+                            const loanName = `${details.type === '不動產' ? '不動產貸款' : details.type === '企業' ? '企業貸款' : '汽車貸款'} (${details.symbol || ''})`.trim();
                             newState.liabilities = newState.liabilities.filter(l => l.name !== loanName);
                         }
                         if (details.happyPoints) {
@@ -132,7 +255,7 @@ export const useGameLogic = () => {
                     newState.expenses = { ...newState.expenses, [category]: isIncrease ? Math.max(0, currentVal - amount) : currentVal + amount };
                 }
                 else if (data.usage === 'happiness_event' && data.happinessEventPayload) {
-                    const { id, monthlyExpenseChange, expenseCategory } = data.happinessEventPayload;
+                    const { id, monthlyExpenseChange, expenseCategory, progressId, happinessItemId, sourceCardId } = data.happinessEventPayload;
 
                     // 1. Reverse monthly expense
                     if (monthlyExpenseChange) {
@@ -142,7 +265,9 @@ export const useGameLogic = () => {
                     }
 
                     // 2. Reverse completed list
-                    newState.completedHappinessEvents = (newState.completedHappinessEvents || []).filter(eid => eid !== id);
+                    newState.completedHappinessEvents = (newState.completedHappinessEvents || []).filter(eid =>
+                        eid !== id && eid !== progressId && eid !== sourceCardId
+                    );
 
                     // 3. Reverse children count if applicable
                     if (id === 'child1' || id === 'child2') {
@@ -157,7 +282,7 @@ export const useGameLogic = () => {
                         'child1': 'h_child1',
                         'child2': 'h_child2'
                     };
-                    const targetId = mapping[id];
+                    const targetId = happinessItemId || mapping[progressId || id];
                     if (targetId) {
                         newState.happiness = newState.happiness.map(h => h.id === targetId ? { ...h, checked: false } : h);
                     } else {
@@ -165,17 +290,29 @@ export const useGameLogic = () => {
                         newState.happiness = newState.happiness.filter(h => !(h.label === data.happinessEventPayload.name && h.isCustom));
                     }
                 }
+                else if (data.usage === 'lifelong_learning' && data.lifelongLearningPayload && data.lifelongLearningResult) {
+                    newState.abilities = { ...data.lifelongLearningResult.previousAbilities };
+                    newState.assets = data.lifelongLearningResult.previousAssets.map((asset: Asset) => ({ ...asset }));
+                    newState.currentRankLevel = data.lifelongLearningResult.previousRankLevel;
+                    newState.currentRankTitle = data.lifelongLearningResult.previousRankTitle;
+                    if (newState.profession) {
+                        newState.profession = {
+                            ...newState.profession,
+                            salary: data.lifelongLearningResult.previousProfessionSalary
+                        };
+                    }
+                }
                 else if (data.usage === 'cash' && data.source === 'income') {
                     if (data.stockList && data.stockList.length > 0) {
                         const updatedAssets = [...newState.assets];
                         data.stockList.forEach((item: any) => {
-                            const assetIdx = updatedAssets.findIndex(a => a.type === '股票' && a.name.includes(item.symbol));
+                            const assetIdx = updatedAssets.findIndex(a => a.type === '股票' && extractAssetSymbol(a.name) === item.symbol);
                             if (assetIdx !== -1) {
                                 const asset = updatedAssets[assetIdx];
                                 const newQty = (asset.quantity || 0) + item.qty;
                                 updatedAssets[assetIdx] = { ...asset, quantity: newQty, cost: newQty * (asset.lastPurchasePrice || item.price) };
                             } else {
-                                updatedAssets.push({ id: generateId(), name: `股票 ${item.symbol}`, cost: item.price * item.qty, downPayment: item.price * item.qty, cashflow: 0, type: '股票', quantity: item.qty, lastPurchasePrice: item.price });
+                                updatedAssets.push({ id: generateId(), name: getStockAssetLabel(item.symbol), cost: item.price * item.qty, downPayment: item.price * item.qty, cashflow: 0, type: '股票', quantity: item.qty, lastPurchasePrice: item.price });
                             }
                         });
                         newState.assets = updatedAssets;
@@ -216,7 +353,7 @@ export const useGameLogic = () => {
                         const ids = data.insurancePayload.targetAssetIds;
                         newState.assets = newState.assets.map(a => ids.includes(a.id) ? { ...a, isInsured: false } : a);
                     } else if (data.insuranceType === 'aircraft') {
-                        newState.assets = newState.assets.map(a => a.type === '飛行器' ? { ...a, isInsured: false } : a);
+                        newState.assets = newState.assets.map(a => (a.type === '汽車' || a.type === '飛行器') ? { ...a, isInsured: false } : a);
                     }
                     
                     if (data.expensePayload) {
@@ -315,7 +452,130 @@ export const useGameLogic = () => {
         showAlert('刪除成功，財務報表已更新', 'success');
     };
 
+    const normalizeTransactionData = (data: TransactionData): TransactionData => {
+        if (data.usage === 'buy_asset' && data.assetChange?.asset) {
+            const asset = data.assetChange.asset;
+
+            if (asset.type === '股票' && asset.symbol && asset.shares) {
+                return {
+                    ...data,
+                    usage: 'asset',
+                    stockList: [{
+                        symbol: asset.symbol,
+                        price: asset.buyPrice || 0,
+                        qty: asset.shares
+                    }],
+                    assetChange: undefined
+                };
+            }
+
+            if (asset.type === '定存') {
+                return {
+                    ...data,
+                    name: '買入定期存款',
+                    usage: 'asset',
+                    assetDetails: {
+                        type: '定存',
+                        cashflow: Math.floor((data.amount || 0) * 0.005),
+                        downPayment: data.amount || 0
+                    },
+                    assetChange: undefined
+                };
+            }
+        }
+
+        if (data.usage === 'sell_asset' && data.sellAssetPayload?.type === 'stock') {
+            return {
+                ...data,
+                source: 'income',
+                usage: 'cash',
+                stockList: [{
+                    symbol: data.sellAssetPayload.symbol,
+                    price: data.sellAssetPayload.currentPrice,
+                    qty: data.sellAssetPayload.sharesToSell
+                }],
+                sellAssetPayload: undefined
+            };
+        }
+
+        if (data.usage === 'loan') {
+            const liability = data.liabilityChange?.liability;
+            return {
+                ...data,
+                source: 'loan',
+                usage: 'cash',
+                liabilityChange: undefined,
+                liabilityId: liability?.id
+            };
+        }
+
+        if (data.usage === 'loan_repayment') {
+            return {
+                ...data,
+                usage: 'liability',
+                liabilityId: data.liabilityChange?.liabilityId || data.liabilityId,
+                liabilityChange: undefined
+            };
+        }
+
+        if (data.usage === 'insurance') {
+            return {
+                ...data,
+                usage: 'expense',
+                cashChange: data.cashChange === 0 ? -(data.expensePayload?.amount || 0) : data.cashChange,
+                amount: data.amount || data.expensePayload?.amount || 0
+            };
+        }
+
+        return data;
+    };
+
+    const applyAutoCreditRepayment = (state: GameState) => {
+        if (state.cash <= 0) {
+            return { nextState: state, repaidAmount: 0 };
+        }
+
+        let remainingCash = state.cash;
+        let repaidAmount = 0;
+
+        const nextLiabilities = state.liabilities
+            .map(liability => {
+                if (liability.type !== '信用貸款' || remainingCash <= 0) return liability;
+
+                const paid = Math.min(liability.totalOwed, remainingCash);
+                remainingCash -= paid;
+                repaidAmount += paid;
+
+                const nextTotal = liability.totalOwed - paid;
+                return {
+                    ...liability,
+                    totalOwed: nextTotal,
+                    monthlyPayment: Math.floor(nextTotal * 0.1)
+                };
+            })
+            .filter(liability => liability.totalOwed > 0);
+
+        let nextLegacyLoans = state.loans;
+        if (remainingCash > 0 && nextLegacyLoans > 0) {
+            const paid = Math.min(nextLegacyLoans, remainingCash);
+            remainingCash -= paid;
+            repaidAmount += paid;
+            nextLegacyLoans -= paid;
+        }
+
+        return {
+            nextState: {
+                ...state,
+                cash: remainingCash,
+                liabilities: nextLiabilities,
+                loans: nextLegacyLoans
+            },
+            repaidAmount
+        };
+    };
+
     const handleTransactionSubmit = (data: TransactionData) => {
+        data = normalizeTransactionData(data);
         const amount = Number(data.amount);
         if (isNaN(amount) || amount < 0) {
             showAlert('請輸入有效金額', 'error');
@@ -331,7 +591,7 @@ export const useGameLogic = () => {
                 flowType = '投資';
             } else if (data.usage === 'liability' || (data.usage === 'cash' && data.source === 'loan')) {
                 flowType = '融資';
-            } else if (data.usage === 'expense_update' || data.usage === 'happiness_event' || data.usage === 'stock_update' || data.insuranceType) {
+            } else if (data.usage === 'expense_update' || data.usage === 'happiness_event' || data.usage === 'lifelong_learning' || data.usage === 'stock_update' || data.insuranceType) {
                 flowType = '生活';
             }
         }
@@ -351,25 +611,29 @@ export const useGameLogic = () => {
             finalSuccessMessage = data.stockList ? '成功賣出股票' : '成功賣出資產';
         } else if (data.usage === 'stock_update') {
             finalSuccessMessage = '配股已核發';
+        } else if (data.usage === 'lifelong_learning') {
+            finalSuccessMessage = '終身學習效果已結算';
         } else if (data.insuranceType) {
             finalSuccessMessage = '保險已生效';
         }
 
+        let autoRepayAmount = 0;
+
         setGameState(prev => {
-            const newState = { ...prev };
+            let newState = { ...prev };
             newState.cash += data.cashChange;
 
             if (data.usage === 'asset') {
                 if (data.stockList && data.stockList.length > 0) {
                     const updatedAssets = [...newState.assets];
                     data.stockList.forEach(stock => {
-                        const existingIdx = updatedAssets.findIndex(a => a.type === '股票' && a.name === `股票 ${stock.symbol}`);
+                        const existingIdx = updatedAssets.findIndex(a => a.type === '股票' && extractAssetSymbol(a.name) === stock.symbol);
                         if (existingIdx !== -1) {
                             const existing = updatedAssets[existingIdx];
                             const newQty = (existing.quantity || 0) + stock.qty;
                             updatedAssets[existingIdx] = { ...existing, quantity: newQty, lastPurchasePrice: stock.price, cost: newQty * stock.price };
                         } else {
-                            updatedAssets.push({ id: generateId(), name: `股票 ${stock.symbol}`, cost: stock.price * stock.qty, downPayment: stock.price * stock.qty, cashflow: 0, type: '股票' as const, quantity: stock.qty, lastPurchasePrice: stock.price });
+                            updatedAssets.push({ id: generateId(), name: getStockAssetLabel(stock.symbol), cost: stock.price * stock.qty, downPayment: stock.price * stock.qty, cashflow: 0, type: '股票' as const, quantity: stock.qty, lastPurchasePrice: stock.price });
                         }
                     });
                     newState.assets = updatedAssets;
@@ -380,9 +644,21 @@ export const useGameLogic = () => {
                     // 企業類型的資產，其顯示價值（cost）應為投資總額（downPayment），不包含企業貸款
                     const assetCost = details.type === '企業' ? (details.downPayment || 0) : data.amount;
 
+                    const displayName = details.symbol
+                        ? (details.type === '股票'
+                            ? getStockAssetLabel(details.symbol)
+                            : details.type === '不動產'
+                              ? getAssetDisplayLabel({ id: '', name: details.symbol, cost: 0, downPayment: 0, cashflow: 0, type: '不動產', houseType: details.houseType })
+                              : details.type === '企業'
+                                ? getAssetDisplayLabel({ id: '', name: details.symbol, cost: 0, downPayment: 0, cashflow: 0, type: '企業' })
+                                : `${details.type} ${details.symbol}`.trim())
+                        : details.type === '不動產'
+                          ? getAssetDisplayLabel({ id: '', name: '', cost: 0, downPayment: 0, cashflow: 0, type: '不動產', houseType: details.houseType })
+                          : `${details.type} ${details.symbol || ''}`.trim();
+
                     const newAsset: Asset = {
                         id: generateId(),
-                        name: `${details.type} ${details.symbol || ''}`.trim(),
+                        name: displayName,
                         cost: assetCost,
                         downPayment: details.downPayment || 0,
                         cashflow: details.cashflow || 0,
@@ -393,7 +669,7 @@ export const useGameLogic = () => {
                     };
                     newState.assets = [...newState.assets, newAsset];
                     if (loanAmt > 0) {
-                        const loanTypeMap: Record<string, '不動產貸款' | '企業貸款' | '飛行器貸款'> = { '不動產': '不動產貸款', '企業': '企業貸款', '飛行器': '飛行器貸款' };
+                        const loanTypeMap: Record<string, '不動產貸款' | '企業貸款' | '汽車貸款'> = { '不動產': '不動產貸款', '企業': '企業貸款', '飛行器': '汽車貸款', '汽車': '汽車貸款' };
                         const loanType = loanTypeMap[details.type];
                         if (loanType) {
                             newState.liabilities = [...newState.liabilities, { id: generateId(), name: `${loanType} (${details.symbol || ''})`.trim(), totalOwed: loanAmt, monthlyPayment: details.loanInterest || 0, type: loanType }];
@@ -500,10 +776,15 @@ export const useGameLogic = () => {
             } else if (data.source === 'loan' && data.usage === 'cash') {
                 newState.liabilities = [...newState.liabilities, { id: generateId(), name: '信用貸款', totalOwed: amount, monthlyPayment: Math.floor(amount * 0.1), type: '信用貸款' }];
             } else if (data.usage === 'happiness_event' && data.happinessEventPayload) {
-                const { id, name, points, monthlyExpenseChange } = data.happinessEventPayload;
+                const { id, name, points, monthlyExpenseChange, progressId, happinessItemId, sourceCardId } = data.happinessEventPayload;
 
                 // Add to completed list
-                newState.completedHappinessEvents = [...(newState.completedHappinessEvents || []), id];
+                newState.completedHappinessEvents = Array.from(new Set([
+                    ...(newState.completedHappinessEvents || []),
+                    id,
+                    ...(progressId ? [progressId] : []),
+                    ...(sourceCardId ? [sourceCardId] : [])
+                ]));
 
                 // Update existing happiness item if it exists
                 const mapping: Record<string, string> = {
@@ -513,7 +794,7 @@ export const useGameLogic = () => {
                     'child1': 'h_child1',
                     'child2': 'h_child2'
                 };
-                const targetId = mapping[id];
+                const targetId = happinessItemId || mapping[progressId || id];
 
                 if (targetId && newState.happiness.some(h => h.id === targetId)) {
                     newState.happiness = newState.happiness.map(h =>
@@ -522,7 +803,7 @@ export const useGameLogic = () => {
                 } else {
                     // Fallback for custom or unexpected items
                     const newItem: HappinessItem = {
-                        id: `h_event_${Date.now()}`,
+                        id: `h_event_${sourceCardId || id}_${Date.now()}`,
                         label: name,
                         points: points,
                         checked: true,
@@ -545,7 +826,7 @@ export const useGameLogic = () => {
                 let updatedAssets = [...newState.assets];
                 if (data.stockList && data.stockList.length > 0) {
                     data.stockList.forEach(item => {
-                        const assetIdx = updatedAssets.findIndex(a => a.type === '股票' && a.name.includes(item.symbol));
+                        const assetIdx = updatedAssets.findIndex(a => a.type === '股票' && extractAssetSymbol(a.name) === item.symbol);
                         if (assetIdx >= 0) {
                             const asset = updatedAssets[assetIdx];
                             if (asset.quantity && asset.quantity >= item.qty) {
@@ -593,7 +874,7 @@ export const useGameLogic = () => {
                             updatedAssets = updatedAssets.filter(a => a.id !== data.relatedAssetId);
 
                             const assetSymbol = assetToSell.name.split(' ').slice(1).join(' ');
-                            const loanType = assetToSell.type === '不動產' ? '不動產貸款' : assetToSell.type === '企業' ? '企業貸款' : assetToSell.type === '飛行器' ? '飛行器貸款' : null;
+                            const loanType = assetToSell.type === '不動產' ? '不動產貸款' : assetToSell.type === '企業' ? '企業貸款' : (assetToSell.type === '汽車' || assetToSell.type === '飛行器') ? '汽車貸款' : null;
 
                             if (loanType) {
                                 const loanName = `${loanType} (${assetSymbol})`.trim();
@@ -622,7 +903,7 @@ export const useGameLogic = () => {
                     const targetIds = data.insurancePayload.targetAssetIds;
                     newState.assets = newState.assets.map(a => targetIds.includes(a.id) ? { ...a, isInsured: true } : a);
                 } else if (data.insuranceType === 'aircraft') {
-                    newState.assets = newState.assets.map(a => a.type === '飛行器' ? { ...a, isInsured: true } : a);
+                    newState.assets = newState.assets.map(a => (a.type === '汽車' || a.type === '飛行器') ? { ...a, isInsured: true } : a);
                 }
                 
                 if (data.expensePayload) {
@@ -632,19 +913,42 @@ export const useGameLogic = () => {
                 }
             }
 
+            const { sourceLabel, usageLabel } = deriveTransactionLabels(data);
             const newTx: Transaction = {
                 id: generateId(),
                 timestamp: Date.now(),
                 name: data.name,
                 amount: amount,
-                sourceLabel: data.source === 'income' ? '收入' : data.source === 'loan' ? '借貸' : data.usage === 'liability' ? '負債還款' : data.usage === 'asset' ? '資產交易' : '支出',
-                usageLabel: data.usage === 'asset' ? '買入資產' : data.usage === 'liability' ? '償還負債' : '一般支出',
+                sourceLabel,
+                usageLabel,
                 cashChange: data.cashChange,
                 balance: newState.cash,
                 details: JSON.stringify(storageData),
                 flowType: flowType
             };
             newState.history = [...newState.history, newTx];
+
+            const shouldAutoRepay = data.cashChange > 0 && !(data.source === 'loan' && data.usage === 'cash');
+            if (shouldAutoRepay) {
+                const autoRepayResult = applyAutoCreditRepayment(newState);
+                newState = autoRepayResult.nextState;
+                autoRepayAmount = autoRepayResult.repaidAmount;
+
+                if (autoRepayAmount > 0) {
+                    const autoRepayTx: Transaction = {
+                        id: generateId(),
+                        timestamp: Date.now(),
+                        name: '自動償還信用貸款',
+                        amount: autoRepayAmount,
+                        sourceLabel: '支出',
+                        usageLabel: '自動還款',
+                        cashChange: -autoRepayAmount,
+                        balance: newState.cash,
+                        flowType: '融資'
+                    };
+                    newState.history = [...newState.history, autoRepayTx];
+                }
+            }
 
             if (data.name.includes('達成事業成就')) {
                 newState.happiness = newState.happiness.map(h => h.id === 'h_career' ? { ...h, checked: true } : h);
@@ -663,7 +967,12 @@ export const useGameLogic = () => {
             return newState;
         });
 
-        showAlert(finalSuccessMessage, 'success');
+        showAlert(
+            autoRepayAmount > 0
+                ? `${finalSuccessMessage}，並自動償還 ${formatMoney(autoRepayAmount)}`
+                : finalSuccessMessage,
+            'success'
+        );
         return true;
     };
 
@@ -673,6 +982,7 @@ export const useGameLogic = () => {
     };
 
     const executePayday = (flow: number) => {
+        let autoRepayAmount = 0;
         setGameState(prev => {
             const newState = { ...prev, cash: prev.cash + flow };
             const newTx: Transaction = {
@@ -687,9 +997,37 @@ export const useGameLogic = () => {
                 flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
+            if (flow > 0) {
+                const autoRepayResult = applyAutoCreditRepayment(newState);
+                autoRepayAmount = autoRepayResult.repaidAmount;
+                if (autoRepayAmount > 0) {
+                    autoRepayResult.nextState.history = [
+                        ...autoRepayResult.nextState.history,
+                        {
+                            id: generateId(),
+                            timestamp: Date.now(),
+                            name: '自動償還信用貸款',
+                            amount: autoRepayAmount,
+                            sourceLabel: '支出',
+                            usageLabel: '自動還款',
+                            cashChange: -autoRepayAmount,
+                            balance: autoRepayResult.nextState.cash,
+                            flowType: '融資'
+                        }
+                    ];
+                }
+                return autoRepayResult.nextState;
+            }
             return newState;
         });
-        showAlert(flow >= 0 ? '已領取月結餘' : '已支付月結餘', 'success');
+        showAlert(
+            flow >= 0
+                ? autoRepayAmount > 0
+                    ? `已領取月結餘，並自動償還 ${formatMoney(autoRepayAmount)}`
+                    : '已領取月結餘'
+                : '已支付月結餘',
+            'success'
+        );
     };
 
     const confirmMedicalClaim = () => {
@@ -703,6 +1041,7 @@ export const useGameLogic = () => {
     };
 
     const executeMedicalClaim = (claimAmount: number) => {
+        let autoRepayAmount = 0;
         setGameState(prev => {
             const newState = { ...prev, cash: prev.cash + claimAmount };
             const newTx: Transaction = {
@@ -717,30 +1056,54 @@ export const useGameLogic = () => {
                 flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
-            return newState;
+            const autoRepayResult = applyAutoCreditRepayment(newState);
+            autoRepayAmount = autoRepayResult.repaidAmount;
+            if (autoRepayAmount > 0) {
+                autoRepayResult.nextState.history = [
+                    ...autoRepayResult.nextState.history,
+                    {
+                        id: generateId(),
+                        timestamp: Date.now(),
+                        name: '自動償還信用貸款',
+                        amount: autoRepayAmount,
+                        sourceLabel: '支出',
+                        usageLabel: '自動還款',
+                        cashChange: -autoRepayAmount,
+                        balance: autoRepayResult.nextState.cash,
+                        flowType: '融資'
+                    }
+                ];
+            }
+            return autoRepayResult.nextState;
         });
-        showAlert(`申請成功！獲得理賠 ${formatMoney(claimAmount)}`, 'success');
+        showAlert(
+            autoRepayAmount > 0
+                ? `申請成功！獲得理賠 ${formatMoney(claimAmount)}，並自動償還 ${formatMoney(autoRepayAmount)}`
+                : `申請成功！獲得理賠 ${formatMoney(claimAmount)}`,
+            'success'
+        );
     };
 
     const confirmAircraftClaim = () => {
-        const hasInsuredAircraft = gameState.assets.some(a => a.type === '飛行器' && a.isInsured);
+        const hasInsuredAircraft = gameState.assets.some(a => (a.type === '汽車' || a.type === '飛行器') && a.isInsured);
         if (!hasInsuredAircraft) {
-            showAlert('沒有已投保的飛行器', 'error');
+            showAlert('沒有已投保的汽車', 'error');
             return;
         }
 
-        const claimAmount = 400000; // 飛行器理賠為 500,000 的 80%
+        const claimAmount = 400000; // 汽車理賠為 500,000 的 80%
 
         executeAircraftClaim(claimAmount);
     };
 
     const executeAircraftClaim = (claimAmount: number) => {
+        let autoRepayAmount = 0;
         setGameState(prev => {
             const newState = { ...prev, cash: prev.cash + claimAmount };
             const newTx: Transaction = {
                 id: generateId(),
                 timestamp: Date.now(),
-                name: '飛行器保險理賠',
+                name: '汽車保險理賠',
                 amount: claimAmount,
                 sourceLabel: '收入',
                 usageLabel: '保險理賠',
@@ -749,9 +1112,32 @@ export const useGameLogic = () => {
                 flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
-            return newState;
+            const autoRepayResult = applyAutoCreditRepayment(newState);
+            autoRepayAmount = autoRepayResult.repaidAmount;
+            if (autoRepayAmount > 0) {
+                autoRepayResult.nextState.history = [
+                    ...autoRepayResult.nextState.history,
+                    {
+                        id: generateId(),
+                        timestamp: Date.now(),
+                        name: '自動償還信用貸款',
+                        amount: autoRepayAmount,
+                        sourceLabel: '支出',
+                        usageLabel: '自動還款',
+                        cashChange: -autoRepayAmount,
+                        balance: autoRepayResult.nextState.cash,
+                        flowType: '融資'
+                    }
+                ];
+            }
+            return autoRepayResult.nextState;
         });
-        showAlert(`申請成功！獲得理賠 ${formatMoney(claimAmount)}`, 'success');
+        showAlert(
+            autoRepayAmount > 0
+                ? `申請成功！獲得理賠 ${formatMoney(claimAmount)}，並自動償還 ${formatMoney(autoRepayAmount)}`
+                : `申請成功！獲得理賠 ${formatMoney(claimAmount)}`,
+            'success'
+        );
     };
 
     const handleToggleHappiness = (id: string, checked?: boolean) => {
@@ -927,54 +1313,13 @@ export const useGameLogic = () => {
         if (!success) return;
 
         setGameState(prev => {
-            const newState = { ...prev };
             const typeNames: Record<string, string> = {
                 'enhance_profession': '增強職業能力',
                 'stock_ability': '投資股票的能力',
                 'real_estate_ability': '投資不動產的能力'
             };
-
-            if (type === 'enhance_profession') {
-                newState.abilities = {
-                    ...newState.abilities,
-                    professionAbilityCount: (newState.abilities?.professionAbilityCount || 0) + 1
-                };
-                const currentLevel = prev.currentRankLevel;
-                const nextPromo = prev.profession?.promotions[currentLevel - 1];
-                if (nextPromo) {
-                    newState.currentRankLevel = currentLevel + 1;
-                    newState.currentRankTitle = nextPromo.rankTitle;
-                    if (newState.profession) {
-                        newState.profession = {
-                            ...newState.profession,
-                            salary: newState.profession.salary + nextPromo.bonus
-                        };
-                    }
-                }
-            } else if (type === 'stock_ability') {
-                newState.abilities = {
-                    ...newState.abilities,
-                    stockAbilityCount: (newState.abilities?.stockAbilityCount || 0) + 1
-                };
-                // 股票張數全部增加一倍
-                newState.assets = newState.assets.map(asset => {
-                    if (asset.type === '股票' && asset.quantity) {
-                        const newQty = asset.quantity * 2;
-                        return {
-                            ...asset,
-                            quantity: newQty,
-                            cost: newQty * (asset.lastPurchasePrice || 0)
-                        };
-                    }
-                    return asset;
-                });
-            } else if (type === 'real_estate_ability') {
-                newState.abilities = {
-                    ...newState.abilities,
-                    realEstateAbilityCount: (newState.abilities?.realEstateAbilityCount || 0) + 1
-                };
-                // 不再直接修改現有資產的 cashflow，改由 GameContext 裡的 summary 動態計算
-            }
+            const lifelongOutcome = applyLifelongLearningEffect(prev, type as 'enhance_profession' | 'stock_ability' | 'real_estate_ability', 1, 6);
+            const newState = lifelongOutcome.nextState;
 
             const newTx: Transaction = {
                 id: generateId(),

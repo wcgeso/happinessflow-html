@@ -43,9 +43,9 @@ export const HAPPINESS_CARDS: HappinessCard[] = [
   // Multi-step series; other players roll ≥4 to join each step
   { id: 'H011', title: '幸福家庭的重要歷程', description: '抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。', category: '家庭重要歷程', happinessPoints: 2, cashCost: 3000, otherPlayersCanJoin: true, joinDiceMin: 4 },
   { id: 'H012', title: '幸福家庭的重要歷程', description: '抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。', category: '家庭重要歷程', happinessPoints: 2, cashCost: 5000, otherPlayersCanJoin: true, joinDiceMin: 4 },
-  { id: 'H013', title: '幸福家庭的重要歷程', description: '抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。', category: '家庭重要歷程', happinessPoints: 2, cashCost: 100000, otherPlayersCanJoin: true, joinDiceMin: 4 },
-  { id: 'H014', title: '幸福家庭的重要歷程', description: '抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。', category: '家庭重要歷程', happinessPoints: 2, monthlyExpenseIncrease: 10000, childrenIncrease: 1, otherPlayersCanJoin: true, joinDiceMin: 4 },
-  { id: 'H015', title: '幸福家庭的重要歷程', description: '抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。', category: '家庭重要歷程', happinessPoints: 2, monthlyExpenseIncrease: 10000, childrenIncrease: 1, otherPlayersCanJoin: true, joinDiceMin: 4 },
+  { id: 'H013', title: '幸福家庭的重要歷程', description: '抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。', category: '家庭重要歷程', happinessPoints: 4, cashCost: 100000, otherPlayersCanJoin: true, joinDiceMin: 4 },
+  { id: 'H014', title: '幸福家庭的重要歷程', description: '抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。', category: '家庭重要歷程', happinessPoints: 4, monthlyExpenseIncrease: 10000, childrenIncrease: 1, otherPlayersCanJoin: true, joinDiceMin: 4 },
+  { id: 'H015', title: '幸福家庭的重要歷程', description: '抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。', category: '家庭重要歷程', happinessPoints: 4, monthlyExpenseIncrease: 10000, childrenIncrease: 1, otherPlayersCanJoin: true, joinDiceMin: 4 },
   // TODO: verify exact titles and costs for H016–H020
   { id: 'H016', title: '幸福家庭的重要歷程', description: '抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。', category: '家庭重要歷程', happinessPoints: 2, otherPlayersCanJoin: true, joinDiceMin: 4 },
   { id: 'H017', title: '幸福家庭的重要歷程', description: '抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。', category: '家庭重要歷程', happinessPoints: 2, otherPlayersCanJoin: true, joinDiceMin: 4 },
@@ -74,7 +74,7 @@ export const HAPPINESS_CARDS: HappinessCard[] = [
   { id: 'H034', title: '社團的好鄰居', description: '遠親不如近鄰。平常熱心參與社區或鄰里之間的小活動，和鄰居們維持良好的互動關係，在生活上和人際上，會為自己帶來許多幫助。抽到卡片的玩家，自由決定是否要在月支出的居住欄多增加 2,000，來獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 3000 },
   { id: 'H035', title: '好友們的聚會', description: '好友之間常常會在特殊的節日上，像是生日、節慶等等，安排一些聚會，並互贈一些小禮物。提早為聚會的支出做規劃，對自己的財務計畫會有幫助。抽到卡片的玩家，自由決定是否要在月支出的娛樂欄多增加2,000，來獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 2000 },
   // TODO: verify exact titles for H036–H038
-  { id: 'H036', title: '多讀好書', description: '豐富的知識和學識，可以增廣見聞，陶冶心性，在人際交往上，也會給自己帶來自信和成就感。所以養成閱讀的習慣，對自己和人際關係都有幫助。抽到卡片的玩家，自由決定是否要在月支出的教育欄多增加2,000，來獲得幸福點2點。《二、不獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 2000 },
+  { id: 'H036', title: '多讀好書', description: '豐富的知識和學識，可以增廣見聞，陶冶心性，在人際交往上，也會給自己帶來自信和成就感。所以養成閱讀的習慣，對自己和人際關係都有幫助。抽到卡片的玩家，自由決定是否要在月支出的教育欄多增加2,000，來獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 2000 },
   { id: 'H037', title: '定期的旅遊', description: '讀萬卷書、行萬里路。定期安排一次旅遊，帶著家人或親友一起增廣見聞，看看這個美麗的世界。抽到卡片的玩家，自由決定是否要在月支出的娛樂欄多增加 3,000，來獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 3000 },
   { id: 'H038', title: '得體的服飾', description: '參加各種聚會時，適當的服飾會給他人帶好良好的印象，也帶給自己足夠的自信。不過有些好服飾的價值頗高，提早為得體服飾支出做規劃，對自己的財務計畫會有幫助。抽到卡片的玩家，自由決定是否要在月支出的服飾欄多增加 2,000，來獲得幸福點2點。', category: '良好人際關係', happinessPoints: 2, monthlyExpenseIncrease: 2000 },
 
@@ -217,11 +217,14 @@ export const OPPORTUNITY_CARDS: OpportunityCard[] = [
   { id: 'C036', title: '天有不測風雲', type: 'medical', description: `食物中毒！你沒有注意飲食安全，不小心食用到不新鮮的食品，造成上吐下瀉，必須住院治療。若有購買醫療保險則可申請理賠。`, cashLoss: 25000, goToSquare: 'hospital', missRounds: 1, insurancePays: 50000 },
   { id: 'C037', title: '天有不測風雲', type: 'medical', description: '發生意外！你運動時不小心跌倒，撞到了頭，被救護車送到了醫院。若有購買醫療保險則可申請理賠。', cashLoss: 20000, goToSquare: 'hospital', missRounds: 1, insurancePays: 50000 },
 
-  // ─── 天有不測風雲：飛行器類（C038–C040）───
-  // Only triggers if player owns a 飛行器
-  { id: 'C038', title: '天有不測風雲', type: 'aircraft_damage', description: '飛行器被偷！一夜起來，發現你的飛行器被偷了，連忙報案處理。若有買飛行器產物保險則可申請理賠。', cashLoss: 0, happinessLoss: 2, insurancePays: 400000 },
-  { id: 'C039', title: '天有不測風雲', type: 'aircraft_damage', description: '發生飛禍！開飛行器時使用通訊工具，未注意飛行安全，不小心撞到路旁的大樹，飛行器嚴重受損。若有買保險則可申請理賠。', cashLoss: 100000, goToSquare: '4s_shop', missRounds: 1, insurancePays: 100000 },
-  { id: 'C040', title: '天有不測風雲', type: 'aircraft_damage', description: '發生飛禍！開飛行器時未注意安全距離，不小心撞到前方的飛行器，造成雙方飛行器嚴重受損。若有買保險則可申請理賠。', cashLoss: 200000, insurancePays: 200000 },
+  // ─── 天有不測風雲：汽車類（C038–C040）───
+  // Only triggers if player owns a 汽車
+  { id: 'C038', title: '天有不測風雲', type: 'aircraft_damage', description: `汽車被偷！一夜起來，發現你的汽車被偷了，連忙報案處理。
+
+*抽到本卡的玩家，若你有買汽車，失去你的汽車一輛，並扣掉對應的幸福點，且之前申請之汽車貸款無法取消。
+事先有購買汽車產物保險，則可獲得汽車購買價格80%（400,000H）的保險理賠金。你可以用這筆理賠金去償還汽車貸款。`, cashLoss: 0, insurancePays: 400000 },
+  { id: 'C039', title: '天有不測風雲', type: 'aircraft_damage', description: '發生車禍！開汽車時使用通訊工具，未注意行車安全，不小心撞到路旁的大樹，汽車嚴重受損。若有買保險則可申請理賠。', cashLoss: 100000, goToSquare: '4s_shop', missRounds: 1, insurancePays: 100000 },
+  { id: 'C040', title: '天有不測風雲', type: 'aircraft_damage', description: '發生車禍！開汽車時未注意安全距離，不小心撞到前方的汽車，造成雙方汽車嚴重受損。若有買保險則可申請理賠。', cashLoss: 200000, insurancePays: 200000 },
 
   // ─── 天有不測風雲：出租住宅修繕（C041–C043）───
   // Only triggers if player owns rental properties; full insurance on all properties = free
@@ -689,4 +692,14 @@ export const STOCK_NEWS_CARDS = NEWS_CARDS.filter(
 
 export const REAL_ESTATE_NEWS_CARDS = NEWS_CARDS.filter(
   (c): c is RealEstateNewsCard => c.type === 'real_estate'
+);
+
+export const normalizeCardCopy = (text?: string | null) => (
+  text
+    ? text
+      .replaceAll('飛行器', '汽車')
+      .replace('《二、不獲得幸福點2點。', '')
+      .replace('二、不獲得幸福點2點。', '')
+      .trim()
+    : ''
 );

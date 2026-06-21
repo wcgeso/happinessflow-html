@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { CirclePlus, Dices, Target, Landmark, Building, ChevronUp } from 'lucide-react';
-import { motion, useAnimation, useDragControls, PanInfo } from 'framer-motion';
-import { useRoom } from '../../context/RoomContext';
+import { CirclePlus, Dices, Target, Landmark, Building } from 'lucide-react';
+import { motion, useAnimation } from 'framer-motion';
 
 interface GameActionsProps {
     onRollBoardDice?: () => Promise<any> | void;
@@ -34,23 +33,14 @@ export const GameActions: React.FC<GameActionsProps> = ({
     disabled = false,
 }) => {
     const diceControls = useAnimation();
-    const dragControls = useDragControls();
-    const [isDragging, setIsDragging] = useState(false);
     const [isAnimating, setIsAnimating] = useState(false);
     const [diceResult, setDiceResult] = useState<number | null>(null);
-    const { gameState } = useRoom();
-
-    // 骰子點數對應的角度 (X, Y)
-    // 假設: 面1是正面(0,0), 面6是背面(180,0), 面2是右面(0,-90), 面5是左面(0,90), 面3是上面(-90,0), 面4是下面(90,0)
-    // 要讓某一點數朝上 (即面向使用者的螢幕, Z 軸正向), 角度如下:
-    const diceRotations = {
-        1: { x: 0, y: 0 },
-        6: { x: 180, y: 0 },
-        3: { x: 0, y: -90 },
-        4: { x: 0, y: 90 },
-        2: { x: -90, y: 0 },
-        5: { x: 90, y: 0 }
-    };
+    const [showLandingFace, setShowLandingFace] = useState(false);
+    const landingFaceTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const animationCompleteTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const shouldShowLandingFace = isAnimating && showLandingFace && diceResult !== null;
+    const DICE_ROLL_DURATION_MS = 2400;
+    const DICE_RESULT_REVEAL_MS = 850;
 
     // 根據結果動態分配骰子面，確保 Top 面永遠是骰出的點數
     const getDiceFaces = (result: number | null) => {
@@ -132,93 +122,97 @@ export const GameActions: React.FC<GameActionsProps> = ({
     // 當擲骰結束 (或是換人回合時)，強制將骰子重置回手上
     useEffect(() => {
         if (!isRollingBoardDice) {
+            if (landingFaceTimerRef.current) {
+                clearTimeout(landingFaceTimerRef.current);
+                landingFaceTimerRef.current = null;
+            }
+            if (animationCompleteTimerRef.current) {
+                clearTimeout(animationCompleteTimerRef.current);
+                animationCompleteTimerRef.current = null;
+            }
             diceControls.stop(); // 停止所有進行中的動畫(包含延遲消失)
             diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotateX: -15, rotateY: 15, rotateZ: 0 });
             setIsAnimating(false);
+            setShowLandingFace(false);
+            setDiceResult(null);
         }
     }, [isRollingBoardDice, diceControls]);
 
-    const handleDragEnd = async (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-        setIsDragging(false);
-        
-        const distance = Math.sqrt(info.offset.x ** 2 + info.offset.y ** 2);
-        const speed = Math.sqrt(info.velocity.x ** 2 + info.velocity.y ** 2);
+    useEffect(() => {
+        return () => {
+            if (landingFaceTimerRef.current) clearTimeout(landingFaceTimerRef.current);
+            if (animationCompleteTimerRef.current) clearTimeout(animationCompleteTimerRef.current);
+        };
+    }, []);
 
-        // 只要滑動距離超過 30px 或速度夠快，且輪到該玩家，就判定為丟出 (不限方向)
-        if ((distance > 30 || speed > 200) && isBoardTurn && !isRollingBoardDice && !disabled && onRollBoardDice) {
-            setIsAnimating(true);
+    const showResultWhenLanded = () => {
+        if (landingFaceTimerRef.current) clearTimeout(landingFaceTimerRef.current);
+        setShowLandingFace(false);
+        landingFaceTimerRef.current = setTimeout(() => {
+            diceControls.set({ rotateX: 0, rotateY: 0, rotateZ: 0 });
+            setShowLandingFace(true);
+            landingFaceTimerRef.current = null;
+        }, DICE_RESULT_REVEAL_MS);
+    };
 
-            let rollResult: any;
-            try {
-                rollResult = await onRollBoardDice();
-            } catch (e) {
-                setIsAnimating(false);
-                return;
-            }
+    const getRollingRotation = (spinSeed: number) => {
+        const spinX = (Math.floor(Math.random() * 2) + 2) * 360;
+        const spinY = (Math.floor(Math.random() * 2) + 2) * 360;
+        const spinZ = spinSeed + (Math.random() * 180 + 180);
 
-            if (!rollResult || typeof rollResult.total !== 'number') {
-                setIsAnimating(false);
-                return;
-            }
+        return {
+            rotateX: [0, spinX * 0.35, spinX, spinX * 1.08, 0, 0, 0, 0, 0],
+            rotateY: [0, spinY * 0.4, spinY, spinY * 1.12, 0, 0, 0, 0, 0],
+            rotateZ: [0, spinZ * 0.5, spinZ, spinZ * 1.1, 0, 0, 0, 0, 0],
+        };
+    };
 
-            const actualDiceTotal = rollResult.total;
-            setDiceResult(actualDiceTotal);
-            
-            // 計算動畫顯示點數與對應的目標角度
-            const displayValue = (actualDiceTotal % 6) || 6;
-            const targetRotation = diceRotations[displayValue as keyof typeof diceRotations];
+    const handleDiceClick = async () => {
+        if (!isActive || !onRollBoardDice) return;
 
-            // 根據滑動向量計算丟出去的目標位置
-            const dirX = info.offset.x;
-            const dirY = info.offset.y;
+        setIsAnimating(true);
 
-            // 基礎飛行距離與高度
-            const targetX = dirX * 3;
-            const apexY = Math.min(dirY * 2, -200); // 最高點
-            const landY = apexY + 150; // 落地點 (比最高點低)
-
-            // 計算旋轉角度：加上額外的圈數 (360度倍數) 讓它在空中翻滾，最後停在 targetRotation
-            const baseRotX = targetRotation.x + (Math.floor(Math.random() * 2) + 1) * 360;
-            const baseRotY = targetRotation.y + (Math.floor(Math.random() * 2) + 1) * 360;
-            const rotZ = (dirX + dirY) + (Math.random() * 180 + 180);
-
-            // 將「拋物線彈跳」與「延遲淡出」合併為單一動畫
-            diceControls.start({
-                x: [0, targetX * 0.5, targetX, targetX * 1.05, targetX, targetX * 1.02, targetX, targetX, targetX],
-                y: [0, apexY, landY, landY - 40, landY, landY - 15, landY, landY, landY],
-                z: [0, -100, -300, -300, -300, -300, -300, -300, -300],
-                scale: [1, 1.2, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0], // 最後一格縮小至 0 代替透明度消失
-                rotateX: [0, baseRotX * 0.5, baseRotX, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x],
-                rotateY: [0, baseRotY * 0.5, baseRotY, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y],
-                rotateZ: [0, rotZ * 0.5, rotZ, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1],
-                transition: {
-                    duration: 3.5, // 總時長 3.5 秒 (包含落地停留的 2 秒)
-                    // 0~1.2s 是飛行與彈跳, 1.2s~3.2s 是靜止, 3.2s~3.5s 是淡出消失
-                    times: [0, 0.1, 0.2, 0.26, 0.29, 0.33, 0.35, 0.91, 1],
-                    ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn", "linear", "easeInOut"]
-                }
-            });
-
-            // 動畫結束後觸發遊戲邏輯
-            setTimeout(() => {
-                if (onRollAnimationComplete) {
-                    onRollAnimationComplete(rollResult);
-                }
-            }, 3500);
-        } else {
-            // 沒滑到位，彈回原位
-            diceControls.start({
-                x: 0,
-                y: 0,
-                z: 0,
-                scale: 1,
-                opacity: 1,
-                rotateX: -15,
-                rotateY: 15,
-                rotateZ: 0,
-                transition: { type: "spring", stiffness: 400, damping: 25 }
-            });
+        let rollResult: { total: number; dice: number[] } | void;
+        try {
+            rollResult = await onRollBoardDice();
+        } catch (e) {
+            setIsAnimating(false);
+            return;
         }
+
+        if (!rollResult || typeof rollResult.total !== 'number') {
+            setIsAnimating(false);
+            return;
+        }
+
+        const actualDiceTotal = rollResult.total;
+        setDiceResult(actualDiceTotal);
+        showResultWhenLanded();
+
+        const targetX = (Math.random() - 0.5) * 150;
+        const apexY = -250;
+        const landY = -100;
+        const rollingRotation = getRollingRotation(360);
+
+        diceControls.start({
+            x: [0, targetX * 0.5, targetX, targetX * 1.05, targetX, targetX * 1.02, targetX, targetX, targetX],
+            y: [0, apexY, landY, landY - 40, landY, landY - 15, landY, landY, landY],
+            z: [0, -100, -300, -300, -300, -300, -300, -300, -300],
+            scale: [1, 1.2, 0.58, 0.5, 0.58, 0.52, 0.5, 0.5, 0.5],
+            ...rollingRotation,
+            transition: {
+                duration: DICE_ROLL_DURATION_MS / 1000,
+                times: [0, 0.12, 0.22, 0.3, 0.35, 0.42, 0.5, 0.88, 1],
+                ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn", "linear", "easeInOut"]
+            }
+        });
+
+        animationCompleteTimerRef.current = setTimeout(() => {
+            if (onRollAnimationComplete) {
+                onRollAnimationComplete(rollResult);
+            }
+            animationCompleteTimerRef.current = null;
+        }, DICE_ROLL_DURATION_MS);
     };
 
 
@@ -260,18 +254,8 @@ export const GameActions: React.FC<GameActionsProps> = ({
                         {onRollBoardDice ? (
                             <div className="relative flex flex-col items-center gap-2">
                                 {/* 向上引導動畫 (輪到自己時顯示) */}
-                                {isActive && !isDragging && !isAnimating && (
-                                    <motion.div 
-                                        className="absolute -top-10 text-cyan-400 opacity-50"
-                                        animate={{ y: [0, -10, 0], opacity: [0, 0.8, 0] }}
-                                        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                                    >
-                                        <ChevronUp size={24} strokeWidth={3} />
-                                    </motion.div>
-                                )}
-
                                 {/* 發光底圖 */}
-                                {isActive && !isDragging && !isAnimating && (
+                                {isActive && !isAnimating && (
                                     <motion.div
                                         className="absolute inset-0 bg-cyan-500 rounded-full blur-2xl opacity-30 z-0"
                                         animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.5, 0.2] }}
@@ -280,93 +264,45 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                 )}
 
                                 <motion.button
-                                    drag={isActive ? true : false}
-                                    dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
-                                    dragElastic={0.8}
-                                    onDragStart={() => setIsDragging(true)}
-                                    onDragEnd={handleDragEnd}
                                     animate={diceControls}
                                     initial={{ x: 0, y: 0, z: 0, rotateX: -15, rotateY: 15, rotateZ: 0 }}
                                     whileHover={isActive ? { scale: 1.05 } : {}}
                                     whileTap={isActive ? { scale: 0.95 } : {}}
-                                    onClick={async () => {
-                                        // 保留點擊觸發，防呆
-                                        if (isActive && onRollBoardDice) {
-                                            setIsAnimating(true);
-                                            let rollResult: { total: number, dice: number[] } | void;
-                                            try {
-                                                rollResult = await onRollBoardDice();
-                                            } catch (e) {
-                                                setIsAnimating(false);
-                                                return;
-                                            }
-                                            if (!rollResult || typeof rollResult.total !== 'number') {
-                                                setIsAnimating(false);
-                                                return;
-                                            }
-                                            
-                                            const actualDiceTotal = rollResult.total;
-                                            setDiceResult(actualDiceTotal);
-
-                                            const displayValue = (actualDiceTotal % 6) || 6;
-                                            const targetRotation = diceRotations[displayValue as keyof typeof diceRotations];
-
-                                            const targetX = (Math.random() - 0.5) * 150;
-                                            const apexY = -250;
-                                            const landY = -100;
-                                            const baseRotX = targetRotation.x + 720;
-                                            const baseRotY = targetRotation.y + 720;
-                                            const rotZ = 360;
-
-                                            diceControls.start({
-                                                x: [0, targetX * 0.5, targetX, targetX * 1.05, targetX, targetX * 1.02, targetX, targetX, targetX],
-                                                y: [0, apexY, landY, landY - 40, landY, landY - 15, landY, landY, landY],
-                                                z: [0, -100, -300, -300, -300, -300, -300, -300, -300],
-                                                scale: [1, 1.2, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0],
-                                                rotateX: [0, baseRotX * 0.5, baseRotX, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x, targetRotation.x],
-                                                rotateY: [0, baseRotY * 0.5, baseRotY, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y, targetRotation.y],
-                                                rotateZ: [0, rotZ * 0.5, rotZ, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1, rotZ * 1.1],
-                                                transition: { 
-                                                    duration: 3.5, 
-                                                    times: [0, 0.1, 0.2, 0.26, 0.29, 0.33, 0.35, 0.91, 1],
-                                                    ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn", "linear", "easeInOut"]
-                                                }
-                                            });
-
-                                            setTimeout(() => {
-                                                if (onRollAnimationComplete) {
-                                                    onRollAnimationComplete(rollResult);
-                                                }
-                                            }, 3500);
-                                        }
-                                    }}
-                                    style={{ touchAction: "none", transformStyle: "preserve-3d" }}
-                                    className={`relative z-10 w-[64px] h-[64px] ${!isVisualActive ? 'opacity-50 cursor-not-allowed filter grayscale-[0.5]' : 'cursor-grab active:cursor-grabbing'}`}
-                                    title={!isBoardTurn ? "尚未輪到你" : (isRollingBoardDice ? "同步中..." : `滑動拋擲${hasCar ? ' (2顆)' : ' (1顆)'}`)}
+                                    onClick={handleDiceClick}
+                                    style={{ touchAction: "manipulation", transformStyle: "preserve-3d" }}
+                                    className={`relative z-10 w-[64px] h-[64px] ${!isVisualActive ? 'opacity-50 cursor-not-allowed filter grayscale-[0.5]' : 'cursor-pointer'}`}
+                                    title={!isBoardTurn ? "尚未輪到你" : (isRollingBoardDice ? "同步中..." : `點擊拋擲${hasCar ? ' (2顆)' : ' (1顆)'}`)}
                                 >
-                                    {/* 骰子主體 (加上 transform-style 確保子元素 3D) */}
-                                    <div className="absolute inset-0 w-full h-full" style={{ transformStyle: "preserve-3d" }}>
-                                        {/* 6個骰子面 */}
-                                        <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'translateZ(32px)' }}>
-                                            {renderDots(faces.front)}
-                                        </div>
-                                        <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(180deg) translateZ(32px)' }}>
-                                            {renderDots(faces.back)}
-                                        </div>
-                                        <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(90deg) translateZ(32px)' }}>
-                                            {renderDots(faces.right)}
-                                        </div>
-                                        <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(-90deg) translateZ(32px)' }}>
-                                            {renderDots(faces.left)}
-                                        </div>
-                                        <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateX(90deg) translateZ(32px)' }}>
-                                            {renderDots(faces.bottom)}
-                                        </div>
-                                        <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateX(-90deg) translateZ(32px)' }}>
-                                            {renderDots(faces.top)}
-                                        </div>
+		                                    {/* 飛行中保留六面骰體，落地後只顯示單一結果面。 */}
+		                                    <div className="absolute inset-0 w-full h-full" style={{ transformStyle: shouldShowLandingFace ? "flat" : "preserve-3d" }}>
+	                                            {shouldShowLandingFace ? (
+                                                <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`}>
+                                                    {renderDots(diceResult)}
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'translateZ(32px)' }}>
+                                                        {renderDots(faces.front)}
+                                                    </div>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(180deg) translateZ(32px)' }}>
+                                                        {renderDots(faces.back)}
+                                                    </div>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(90deg) translateZ(32px)' }}>
+                                                        {renderDots(faces.right)}
+                                                    </div>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(-90deg) translateZ(32px)' }}>
+                                                        {renderDots(faces.left)}
+                                                    </div>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateX(90deg) translateZ(32px)' }}>
+                                                        {renderDots(faces.bottom)}
+                                                    </div>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateX(-90deg) translateZ(32px)' }}>
+                                                        {renderDots(faces.top)}
+                                                    </div>
+                                                </>
+                                            )}
 
-                                        {hasCar && isVisualActive && (
+	                                        {hasCar && isVisualActive && (
                                             <div className="absolute -top-3 -right-3 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-sm" style={{ transform: 'translateZ(40px)' }}>
                                                 <span className="text-[10px] font-black text-amber-900 leading-none tracking-tighter">x2</span>
                                             </div>
@@ -376,7 +312,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                 <span className={`text-[11px] font-black uppercase tracking-widest transition-colors ${
                                     isActive ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]' : 'text-slate-500'
                                 }`}>
-                                    {isRollingBoardDice ? '同步中' : (isBoardTurn ? '滑動拋擲' : '擲骰子')}
+                                    {isRollingBoardDice ? '同步中' : (isBoardTurn ? '點擊拋擲' : '擲骰子')}
                                 </span>
                             </div>
                         ) : (
@@ -426,4 +362,3 @@ export const GameActions: React.FC<GameActionsProps> = ({
         </div>
     );
 };
-

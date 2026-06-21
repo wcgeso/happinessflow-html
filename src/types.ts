@@ -5,6 +5,7 @@ export interface Asset {
   cost: number;
   downPayment: number;
   cashflow: number; // Positive monthly income
+  // Keep legacy '飛行器' for old saves; new data should use '汽車'.
   type: '現金' | '定存' | '股票' | '企業' | '不動產' | '飛行器' | '汽車';
   isSelfUse?: boolean;
   houseType?: string;
@@ -21,6 +22,7 @@ export interface Liability {
   name: string;
   totalOwed: number;
   monthlyPayment: number;
+  // Keep legacy '飛行器貸款' for old saves; new data should use '汽車貸款'.
   type: '信用貸款' | '飛行器貸款' | '汽車貸款' | '企業貸款' | '不動產貸款';
 }
 
@@ -159,6 +161,15 @@ export interface BoardCardResult {
   familyMilestoneStatus?: any;
 }
 
+export interface BoardCardLogEntry extends BoardCardResult {
+  id: string;
+  eventId: string;
+  playerUid: string;
+  playerName: string;
+  summary?: string;
+  drawnAt: number;
+}
+
 export interface BoardDeckState {
   happiness: string[];
   opportunity: string[];
@@ -172,11 +183,17 @@ export interface BoardEventLog {
   id: string;
   playerUid: string;
   playerName: string;
+  type?: 'bank' | 'school' | 'hospital' | 'card' | 'exam_happiness' | 'followup';
   summary: string;
   detail?: string;
   squareIndex: number;
   timestamp: number;
   rollTotal?: number;
+}
+
+export interface BoardQueuedEvent {
+  event: BoardEventLog;
+  card?: BoardCardResult | null;
 }
 
 export interface BoardCardRevealState {
@@ -214,9 +231,11 @@ export interface BoardState {
   currentCard: BoardCardResult | null;
   currentCardReveal?: BoardCardRevealState | null;
   currentEvent: BoardEventLog | null;
+  pendingEvents?: BoardQueuedEvent[];
   movement?: BoardMovementState | null;
   deckState: BoardDeckState;
   realEstateMarket?: string[];
+  cardLog?: BoardCardLogEntry[];
   updatedAt: number;
 }
 
@@ -255,6 +274,8 @@ export interface GameState {
   skipTurns?: number;
   lastBoardEvent?: string;
   pendingCardAction?: string;
+  bankServiceWindowActive?: boolean;
+  bankServiceGrantedAtEventId?: string;
 }
 
 export interface FinancialSummary {
@@ -350,7 +371,22 @@ export interface GameSessionMeta {
 
 // Transaction Related Types
 export type SourceType = 'cash' | 'loan' | 'income' | 'storage';
-export type UsageType = 'asset' | 'liability' | 'expense' | 'storage' | 'cash' | 'stock_update' | 'expense_update' | 'insurance' | 'happiness_event';
+export type UsageType =
+  | 'asset'
+  | 'liability'
+  | 'expense'
+  | 'storage'
+  | 'cash'
+  | 'stock_update'
+  | 'expense_update'
+  | 'insurance'
+  | 'happiness_event'
+  | 'lifelong_learning'
+  | 'buy_asset'
+  | 'sell_asset'
+  | 'loan'
+  | 'loan_repayment';
+// Keep legacy '飛行器' for old transaction payloads; new UI should use '汽車'.
 export type AssetType = '股票' | '不動產' | '企業' | '定存' | '保險' | '飛行器' | '汽車' | '目標企業' | '心儀夢想' | '現金';
 
 export interface StockTransactionItem {
@@ -371,6 +407,7 @@ export interface TransactionData {
   source: SourceType;
   usage: UsageType;
   cashChange: number;
+  financialCheckEntries?: AccountEntry[];
   assetDetails?: {
     cashflow: number;
     type: AssetType;
@@ -395,6 +432,9 @@ export interface TransactionData {
     points: number;
     monthlyExpenseChange?: number;
     expenseCategory?: string;
+    progressId?: string;
+    happinessItemId?: string;
+    sourceCardId?: string;
   };
   insuranceType?: string;
   insurancePayload?: {
@@ -404,6 +444,10 @@ export interface TransactionData {
   };
   stockDividendPayload?: {
     items: { assetId: string, addedQty: number }[];
+  };
+  lifelongLearningPayload?: {
+    learningType: 'enhance_profession' | 'stock_ability' | 'real_estate_ability';
+    requiredRoll: number;
   };
   stockFluctuationPayload?: {
     type: 'rise_fall' | 'bubble_burst';
@@ -417,6 +461,37 @@ export interface TransactionData {
   };
   impacts?: string[];
   flowType?: '經營' | '投資' | '籌資' | '其它';
+  assetChange?: {
+    action: 'add' | 'remove';
+    asset: {
+      id?: string;
+      name: string;
+      type: AssetType;
+      value?: number;
+      symbol?: string;
+      shares?: number;
+      buyPrice?: number;
+      monthlyCashflow?: number;
+    };
+  };
+  liabilityChange?: {
+    action: 'add' | 'repay';
+    liability?: {
+      id: string;
+      name: string;
+      type: Liability['type'];
+      totalOwed: number;
+      monthlyPayment: number;
+    };
+    liabilityId?: string;
+    amount?: number;
+  };
+  sellAssetPayload?: {
+    type: 'stock';
+    symbol: string;
+    sharesToSell: number;
+    currentPrice: number;
+  };
 }
 
 export interface Achievement {

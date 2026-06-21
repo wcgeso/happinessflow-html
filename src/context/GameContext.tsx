@@ -119,7 +119,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const timeoutId = setTimeout(async () => {
             const roomRef = doc(db, 'rooms', room.id);
-            const cleanedState = cleanObject(gameState);
+            const existingRoomState = room.playerStates?.[user.uid];
+            const cleanedState = cleanObject({
+                ...gameState,
+                boardPosition: existingRoomState?.boardPosition ?? gameState.boardPosition,
+                skipTurns: existingRoomState?.skipTurns ?? gameState.skipTurns,
+                lastBoardEvent: existingRoomState?.lastBoardEvent ?? gameState.lastBoardEvent,
+                pendingCardAction: existingRoomState?.pendingCardAction ?? gameState.pendingCardAction,
+                bankServiceWindowActive: existingRoomState?.bankServiceWindowActive ?? gameState.bankServiceWindowActive,
+                bankServiceGrantedAtEventId: existingRoomState?.bankServiceGrantedAtEventId ?? gameState.bankServiceGrantedAtEventId
+            });
             await safeAsync(updateDoc(roomRef, {
                 [`playerStates.${user.uid}`]: cleanedState
             }));
@@ -265,8 +274,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             changed = true;
         }
 
-        // 4. 飛行器
-        const hasAircraft = gameState.assets.some(a => a.type === '飛行器');
+        // 4. 汽車（相容舊的飛行器資產資料）
+        const hasAircraft = gameState.assets.some(a => a.type === '汽車' || a.type === '飛行器');
         const planeItem = updatedHappiness.find(h => h.id === 'h_plane');
         if (planeItem && planeItem.checked !== hasAircraft) {
             updatedHappiness = updatedHappiness.map(h => h.id === 'h_plane' ? { ...h, checked: hasAircraft } : h);

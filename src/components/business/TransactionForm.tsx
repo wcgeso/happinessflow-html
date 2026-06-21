@@ -26,6 +26,7 @@ interface TransactionFormProps {
   initialTab?: 'broker' | 'banking' | 'wealth';
   initialMode?: 'buy' | 'sell' | 'loan' | 'dividend' | 'event' | 'expense' | 'insurance' | 'deposit';
   initialAssetType?: '保險' | '定存' | '股票' | '不動產' | '企業';
+  canUseBankProducts?: boolean;
 }
 
 export const TransactionForm: React.FC<TransactionFormProps> = ({
@@ -40,7 +41,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   onCancel,
   initialTab,
   initialMode,
-  initialAssetType
+  initialAssetType,
+  canUseBankProducts
 }) => {
   // Map old modes to new tabs
   let resolvedTab: 'broker' | 'banking' | 'wealth' = initialTab || 'broker';
@@ -69,6 +71,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       previousMarketPrices={previousMarketPrices}
       medicalInsuranceCount={medicalInsuranceCount}
       initialTab={resolvedTab}
+      canUseBankProducts={canUseBankProducts}
       onTransaction={onTransaction}
       onClose={onCancel}
     />

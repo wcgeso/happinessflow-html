@@ -146,7 +146,7 @@ const MockTransactionForm = () => (
       <div className="space-y-2">
         <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest pl-1">一般資產 / 保險</label>
         <div className="grid grid-cols-3 gap-2">
-          {['股票', '不動產', '企業', '定存', '保險', '飛行器'].map(t => (
+          {['股票', '不動產', '企業', '定存', '保險', '汽車'].map(t => (
             <div key={t} className={`py-2 border rounded-xl text-center text-[10px] font-bold transition-all ${t === '不動產' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'bg-slate-900 border-slate-700 text-slate-500'}`}>
               {t}
             </div>
