@@ -137,68 +137,7 @@ export const HappinessPanel: React.FC<HappinessPanelProps> = ({
             </div>
           ))}
         </div>
-
-        {/* Footer - Add Custom Item */}
-        {!disabled && onAddCustomItem && (
-          <div className="p-3 border-t border-slate-700 bg-slate-800 shrink-0">
-            <Button
-              variant="secondary"
-              className="w-full border-dashed border-2 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500"
-              onClick={() => setShowAddModal(true)}
-            >
-              <Plus size={16} /> 自訂幸福項目
-            </Button>
-          </div>
-        )}
       </Card>
-
-      {/* Floating Modal for Adding Custom Item */}
-      {showAddModal && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in"
-          onClick={() => setShowAddModal(false)} // Close on backdrop click
-        >
-          {/* Modal Content */}
-          <Card
-            className="w-full max-w-sm bg-slate-900 border-slate-600 shadow-2xl p-6 animate-in zoom-in-95"
-            onClick={(e) => e.stopPropagation()} // Prevent close when clicking inside
-          >
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Plus className="text-pink-400" /> 新增自訂幸福項目
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">項目名稱</label>
-                <Input
-                  placeholder="例如: 全家出國旅遊"
-                  value={newItemName}
-                  onChange={e => setNewItemName(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">增加幸福點數</label>
-                <Input
-                  type="number"
-                  value={newItemPoints}
-                  readOnly
-                  disabled
-                  className="bg-slate-800 opacity-70"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <Button variant="secondary" onClick={() => setShowAddModal(false)} className="flex-1">
-                  取消
-                </Button>
-                <Button variant="primary" onClick={handleAddItem} className="flex-1 bg-pink-600 hover:bg-pink-500">
-                  確認新增
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
     </>
   );
 };
