@@ -213,7 +213,7 @@ export const AuthView: React.FC = () => {
                             <img 
                                 src="/logo.png?v=7" 
                                 alt="幸福流" 
-                                className="w-64 md:w-72 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)] mx-auto"
+                                className="w-48 md:w-56 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)] mx-auto"
                             />
                         </div>
 
