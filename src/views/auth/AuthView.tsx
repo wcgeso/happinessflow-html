@@ -207,14 +207,17 @@ export const AuthView: React.FC = () => {
                 <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in-95 duration-700 my-auto py-8">
                     <div className="text-center mb-6 md:mb-8 flex flex-col items-center gap-0">
                     {/* App Logo */}
-                    <div className="relative group transition-transform hover:scale-105 duration-500">
+                    <div className="relative group transition-transform hover:scale-105 duration-500 flex flex-col items-center">
                             {/* Gold glow */}
                             <div className="absolute inset-0 bg-amber-400/10 blur-3xl group-hover:bg-amber-400/20 transition-all duration-500 scale-110"></div>
                             <img 
                                 src="/logo.png?v=7" 
                                 alt="幸福流" 
-                                className="w-48 md:w-56 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)] mx-auto"
+                                className="w-24 md:w-32 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)] mx-auto mb-2"
                             />
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)]">
+                                幸福流
+                            </h1>
                         </div>
 
                     {/* English title & tagline */}
