@@ -627,7 +627,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
 
       {/* 底部 Tab 切換 (藥丸式懸浮切換器) */}
       {!hideNav && (
-        <div className="fixed bottom-[130px] left-0 right-0 z-[60] px-4 pointer-events-none flex justify-center">
+        <div className="fixed bottom-[calc(130px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-[60] px-4 pointer-events-none flex justify-center">
           <div className="relative flex items-center bg-slate-900/80 backdrop-blur-xl p-1.5 rounded-full border border-slate-700/60 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] pointer-events-auto">
             {[
               { id: 'financial', label: '報表' },

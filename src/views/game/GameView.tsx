@@ -928,7 +928,7 @@ export const GameView: React.FC<{
                 <button
                     type="button"
                     onClick={() => setShowBoardCardLog(true)}
-                    className="fixed right-4 top-[92px] z-50 flex items-center gap-2 rounded-full border border-amber-300/30 bg-slate-900/95 px-4 py-2.5 text-xs font-black text-amber-100 shadow-xl backdrop-blur-md"
+                    className="fixed right-4 top-[calc(env(safe-area-inset-top,0px)+88px)] z-50 flex items-center gap-2 rounded-full border border-amber-300/30 bg-slate-900/95 px-4 py-2.5 text-xs font-black text-amber-100 shadow-xl backdrop-blur-md"
                 >
                     <ScrollText size={16} />
                     抽卡日誌
@@ -988,7 +988,7 @@ export const GameView: React.FC<{
                 <HappinessWinAnimation onComplete={() => setShowWinAnimation(false)} />
             )}
 
-            <main className="fixed inset-0 overflow-y-auto no-scrollbar pt-[130px] pb-[120px] touch-pan-y">
+            <main className="fixed inset-0 overflow-y-auto no-scrollbar pt-[calc(110px+env(safe-area-inset-top,0px))] pb-[calc(130px+env(safe-area-inset-bottom,0px))] touch-pan-y">
                 <div className="max-w-4xl mx-auto w-full px-4 md:px-6 space-y-6">
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <FinancialStatement
