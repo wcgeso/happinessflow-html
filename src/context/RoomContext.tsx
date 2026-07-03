@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
     doc,
     setDoc,
@@ -12,16 +12,25 @@ import {
     deleteDoc,
     serverTimestamp,
     arrayUnion,
-    arrayRemove,
-    deleteField
+    deleteField,
+    runTransaction
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAuth } from './AuthContext';
-import { BoardCardLogEntry, BoardCardResult, BoardDeckState, BoardEventLog, BoardQueuedEvent, BoardState, GameState } from '../types';
+import { BoardCardLogEntry, BoardCardResult, BoardDeckState, BoardEventLog, BoardQueuedEvent, BoardState, FamilyMilestoneJoinPrompt, GameState, SharedCardPrompt } from '../types';
 import { cleanObject, safeAsync } from '../utils/utils';
+import { STOCK_SYMBOLS } from '../constants';
 import { BOARD_SQUARES, createInitialDeckState, getSquareByIndex } from '../constants/board';
-import { HAPPINESS_CARDS, NEWS_CARDS, OPPORTUNITY_CARDS } from '../constants/cards';
+import {
+    buildHappinessCardMetaFromSchema,
+    buildNewsCardMetaFromSchema,
+    buildOpportunityCardMetaFromSchema,
+    HAPPINESS_CARDS,
+    NEWS_CARDS,
+    OPPORTUNITY_CARDS
+} from '../constants/cards';
 import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from '../utils/familyMilestones';
+import { resolveBoardCardAction } from '../utils/boardCardActions';
 
 interface RoomMember {
     uid: string;
@@ -79,144 +88,15 @@ export interface Room {
 }
 
 const buildHappinessCardMeta = (cardId: string, playerState?: GameState | null) => {
-    const card = HAPPINESS_CARDS.find(item => item.id === cardId);
-    if (!card) return null;
-
-    const isFamilyMilestone = card.category === '家庭重要歷程';
-    const stage = getFamilyMilestoneStageByCardId(card.id);
-    const familyMilestoneStatus = playerState ? getFamilyMilestoneStatus(playerState) : null;
-
-    return {
-        deck: 'happiness' as const,
-        title: isFamilyMilestone && stage ? stage.label.replace(/^\d+\.\s*/, '') : card.title,
-        subtitle: card.category,
-        description: card.description || `${card.category}事件`,
-        effectLines: [
-            ...(isFamilyMilestone && familyMilestoneStatus ? [
-                ...familyMilestoneStatus.stageLines,
-                `目前進度：第 ${familyMilestoneStatus.currentStage} 階段`
-            ] : []),
-            `幸福 +${card.happinessPoints}`,
-            ...(card.cashCost ? [`一次性支出 ${card.cashCost.toLocaleString()}`] : []),
-            ...(card.monthlyExpenseIncrease ? [`月支出 ${card.monthlyExpenseIncrease > 0 ? '+' : ''}${card.monthlyExpenseIncrease.toLocaleString()}`] : []),
-            ...(card.childrenIncrease ? [`孩子數 +${card.childrenIncrease}`] : []),
-            ...(card.otherPlayersCanJoin ? [`其他玩家可擲骰加入（至少 ${card.joinDiceMin || 0} 點）`] : []),
-            ...(card.requiresStorySharing ? ['需要玩家分享故事'] : [])
-        ]
-    };
+    return buildHappinessCardMetaFromSchema(cardId, playerState);
 };
 
 const buildOpportunityCardMeta = (cardId: string) => {
-    const card = OPPORTUNITY_CARDS.find(item => item.id === cardId);
-    if (!card) return null;
-
-    return {
-        deck: 'opportunity' as const,
-        title: card.title,
-        subtitle: card.category || '機運卡',
-        description: card.description,
-        effectLines: [
-            ...(card.schoolFee ? [`學費 ${card.schoolFee.toLocaleString()}`] : []),
-            ...(card.diceRequirement ? [`判定需求：至少 ${card.diceRequirement} 點`] : []),
-            ...(card.purchasePrice ? [`價格 ${card.purchasePrice.toLocaleString()}`] : []),
-            ...(card.purchasePercent ? [`成交比例 ${card.purchasePercent}%`] : []),
-            ...(card.acquisitionMultiple ? [`收購倍率 ${card.acquisitionMultiple} 倍月收益`] : []),
-            ...(card.cashLoss ? [`現金 -${card.cashLoss.toLocaleString()}`] : []),
-            ...(card.cashGain ? [`現金 +${card.cashGain.toLocaleString()}`] : []),
-            ...(card.monthlyExpenseChange ? [`月支出 ${card.monthlyExpenseChange > 0 ? '+' : ''}${card.monthlyExpenseChange.toLocaleString()}`] : []),
-            ...(card.happinessLoss ? [`幸福 -${card.happinessLoss}`] : []),
-            ...(card.missRounds ? [`暫停 ${card.missRounds} 回合`] : []),
-            ...(card.drawCard ? [`再抽一張${card.drawCard === 'happiness' ? '幸福' : '新聞'}卡`] : []),
-            ...(card.affectsAllPlayers ? ['影響全部玩家'] : []),
-            ...(card.requiresStorySharing ? ['需要完成口頭分享'] : [])
-        ]
-    };
+    return buildOpportunityCardMetaFromSchema(cardId);
 };
 
 const buildNewsCardMeta = (cardId: string) => {
-    const card = NEWS_CARDS.find(item => item.id === cardId);
-    if (!card) return null;
-
-    if (card.type === 'real_estate') {
-        return {
-            deck: 'news' as const,
-            title: card.title,
-            subtitle: card.subtype,
-            description: card.description || '請依房市卡內容選擇自用或出租購買。',
-            effectLines: [
-                `總價：${card.totalPrice.toLocaleString()}`,
-                `頭期款：${card.downPayment.toLocaleString()}`,
-                `貸款：${card.loanAmount.toLocaleString()}`,
-                `貸款利息（月）：${card.monthlyPayment.toLocaleString()}`,
-                `租金收入（月）：${card.rent.toLocaleString()}`,
-                `淨收益（月）：${card.netRentIncome > 0 ? '+' : ''}${card.netRentIncome.toLocaleString()}`,
-                ...(card.canSelfUse ? [`自用幸福：+${card.happinessBonus}`] : [])
-            ]
-        };
-    }
-
-    if (card.type === 'small_business') {
-        return {
-            deck: 'news' as const,
-            title: card.title,
-            subtitle: card.subtype,
-            description: card.description || '兼職工作室貸款專案。所有玩家皆可申請。',
-            effectLines: [
-                `投資金額：${card.investmentPerMonth.toLocaleString()}`,
-                `貸款金額：${card.loanAmount.toLocaleString()}`,
-                `企業貸款利息（月）：-${card.interestPerMonth.toLocaleString()}`
-            ]
-        };
-    }
-
-    if (card.type === 'large_enterprise') {
-        return {
-            deck: 'news' as const,
-            title: card.title,
-            subtitle: card.subtype,
-            description: card.description || '大型企業投資機會。所有玩家皆可投資。',
-            effectLines: [
-                `最高投資額度：${card.maxInvestment.toLocaleString()}`,
-                `投資報酬率：每投資 1,000,000，月收益 +${card.monthlyReturnPerMillion.toLocaleString()}`
-            ]
-        };
-    }
-
-    if (card.type === 'cash_dividend') {
-        return {
-            deck: 'news' as const,
-            title: card.title,
-            subtitle: card.subtype,
-            description: card.description || '系統將自動根據您持有的股票發放現金股利。',
-            effectLines: Object.entries(card.dividendPerShare).map(([code, dps]) =>
-                `${code}：每張配發 ${(dps * 100).toLocaleString()}`
-            )
-        };
-    }
-
-    if (card.type === 'stock_dividend') {
-        return {
-            deck: 'news' as const,
-            title: card.title,
-            subtitle: card.subtype,
-            description: card.description || '系統將自動根據您持有的股票發放股票股息。',
-            effectLines: Object.entries(card.dividendRate).map(([code, rate]) =>
-                `${code}：配股率 ${(rate * 100).toLocaleString()}%`
-            )
-        };
-    }
-
-    return {
-        deck: 'news' as const,
-        title: card.title,
-        subtitle: card.subtype,
-        description: card.description || '請依新聞卡內容進行財務與市場調整。',
-        effectLines: [
-            ...(card.type === 'stock_price'
-                ? Object.entries(card.prices).map(([code, price]) => `${code}：${price.toLocaleString()}`)
-                : [])
-        ]
-    };
+    return buildNewsCardMetaFromSchema(cardId);
 };
 
 const toUsedKey = (deck: keyof Pick<BoardDeckState, 'happiness' | 'opportunity' | 'news'>) => {
@@ -271,6 +151,13 @@ const hasCarAsset = (state?: GameState | null) => {
     return !!state?.assets?.some(asset => asset.type === '汽車' || asset.type === '飛行器');
 };
 
+const normalizeMarketPrices = (
+    updates: Record<string, number>,
+    currentPrices: Record<string, number> = {}
+) => Object.fromEntries(
+    STOCK_SYMBOLS.map(symbol => [symbol, updates[symbol] ?? currentPrices[symbol] ?? 0])
+) as Record<string, number>;
+
 const BOARD_MOVE_INTRO_DELAY_MS = 600;
 const BOARD_MOVE_STEP_DURATION_MS = 380;
 const BOARD_MOVE_LANDING_DELAY_MS = 600;
@@ -306,6 +193,8 @@ const createInitialBoardState = (members: RoomMember[], playerStates?: Record<st
         currentEvent: null,
         pendingEvents: [],
         movement: null,
+        familyMilestoneJoinPrompt: null,
+        sharedCardPrompt: null,
         deckState: createInitialDeckState(),
         realEstateMarket: [],
         cardLog: [],
@@ -329,8 +218,62 @@ const shiftBoardQueue = (boardState: BoardState) => {
 
     return {
         ...activateBoardQueueEntry(nextEntry),
+        familyMilestoneJoinPrompt: null,
         pendingEvents: queue
     };
+};
+
+const buildBoardEventAdvanceState = (roomData: Room) => {
+    const boardState = roomData.boardState;
+    if (!boardState) return null;
+
+    const queue = [...(boardState.pendingEvents || [])];
+    const nextEntry = queue.shift() || null;
+
+    if (nextEntry) {
+        return cleanObject({
+            boardState: {
+                ...boardState,
+                ...activateBoardQueueEntry(nextEntry),
+                familyMilestoneJoinPrompt: null,
+                sharedCardPrompt: null,
+                pendingEvents: queue,
+                updatedAt: Date.now()
+            }
+        });
+    }
+
+    const nextTurn = getNextTurnUid(boardState);
+    const nextTurnUid = nextTurn?.nextUid || boardState.currentTurnUid;
+    const nextPlayerStates = { ...(roomData.playerStates || {}) };
+    const nextTurnPlayerState = nextTurnUid ? nextPlayerStates[nextTurnUid] : null;
+
+    if (
+        nextTurnUid &&
+        boardState.currentTurnUid &&
+        nextTurnUid !== boardState.currentTurnUid &&
+        nextTurnPlayerState?.bankServiceWindowActive
+    ) {
+        nextPlayerStates[nextTurnUid] = cleanObject({
+            ...nextTurnPlayerState,
+            bankServiceWindowActive: false,
+            bankServiceGrantedAtEventId: undefined
+        }) as GameState;
+    }
+
+    return cleanObject({
+        boardState: {
+            ...boardState,
+            ...activateBoardQueueEntry(null),
+            familyMilestoneJoinPrompt: null,
+            sharedCardPrompt: null,
+            pendingEvents: [],
+            currentTurnUid: nextTurnUid || null,
+            skipTurns: nextTurn?.skipTurns || boardState.skipTurns,
+            updatedAt: Date.now()
+        },
+        ...(Object.keys(nextPlayerStates).length > 0 ? { playerStates: nextPlayerStates } : {})
+    });
 };
 
 const appendBoardCardLog = (
@@ -490,11 +433,6 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
         detailMessages.push('請確認本回合月結餘');
     }
 
-    const nextTurn = getNextTurnUid({
-        ...boardState,
-        currentTurnUid: playerUid,
-        skipTurns: nextSkipTurns
-    });
     const event: BoardEventLog = {
         id: `${playerUid}_${eventTimestamp}`,
         playerUid,
@@ -522,9 +460,18 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
         nextPlayerStates[playerUid] = updatedPlayerState;
     }
 
+    const hasQueuedBoardEvents = !!currentQueueEntry;
+    const nextTurn = hasQueuedBoardEvents
+        ? null
+        : getNextTurnUid({
+            ...boardState,
+            currentTurnUid: playerUid,
+            skipTurns: nextSkipTurns
+        });
     const nextTurnUid = nextTurn?.nextUid || playerUid;
-    const nextTurnPlayerState = nextPlayerStates[nextTurnUid];
-    if (nextTurnUid !== playerUid && nextTurnPlayerState?.bankServiceWindowActive) {
+    const nextTurnPlayerState = nextTurnUid ? nextPlayerStates[nextTurnUid] : null;
+
+    if (!hasQueuedBoardEvents && nextTurnUid !== playerUid && nextTurnPlayerState?.bankServiceWindowActive) {
         nextPlayerStates[nextTurnUid] = cleanObject({
             ...nextTurnPlayerState,
             bankServiceWindowActive: false,
@@ -539,7 +486,7 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
                 ...boardState.playerPositions,
                 [playerUid]: nextPosition
             },
-            skipTurns: nextTurn?.skipTurns || nextSkipTurns,
+            skipTurns: hasQueuedBoardEvents ? nextSkipTurns : (nextTurn?.skipTurns || nextSkipTurns),
             currentTurnUid: nextTurn?.nextUid || playerUid,
             lastRoll: boardState.lastRoll,
             ...activateBoardQueueEntry(currentQueueEntry),
@@ -570,12 +517,29 @@ interface RoomContextValue {
     approveRequest: (requestId: string) => Promise<void>;
     rejectRequest: (requestId: string) => Promise<void>;
     clearRequest: (requestId: string) => Promise<void>;
-    rollBoardDice: () => Promise<{ position: number; detail: string; skipTurns: number; total: number }>;
+    rollBoardDice: (diceCount?: 1 | 2) => Promise<{ position: number; detail: string; skipTurns: number; total: number }>;
     revealBoardCard: (eventId: string, cardId: string) => Promise<void>;
     dismissBoardCard: (eventId: string, cardId: string) => Promise<void>;
     advanceBoardEventQueue: (expectedType?: 'bank' | 'school' | 'hospital' | 'card' | 'exam_happiness' | 'followup') => Promise<void>;
     drawPostExamHappinessCard: (success: boolean) => Promise<void>;
     drawBoardFollowupCard: (deck: 'happiness' | 'news', summary: string, detail?: string) => Promise<void>;
+    openFamilyMilestoneJoinPrompt: (eventId: string, cardId: string) => Promise<void>;
+    openSharedCardPrompt: (eventId: string, cardId: string) => Promise<void>;
+    submitFamilyMilestoneJoinResponse: (payload: {
+        promptId: string;
+        status: 'passed' | 'failed' | 'declined';
+        roll?: number;
+        cardId: string;
+    }) => Promise<void>;
+    clearPendingFamilyMilestoneJoinAction: (promptId: string) => Promise<void>;
+    submitSharedCardPromptResponse: (payload: {
+        promptId: string;
+        status: 'completed' | 'declined' | 'no_effect';
+        amount?: number;
+        selectedAssetIds?: string[];
+        note?: string;
+    }) => Promise<void>;
+    clearSharedCardPrompt: (promptId: string) => Promise<void>;
     applyBoardExpenseToAllPlayers: (payload: {
         amount: number;
         category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild';
@@ -601,6 +565,17 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoadingRoom, setIsLoadingRoom] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [playerStates, setPlayerStates] = useState<Record<string, GameState>>({});
+
+    const isProcessingRef = useRef<boolean>(false);
+    const executeWithLock = async <T,>(action: () => Promise<T>): Promise<T | undefined> => {
+        if (isProcessingRef.current) return undefined;
+        isProcessingRef.current = true;
+        try {
+            return await action();
+        } finally {
+            isProcessingRef.current = false;
+        }
+    };
 
     // 監聽房間狀態
     useEffect(() => {
@@ -884,7 +859,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const rollBoardDice = async () => {
+    const rollBoardDice = async (requestedDiceCount?: 1 | 2) => executeWithLock(async () => {
         if (!room?.id || !room.isBoardGame || !room.boardState || !user) {
             throw new Error('棋盤房間尚未準備完成');
         }
@@ -898,7 +873,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         const playerState = room.playerStates?.[user.uid];
-        const diceCount = hasCarAsset(playerState) ? 2 : 1;
+        const diceCount = hasCarAsset(playerState)
+            ? (requestedDiceCount === 1 ? 1 : 2)
+            : 1;
         const dice = Array.from({ length: diceCount }, () => Math.floor(Math.random() * 6) + 1);
         const total = dice.reduce((sum, value) => sum + value, 0);
         const startPosition = boardState.playerPositions[user.uid] || 0;
@@ -937,33 +914,28 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         const settleDelayMs = getBoardMovementSettleMs(movement);
 
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
-            boardState: {
-                ...boardState,
-                currentTurnUid: user.uid,
-                lastRoll: {
-                    uid: user.uid,
-                    dice,
-                    total,
-                    timestamp: rollTimestamp
-                },
-                currentCard: null,
-                currentCardReveal: null,
-                currentEvent: null,
-                movement,
-                updatedAt: rollTimestamp
+        const updates: Record<string, any> = {
+            'boardState.currentTurnUid': user.uid,
+            'boardState.lastRoll': {
+                uid: user.uid,
+                dice,
+                total,
+                timestamp: rollTimestamp
             },
-            ...(playerState?.bankServiceWindowActive ? {
-                playerStates: {
-                    ...(room.playerStates || {}),
-                    [user.uid]: cleanObject({
-                        ...playerState,
-                        bankServiceWindowActive: false,
-                        bankServiceGrantedAtEventId: undefined
-                    })
-                }
-            } : {})
-        })));
+            'boardState.currentCard': null,
+            'boardState.currentCardReveal': null,
+            'boardState.currentEvent': null,
+            'boardState.movement': movement,
+            'boardState.updatedAt': rollTimestamp
+        };
+        if (playerState?.bankServiceWindowActive) {
+            updates[`playerStates.${user.uid}`] = cleanObject({
+                ...playerState,
+                bankServiceWindowActive: false,
+                bankServiceGrantedAtEventId: undefined
+            });
+        }
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject(updates)));
 
         void (async () => {
             await wait(settleDelayMs);
@@ -997,7 +969,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             skipTurns: room.playerStates?.[user.uid]?.skipTurns || 0,
             total
         };
-    };
+    }) as Promise<{ position: number; detail: string; skipTurns: number; total: number }>;
 
     const finishRoomGame = async () => {
         if (!room || user?.uid !== room.hostId) return;
@@ -1058,10 +1030,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const roomRef = doc(db, 'rooms', room.id);
             // 先獲取當前的 marketPrices 作為 previousMarketPrices
             const currentPrices = room.marketPrices || {};
+            const nextPrices = normalizeMarketPrices(updates, currentPrices);
 
             await safeAsync(updateDoc(roomRef, {
                 marketUpdates: {
-                    updates,
+                    updates: nextPrices,
                     code,
                     isBubble,
                     timestamp: Date.now()
@@ -1069,7 +1042,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // 保存前一次的價格
                 previousMarketPrices: currentPrices,
                 // 更新為新的價格
-                marketPrices: updates
+                marketPrices: nextPrices
             }));
         } catch (err: any) {
             console.error('更新行情失敗:', err);
@@ -1077,7 +1050,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const revealBoardCard = async (eventId: string, cardId: string) => {
+    const revealBoardCard = async (eventId: string, cardId: string) => executeWithLock(async () => {
         if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
 
         const { boardState } = room;
@@ -1099,24 +1072,63 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
     };
 
-    const advanceBoardEventQueue = async (expectedType?: 'bank' | 'school' | 'hospital' | 'card' | 'exam_happiness' | 'followup') => {
+    const advanceBoardEventQueue = async (expectedType?: 'bank' | 'school' | 'hospital' | 'card' | 'exam_happiness' | 'followup') => executeWithLock(async () => {
         if (!room?.id || !room.isBoardGame || !room.boardState) return;
 
         const { boardState } = room;
         if (expectedType && boardState.currentEvent?.type !== expectedType) return;
 
-        const nextState = shiftBoardQueue(boardState);
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
-            boardState: {
-                ...boardState,
-                ...nextState,
-                cardLog: nextState.currentCard
-                    ? appendBoardCardLog(boardState, nextState.currentCard, nextState.currentEvent)
-                    : boardState.cardLog || [],
-                updatedAt: Date.now()
+        // Event Completion Guard: Ensure no pending shared events
+        if (boardState.sharedCardPrompt) {
+            const prompt = boardState.sharedCardPrompt;
+            const hasAllResponses = prompt.targetPlayerUids.every(uid => prompt.responses?.[uid]);
+            if (!hasAllResponses) {
+                alert('還有玩家尚未完成卡片決策，請等待所有人完成後再推進事件。');
+                return;
             }
-        })));
-    };
+        }
+        if (boardState.familyMilestoneJoinPrompt) {
+            const prompt = boardState.familyMilestoneJoinPrompt;
+            const hasAllResponses = prompt.targetPlayerUids.every(uid => prompt.responses?.[uid]);
+            if (!hasAllResponses) {
+                alert('還有玩家尚未選擇是否加入家庭歷程，請等待所有人選擇後再推進事件。');
+                return;
+            }
+        }
+
+        // Use runTransaction to prevent race conditions during deep state updates
+        await safeAsync(runTransaction(db, async (transaction) => {
+            const roomRef = doc(db, 'rooms', room.id);
+            const roomDoc = await transaction.get(roomRef);
+            if (!roomDoc.exists()) return;
+            const currentRoom = roomDoc.data() as Room;
+            const currentBoardState = currentRoom.boardState;
+            if (!currentBoardState) return;
+            
+            // Check again in transaction
+            if (expectedType && currentBoardState.currentEvent?.type !== expectedType) return;
+            
+            // Avoid advancing if same event ID was already advanced
+            if (currentBoardState.currentEvent?.id !== boardState.currentEvent?.id) {
+                return; // Event already changed
+            }
+
+            const nextState = buildBoardEventAdvanceState(currentRoom);
+            if (!nextState) return;
+
+            transaction.update(roomRef, cleanObject({
+                ...nextState,
+                boardState: {
+                    ...(nextState.boardState || currentBoardState),
+                    cardLog: nextState.boardState?.currentCard
+                        ? appendBoardCardLog(currentBoardState, nextState.boardState.currentCard, nextState.boardState.currentEvent)
+                        : currentBoardState.cardLog || [],
+                    updatedAt: Date.now()
+                },
+                ...(nextState.playerStates ? { playerStates: nextState.playerStates } : {})
+            }));
+        }));
+    });
 
     const dismissBoardCard = async (eventId: string, cardId: string) => {
         if (!room?.id || !room.isBoardGame || !room.boardState) return;
@@ -1128,16 +1140,18 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!isCurrentCard) return;
 
-        const nextState = shiftBoardQueue(boardState);
+        const nextState = buildBoardEventAdvanceState(room);
+        if (!nextState) return;
         await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
+            ...nextState,
             boardState: {
-                ...boardState,
-                ...nextState,
-                cardLog: nextState.currentCard
-                    ? appendBoardCardLog(boardState, nextState.currentCard, nextState.currentEvent)
+                ...(nextState.boardState || boardState),
+                cardLog: nextState.boardState?.currentCard
+                    ? appendBoardCardLog(boardState, nextState.boardState.currentCard, nextState.boardState.currentEvent)
                     : boardState.cardLog || [],
                 updatedAt: Date.now()
-            }
+            },
+            ...(nextState.playerStates ? { playerStates: nextState.playerStates } : {})
         })));
     };
 
@@ -1237,6 +1251,209 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })));
     };
 
+    const openFamilyMilestoneJoinPrompt = async (eventId: string, cardId: string) => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+
+        const sourceCard = HAPPINESS_CARDS.find(card => card.id === cardId);
+        if (!sourceCard || sourceCard.category !== '家庭重要歷程' || !sourceCard.otherPlayersCanJoin) return;
+
+        const isCurrentCard =
+            room.boardState.currentEvent?.id === eventId &&
+            room.boardState.currentCard?.cardId === cardId &&
+            room.boardState.currentEvent?.playerUid === user.uid;
+
+        if (!isCurrentCard) return;
+
+        const promptId = `${eventId}_${cardId}_family_join`;
+        if (room.boardState.familyMilestoneJoinPrompt?.id === promptId) return;
+
+        const targetPlayerUids = room.members
+            .filter(member => member.role !== 'coach' && member.uid !== user.uid)
+            .map(member => member.uid)
+            .filter(uid => {
+                const playerState = room.playerStates?.[uid];
+                if (!playerState) return false;
+                return getFamilyMilestoneStatus(playerState).currentStageIndex !== -1;
+            });
+
+        if (targetPlayerUids.length === 0) return;
+
+        const prompt: FamilyMilestoneJoinPrompt = {
+            id: promptId,
+            sourceEventId: eventId,
+            sourceCardId: cardId,
+            sourcePlayerUid: user.uid,
+            sourcePlayerName: room.boardState.currentEvent?.playerName || user.name || '玩家',
+            requiredRoll: sourceCard.joinDiceMin || 4,
+            targetPlayerUids,
+            responses: {},
+            createdAt: Date.now()
+        };
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+            'boardState.familyMilestoneJoinPrompt': prompt,
+            'boardState.updatedAt': Date.now()
+        }));
+    };
+
+    const openSharedCardPrompt = async (eventId: string, cardId: string) => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+
+        const opportunityCard = OPPORTUNITY_CARDS.find(card => card.id === cardId);
+        const newsCard = NEWS_CARDS.find(card => card.id === cardId);
+        const promptId = `${eventId}_${cardId}_shared`;
+
+        if (room.boardState.sharedCardPrompt?.id === promptId) return;
+
+        const isCurrentCard =
+            room.boardState.currentEvent?.id === eventId &&
+            room.boardState.currentCard?.cardId === cardId &&
+            room.boardState.currentEvent?.playerUid === user.uid;
+
+        if (!isCurrentCard) return;
+
+        let kind: SharedCardPrompt['kind'] | null = null;
+        if (
+            opportunityCard &&
+            ['purchase_1room', 'purchase_any_house', 'purchase_store', 'purchase_startup', 'enterprise_acquisition'].includes(opportunityCard.type)
+        ) {
+            kind = 'asset_sale';
+        } else if (newsCard?.type === 'cash_dividend') {
+            kind = 'cash_dividend';
+        } else if (newsCard?.type === 'stock_dividend') {
+            kind = 'stock_dividend';
+        } else if (newsCard?.type === 'large_enterprise') {
+            kind = 'investment';
+        } else if (newsCard?.type === 'small_business') {
+            kind = 'startup_loan';
+        }
+
+        if (!kind) return;
+
+        const playerMembers = room.members.filter(member => member.role !== 'coach');
+        const targetPlayerUids = playerMembers
+            .map(member => member.uid)
+            .filter(uid => {
+                if (kind !== 'asset_sale') return true;
+                const playerState = room.playerStates?.[uid];
+                if (!playerState) return false;
+                const action = resolveBoardCardAction(cardId, playerState);
+                return action.kind === 'asset_sale' && action.items.length > 0;
+            });
+
+        const prompt: SharedCardPrompt = {
+            id: promptId,
+            kind,
+            sourceEventId: eventId,
+            sourceCardId: cardId,
+            sourcePlayerUid: user.uid,
+            sourcePlayerName: room.boardState.currentEvent?.playerName || user.name || '玩家',
+            targetPlayerUids,
+            responses: {},
+            createdAt: Date.now()
+        };
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+            'boardState.sharedCardPrompt': prompt,
+            'boardState.updatedAt': Date.now()
+        }));
+    };
+
+    const submitFamilyMilestoneJoinResponse = async (payload: {
+        promptId: string;
+        status: 'passed' | 'failed' | 'declined';
+        roll?: number;
+        cardId: string;
+    }) => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+
+        const prompt = room.boardState.familyMilestoneJoinPrompt;
+        if (!prompt || prompt.id !== payload.promptId) return;
+        if (!prompt.targetPlayerUids.includes(user.uid)) return;
+        if (prompt.responses?.[user.uid]) return;
+
+        const roomRef = doc(db, 'rooms', room.id);
+        const playerState = room.playerStates?.[user.uid];
+        const response = cleanObject({
+            playerUid: user.uid,
+            playerName: room.members.find(member => member.uid === user.uid)?.name || user.name || '玩家',
+            status: payload.status,
+            roll: payload.roll,
+            respondedAt: Date.now()
+        });
+
+        const updates: Record<string, any> = {
+            [`boardState.familyMilestoneJoinPrompt.responses.${user.uid}`]: response,
+            'boardState.updatedAt': Date.now()
+        };
+
+        if (payload.status === 'passed' && playerState) {
+            updates[`playerStates.${user.uid}`] = cleanObject({
+                ...playerState,
+                pendingFamilyMilestoneJoinAction: {
+                    promptId: payload.promptId,
+                    cardId: payload.cardId,
+                    sourcePlayerUid: prompt.sourcePlayerUid
+                },
+                pendingCardAction: `${prompt.sourcePlayerName} 抽到家庭重要歷程，你擲出 ${payload.roll} 點並成功加入。`,
+                lastBoardEvent: '家庭重要歷程同步參與'
+            });
+        }
+
+        await safeAsync(updateDoc(roomRef, updates));
+    });
+
+    const clearPendingFamilyMilestoneJoinAction = async (promptId: string) => {
+        if (!room?.id || !user) return;
+
+        const currentPending = room.playerStates?.[user.uid]?.pendingFamilyMilestoneJoinAction;
+        if (!currentPending || currentPending.promptId !== promptId) return;
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+            [`playerStates.${user.uid}.pendingFamilyMilestoneJoinAction`]: deleteField()
+        }));
+    };
+
+    const submitSharedCardPromptResponse = async (payload: {
+        promptId: string;
+        status: 'completed' | 'declined' | 'no_effect';
+        amount?: number;
+        selectedAssetIds?: string[];
+        note?: string;
+    }) => executeWithLock(async () => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+
+        const prompt = room.boardState.sharedCardPrompt;
+        if (!prompt || prompt.id !== payload.promptId) return;
+        if (!prompt.targetPlayerUids.includes(user.uid)) return;
+        if (prompt.responses?.[user.uid]) return;
+
+        const response = cleanObject({
+            playerUid: user.uid,
+            playerName: room.members.find(member => member.uid === user.uid)?.name || user.name || '玩家',
+            status: payload.status,
+            amount: payload.amount,
+            selectedAssetIds: payload.selectedAssetIds,
+            note: payload.note,
+            respondedAt: Date.now()
+        });
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+            [`boardState.sharedCardPrompt.responses.${user.uid}`]: response,
+            'boardState.updatedAt': Date.now()
+        }));
+    };
+
+    const clearSharedCardPrompt = async (promptId: string) => {
+        if (!room?.id || !room.boardState?.sharedCardPrompt) return;
+        if (room.boardState.sharedCardPrompt.id !== promptId) return;
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+            'boardState.sharedCardPrompt': deleteField(),
+            'boardState.updatedAt': Date.now()
+        }));
+    };
+
     const applyBoardExpenseToAllPlayers = async (payload: {
         amount: number;
         category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild';
@@ -1334,10 +1551,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const roomRef = doc(db, 'rooms', room.id);
             const currentPrices = room.marketPrices || {};
-            const nextPrices = {
-                ...currentPrices,
-                ...updates
-            };
+            const nextPrices = normalizeMarketPrices(updates, currentPrices);
 
             await safeAsync(updateDoc(roomRef, {
                 marketUpdates: {
@@ -1451,6 +1665,12 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             advanceBoardEventQueue,
             drawPostExamHappinessCard,
             drawBoardFollowupCard,
+            openFamilyMilestoneJoinPrompt,
+            openSharedCardPrompt,
+            submitFamilyMilestoneJoinResponse,
+            clearPendingFamilyMilestoneJoinAction,
+            submitSharedCardPromptResponse,
+            clearSharedCardPrompt,
             applyBoardExpenseToAllPlayers,
             moveCurrentPlayerToSquare,
             applyBoardMarketPrices,
