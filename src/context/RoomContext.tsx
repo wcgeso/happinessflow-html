@@ -1704,6 +1704,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }) => {
         if (!room?.id || !room.isBoardGame || !room.playerStates) return;
 
+        // 共享效果的正式來源是 room.playerStates，每位玩家的本地 gameState 都必須
+        // 依 sharedExpenseSyncedAt 這個時間戳把此次共享支出回灌，避免本地防抖同步
+        // 用舊資料覆寫掉這次的正式共享結果（見 P0-02）。
+        const syncedAt = Date.now();
+
         const nextPlayerStates = Object.fromEntries(
             Object.entries(room.playerStates).map(([uid, state]) => {
                 const currentVal = state.expenses?.[payload.category] || 0;
@@ -1718,7 +1723,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         [payload.category]: nextVal
                     },
                     pendingCardAction: payload.detail || payload.summary,
-                    lastBoardEvent: payload.summary
+                    lastBoardEvent: payload.summary,
+                    lastSharedExpenseSyncedAt: syncedAt
                 })];
             })
         );

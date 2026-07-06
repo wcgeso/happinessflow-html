@@ -136,6 +136,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const timeoutId = setTimeout(async () => {
             const roomRef = doc(db, 'rooms', room.id);
             const existingRoomState = room.playerStates?.[user.uid];
+            // 若房間端的共享支出同步時間戳比本地新，代表本地的回灌監聽尚未趕上，
+            // 這次寫回必須保留房間端的正式共享結果，避免用舊的本地 expenses 覆寫掉它（P0-02）。
+            const roomHasNewerSharedExpense =
+                (existingRoomState?.lastSharedExpenseSyncedAt || 0) > (gameState.lastSharedExpenseSyncedAt || 0);
             const cleanedState = cleanObject({
                 ...gameState,
                 boardPosition: existingRoomState?.boardPosition ?? gameState.boardPosition,
@@ -144,7 +148,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 pendingCardAction: existingRoomState?.pendingCardAction ?? gameState.pendingCardAction,
                 bankServiceWindowActive: existingRoomState?.bankServiceWindowActive ?? gameState.bankServiceWindowActive,
                 bankServiceGrantedAtEventId: existingRoomState?.bankServiceGrantedAtEventId ?? gameState.bankServiceGrantedAtEventId,
-                pendingFamilyMilestoneJoinAction: existingRoomState?.pendingFamilyMilestoneJoinAction ?? gameState.pendingFamilyMilestoneJoinAction
+                pendingFamilyMilestoneJoinAction: existingRoomState?.pendingFamilyMilestoneJoinAction ?? gameState.pendingFamilyMilestoneJoinAction,
+                ...(roomHasNewerSharedExpense ? {
+                    expenses: existingRoomState?.expenses ?? gameState.expenses,
+                    lastSharedExpenseSyncedAt: existingRoomState?.lastSharedExpenseSyncedAt
+                } : {})
             });
             await safeAsync(updateDoc(roomRef, {
                 [`playerStates.${user.uid}`]: cleanedState
@@ -493,6 +501,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         return () => unsubscribe();
     }, [room?.id, user?.uid, room?.hostId, gameState.isSetup, gameState.lastMarketUpdateTimestamp, bubbleBurst, updateMarketPrices]);
+
+    // 監聽共享棋盤支出效果（例如新聞卡「全體支出調整」）回灌到本地 gameState。
+    // room.playerStates 是共享效果的正式來源；若不回灌，本地防抖同步（見上方
+    // 自動同步到房間文件 effect）會在下一次寫入時用舊的本地 expenses 覆寫掉
+    // 這筆正式共享結果（P0-02）。
+    useEffect(() => {
+        if (!room?.id || !user?.uid || user.uid === room.hostId || !gameState.isSetup) return;
+
+        const roomRef = doc(db, 'rooms', room.id);
+        const unsubscribe = onSnapshot(roomRef, (snapshot) => {
+            if (!snapshot.exists()) return;
+            const data = snapshot.data();
+            const sharedState = data.playerStates?.[user.uid];
+            const syncedAt = sharedState?.lastSharedExpenseSyncedAt;
+            if (!syncedAt || syncedAt <= (gameState.lastSharedExpenseSyncedAt || 0)) return;
+
+            setGameState(prev => ({
+                ...prev,
+                expenses: sharedState.expenses ?? prev.expenses,
+                lastSharedExpenseSyncedAt: syncedAt
+            }));
+        }, (err) => {
+            console.error("[GameContext] 監聽共享支出效果失敗:", err);
+        });
+
+        return () => unsubscribe();
+    }, [room?.id, room?.hostId, user?.uid, gameState.isSetup, gameState.lastSharedExpenseSyncedAt]);
 
     // 合併官方紀錄 + 玩家自存紀錄（官方優先，自存紀錄補充沒有官方紀錄的場次）
     const gameHistory = useMemo(() => {
