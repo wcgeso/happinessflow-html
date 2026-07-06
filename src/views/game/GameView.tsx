@@ -496,31 +496,26 @@ export const GameView: React.FC<{
         () => (activeSharedCardPrompt ? resolveBoardCardAction(activeSharedCardPrompt.sourceCardId, gameState) : null),
         [activeSharedCardPrompt, gameState]
     );
+    // 股利／配股金額改由 resolveBoardCardAction()（單一正式規則來源）計算，
+    // 不再於畫面層另外重算一份可能與 boardCardActions.ts 算法（stockSymbolFromAssetName
+    // 的股票代碼備援邏輯）不一致的數字，避免同一張卡出現兩套結果（P1-04）。
     const sharedDividendAmount = useMemo(() => {
         if (!activeSharedCardPrompt || activeSharedCardPrompt.kind !== 'cash_dividend') return 0;
-        const newsCard = NEWS_CARD_MAP[activeSharedCardPrompt.sourceCardId];
-        if (!newsCard || newsCard.type !== 'cash_dividend') return 0;
-        return gameState.assets
-            .filter(asset => asset.type === '股票' && asset.quantity)
-            .reduce((sum, asset) => {
-                const symbol = asset.name.match(/[A-Z]\d+/)?.[0] as keyof typeof newsCard.dividendPerShare;
-                const perShare = symbol ? (newsCard.dividendPerShare[symbol] || 0) : 0;
-                return sum + ((asset.quantity || 0) * 100 * perShare);
-            }, 0);
-    }, [activeSharedCardPrompt, gameState.assets]);
+        if (!sharedCardLocalAction || sharedCardLocalAction.kind !== 'financial') return 0;
+        return sharedCardLocalAction.txData.amount || 0;
+    }, [activeSharedCardPrompt, sharedCardLocalAction]);
     const sharedStockDividendItems = useMemo(() => {
         if (!activeSharedCardPrompt || activeSharedCardPrompt.kind !== 'stock_dividend') return [];
-        const newsCard = NEWS_CARD_MAP[activeSharedCardPrompt.sourceCardId];
-        if (!newsCard || newsCard.type !== 'stock_dividend') return [];
-        return gameState.assets
-            .filter(asset => asset.type === '股票' && asset.quantity)
-            .map(asset => {
-                const symbol = asset.name.match(/[A-Z]\d+/)?.[0] as keyof typeof newsCard.dividendRate;
-                const addedQty = symbol ? Math.ceil((asset.quantity || 0) * (newsCard.dividendRate[symbol] || 0)) : 0;
-                return { assetId: asset.id, addedQty, symbol };
+        if (!sharedCardLocalAction || sharedCardLocalAction.kind !== 'financial') return [];
+        const payloadItems = sharedCardLocalAction.txData.stockDividendPayload?.items || [];
+        return payloadItems
+            .map(item => {
+                const asset = gameState.assets.find(a => a.id === item.assetId);
+                const symbol = asset?.name.match(/[A-Z]\d+/)?.[0] || asset?.name || '';
+                return { assetId: item.assetId, addedQty: item.addedQty, symbol };
             })
             .filter(item => item.addedQty > 0);
-    }, [activeSharedCardPrompt, gameState.assets]);
+    }, [activeSharedCardPrompt, sharedCardLocalAction, gameState.assets]);
     const startupUpgradeAsset = useMemo(() => {
         if (!pendingStartupUpgradeAction) return null;
         return gameState.assets.find(asset =>
