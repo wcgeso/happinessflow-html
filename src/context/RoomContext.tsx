@@ -456,7 +456,9 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
             });
         }
     } else if (landedSquare.type === 'hospital') {
-        nextSkipTurns[playerUid] = Math.max(nextSkipTurns[playerUid] || 0, landedSquare.pauseTurns || 1);
+        // 依 docs/gdd/HOSPITAL_SYSTEM.md 完成規則：停回合必須在醫療費正式成立後才寫入，
+        // 此處只記錄應停回合數（hospitalSkipTurns），實際寫入 skipTurns 交由
+        // advanceBoardEventQueue('hospital') 在財務檢核完成後處理（見 RM-07）。
         detailMessages.push('抵達醫院，請再擲一次骰子決定醫藥費，並暫停一回合');
         queuedEvents.push({
             event: {
@@ -468,7 +470,8 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
                 detail: '棋子到達後再擲一次骰子，醫藥費 = 點數 x 1000',
                 squareIndex: nextPosition,
                 timestamp: eventTimestamp + routeEvents.length,
-                rollTotal: movement.rollTotal
+                rollTotal: movement.rollTotal,
+                hospitalSkipTurns: landedSquare.pauseTurns || 1
             }
         });
     } else if (landedSquare.type === 'repair') {
@@ -1231,7 +1234,25 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return; // Event already changed
             }
 
-            const nextState = buildBoardEventAdvanceState(currentRoom);
+            // 依 docs/gdd/HOSPITAL_SYSTEM.md：停回合必須在醫療費正式成立（財務檢核完成，
+            // 即呼叫 advanceBoardEventQueue('hospital')）之後才寫入，不得提前於棋子抵達時生效。
+            let roomForAdvance = currentRoom;
+            const hospitalSkipTurns = currentBoardState.currentEvent?.hospitalSkipTurns;
+            if (expectedType === 'hospital' && hospitalSkipTurns && currentBoardState.currentEvent?.playerUid) {
+                const hospitalPlayerUid = currentBoardState.currentEvent.playerUid;
+                roomForAdvance = {
+                    ...currentRoom,
+                    boardState: {
+                        ...currentBoardState,
+                        skipTurns: {
+                            ...currentBoardState.skipTurns,
+                            [hospitalPlayerUid]: Math.max(currentBoardState.skipTurns?.[hospitalPlayerUid] || 0, hospitalSkipTurns)
+                        }
+                    }
+                };
+            }
+
+            const nextState = buildBoardEventAdvanceState(roomForAdvance);
             if (!nextState) return;
 
             transaction.update(roomRef, cleanObject({

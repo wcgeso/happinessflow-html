@@ -193,6 +193,7 @@ export interface BoardEventLog {
   repairRoll?: number;
   repairFee?: number;
   repairHasCar?: boolean;
+  hospitalSkipTurns?: number;
 }
 
 export interface BoardQueuedEvent {
