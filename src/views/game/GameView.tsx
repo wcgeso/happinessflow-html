@@ -3057,11 +3057,11 @@ export const GameView: React.FC<{
                     isOpen={showBizUpgradeModal}
                     asset={startupUpgradeAsset}
                     onClose={() => {
+                        // 依 CARD_DECISION.md DEC-005：擲骰未達標（或尚未擲骰）時必須保留
+                        // pendingStartupUpgradeAction，玩家下次經過銀行才能再次嘗試升級，
+                        // 不得在此清除待升級狀態。
                         setShowBizUpgradeModal(false);
-                        void (async () => {
-                            await clearPendingStartupUpgradeAction();
-                            await advanceBoardEventQueue('bank');
-                        })();
+                        void advanceBoardEventQueue('bank');
                     }}
                     onUpgrade={(diceRoll) => {
                         setShowBizUpgradeModal(false);
