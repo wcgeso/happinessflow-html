@@ -85,6 +85,7 @@ export interface Transaction {
   timestamp: number;
   details?: string; // New: for listing sub-details
   flowType?: '生活' | '投資' | '融資' | '其它'; // New: for cash flow classification
+  boardEventId?: string; // 棋盤事件 ID，用於財務檢核流程的事件級防重複套用
 }
 
 export interface HappinessItem {
@@ -314,6 +315,7 @@ export interface GameState {
   lastSharedExpenseSyncedAt?: number;
   abilities: GameAbilities;
   completedHappinessEvents: string[];
+  appliedBoardFinancialEventIds?: string[];
   hasShownWinAnimation?: boolean;
   playerName?: string;
   reportName?: string;
@@ -550,6 +552,7 @@ export interface TransactionData {
     sharesToSell: number;
     currentPrice: number;
   };
+  boardEventId?: string; // 棋盤事件 ID，用於財務檢核流程的事件級防重複套用
 }
 
 export interface Achievement {

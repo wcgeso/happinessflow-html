@@ -1222,7 +1222,12 @@ export const GameView: React.FC<{
             ? txData.lifelongLearningPayload.learningType as PromotionType
             : null;
 
-        const applied = handleTransactionSubmit(txData);
+        // 事件級防重複套用（P1-05）：以正式棋盤事件 ID 為準，避免 modal 重開、
+        // effect 重跑或 snapshot 延遲導致同一筆棋盤財務結果被重複套用。
+        const boardEventId = boardState?.currentEvent?.id;
+        const applied = handleTransactionSubmit(
+            boardEventId ? { ...txData, boardEventId } : txData
+        );
         if (!applied) return false;
 
         if (boardFinancialAction?.afterApply?.affectsAllPlayersExpense) {

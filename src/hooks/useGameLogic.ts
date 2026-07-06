@@ -600,6 +600,11 @@ export const useGameLogic = () => {
 
     const handleTransactionSubmit = (data: TransactionData) => {
         data = normalizeTransactionData(data);
+        // 事件級防重複套用（P1-05）：棋盤財務檢核流程若因 modal 重開、effect 重跑或
+        // snapshot 延遲而重複呼叫，同一個 boardEventId 只會套用一次。
+        if (data.boardEventId && gameState.appliedBoardFinancialEventIds?.includes(data.boardEventId)) {
+            return true;
+        }
         const amount = Number(data.amount);
         if (isNaN(amount) || amount < 0) {
             showAlert('請輸入有效金額', 'error');
@@ -1024,6 +1029,10 @@ export const useGameLogic = () => {
             }
             else if (data.name.includes('實現人生夢想')) { newState.happiness = newState.happiness.map(h => h.id === 'h_dream' ? { ...h, checked: true } : h); }
             newState.happinessTotal = newState.happiness.reduce((sum, h) => sum + (h.checked ? h.points : 0), 0);
+
+            if (data.boardEventId) {
+                newState.appliedBoardFinancialEventIds = [...(prev.appliedBoardFinancialEventIds || []), data.boardEventId];
+            }
 
             return newState;
         });
