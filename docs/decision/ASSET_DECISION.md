@@ -4,7 +4,7 @@ Status: Confirmed
 
 Owner: 汪家慶
 
-Last Updated: 2026-07-01
+Last Updated: 2026-07-06
 
 # Purpose
 
@@ -17,6 +17,7 @@ Last Updated: 2026-07-01
 - GAP-008
 - GAP-015
 - GAP-016
+- 無對應既有 Gap（DEC-006、DEC-007：由產品負責人於 GDD 完整度稽核後直接拍板）
 
 # Decision Items
 
@@ -250,6 +251,98 @@ Recommendation:
 - Business Card 不得作為 unsupported card 存在於正式規格。
 - 尚未完成實作的卡片列為 Implementation Gap，而非正式玩法。
 - 企業升級需定義：升級條件、升級成本、現金流變化、貸款影響、Transaction History。
+
+Decision Required:
+No，產品規格已確認。
+
+Need Confirmation:
+無。
+
+## DEC-006：夢想／企業購買是否需要棋盤格觸發條件
+
+Decision ID: DEC-006
+
+Related Gap:
+- 無對應既有 Gap（`BUG_TRACEABILITY.md` Bug 2、Bug 32 標記為規格缺漏，B 類）
+
+Related RFC:
+- `DREAM_SYSTEM_RFC.md`
+- `BUSINESS_SYSTEM_RFC.md`
+
+Related GDD:
+- `ASSET_SYSTEM.md`
+- `DREAM_SYSTEM.md`
+- `BUSINESS_SYSTEM.md`
+- `BOARD_SYSTEM.md`
+
+Status: Confirmed
+
+Background:
+- Current Bug: `BUG_TRACEABILITY.md` Bug 2「事業夢想購買的條件，走格子」與 Bug 32「夢想目標需走到指定格子才能達成」，皆因 `DREAM_SYSTEM.md`／`BUSINESS_SYSTEM.md` 未定義棋盤觸發條件而無法判定正確行為。
+- Current GDD: 兩份文件的完成條件只描述財務門檻與跨系統承接，完全沒有描述棋盤位置或格子觸發條件。
+- Product Decision: 夢想與企業的購買行為不需要棋盤格觸發，玩家可在自己回合內的財務安排階段隨時主動購買（只要符合各自完成條件的財務門檻）。
+
+Options:
+- Option A（採用）
+  - 優點: 規則單純，玩家在自己回合內即可主動購買，不需要額外定義觸發格位、經過或停留判定，開發與教學成本最低。
+  - 缺點: 無。
+- Option B
+  - 優點: 比照棋盤走格類玩法，增加沉浸感。
+  - 缺點: 需要額外定義是哪些格子、經過或停留才算數，工作量大且非必要，也未見於現行 `PRODUCT_SPECIFICATION.md`。
+
+Recommendation:
+採用 Option A。
+
+正式規格如下：
+- 夢想購買與企業購買（含收購、升級）不需要玩家棋子停留或經過任何指定棋盤格。
+- 玩家可在自己回合內的正式財務安排階段，主動發起夢想或企業購買，前提是通過對應的財務檢核與完成條件（見 `DREAM_SYSTEM.md`、`BUSINESS_SYSTEM.md` 完成規則）。
+- 棋盤系統（`BOARD_SYSTEM.md`）不需要為夢想／企業購買新增任何格位或事件類型。
+
+Decision Required:
+No，產品規格已確認。
+
+Need Confirmation:
+無。
+
+## DEC-007：醫療保險是否可完全抵免醫院事件的醫療費
+
+Decision ID: DEC-007
+
+Related Gap:
+- GAP-007
+- 無對應既有 Gap（`MVP_PLAYABILITY_AUDIT.md` SC-02 標記為 Spec Conflict）
+
+Related RFC:
+- `INSURANCE_SYSTEM_RFC.md`
+- `HOSPITAL_SYSTEM_RFC.md`
+
+Related GDD:
+- `ASSET_SYSTEM.md`
+- `INSURANCE_SYSTEM.md`
+- `HOSPITAL_SYSTEM.md`
+
+Status: Confirmed
+
+Background:
+- Current Spec Conflict: `GAME_SYSTEM_MAP.md`（非正式文件）記載「若持有醫療保險則免付醫療費（保險次數 -1）」，但正式 GDD（`HOSPITAL_SYSTEM.md`、`INSURANCE_SYSTEM.md`）完全未提及保險抵免醫院費用的規則，`MVP_PLAYABILITY_AUDIT.md` SC-02 已列為未決衝突。
+- Product Decision: 持有醫療保險時，醫院事件的醫療費可完全抵免（玩家不需支付該次醫療費），且此抵免**不消耗保險的使用次數／效期**，只要持有醫療保險即可反覆抵免。
+
+Options:
+- Option A
+  - 優點: 比照 `GAME_SYSTEM_MAP.md` 現行描述，每次抵免消耗一次保險次數，較符合一般保險「有限理賠次數」的直覺。
+  - 缺點: 與本次產品拍板結果不符。
+- Option B（採用）
+  - 優點: 規則單純：持有醫療保險 = 醫院醫療費永遠全免，不需要額外追蹤保險的抵免次數或消耗紀錄。
+  - 缺點: 醫療保險的保費支出與其效益（無限次抵免）相比顯得單向有利，若日後要做保費／保額平衡調整需另外評估，但不影響本次規則本身的明確性。
+
+Recommendation:
+採用 Option B。
+
+正式規格如下：
+- 玩家持有醫療保險（`Asset` 附掛之醫療保險狀態為「有效」）時，醫院事件中的醫療費 100% 抵免，玩家不需支付。
+- 此抵免不消耗醫療保險的任何次數或額度，保險狀態只要維持「有效」即可反覆抵免每一次醫院事件的醫療費。
+- 停回合效果不受此抵免規則影響，仍依 `HOSPITAL_SYSTEM.md` 停回合規則正常執行。
+- 醫療保險的購買、生效延遲（下一次月結算才生效）與終止規則，仍依 `INSURANCE_SYSTEM.md` 既有規則辦理，不受本決策影響。
 
 Decision Required:
 No，產品規格已確認。

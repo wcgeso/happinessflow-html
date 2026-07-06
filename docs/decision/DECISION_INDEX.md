@@ -8,21 +8,23 @@
 
 ### Summary
 
-- Total Decision Items: `27`
-- Confirmed: `27`
+- Total Decision Items: `33`
+- Confirmed: `33`
 - Pending: `0`
 
 | File | Decision Items | Related Gaps | Confirmed | Pending |
 |---|---:|---|---:|---:|
 | `TURN_DECISION.md` | 3 | GAP-001, GAP-010, GAP-011 | 3 | 0 |
 | `EVENT_DECISION.md` | 3 | GAP-002, GAP-003, GAP-010, GAP-011, GAP-014 | 3 | 0 |
-| `CARD_DECISION.md` | 3 | GAP-003, GAP-014, GAP-016 | 3 | 0 |
+| `CARD_DECISION.md` | 6 | GAP-003, GAP-014, GAP-016, 無對應 Gap（DEC-004/005/006） | 6 | 0 |
 | `BANK_DECISION.md` | 2 | GAP-004 | 2 | 0 |
-| `FINANCIAL_DECISION.md` | 4 | GAP-005, GAP-008, GAP-009, GAP-013, GAP-014 | 4 | 0 |
-| `ASSET_DECISION.md` | 5 | GAP-006, GAP-007, GAP-008, GAP-015, GAP-016 | 5 | 0 |
+| `FINANCIAL_DECISION.md` | 5 | GAP-005, GAP-008, GAP-009, GAP-013, GAP-014, 無對應 Gap（DEC-005） | 5 | 0 |
+| `ASSET_DECISION.md` | 7 | GAP-006, GAP-007, GAP-008, GAP-015, GAP-016, 無對應 Gap（DEC-006/007） | 7 | 0 |
 | `STATE_DECISION.md` | 3 | GAP-008, GAP-009, GAP-018 | 3 | 0 |
 | `ARCHITECTURE_DECISION.md` | 3 | GAP-017, GAP-018, GAP-019 | 3 | 0 |
 | `PROFESSION_DECISION.md` | 1 | GAP-012 | 1 | 0 |
+
+> 2026-07-06 更新：GDD 完整度稽核後，產品負責人直接拍板補上 6 項先前無正式決策的規格缺口（CARD_DECISION.md DEC-004~006、FINANCIAL_DECISION.md DEC-005、ASSET_DECISION.md DEC-006~007）。這些項目無對應既有 RFC_GAP_LIST.md 編號，故標記為「無對應 Gap」。
 
 ## 2. Gap 對應總覽
 

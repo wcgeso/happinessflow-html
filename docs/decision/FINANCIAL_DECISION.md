@@ -4,7 +4,7 @@ Status: Confirmed
 
 Owner: 汪家慶
 
-Last Updated: 2026-07-01
+Last Updated: 2026-07-06
 
 # Purpose
 
@@ -17,6 +17,7 @@ Last Updated: 2026-07-01
 - GAP-009
 - GAP-013
 - GAP-014
+- 無對應既有 Gap（DEC-005：補齊 DEC-004 遺留的平手規則，並正式廢除 isWin 的財務自由判定）
 
 # Decision Items
 
@@ -188,7 +189,55 @@ Recommendation:
 - 完成人生夢想屬於人生里程碑，不會結束遊戲。
 - 遊戲依照預設時間結束，或由主持人 / 執行師宣布結束。
 - 遊戲結束後，以幸福值最高者作為勝利者。
-- 若幸福值相同，平手規則需由後續 GDD 補充。
+- 若幸福值相同，依 DEC-005 的淨資產排序規則決定名次。
+
+Decision Required:
+No，產品規格已確認。
+
+Need Confirmation:
+無。
+
+## DEC-005：幸福值平手排名規則，以及 isWin 財務自由判定的正式廢除
+
+Decision ID: DEC-005
+
+Related Gap:
+- GAP-013
+- GAP-014
+
+Related RFC:
+- `FINANCIAL_SYSTEM_RFC.md`
+- `HAPPINESS_SYSTEM_RFC.md`
+
+Related GDD:
+- `FINANCIAL_SYSTEM.md`
+- `HAPPINESS_SYSTEM.md`
+- `ASSET_SYSTEM.md`
+
+Status: Confirmed
+
+Background:
+- Current Gap: DEC-004 已將人生里程碑與遊戲結束條件分離，但明文承認「若幸福值相同，平手規則需由後續 GDD 補充」，此缺口尚未補齊。
+- Current RFC/Implementation: `RFC_GAP_LIST.md` GAP-014 記載現行程式仍存在獨立的 `isWin`（`passiveIncome > totalExpenses`）判定，與「幸福值決定勝負」的正式規則並存，形成兩套勝負邏輯。`GAME_SYSTEM_MAP.md` 也已片面補上「若幸福值相同，則依淨值高低排序」，但未經正式 GDD/Decision 收斂。
+- Product Decision: 正式廢除 `isWin`（財務自由）作為獨立勝負判定；遊戲結束時只以幸福值排名決定名次與勝負，幸福值相同時依淨資產（現金 + 資產估值 - 負債）高低排序。
+
+Options:
+- Option A
+  - 優點: 保留 isWin 財務自由判定作為額外的個人勝利路徑。
+  - 缺點: 與 DEC-004 已確立的「幸福值為唯一評分依據」矛盾，會讓勝負判定持續有兩套邏輯。
+- Option B（採用）
+  - 優點: 勝負判定收斂為單一依據（幸福值），平手時有明確的第二順位依據（淨資產），消除 GAP-014 的邏輯並存問題。
+  - 缺點: 需要清理程式中 `isWin = passiveIncome > totalExpenses` 這類判斷，改為純粹的里程碑提示（不影響排名與遊戲結束）。
+
+Recommendation:
+採用 Option B。
+
+正式規格如下：
+- 遊戲結束時的排名，只依「最終幸福值」由高到低排序。
+- `passiveIncome > totalExpenses`（財務自由）不再是任何形式的正式勝負判定，僅可作為里程碑通知呈現給玩家（比照 DEC-004 對財務自由里程碑的定位）。
+- 若兩位以上玩家最終幸福值相同，依淨資產（現金 + 資產估值合計 - 負債合計）由高到低排序決定名次。
+- 若幸福值與淨資產皆相同，視為並列名次。
+- 程式中任何獨立於幸福值排名之外的 `isWin` 旗標，僅能用於觸發里程碑動畫／通知，不得用於決定遊戲結束時的名次或勝負。
 
 Decision Required:
 No，產品規格已確認。
