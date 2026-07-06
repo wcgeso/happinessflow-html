@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { globalGameCoreEngine, CommandGateway, LegacyRoomAdapter } from '../game';
 import {
     doc,
     setDoc,
@@ -50,13 +51,15 @@ export interface PendingRequest {
     id: string;
     uid: string;
     playerName: string;
-    type: 'payday' | 'insurance' | 'happiness' | 'promotion' | 'lifelong';
+    type: 'payday' | 'insurance' | 'happiness' | 'promotion' | 'lifelong' | 'board_share';
     amount: number;
     timestamp: number;
     status: 'pending' | 'approved' | 'rejected';
     insuranceType?: 'medical' | 'aircraft';
     happinessLabel?: string;
     promotionType?: string;
+    boardCardId?: string;
+    shareLabel?: string;
 }
 
 export interface Room {
@@ -104,6 +107,48 @@ const toUsedKey = (deck: keyof Pick<BoardDeckState, 'happiness' | 'opportunity' 
     if (deck === 'opportunity') return 'usedOpportunity';
     return 'usedNews';
 };
+
+export const stockSymbolFromAssetName = (name: string) => {
+    const match = name.match(/[A-Z]\d+/);
+    return match?.[0] || '';
+};
+
+export const hasEligibleCashDividend = (playerState: GameState | undefined, dividendPerShare: Record<string, number>) => {
+    if (!playerState) return false;
+    return playerState.assets
+        .filter(asset => asset.type === '股票' && asset.quantity)
+        .some(asset => {
+            const symbol = stockSymbolFromAssetName(asset.name);
+            return symbol && (dividendPerShare[symbol] || 0) > 0 && (asset.quantity || 0) > 0;
+        });
+};
+
+export const hasEligibleStockDividend = (playerState: GameState | undefined, dividendRate: Record<string, number>) => {
+    if (!playerState) return false;
+    return playerState.assets
+        .filter(asset => asset.type === '股票' && asset.quantity)
+        .some(asset => {
+            const symbol = stockSymbolFromAssetName(asset.name);
+            const rate = symbol ? (dividendRate[symbol] || 0) : 0;
+            return rate > 0 && Math.ceil((asset.quantity || 0) * rate) > 0;
+        });
+};
+
+export const withPendingStartupUpgradeAction = (
+    playerState: GameState,
+    payload: { cardId: string; symbol: string }
+) => cleanObject({
+    ...playerState,
+    pendingStartupUpgradeAction: {
+        cardId: payload.cardId,
+        symbol: payload.symbol
+    }
+}) as GameState;
+
+export const withoutPendingStartupUpgradeAction = (playerState: GameState) => cleanObject({
+    ...playerState,
+    pendingStartupUpgradeAction: undefined
+}) as GameState;
 
 const drawBoardCard = (
     deckState: BoardDeckState,
@@ -227,6 +272,18 @@ const buildBoardEventAdvanceState = (roomData: Room) => {
     const boardState = roomData.boardState;
     if (!boardState) return null;
 
+    const sharedPrompt = boardState.sharedCardPrompt;
+    if (sharedPrompt) {
+        const hasAllSharedResponses = sharedPrompt.targetPlayerUids.every(uid => !!sharedPrompt.responses?.[uid]);
+        if (!hasAllSharedResponses) return null;
+    }
+
+    const familyPrompt = boardState.familyMilestoneJoinPrompt;
+    if (familyPrompt) {
+        const hasAllFamilyResponses = familyPrompt.targetPlayerUids.every(uid => !!familyPrompt.responses?.[uid]);
+        if (!hasAllFamilyResponses) return null;
+    }
+
     const queue = [...(boardState.pendingEvents || [])];
     const nextEntry = queue.shift() || null;
 
@@ -337,9 +394,11 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
 
     for (let step = 0; step < movement.path.length; step += 1) {
         const square = getSquareByIndex(movement.path[step]);
+        const isLandingStep = step === movement.path.length - 1;
+
         if (square.type === 'bank') {
             passedBankThisTurn = true;
-            if (!queuedRouteTypes.has('bank')) {
+            if (!queuedRouteTypes.has('bank') && !isLandingStep) {
                 queuedRouteTypes.add('bank');
                 routeEvents.push({ type: 'bank', squareIndex: movement.path[step] });
             }
@@ -347,13 +406,13 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
         }
         if (square.type === 'school') {
             passedSchoolThisTurn = true;
-            if (!queuedRouteTypes.has('school')) {
+            if (!queuedRouteTypes.has('school') && !isLandingStep) {
                 queuedRouteTypes.add('school');
                 routeEvents.push({ type: 'school', squareIndex: movement.path[step] });
             }
             detailMessages.push(`經過${square.label}，可前往升等考試`);
         }
-        if (square.type === 'repair' && hasCarAsset(playerState)) {
+        if (square.type === 'repair' && !isLandingStep && hasCarAsset(playerState)) {
             const feeRoll = Math.floor(Math.random() * 6) + 1;
             detailMessages.push(`經過維修廠，汽車保養費 ${feeRoll * 2000}，請自行登錄`);
         }
@@ -420,17 +479,63 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
         });
     } else if (landedSquare.type === 'repair') {
         const repairRoll = Math.floor(Math.random() * 6) + 1;
+        const hasCar = hasCarAsset(playerState);
+        const repairFee = repairRoll * 2000;
         if (hasCarAsset(playerState)) {
-            detailMessages.push(`踩到維修廠，保養費 ${repairRoll * 2000}，並暫停一回合`);
+            detailMessages.push(`踩到維修廠，保養費 ${repairFee}，並暫停一回合`);
             nextSkipTurns[playerUid] = Math.max(nextSkipTurns[playerUid] || 0, landedSquare.pauseTurns || 1);
         } else {
             detailMessages.push('踩到維修廠，但目前沒有汽車');
         }
+        queuedEvents.push({
+            event: {
+                id: `${playerUid}_${eventTimestamp}_repair`,
+                playerUid,
+                playerName,
+                type: 'repair',
+                summary: `${playerName} 停留在維修廠`,
+                detail: hasCar
+                    ? `棋子到達後保養費 = 點數 x 2000，並停回合 1 次`
+                    : '目前沒有汽車，本次維修廠無效果',
+                squareIndex: nextPosition,
+                timestamp: eventTimestamp + routeEvents.length,
+                rollTotal: movement.rollTotal,
+                repairRoll,
+                repairFee: hasCar ? repairFee : 0,
+                repairHasCar: hasCar
+            }
+        });
     } else if (landedSquare.type === 'school') {
         detailMessages.push('可選擇報名升等考試');
+        queuedEvents.push({
+            event: {
+                id: `${playerUid}_${eventTimestamp}_school_land`,
+                playerUid,
+                playerName,
+                type: 'school',
+                summary: `${playerName} 停留在學校`,
+                detail: '請完成升等考試',
+                squareIndex: nextPosition,
+                timestamp: eventTimestamp + routeEvents.length,
+                rollTotal: movement.rollTotal
+            }
+        });
     } else if (landedSquare.type === 'bank') {
         passedBankThisTurn = true;
         detailMessages.push('請確認本回合月結餘');
+        queuedEvents.push({
+            event: {
+                id: `${playerUid}_${eventTimestamp}_bank_land`,
+                playerUid,
+                playerName,
+                type: 'bank',
+                summary: `${playerName} 停留在銀行`,
+                detail: '先領取月結餘，再決定是否購買保險或定存',
+                squareIndex: nextPosition,
+                timestamp: eventTimestamp + routeEvents.length,
+                rollTotal: movement.rollTotal
+            }
+        });
     }
 
     const event: BoardEventLog = {
@@ -520,11 +625,11 @@ interface RoomContextValue {
     rollBoardDice: (diceCount?: 1 | 2) => Promise<{ position: number; detail: string; skipTurns: number; total: number }>;
     revealBoardCard: (eventId: string, cardId: string) => Promise<void>;
     dismissBoardCard: (eventId: string, cardId: string) => Promise<void>;
-    advanceBoardEventQueue: (expectedType?: 'bank' | 'school' | 'hospital' | 'card' | 'exam_happiness' | 'followup') => Promise<void>;
+    advanceBoardEventQueue: (expectedType?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup') => Promise<void>;
     drawPostExamHappinessCard: (success: boolean) => Promise<void>;
     drawBoardFollowupCard: (deck: 'happiness' | 'news', summary: string, detail?: string) => Promise<void>;
     openFamilyMilestoneJoinPrompt: (eventId: string, cardId: string) => Promise<void>;
-    openSharedCardPrompt: (eventId: string, cardId: string) => Promise<void>;
+    openSharedCardPrompt: (eventId: string, cardId: string) => Promise<boolean>;
     submitFamilyMilestoneJoinResponse: (payload: {
         promptId: string;
         status: 'passed' | 'failed' | 'declined';
@@ -538,8 +643,10 @@ interface RoomContextValue {
         amount?: number;
         selectedAssetIds?: string[];
         note?: string;
-    }) => Promise<void>;
+    }) => Promise<boolean>;
     clearSharedCardPrompt: (promptId: string) => Promise<void>;
+    setPendingStartupUpgradeAction: (payload: { cardId: string; symbol: string }) => Promise<boolean>;
+    clearPendingStartupUpgradeAction: () => Promise<void>;
     applyBoardExpenseToAllPlayers: (payload: {
         amount: number;
         category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild';
@@ -565,6 +672,22 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoadingRoom, setIsLoadingRoom] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [playerStates, setPlayerStates] = useState<Record<string, GameState>>({});
+
+    // ─── Milestone 0.5: Adapter Wiring ───────────────────────────────────────
+    // LegacyRoomAdapter 就位，但所有 Feature Flags 為 false，
+    // 任何 dispatch 都回傳 null，不接管任何行為。
+    // 未來 Milestone 1+ 開始啟用各 System Flag 時，此 adapter 才開始實際分流。
+    const coreRoomAdapter = useMemo(
+        () => new LegacyRoomAdapter(new CommandGateway(globalGameCoreEngine)),
+        []
+    );
+    // DEV only：確認 Adapter 接線成功（所有 flags = false，不接管任何行為）
+    useEffect(() => {
+        if (import.meta.env.DEV) {
+            console.debug('[RoomContext] coreRoomAdapter ready:', coreRoomAdapter.isReady());
+        }
+    }, [coreRoomAdapter]);
+    // ─────────────────────────────────────────────────────────────────────────
 
     const isProcessingRef = useRef<boolean>(false);
     const executeWithLock = async <T,>(action: () => Promise<T>): Promise<T | undefined> => {
@@ -1031,8 +1154,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // 先獲取當前的 marketPrices 作為 previousMarketPrices
             const currentPrices = room.marketPrices || {};
             const nextPrices = normalizeMarketPrices(updates, currentPrices);
-
-            await safeAsync(updateDoc(roomRef, {
+            const nextMarketState = {
                 marketUpdates: {
                     updates: nextPrices,
                     code,
@@ -1043,10 +1165,24 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 previousMarketPrices: currentPrices,
                 // 更新為新的價格
                 marketPrices: nextPrices
-            }));
+            };
+
+            const result = await safeAsync(updateDoc(roomRef, nextMarketState), null, (err) => {
+                setError(err?.message || '股市行情同步失敗');
+            });
+
+            if (result === null) {
+                throw new Error('股市行情同步失敗');
+            }
+
+            setRoom(prev => prev && prev.id === room.id
+                ? { ...prev, ...nextMarketState }
+                : prev
+            );
         } catch (err: any) {
             console.error('更新行情失敗:', err);
             setError(err.message);
+            throw err;
         }
     };
 
@@ -1070,9 +1206,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             },
             'boardState.updatedAt': Date.now()
         }));
-    };
+    });
 
-    const advanceBoardEventQueue = async (expectedType?: 'bank' | 'school' | 'hospital' | 'card' | 'exam_happiness' | 'followup') => executeWithLock(async () => {
+    const advanceBoardEventQueue = async (expectedType?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup') => executeWithLock(async () => {
         if (!room?.id || !room.isBoardGame || !room.boardState) return;
 
         const { boardState } = room;
@@ -1297,20 +1433,20 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const openSharedCardPrompt = async (eventId: string, cardId: string) => {
-        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return false;
 
         const opportunityCard = OPPORTUNITY_CARDS.find(card => card.id === cardId);
         const newsCard = NEWS_CARDS.find(card => card.id === cardId);
         const promptId = `${eventId}_${cardId}_shared`;
 
-        if (room.boardState.sharedCardPrompt?.id === promptId) return;
+        if (room.boardState.sharedCardPrompt?.id === promptId) return true;
 
         const isCurrentCard =
             room.boardState.currentEvent?.id === eventId &&
             room.boardState.currentCard?.cardId === cardId &&
             room.boardState.currentEvent?.playerUid === user.uid;
 
-        if (!isCurrentCard) return;
+        if (!isCurrentCard) return false;
 
         let kind: SharedCardPrompt['kind'] | null = null;
         if (
@@ -1328,17 +1464,25 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             kind = 'startup_loan';
         }
 
-        if (!kind) return;
+        if (!kind) return false;
 
         const playerMembers = room.members.filter(member => member.role !== 'coach');
         const targetPlayerUids = playerMembers
             .map(member => member.uid)
             .filter(uid => {
-                if (kind !== 'asset_sale') return true;
                 const playerState = room.playerStates?.[uid];
-                if (!playerState) return false;
-                const action = resolveBoardCardAction(cardId, playerState);
-                return action.kind === 'asset_sale' && action.items.length > 0;
+                if (kind === 'asset_sale') {
+                    if (!playerState) return false;
+                    const action = resolveBoardCardAction(cardId, playerState);
+                    return action.kind === 'asset_sale' && action.items.length > 0;
+                }
+                if (kind === 'cash_dividend' && newsCard?.type === 'cash_dividend') {
+                    return hasEligibleCashDividend(playerState, newsCard.dividendPerShare);
+                }
+                if (kind === 'stock_dividend' && newsCard?.type === 'stock_dividend') {
+                    return hasEligibleStockDividend(playerState, newsCard.dividendRate);
+                }
+                return true;
             });
 
         const prompt: SharedCardPrompt = {
@@ -1353,10 +1497,28 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: Date.now()
         };
 
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+        const result = await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
             'boardState.sharedCardPrompt': prompt,
             'boardState.updatedAt': Date.now()
-        }));
+        }), null, err => {
+            setError(err?.message || '共享卡片提示建立失敗');
+        });
+
+        if (result === null) return false;
+
+        setRoom(prev => {
+            if (!prev?.boardState) return prev;
+            return {
+                ...prev,
+                boardState: {
+                    ...prev.boardState,
+                    sharedCardPrompt: prompt,
+                    updatedAt: Date.now()
+                }
+            };
+        });
+
+        return true;
     };
 
     const submitFamilyMilestoneJoinResponse = async (payload: {
@@ -1401,7 +1563,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         await safeAsync(updateDoc(roomRef, updates));
-    });
+    };
 
     const clearPendingFamilyMilestoneJoinAction = async (promptId: string) => {
         if (!room?.id || !user) return;
@@ -1420,13 +1582,13 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         amount?: number;
         selectedAssetIds?: string[];
         note?: string;
-    }) => executeWithLock(async () => {
-        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+    }): Promise<boolean> => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return false;
 
         const prompt = room.boardState.sharedCardPrompt;
-        if (!prompt || prompt.id !== payload.promptId) return;
-        if (!prompt.targetPlayerUids.includes(user.uid)) return;
-        if (prompt.responses?.[user.uid]) return;
+        if (!prompt || prompt.id !== payload.promptId) return false;
+        if (!prompt.targetPlayerUids.includes(user.uid)) return false;
+        if (prompt.responses?.[user.uid]) return true;
 
         const response = cleanObject({
             playerUid: user.uid,
@@ -1438,10 +1600,37 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             respondedAt: Date.now()
         });
 
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+        const result = await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
             [`boardState.sharedCardPrompt.responses.${user.uid}`]: response,
             'boardState.updatedAt': Date.now()
-        }));
+        }), null, err => {
+            setError(err?.message || '共享卡片回覆失敗');
+        });
+
+        if (result === null) return false;
+
+        setRoom(prev => {
+            if (!prev?.boardState?.sharedCardPrompt || prev.boardState.sharedCardPrompt.id !== payload.promptId) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                boardState: {
+                    ...prev.boardState,
+                    sharedCardPrompt: {
+                        ...prev.boardState.sharedCardPrompt,
+                        responses: {
+                            ...(prev.boardState.sharedCardPrompt.responses || {}),
+                            [user.uid]: response
+                        }
+                    },
+                    updatedAt: Date.now()
+                }
+            };
+        });
+
+        return true;
     };
 
     const clearSharedCardPrompt = async (promptId: string) => {
@@ -1452,6 +1641,57 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             'boardState.sharedCardPrompt': deleteField(),
             'boardState.updatedAt': Date.now()
         }));
+    };
+
+    const setPendingStartupUpgradeAction = async (payload: { cardId: string; symbol: string }): Promise<boolean> => {
+        if (!room?.id || !user) return false;
+
+        const currentPlayerState = room.playerStates?.[user.uid];
+        if (!currentPlayerState) return false;
+
+        const nextPlayerState = withPendingStartupUpgradeAction(currentPlayerState, payload);
+
+        const result = await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+            [`playerStates.${user.uid}`]: nextPlayerState
+        }), null, err => {
+            setError(err?.message || '建立企業升級等待狀態失敗');
+        });
+
+        if (result === null) return false;
+
+        setRoom(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                playerStates: {
+                    ...(prev.playerStates || {}),
+                    [user.uid]: nextPlayerState
+                }
+            };
+        });
+
+        return true;
+    };
+
+    const clearPendingStartupUpgradeAction = async () => {
+        if (!room?.id || !user) return;
+
+        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
+            [`playerStates.${user.uid}.pendingStartupUpgradeAction`]: deleteField()
+        }), undefined, err => {
+            setError(err?.message || '清除企業升級等待狀態失敗');
+        });
+
+        setRoom(prev => {
+            if (!prev?.playerStates?.[user.uid]) return prev;
+            return {
+                ...prev,
+                playerStates: {
+                    ...prev.playerStates,
+                    [user.uid]: withoutPendingStartupUpgradeAction(prev.playerStates[user.uid])
+                }
+            };
+        });
     };
 
     const applyBoardExpenseToAllPlayers = async (payload: {
@@ -1552,8 +1792,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const roomRef = doc(db, 'rooms', room.id);
             const currentPrices = room.marketPrices || {};
             const nextPrices = normalizeMarketPrices(updates, currentPrices);
-
-            await safeAsync(updateDoc(roomRef, {
+            const nextMarketState = {
                 marketUpdates: {
                     updates: nextPrices,
                     code,
@@ -1562,10 +1801,24 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 },
                 previousMarketPrices: currentPrices,
                 marketPrices: nextPrices
-            }));
+            };
+
+            const result = await safeAsync(updateDoc(roomRef, nextMarketState), null, (err) => {
+                setError(err?.message || '股市行情同步失敗');
+            });
+
+            if (result === null) {
+                throw new Error('股市行情同步失敗');
+            }
+
+            setRoom(prev => prev && prev.id === room.id
+                ? { ...prev, ...nextMarketState }
+                : prev
+            );
         } catch (err: any) {
             console.error('套用棋盤行情失敗:', err);
             setError(err.message);
+            throw err;
         }
     };
 
@@ -1671,6 +1924,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             clearPendingFamilyMilestoneJoinAction,
             submitSharedCardPromptResponse,
             clearSharedCardPrompt,
+            setPendingStartupUpgradeAction,
+            clearPendingStartupUpgradeAction,
             applyBoardExpenseToAllPlayers,
             moveCurrentPlayerToSquare,
             applyBoardMarketPrices,

@@ -1,106 +1,44 @@
-import { HAPPINESS_CARD_MAP, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP } from '../constants/cards';
+import {
+  buildHappinessCardMetaFromSchema,
+  buildNewsCardMetaFromSchema,
+  buildOpportunityCardMetaFromSchema
+} from '../constants/cards';
 import { BoardCardResult, GameState } from '../types';
-import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from './familyMilestones';
 
 export const hydrateBoardCardResult = (card: BoardCardResult | null, gameState: GameState): BoardCardResult | null => {
   if (!card) return null;
 
-  const happinessCard = HAPPINESS_CARD_MAP[card.cardId];
-  if (happinessCard) {
-    const isFamilyMilestone = happinessCard.category === '家庭重要歷程';
-    const stage = isFamilyMilestone ? getFamilyMilestoneStageByCardId(card.cardId) : null;
-    const familyMilestoneStatus = isFamilyMilestone ? getFamilyMilestoneStatus(gameState) : null;
-
+  const happinessMeta = buildHappinessCardMetaFromSchema(card.cardId, gameState);
+  if (happinessMeta) {
     return {
       ...card,
-      title: isFamilyMilestone ? stage?.label.replace(/^\d+\.\s*/, '') || happinessCard.title : happinessCard.title,
-      subtitle: happinessCard.category,
-      description: happinessCard.description || `${happinessCard.category}事件。`,
-      familyMilestoneStatus,
-      effectLines: [
-        ...(isFamilyMilestone && familyMilestoneStatus ? [
-          ...familyMilestoneStatus.stageLines,
-          `目前進度：第 ${familyMilestoneStatus.currentStage} 階段`
-        ] : []),
-        `幸福 +${happinessCard.happinessPoints}`,
-        ...(happinessCard.cashCost ? [`一次性支出 ${happinessCard.cashCost.toLocaleString()}`] : []),
-        ...(happinessCard.monthlyExpenseIncrease ? [`月支出 ${happinessCard.monthlyExpenseIncrease > 0 ? '+' : ''}${happinessCard.monthlyExpenseIncrease.toLocaleString()}`] : []),
-        ...(happinessCard.childrenIncrease ? [`孩子數 +${happinessCard.childrenIncrease}`] : []),
-        ...(happinessCard.otherPlayersCanJoin ? [`其他玩家可擲骰加入（至少 ${happinessCard.joinDiceMin || 0} 點）`] : []),
-        ...(happinessCard.requiresStorySharing ? ['需要玩家分享故事'] : [])
-      ]
+      title: happinessMeta.title,
+      subtitle: happinessMeta.subtitle,
+      description: happinessMeta.description,
+      familyMilestoneStatus: happinessMeta.familyMilestoneStatus,
+      effectLines: happinessMeta.effectLines
     };
   }
 
-  const newsCard = NEWS_CARD_MAP[card.cardId];
-  if (newsCard) {
-    if (newsCard.type === 'real_estate') {
-      return {
-        ...card,
-        description: newsCard.description || '請依房市卡內容選擇自用或出租購買。',
-        effectLines: [
-          `總價：${newsCard.totalPrice.toLocaleString()}`,
-          `頭期款：${newsCard.downPayment.toLocaleString()}`,
-          `貸款：${newsCard.loanAmount.toLocaleString()}`,
-          `貸款利息（月）：${newsCard.monthlyPayment.toLocaleString()}`,
-          `租金收入（月）：${newsCard.rent.toLocaleString()}`,
-          `淨收益（月）：${newsCard.netRentIncome > 0 ? '+' : ''}${newsCard.netRentIncome.toLocaleString()}`,
-          ...(newsCard.canSelfUse ? [`自用幸福：+${newsCard.happinessBonus}`] : [])
-        ]
-      };
-    }
-
-    if (newsCard.type === 'small_business') {
-      return {
-        ...card,
-        description: newsCard.description || '兼職工作室貸款專案。所有玩家皆可申請。',
-        effectLines: [
-          `投資金額：${newsCard.investmentPerMonth.toLocaleString()}`,
-          `貸款金額：${newsCard.loanAmount.toLocaleString()}`,
-          `企業貸款利息（月）：-${newsCard.interestPerMonth.toLocaleString()}`
-        ]
-      };
-    }
-
-    if (newsCard.type === 'large_enterprise') {
-      return {
-        ...card,
-        description: newsCard.description || '大型企業投資機會。所有玩家皆可投資。',
-        assetSymbol: newsCard.businessName,
-        effectLines: [
-          `最高投資額度：${newsCard.maxInvestment.toLocaleString()}`,
-          `投資報酬率：每投資 1,000,000，月收益 +${newsCard.monthlyReturnPerMillion.toLocaleString()}`
-        ]
-      };
-    }
-
-    if (newsCard.type === 'cash_dividend') {
-      return {
-        ...card,
-        description: newsCard.description || '系統將自動根據您持有的股票發放現金股利。',
-        effectLines: Object.entries(newsCard.dividendPerShare).map(([code, dps]) =>
-          `${code}：每張配發 ${(dps * 100).toLocaleString()}`
-        )
-      };
-    }
-
-    if (newsCard.type === 'stock_dividend') {
-      return {
-        ...card,
-        description: newsCard.description || '系統將自動根據您持有的股票發放股票股息。',
-        effectLines: Object.entries(newsCard.dividendRate).map(([code, rate]) =>
-          `${code}：配股率 ${(rate * 100).toLocaleString()}%`
-        )
-      };
-    }
-  }
-
-  const oppCard = OPPORTUNITY_CARD_MAP[card.cardId];
-  if (oppCard && card.deck === 'opportunity') {
+  const newsMeta = buildNewsCardMetaFromSchema(card.cardId);
+  if (newsMeta) {
     return {
       ...card,
-      subtitle: oppCard.category || '',
-      description: oppCard.description,
+      title: newsMeta.title,
+      subtitle: newsMeta.subtitle,
+      description: newsMeta.description,
+      effectLines: newsMeta.effectLines
+    };
+  }
+
+  const opportunityMeta = buildOpportunityCardMetaFromSchema(card.cardId);
+  if (opportunityMeta && card.deck === 'opportunity') {
+    return {
+      ...card,
+      title: opportunityMeta.title,
+      subtitle: opportunityMeta.subtitle || '',
+      description: opportunityMeta.description,
+      effectLines: opportunityMeta.effectLines
     };
   }
 

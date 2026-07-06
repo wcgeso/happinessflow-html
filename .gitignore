@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .vercel
 .env*.local
+
+# Playwright CLI debug logs
+.playwright-cli/

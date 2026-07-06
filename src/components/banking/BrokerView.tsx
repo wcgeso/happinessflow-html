@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { STOCK_NAMES } from '../../constants';
 import { Asset, TransactionData } from '../../types';
+import { extractAssetSymbol } from '../../utils/assetLabels';
 
 const STOCK_COLUMNS = [
   ['A10', 'A20', 'A30', 'A40'],
@@ -28,8 +29,8 @@ export const BrokerView: React.FC<BrokerViewProps> = ({ cash, assets, marketPric
   const holdingsBySymbol = useMemo(
     () => STOCK_COLUMNS.flat().reduce<Record<string, number>>((acc, symbol) => {
       acc[symbol] = assets
-        .filter(asset => asset.type === '股票' && asset.symbol === symbol)
-        .reduce((sum, asset) => sum + (asset.shares || 0), 0);
+        .filter(asset => asset.type === '股票' && extractAssetSymbol(asset.symbol || asset.name) === symbol)
+        .reduce((sum, asset) => sum + (asset.shares || asset.quantity || 0), 0);
       return acc;
     }, {}),
     [assets]
@@ -82,6 +83,9 @@ export const BrokerView: React.FC<BrokerViewProps> = ({ cash, assets, marketPric
 
   const handleSubmit = () => {
     if (!canSubmit) return;
+    if (mode === 'sell' && tradeItems.some(item => item.qty > (holdingsBySymbol[item.symbol] || 0))) {
+      return;
+    }
 
     const stockList = tradeItems.map(item => ({
       symbol: item.symbol,

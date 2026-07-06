@@ -15,9 +15,111 @@ interface BoardFinancialCheckModalProps {
 
 const DEFAULT_ITEMS = {
   Assets: ['現金', '定存', '汽車', '企業', '現金（企業貸款）'],
-  Liabilities: ['信用貸款', '不動產貸款', '企業貸款', '汽車貸款'],
+  Liabilities: ['信用貸款', '強制負債', '不動產貸款', '企業貸款', '汽車貸款'],
   Income: ['租金收入', '企業收益', '定存利息'],
   Expenses: ['信貸利息', '不動產貸款利息', '企業貸款利息', '汽車貸款利息', '保險支出', '餐飲、服飾、居住類', '交通、教育、娛樂類', '其他、醫療、育兒類']
+};
+
+const ENTRY_LABEL: Record<ChangeDirection, string> = {
+  Increase: '增加',
+  Decrease: '減少'
+};
+
+const CATEGORY_LABEL: Record<AccountCategory, string> = {
+  Assets: '資產',
+  Liabilities: '負債',
+  Income: '收入',
+  Expenses: '支出'
+};
+
+const STARTUP_LOAN_SYMBOLS = new Set(['N056', 'N057', 'N058']);
+
+const expenseCategoryLabel = (category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild') => {
+  if (category === 'basicLiving') return '餐飲、服飾、居住類';
+  if (category === 'transportEdu') return '交通、教育、娛樂類';
+  return '其他、醫療、育兒類';
+};
+
+const normalizeExpenseEntry = (
+  normalized: AccountEntry[],
+  category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild',
+  direction: ChangeDirection
+) => {
+  const inferredExpenseEntry: AccountEntry = {
+    category: 'Expenses',
+    name: expenseCategoryLabel(category),
+    direction
+  };
+
+  const withoutMismatchedExpenseEntries = normalized.filter(entry => !(
+    entry.category === 'Expenses' &&
+    entry.direction === inferredExpenseEntry.direction &&
+    entry.name !== inferredExpenseEntry.name &&
+    DEFAULT_ITEMS.Expenses.includes(entry.name)
+  ));
+
+  normalized.length = 0;
+  normalized.push(...withoutMismatchedExpenseEntries);
+
+  if (!normalized.some(entry =>
+    entry.category === inferredExpenseEntry.category &&
+    entry.name === inferredExpenseEntry.name &&
+    entry.direction === inferredExpenseEntry.direction
+  )) {
+    normalized.push(inferredExpenseEntry);
+  }
+};
+
+export const normalizeExpectedEntries = (entries: AccountEntry[], txData: TransactionData) => {
+  const normalized = [...entries];
+
+  if (txData.expensePayload) {
+    normalizeExpenseEntry(
+      normalized,
+      txData.expensePayload.category,
+      txData.expensePayload.isIncrease ? 'Increase' : 'Decrease'
+    );
+  }
+
+  if (txData.happinessEventPayload?.monthlyExpenseChange && txData.happinessEventPayload.expenseCategory) {
+    normalizeExpenseEntry(
+      normalized,
+      txData.happinessEventPayload.expenseCategory,
+      'Increase'
+    );
+  }
+
+  const symbol = txData.assetDetails?.symbol || txData.name.match(/N\d{3}/)?.[0];
+  const isStartupLoan =
+    txData.source === 'loan' &&
+    txData.usage === 'asset' &&
+    txData.assetDetails?.type === '企業' &&
+    !!symbol &&
+    STARTUP_LOAN_SYMBOLS.has(symbol);
+
+  if (!isStartupLoan) {
+    return normalized;
+  }
+
+  const startupLoanEntries: AccountEntry[] = [
+    { category: 'Assets', name: '現金', direction: 'Decrease' },
+    { category: 'Assets', name: '現金（企業貸款）', direction: 'Increase' },
+    { category: 'Assets', name: `${symbol} 兼職工作室`, direction: 'Increase' },
+    { category: 'Liabilities', name: '企業貸款', direction: 'Increase' },
+    { category: 'Expenses', name: '企業貸款利息', direction: 'Increase' }
+  ];
+
+  startupLoanEntries.forEach(entry => {
+    if (!normalized.some(item =>
+      item.category === entry.category &&
+      item.name === entry.name &&
+      item.direction === entry.direction
+    )) {
+      normalized.push(entry);
+    }
+  });
+
+  return normalized;
 };
 
 export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> = ({
@@ -32,15 +134,19 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
   const [isVerified, setIsVerified] = useState(false);
   const [isApplied, setIsApplied] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorPopup, setErrorPopup] = useState<{ title: string; lines: string[] } | null>(null);
+  const normalizedExpectedEntries = useMemo(
+    () => normalizeExpectedEntries(expectedEntries, txData),
+    [expectedEntries, txData]
+  );
 
   useEffect(() => {
     setUserEntries([]);
     setIsVerified(false);
     setIsApplied(false);
     setIsApplying(false);
-    setErrorMessage(null);
-  }, [title, txData.name]);
+    setErrorPopup(null);
+  }, [title, txData, expectedEntries]);
 
   useEffect(() => {
     if (isCompleted) {
@@ -50,7 +156,7 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
 
   const possibleItems = useMemo(() => {
     const merge = (category: AccountCategory, defaults: string[]) => {
-      const fromExpected = expectedEntries
+      const fromExpected = normalizedExpectedEntries
         .filter(entry => entry.category === category)
         .map(entry => entry.name);
       return Array.from(new Set([...defaults, ...fromExpected]));
@@ -62,7 +168,7 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
       income: merge('Income', DEFAULT_ITEMS.Income),
       expenses: merge('Expenses', DEFAULT_ITEMS.Expenses)
     };
-  }, [expectedEntries]);
+  }, [normalizedExpectedEntries]);
 
   const toggleEntry = (category: AccountCategory, direction: ChangeDirection, name: string) => {
     setUserEntries(prev => {
@@ -79,8 +185,8 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
 
   const handleVerify = () => {
     const isCorrect =
-      expectedEntries.length === userEntries.length &&
-      expectedEntries.every(expected =>
+      normalizedExpectedEntries.length === userEntries.length &&
+      normalizedExpectedEntries.every(expected =>
         userEntries.some(entry =>
           entry.category === expected.category &&
           entry.name === expected.name &&
@@ -89,16 +195,17 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
       );
 
     if (!isCorrect) {
-      const missingCount = Math.max(expectedEntries.length - userEntries.length, 0);
-      setErrorMessage(
-        missingCount > 0
-          ? `還有 ${missingCount} 個項目尚未完成，請再檢查一次。`
-          : '方向或項目仍有錯誤，請再檢查各欄位的增減變化。'
-      );
+      const expectedAnswer = normalizedExpectedEntries.map(entry => `${CATEGORY_LABEL[entry.category]}：${entry.name}（${ENTRY_LABEL[entry.direction]}）`);
+      setErrorPopup({
+        title: '財務檢核答案錯誤',
+        lines: expectedAnswer.length > 0
+          ? expectedAnswer
+          : ['方向或項目仍有錯誤，請再檢查各欄位的增減變化。']
+      });
       return;
     }
 
-    setErrorMessage(null);
+    setErrorPopup(null);
     setIsVerified(true);
     void handleApply();
   };
@@ -112,6 +219,10 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
         setIsApplied(true);
       } else {
         setIsVerified(false);
+        setErrorPopup({
+          title: '交易尚未正式完成',
+          lines: ['請先排除現金不足或前一步流程阻塞後再重新檢核。']
+        });
       }
     } finally {
       setIsApplying(false);
@@ -160,11 +271,6 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
                 onToggle={toggleEntry}
               />
 
-              {errorMessage && (
-                <div className="mt-4 rounded-[18px] border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-bold text-rose-300">
-                  {errorMessage}
-                </div>
-              )}
               {isApplying && (
                 <div className="mt-4 rounded-[18px] border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm font-bold text-cyan-100">
                   正在套用交易，請稍候...
@@ -228,6 +334,37 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
         </div>
         </div>
       </div>
+
+      {errorPopup && (
+        <div className="fixed inset-0 z-[10040] flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-md rounded-[28px] border border-rose-400/30 bg-slate-950 p-6 shadow-2xl">
+            <div className="text-center">
+              <div className="text-lg font-black text-rose-300">{errorPopup.title}</div>
+              <div className="mt-3 text-sm font-bold leading-relaxed text-slate-200">
+                請依下列正確答案重新檢查：
+              </div>
+            </div>
+            <ul className="mt-5 space-y-2">
+              {errorPopup.lines.map((line, index) => (
+                <li
+                  key={`${line}_${index}`}
+                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold leading-relaxed text-white"
+                >
+                  <span className="mr-2 text-rose-300">•</span>
+                  {line}
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => setErrorPopup(null)}
+              className="mt-6 w-full rounded-2xl bg-rose-600 px-4 py-3 text-base font-black text-white transition hover:bg-rose-500"
+            >
+              我知道了
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

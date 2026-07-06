@@ -1,0 +1,3908 @@
+[
+  {
+    "id": "H001",
+    "title": "得獎經歷",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福回憶",
+    "description": "因為努力學習和練習，獲得一個獎項，在頒獎台上接受眾人的掌聲和鼓勵。抽到卡片的玩家，跟大家分享一個得獎經歷，就能獲得幸福值2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；需要故事分享",
+      "requirements": [
+        "requires_story_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；需要故事分享",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若故事分享未完成，則卡片效果不得成立。",
+    "completion": "玩家完成故事分享，並由執行端／主持人確認後，幸福 +2，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "程式仍需確認是否已由執行端確認發放"
+    ]
+  },
+  {
+    "id": "H002",
+    "title": "助人為善",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福回憶",
+    "description": "曾經認真的幫助他人。因為我的善心，幫助了一位需要幫助的人，他對我非常感激。抽到卡片的玩家，跟大家分享一個助人經歷，就能獲得幸福值2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；需要故事分享",
+      "requirements": [
+        "requires_story_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；需要故事分享",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若故事分享未完成，則卡片效果不得成立。",
+    "completion": "玩家完成故事分享，並由執行端／主持人確認後，幸福 +2，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "程式仍需確認是否已由執行端確認發放"
+    ]
+  },
+  {
+    "id": "H003",
+    "title": "特別成就",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福回憶",
+    "description": "我曾經很認真、很努力地完成一件特別的事情，完成之後獲得終身難忘的成就感。抽到卡片的玩家，跟大家分享一個特別的成就經歷，就能獲得幸福值2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；需要故事分享",
+      "requirements": [
+        "requires_story_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；需要故事分享",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若故事分享未完成，則卡片效果不得成立。",
+    "completion": "玩家完成故事分享，並由執行端／主持人確認後，幸福 +2，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "程式仍需確認是否已由執行端確認發放"
+    ]
+  },
+  {
+    "id": "H004",
+    "title": "美麗的事物",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福回憶",
+    "description": "我曾經遇過一個非常喜愛的事物（藝術品、音樂、美景等皆可），每次回想起這個事物，就覺得很快樂。<br>抽到卡片的玩家，跟大家分享一個美麗的經歷，就能獲得幸福值2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；需要故事分享",
+      "requirements": [
+        "requires_story_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；需要故事分享",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若故事分享未完成，則卡片效果不得成立。",
+    "completion": "玩家完成故事分享，並由執行端／主持人確認後，幸福 +2，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "程式仍需確認是否已由執行端確認發放"
+    ]
+  },
+  {
+    "id": "H005",
+    "title": "難忘的旅程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福回憶",
+    "description": "我曾經有過一次旅程，這個旅程給了我相當難忘的經歷，每次回想起都令人相當愉悅。抽到卡片的玩家，跟大家分享一個旅程的經歷，就能獲得幸福值2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；需要故事分享",
+      "requirements": [
+        "requires_story_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；需要故事分享",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若故事分享未完成，則卡片效果不得成立。",
+    "completion": "玩家完成故事分享，並由執行端／主持人確認後，幸福 +2，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "程式仍需確認是否已由執行端確認發放"
+    ]
+  },
+  {
+    "id": "H006",
+    "title": "自豪的創作",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福回憶",
+    "description": "我曾經很認真、很努力地完成一件滿意的作品（美術、工藝、文學、音樂皆可），完成後相當自豪。抽到卡片的玩家，跟大家分享一個創作經歷，就能獲得幸福值2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；需要故事分享",
+      "requirements": [
+        "requires_story_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；需要故事分享",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若故事分享未完成，則卡片效果不得成立。",
+    "completion": "玩家完成故事分享，並由執行端／主持人確認後，幸福 +2，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "程式仍需確認是否已由執行端確認發放"
+    ]
+  },
+  {
+    "id": "H007",
+    "title": "特別的故事",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福回憶",
+    "description": "我曾經聽過一個特別的小故事或是寓言，這個故事可以帶人們對人生有一種新的感悟。抽到卡片的玩家，跟大家分享一個小故事，就能獲得幸福值 2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；需要故事分享",
+      "requirements": [
+        "requires_story_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；需要故事分享",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若故事分享未完成，則卡片效果不得成立。",
+    "completion": "玩家完成故事分享，並由執行端／主持人確認後，幸福 +2，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "程式仍需確認是否已由執行端確認發放"
+    ]
+  },
+  {
+    "id": "H008",
+    "title": "快樂的經歷",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福回憶",
+    "description": "我曾經有過一次非常快樂的經驗，這個經驗讓我印象深刻且終身難忘。抽到卡片的玩家，跟大家分享一個快樂的經歷，就能獲得幸福值2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；需要故事分享",
+      "requirements": [
+        "requires_story_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；需要故事分享",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若故事分享未完成，則卡片效果不得成立。",
+    "completion": "玩家完成故事分享，並由執行端／主持人確認後，幸福 +2，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "程式仍需確認是否已由執行端確認發放"
+    ]
+  },
+  {
+    "id": "H009",
+    "title": "美味的大餐",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福回憶",
+    "description": "我曾經有過一次豪華的大餐，每次回想起都相當讓人回味無窮，還想要再享受一次。抽到卡片的玩家，跟大家分享一個美味的經歷，就能獲得幸福值2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；需要故事分享",
+      "requirements": [
+        "requires_story_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；需要故事分享",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若故事分享未完成，則卡片效果不得成立。",
+    "completion": "玩家完成故事分享，並由執行端／主持人確認後，幸福 +2，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "程式仍需確認是否已由執行端確認發放"
+    ]
+  },
+  {
+    "id": "H010",
+    "title": "年幼時的玩伴",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福回憶",
+    "description": "我在年幼時，曾經有過一位感情相當好的玩伴，每次回想起跟他相處的時光，都讓人相當快樂。抽到卡片的玩家，跟大家分享一個好朋友的故事，就能獲得幸福值2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；需要故事分享",
+      "requirements": [
+        "requires_story_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；需要故事分享",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若故事分享未完成，則卡片效果不得成立。",
+    "completion": "玩家完成故事分享，並由執行端／主持人確認後，幸福 +2，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "程式仍需確認是否已由執行端確認發放"
+    ]
+  },
+  {
+    "id": "H011",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H012",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H013",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H014",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H015",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H016",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H017",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H018",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H019",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H020",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H021",
+    "title": "特別節日的家庭晚宴",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "追求家庭幸福",
+    "description": "在頂級的餐廳用餐7,000H<br>為家人各準備一個小禮物8,000H<br>全家人來回的交通費 200H<br>一場溫馨快樂的家庭聚會無價！<br>抽到卡片的玩家，自由決定是否要花費15,200H，為全家人安排一場節日晚宴，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；一次性支出 15,200",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；一次性支出 15,200",
+      "happinessPoints": 2,
+      "cashCost": 15200,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": 15200,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點一次性支出與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H022",
+    "title": "全家一起旅遊",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "追求家庭幸福",
+    "description": "在家人的期待下，帶全家人一同到以遊戲與觀光知名的城市，進行七天六夜的旅行，給全家人帶來一個終身難忘的快樂回憶。抽到卡片的玩家，自由決定是否要花費 50,000H，為全家人安排這次旅遊，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；一次性支出 10,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；一次性支出 10,000",
+      "happinessPoints": 2,
+      "cashCost": 10000,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": 10000,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點一次性支出與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H023",
+    "title": "為家人準備一個隆重的生日宴會",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "追求家庭幸福",
+    "description": "今年的生日對家人有特別的意義，為了這個生日，特別花了心思，舉辦了一場盛大隆重的生日宴會，邀請親朋好友前來一起慶生。抽到卡片的玩家，自由決定是否要花費 20,000H，為全家人安排一場生日宴會，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；一次性支出 8,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；一次性支出 8,000",
+      "happinessPoints": 2,
+      "cashCost": 8000,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": 8000,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點一次性支出與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H024",
+    "title": "安排全家人的健康檢查",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "追求家庭幸福",
+    "description": "現在又到了一年一度健康檢查的時間。每年都會安排一個固定的時間，為全家人安排一次全身的健康檢查，來維護全家人的健康。抽到卡片的玩家，自由決定是否要花費 20,000H，為全家人安排一次健康檢查，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；一次性支出 30,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；一次性支出 30,000",
+      "happinessPoints": 2,
+      "cashCost": 30000,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": 30000,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點一次性支出與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H025",
+    "title": "參與一場盛大的家族聚會",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "追求家庭幸福",
+    "description": "帶著全家人一起出訪，參加一次盛大的兩天一夜家族聚會。許多久沒有見面的親人將會同聚一堂，聯繫情感。抽到卡片的玩家，自由決定是否要花費 15,000H，帶全家人安排一場家族聚會，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；一次性支出 15,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；一次性支出 15,000",
+      "happinessPoints": 2,
+      "cashCost": 15000,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": 15000,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點一次性支出與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H026",
+    "title": "孩子的才藝活動",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "追求家庭幸福",
+    "description": "孩子參加的才藝課程，將舉行一個發表活動。除夜了參加活動發表，晚上特別為孩子舉行一場慶功宴，犒賞孩子的努力。抽到卡片的玩家，自由決定是否要花費 6,000H，為孩子準備一場慶功宴，來獲得幸福點2點。*（還沒有孩子的玩家無效）*",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡；玩家至少已有 1 個孩子<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；一次性支出 6,000",
+      "requirements": [
+        "requires_child_count_1"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；一次性支出 6,000",
+      "happinessPoints": 2,
+      "cashCost": 6000,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": 6000,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家沒有孩子，本卡無效果，可直接完成。若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家有孩子且選擇接受，則套用幸福 +2 與一次性支出 6,000，完成財務檢核後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H027",
+    "title": "為自己的伴侶準備一個驚喜",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "追求家庭幸福",
+    "description": "在一個值得紀念的日子中，為自己的伴侶安排一個特別的兩人約會，並為對方精心準備一份令人驚喜的禮物，來慶祝這一個對兩人有特別意義的日子。抽到卡片的玩家，自由決定是否要花費 15,000H，為伴侶準備驚喜，來獲得幸福點2點。*（至少與心儀對象有過一次約會的玩家有效）*",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡；玩家已完成家庭歷程第 1 階段「心儀的對象第一次約會」<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；一次性支出 6,000",
+      "requirements": [
+        "requires_family_milestone_stage_1_completed"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；一次性支出 6,000",
+      "happinessPoints": 2,
+      "cashCost": 6000,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": 6000,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家尚未完成第一次約會，本卡無效果，可直接完成。若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家符合條件且選擇接受，則套用幸福 +2 與一次性支出 6,000，完成財務檢核後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H028",
+    "title": "給父母的回報",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "追求家庭幸福",
+    "description": "感謝父母辛苦地把自己扶養長大，並提供良好的教育環境，讓自己成為一位優秀的人才。抽到卡片的玩家，自由決定是否要在月支出的其他欄多增加3,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出 +3,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出 +3,000",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 3000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 3000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H029",
+    "title": "自己的健康是家庭幸福的來源",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "追求家庭幸福",
+    "description": "健康出現了警訊。聽從醫生的建議，每天最少要運動三十分鐘，才能保持身邊的健康。為了這件事，你特別買了整組的家用運動設備。抽到卡片的玩家，自由決定是否要花費 30,000H，購買家用運動設備，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；一次性支出 10,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；一次性支出 10,000",
+      "happinessPoints": 2,
+      "cashCost": 10000,
+      "monthlyExpenseIncrease": null,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": 10000,
+      "monthlyExpenseIncrease": null
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點一次性支出與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H030",
+    "title": "自己的健康是家庭幸福的來源",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "追求家庭幸福",
+    "description": "健康出現了警訊。聽從醫生的建議，調整飲食習慣，才能保持身邊的健康。所以每個月將多花 2,000H，來為家人準備更為健康的飲食。抽到卡片的玩家，自由決定是否要在月支出的飲食欄多增加 2,000H改善飲食，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出 +2,000",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H031",
+    "title": "每年的同學會",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "良好人際關係",
+    "description": "你非常珍惜和同窗之間的情誼，願意每年都會抽空，主持一場同學會，跟已經畢業的老同學們相聚。抽到卡片的玩家，自由決定是否要在月支出的娛樂欄多增加 2,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出 +2,000",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H032",
+    "title": "加入一個培養興趣的社團",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "良好人際關係",
+    "description": "擁有一個陶治性情的興趣，可以為你帶來快樂和幸福感。你願意每個月花一點時間和一筆錢，參加一個和興趣相關的社團，跟一群志同道合的朋友培養興趣。抽到卡片的玩家，自由決定是否要在月支出的娛樂欄多增加3,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出娛樂欄 +2,000H",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出娛樂欄 +2,000H",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H033",
+    "title": "親友的婚禮",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "良好人際關係",
+    "description": "親友結婚贈送紅包或禮物，可以維持彼此的情誼。若是每一個月預先支配一小筆紅包錢，為未來親友結婚時做準備，就不會給自己在經濟上帶來太多的壓力。抽到卡片的玩家，自由決定是否要在月支出的娛樂欄多增加 2,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出 +2,000",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H034",
+    "title": "社團的好鄰居",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "良好人際關係",
+    "description": "遠親不如近鄰。平常熱心參與社區或鄰里之間的小活動，和鄰居們維持良好的互動關係，在生活上和人際上，會為自己帶來許多幫助。抽到卡片的玩家，自由決定是否要在月支出的居住欄多增加 2,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出居住欄 +2,000H",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出居住欄 +2,000H",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H035",
+    "title": "好友們的聚會",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "良好人際關係",
+    "description": "好友之間常常會在特殊的節日上，像是生日、節慶等等，安排一些聚會，並互贈一些小禮物。提早為聚會的支出做規劃，對自己的財務計畫會有幫助。抽到卡片的玩家，自由決定是否要在月支出的娛樂欄多增加2,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出 +2,000",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H036",
+    "title": "多讀好書",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "良好人際關係",
+    "description": "豐富的知識和學識，可以增廣見聞，陶冶心性，在人際交往上，也會給自己帶來自信和成就感。所以養成閱讀的習慣，對自己和人際關係都有幫助。抽到卡片的玩家，自由決定是否要在月支出的教育欄多增加2,000H，來獲得幸福點2點。幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出 +2,000",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H037",
+    "title": "定期的旅遊",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "良好人際關係",
+    "description": "讀萬卷書、行萬里路。定期安排一次旅遊，帶著家人或親友一起增廣見聞，看看這個美麗的世界。抽到卡片的玩家，自由決定是否要在月支出的娛樂欄多增加 3,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出 +3,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出 +3,000",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 3000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 3000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H038",
+    "title": "得體的服飾",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "良好人際關係",
+    "description": "參加各種聚會時，適當的服飾會給他人帶好良好的印象，也帶給自己足夠的自信。不過有些好服飾的價值頗高，提早為得體服飾支出做規劃，對自己的財務計畫會有幫助。抽到卡片的玩家，自由決定是否要在月支出的服飾欄多增加 2,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出 +2,000",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H039",
+    "title": "擔任義工",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福的社會",
+    "description": "這個社會上，有許多需要幫助的人們，需要你伸出援手來幫助他們。你願意盡一己之力，定期到公益機構擔任義工來幫助他人，讓這個社會更幸福。抽到卡片的玩家，自由決定是否要在月支出的其他欄多增加1. 2,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出其他欄 +2,000H",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出其他欄 +2,000H",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H040",
+    "title": "敬老扶弱",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福的社會",
+    "description": "這個社會上，有許多需要幫助的人們，需要你伸出援手來幫助他們。你願意盡一己之力，定期到去敬老院做義工，讓這個社會更幸福。抽到卡片的玩家，自由決定是否要在月支出的其他欄多增加 2,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出 +2,000",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H041",
+    "title": "急難救助",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福的社會",
+    "description": "這個社會上，有許多需要幫助的人們，需要你伸出援手來幫助他們。你願意盡一己之力，為災區人民組織捐款，讓這個社會更幸福。抽到卡片的玩家，自由決定是否要在月支出的其他欄多增加2,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出 +2,000",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H042",
+    "title": "扶幼濟貧",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "幸福的社會",
+    "description": "這個社會上，有許多需要幫助的人們，需要你伸出援手來幫助他們。你願意盡一己之力，定期捐助偏遠山區的失學孩童，讓這個社會更幸福。抽到卡片的玩家，自由決定是否要在月支出的其他欄多增加2,000H，來獲得幸福點2點。",
+    "conditions": {
+      "trigger": "抽到幸福卡",
+      "raw": "觸發：抽到幸福卡<br>影響對象：抽到卡片的玩家<br>效果：幸福 +2；月支出 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "幸福 +2；月支出 +2,000",
+      "happinessPoints": 2,
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000,
+      "childrenIncrease": null,
+      "otherPlayersCanJoin": false
+    },
+    "amount": {
+      "cashCost": null,
+      "monthlyExpenseIncrease": 2000
+    },
+    "multiplier": {
+      "happinessPoints": 2,
+      "joinDiceMin": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，才套用幸福點月支出變動與財務效果。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "H043",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H044",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H045",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  },
+  {
+    "id": "H046",
+    "title": "幸福家庭的重要歷程",
+    "deck": "happiness",
+    "type": "happiness",
+    "category": "家庭重要歷程",
+    "description": "歷程<br>花費<br>幸福值<br>與心儀的對象第一次約會<br>3,000H<br>2點<br>一個終身難忘的求婚驚喜<br>5,000H<br>2點<br>一場浪漫的結婚典禮<br>100,000H<br>4點<br>第一個孩子出生<br>月支出+10,000H<br>4點<br>第二個孩子出生<br>月支出+10,000H<br>4點<br>抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。<br>其他玩家也有機會參與，但須先擲骰子，使其大於等於4，才能完成一項歷程。",
+    "conditions": {
+      "trigger": "抽到幸福家庭的重要歷程卡",
+      "raw": "觸發：抽到幸福家庭的重要歷程卡<br>影響對象：抽到卡片的玩家本人；其他符合資格玩家可共同參與<br>效果：依玩家自己的家庭歷程狀態，推進下一個尚未完成階段；正式順序為第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "requirements": [
+        "other_players_can_join",
+        "join_dice_min_4",
+        "family_milestone_progression"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家本人；其他符合資格玩家可共同參與",
+      "scope": "eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "抽到卡片的玩家本人；其他符合資格玩家可共同參與"
+    },
+    "effects": {
+      "summary": "依玩家自己的家庭歷程狀態，推進下一個尚未完成階段。正式順序：第一次約會（一次性支出 3,000；幸福 +2）→ 求婚驚喜（一次性支出 5,000；幸福 +2）→ 結婚典禮（一次性支出 100,000；幸福 +4）→ 第一個孩子出生（月支出 +10,000；幸福 +4）→ 第二個孩子出生（月支出 +10,000；幸福 +4）",
+      "progressionType": "family_milestone",
+      "stageSequence": [
+        {
+          "order": 1,
+          "label": "心儀的對象第一次約會",
+          "cashCost": 3000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 2,
+          "label": "一個終身難忘的求婚驚喜",
+          "cashCost": 5000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 2
+        },
+        {
+          "order": 3,
+          "label": "一場浪漫的結婚典禮",
+          "cashCost": 100000,
+          "monthlyExpenseIncrease": null,
+          "happinessPoints": 4
+        },
+        {
+          "order": 4,
+          "label": "第一個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        },
+        {
+          "order": 5,
+          "label": "第二個孩子出生",
+          "cashCost": null,
+          "monthlyExpenseIncrease": 10000,
+          "happinessPoints": 4
+        }
+      ],
+      "otherPlayersCanJoin": true,
+      "joinDiceMin": 4
+    },
+    "amount": {
+      "cashCostByStage": [
+        3000,
+        5000,
+        100000,
+        null,
+        null
+      ],
+      "monthlyExpenseIncreaseByStage": [
+        null,
+        null,
+        null,
+        10000,
+        10000
+      ]
+    },
+    "multiplier": {
+      "happinessPointsByStage": [
+        2,
+        2,
+        4,
+        4,
+        4
+      ],
+      "joinDiceMin": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "否；但本卡屬於家庭歷程階段推進卡，會依玩家目前家庭歷程狀態決定本次效果。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": true,
+      "summary": "其他玩家需擲骰，大於等於 4 才能共同完成一項歷程。"
+    },
+    "noEffectCondition": "若玩家已完成全部五個家庭歷程，則本卡無效果，可直接完成。若玩家不接受，則本卡無效果，可直接完成。若其他玩家擲骰未達 4，該玩家本次不共同完成歷程。",
+    "completion": "主玩家選擇接受或不接受。若接受，完成目前下一個尚未完成的家庭歷程。套用該階段幸福值。若有費用或月支出變動，完成財務檢核 / 財務更新。其他玩家共同參與回覆完成。所有必要結果套用後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/utils/familyMilestones.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx"
+    ],
+    "notes": [
+      "此卡採用幸福家庭的重要歷程共同規則，實際推進階段由玩家當前家庭歷程狀態決定。"
+    ]
+  }
+]

@@ -23,7 +23,7 @@ export interface Liability {
   totalOwed: number;
   monthlyPayment: number;
   // Keep legacy '飛行器貸款' for old saves; new data should use '汽車貸款'.
-  type: '信用貸款' | '飛行器貸款' | '汽車貸款' | '企業貸款' | '不動產貸款';
+  type: '信用貸款' | '強制負債' | '飛行器貸款' | '汽車貸款' | '企業貸款' | '不動產貸款';
 }
 
 export interface ExpenseDetails {
@@ -183,12 +183,15 @@ export interface BoardEventLog {
   id: string;
   playerUid: string;
   playerName: string;
-  type?: 'bank' | 'school' | 'hospital' | 'card' | 'exam_happiness' | 'followup';
+  type?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup';
   summary: string;
   detail?: string;
   squareIndex: number;
   timestamp: number;
   rollTotal?: number;
+  repairRoll?: number;
+  repairFee?: number;
+  repairHasCar?: boolean;
 }
 
 export interface BoardQueuedEvent {
@@ -217,6 +220,48 @@ export interface BoardMovementState {
   isActive: boolean;
 }
 
+export interface FamilyMilestoneJoinResponse {
+  playerUid: string;
+  playerName: string;
+  status: 'passed' | 'failed' | 'declined';
+  roll?: number;
+  respondedAt: number;
+}
+
+export interface FamilyMilestoneJoinPrompt {
+  id: string;
+  sourceEventId: string;
+  sourceCardId: string;
+  sourcePlayerUid: string;
+  sourcePlayerName: string;
+  requiredRoll: number;
+  targetPlayerUids: string[];
+  responses: Record<string, FamilyMilestoneJoinResponse>;
+  createdAt: number;
+}
+
+export interface SharedCardPromptResponse {
+  playerUid: string;
+  playerName: string;
+  status: 'completed' | 'declined' | 'no_effect';
+  amount?: number;
+  selectedAssetIds?: string[];
+  note?: string;
+  respondedAt: number;
+}
+
+export interface SharedCardPrompt {
+  id: string;
+  kind: 'asset_sale' | 'cash_dividend' | 'stock_dividend' | 'investment' | 'startup_loan';
+  sourceEventId: string;
+  sourceCardId: string;
+  sourcePlayerUid: string;
+  sourcePlayerName: string;
+  targetPlayerUids: string[];
+  responses: Record<string, SharedCardPromptResponse>;
+  createdAt: number;
+}
+
 export interface BoardState {
   currentTurnUid: string | null;
   turnOrder: string[];
@@ -233,6 +278,8 @@ export interface BoardState {
   currentEvent: BoardEventLog | null;
   pendingEvents?: BoardQueuedEvent[];
   movement?: BoardMovementState | null;
+  familyMilestoneJoinPrompt?: FamilyMilestoneJoinPrompt | null;
+  sharedCardPrompt?: SharedCardPrompt | null;
   deckState: BoardDeckState;
   realEstateMarket?: string[];
   cardLog?: BoardCardLogEntry[];
@@ -276,6 +323,15 @@ export interface GameState {
   pendingCardAction?: string;
   bankServiceWindowActive?: boolean;
   bankServiceGrantedAtEventId?: string;
+  pendingFamilyMilestoneJoinAction?: {
+    promptId: string;
+    cardId: string;
+    sourcePlayerUid: string;
+  };
+  pendingStartupUpgradeAction?: {
+    cardId: string;
+    symbol: string;
+  };
 }
 
 export interface FinancialSummary {
@@ -385,7 +441,8 @@ export type UsageType =
   | 'buy_asset'
   | 'sell_asset'
   | 'loan'
-  | 'loan_repayment';
+  | 'loan_repayment'
+  | 'forced_debt';
 // Keep legacy '飛行器' for old transaction payloads; new UI should use '汽車'.
 export type AssetType = '股票' | '不動產' | '企業' | '定存' | '保險' | '飛行器' | '汽車' | '目標企業' | '心儀夢想' | '現金';
 

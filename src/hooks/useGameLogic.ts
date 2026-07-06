@@ -9,6 +9,12 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 import { REAL_ESTATE_TYPES } from '../constants';
 
+const getLiabilityMonthlyPayment = (type: GameState['liabilities'][number]['type'], total: number) => {
+    if (type === '信用貸款') return Math.floor(total * 0.1);
+    if (type === '強制負債') return 0;
+    return Math.floor(total * 0.005);
+};
+
 export const useGameLogic = () => {
     const { gameState, setGameState, gameHistory, setGameHistory, summary, scoreResult, alertInfo, showAlert, hideAlert, saveGameRecord } = useGame();
 
@@ -249,6 +255,20 @@ export const useGameLogic = () => {
                         newState.liabilities = updatedLiab;
                     }
                 }
+                else if (data.usage === 'forced_debt') {
+                    let liabIdx = -1;
+                    for (let i = newState.liabilities.length - 1; i >= 0; i--) {
+                        if (newState.liabilities[i].type === '強制負債' && newState.liabilities[i].totalOwed === (data.amount || 0)) {
+                            liabIdx = i;
+                            break;
+                        }
+                    }
+                    if (liabIdx !== -1) {
+                        const updatedLiab = [...newState.liabilities];
+                        updatedLiab.splice(liabIdx, 1);
+                        newState.liabilities = updatedLiab;
+                    }
+                }
                 else if (data.usage === 'expense_update' && data.expensePayload) {
                     const { category, amount, isIncrease } = data.expensePayload;
                     const currentVal = newState.expenses[category] || 0;
@@ -476,7 +496,7 @@ export const useGameLogic = () => {
                     usage: 'asset',
                     assetDetails: {
                         type: '定存',
-                        cashflow: Math.floor((data.amount || 0) * 0.005),
+                        cashflow: Math.floor((data.amount || 0) * 0.01),
                         downPayment: data.amount || 0
                     },
                     assetChange: undefined
@@ -530,30 +550,34 @@ export const useGameLogic = () => {
         return data;
     };
 
-    const applyAutoCreditRepayment = (state: GameState) => {
+    const applyAutoLiabilityRepayment = (state: GameState) => {
         if (state.cash <= 0) {
             return { nextState: state, repaidAmount: 0 };
         }
 
         let remainingCash = state.cash;
         let repaidAmount = 0;
+        const priorityTypes: GameState['liabilities'][number]['type'][] = ['強制負債', '信用貸款'];
+        let nextLiabilities = [...state.liabilities];
 
-        const nextLiabilities = state.liabilities
-            .map(liability => {
-                if (liability.type !== '信用貸款' || remainingCash <= 0) return liability;
+        priorityTypes.forEach(priorityType => {
+            nextLiabilities = nextLiabilities
+                .map(liability => {
+                    if (liability.type !== priorityType || remainingCash <= 0) return liability;
 
-                const paid = Math.min(liability.totalOwed, remainingCash);
-                remainingCash -= paid;
-                repaidAmount += paid;
+                    const paid = Math.min(liability.totalOwed, remainingCash);
+                    remainingCash -= paid;
+                    repaidAmount += paid;
 
-                const nextTotal = liability.totalOwed - paid;
-                return {
-                    ...liability,
-                    totalOwed: nextTotal,
-                    monthlyPayment: Math.floor(nextTotal * 0.1)
-                };
-            })
-            .filter(liability => liability.totalOwed > 0);
+                    const nextTotal = liability.totalOwed - paid;
+                    return {
+                        ...liability,
+                        totalOwed: nextTotal,
+                        monthlyPayment: getLiabilityMonthlyPayment(liability.type, nextTotal)
+                    };
+                })
+                .filter(liability => liability.totalOwed > 0);
+        });
 
         let nextLegacyLoans = state.loans;
         if (remainingCash > 0 && nextLegacyLoans > 0) {
@@ -580,6 +604,44 @@ export const useGameLogic = () => {
         if (isNaN(amount) || amount < 0) {
             showAlert('請輸入有效金額', 'error');
             return false;
+        }
+        if (data.usage === 'liability' && data.liabilityId) {
+            if (amount > gameState.cash) {
+                showAlert('現金不足，無法完成還款', 'error');
+                return false;
+            }
+
+            if (data.liabilityId === 'multiple_credit_loans') {
+                const totalCreditDebt =
+                    gameState.liabilities
+                        .filter(liability => liability.type === '信用貸款')
+                        .reduce((sum, liability) => sum + liability.totalOwed, 0) +
+                    (gameState.loans || 0);
+
+                if (totalCreditDebt <= 0) {
+                    showAlert('目前沒有可償還的信用貸款', 'error');
+                    return false;
+                }
+                if (amount > totalCreditDebt) {
+                    showAlert(`還款金額不可超過信用貸款總額 ${formatMoney(totalCreditDebt)}`, 'error');
+                    return false;
+                }
+            } else if (data.liabilityId === 'bank_loan') {
+                if (amount > (gameState.loans || 0)) {
+                    showAlert(`還款金額不可超過信用貸款總額 ${formatMoney(gameState.loans || 0)}`, 'error');
+                    return false;
+                }
+            } else {
+                const targetLiability = gameState.liabilities.find(liability => liability.id === data.liabilityId);
+                if (!targetLiability) {
+                    showAlert('找不到要償還的貸款資料，請重新開啟還款視窗', 'error');
+                    return false;
+                }
+                if (amount > targetLiability.totalOwed) {
+                    showAlert(`還款金額不可超過 ${targetLiability.name} 的剩餘金額 ${formatMoney(targetLiability.totalOwed)}`, 'error');
+                    return false;
+                }
+            }
         }
 
         const storageData: any = { ...data };
@@ -642,7 +704,9 @@ export const useGameLogic = () => {
                     const loanAmt = details.loanAmount || 0;
 
                     // 企業類型的資產，其顯示價值（cost）應為投資總額（downPayment），不包含企業貸款
-                    const assetCost = details.type === '企業' ? (details.downPayment || 0) : data.amount;
+                    const assetCost = details.type === '企業'
+                        ? (details.downPayment || 0)
+                        : data.amount;
 
                     const displayName = details.symbol
                         ? (details.type === '股票'
@@ -765,7 +829,7 @@ export const useGameLogic = () => {
                         if (l.id === data.liabilityId) {
                             const newTotal = Math.max(0, l.totalOwed - amount);
                             // 同步更新月支付金額（利息），維持 0.5% 或 10% 的比例
-                            const newMonthly = l.type === '信用貸款' ? Math.floor(newTotal * 0.1) : Math.floor(newTotal * 0.005);
+                            const newMonthly = getLiabilityMonthlyPayment(l.type, newTotal);
                             return { ...l, totalOwed: newTotal, monthlyPayment: newMonthly };
                         }
                         return l;
@@ -775,6 +839,8 @@ export const useGameLogic = () => {
                 }
             } else if (data.source === 'loan' && data.usage === 'cash') {
                 newState.liabilities = [...newState.liabilities, { id: generateId(), name: '信用貸款', totalOwed: amount, monthlyPayment: Math.floor(amount * 0.1), type: '信用貸款' }];
+            } else if (data.usage === 'forced_debt') {
+                newState.liabilities = [...newState.liabilities, { id: generateId(), name: '強制負債', totalOwed: amount, monthlyPayment: 0, type: '強制負債' }];
             } else if (data.usage === 'happiness_event' && data.happinessEventPayload) {
                 const { id, name, points, monthlyExpenseChange, progressId, happinessItemId, sourceCardId } = data.happinessEventPayload;
 
@@ -847,26 +913,21 @@ export const useGameLogic = () => {
                     const assetToSell = updatedAssets.find(a => a.id === data.relatedAssetId);
                     if (assetToSell) {
                         if (assetToSell.type === '定存') {
-                            // 定存解約：從所有定存項目中扣除金額
-                            let remainingToWithdraw = amount;
                             updatedAssets = updatedAssets.reduce((acc: Asset[], asset) => {
-                                if (asset.type === '定存' && remainingToWithdraw > 0) {
-                                    if (asset.cost <= remainingToWithdraw) {
-                                        remainingToWithdraw -= asset.cost;
-                                        return acc;
-                                    } else {
-                                        const newCost = asset.cost - remainingToWithdraw;
-                                        remainingToWithdraw = 0;
-                                        acc.push({
-                                            ...asset,
-                                            cost: newCost,
-                                            downPayment: newCost,
-                                            cashflow: Math.floor(newCost * 0.005)
-                                        });
-                                        return acc;
-                                    }
+                                if (asset.id !== data.relatedAssetId) {
+                                    acc.push(asset);
+                                    return acc;
                                 }
-                                acc.push(asset);
+
+                                const remainingDeposit = Math.max(0, asset.cost - amount);
+                                if (remainingDeposit > 0) {
+                                    acc.push({
+                                        ...asset,
+                                        cost: remainingDeposit,
+                                        downPayment: remainingDeposit,
+                                        cashflow: Math.floor(remainingDeposit * 0.01)
+                                    });
+                                }
                                 return acc;
                             }, []);
                         } else {
@@ -928,9 +989,9 @@ export const useGameLogic = () => {
             };
             newState.history = [...newState.history, newTx];
 
-            const shouldAutoRepay = data.cashChange > 0 && !(data.source === 'loan' && data.usage === 'cash');
+            const shouldAutoRepay = data.cashChange > 0 && !(data.source === 'loan' && data.usage === 'cash') && data.usage !== 'forced_debt';
             if (shouldAutoRepay) {
-                const autoRepayResult = applyAutoCreditRepayment(newState);
+                const autoRepayResult = applyAutoLiabilityRepayment(newState);
                 newState = autoRepayResult.nextState;
                 autoRepayAmount = autoRepayResult.repaidAmount;
 
@@ -938,7 +999,7 @@ export const useGameLogic = () => {
                     const autoRepayTx: Transaction = {
                         id: generateId(),
                         timestamp: Date.now(),
-                        name: '自動償還信用貸款',
+                        name: '自動償還負債',
                         amount: autoRepayAmount,
                         sourceLabel: '支出',
                         usageLabel: '自動還款',
@@ -998,7 +1059,7 @@ export const useGameLogic = () => {
             };
             newState.history = [...newState.history, newTx];
             if (flow > 0) {
-                const autoRepayResult = applyAutoCreditRepayment(newState);
+                const autoRepayResult = applyAutoLiabilityRepayment(newState);
                 autoRepayAmount = autoRepayResult.repaidAmount;
                 if (autoRepayAmount > 0) {
                     autoRepayResult.nextState.history = [
@@ -1006,7 +1067,7 @@ export const useGameLogic = () => {
                         {
                             id: generateId(),
                             timestamp: Date.now(),
-                            name: '自動償還信用貸款',
+                            name: '自動償還負債',
                             amount: autoRepayAmount,
                             sourceLabel: '支出',
                             usageLabel: '自動還款',
@@ -1056,7 +1117,7 @@ export const useGameLogic = () => {
                 flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
-            const autoRepayResult = applyAutoCreditRepayment(newState);
+            const autoRepayResult = applyAutoLiabilityRepayment(newState);
             autoRepayAmount = autoRepayResult.repaidAmount;
             if (autoRepayAmount > 0) {
                 autoRepayResult.nextState.history = [
@@ -1064,7 +1125,7 @@ export const useGameLogic = () => {
                     {
                         id: generateId(),
                         timestamp: Date.now(),
-                        name: '自動償還信用貸款',
+                        name: '自動償還負債',
                         amount: autoRepayAmount,
                         sourceLabel: '支出',
                         usageLabel: '自動還款',
@@ -1112,7 +1173,7 @@ export const useGameLogic = () => {
                 flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
-            const autoRepayResult = applyAutoCreditRepayment(newState);
+            const autoRepayResult = applyAutoLiabilityRepayment(newState);
             autoRepayAmount = autoRepayResult.repaidAmount;
             if (autoRepayAmount > 0) {
                 autoRepayResult.nextState.history = [
@@ -1120,7 +1181,7 @@ export const useGameLogic = () => {
                     {
                         id: generateId(),
                         timestamp: Date.now(),
-                        name: '自動償還信用貸款',
+                        name: '自動償還負債',
                         amount: autoRepayAmount,
                         sourceLabel: '支出',
                         usageLabel: '自動還款',
@@ -1235,6 +1296,7 @@ export const useGameLogic = () => {
             const addedIncome = diceRoll * 10000;
             const newAsset: Asset = {
                 ...asset,
+                name: symbol ? `小型企業 (${symbol})` : '小型企業',
                 cashflow: oldIncome + addedIncome,
                 isUpgraded: true
             };

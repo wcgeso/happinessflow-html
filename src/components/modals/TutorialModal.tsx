@@ -68,14 +68,14 @@ const MockFinancialStatement = () => (
           <div className="space-y-4">
             <div>
               <div className="text-[10px] text-slate-400 mb-1">現金</div>
-              <div className="text-emerald-400 font-mono text-sm font-black text-right">2,500 H</div>
+              <div className="text-emerald-400 font-mono text-sm font-black text-right">2,500</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400 mb-1">不動產</div>
               <div className="flex justify-between items-center">
                 <span className="text-[10px] text-slate-500 font-bold">N029 (單間小套房)</span>
               </div>
-              <div className="text-white font-mono text-sm font-black text-right">1,100,000 H</div>
+              <div className="text-white font-mono text-sm font-black text-right">1,100,000</div>
             </div>
           </div>
         </div>
@@ -89,7 +89,7 @@ const MockFinancialStatement = () => (
             <div>
               <div className="text-[10px] text-slate-400 mb-1">不動產貸款</div>
               <div className="text-[10px] text-slate-500 font-bold mb-1">N029</div>
-              <div className="text-white font-mono text-sm font-black text-right">1,000,000 H</div>
+              <div className="text-white font-mono text-sm font-black text-right">1,000,000</div>
             </div>
           </div>
         </div>
@@ -98,16 +98,16 @@ const MockFinancialStatement = () => (
       <div className="grid grid-cols-2 border-t border-slate-800 bg-slate-950/30">
         <div className="p-3 flex justify-between items-center">
           <span className="text-[10px] font-black text-blue-500">總資產</span>
-          <span className="text-blue-400 font-mono text-xs font-black">1,102,500 H</span>
+          <span className="text-blue-400 font-mono text-xs font-black">1,102,500</span>
         </div>
         <div className="p-3 flex justify-between items-center border-l border-slate-800">
           <span className="text-[10px] font-black text-rose-500">總負債</span>
-          <span className="text-rose-400 font-mono text-xs font-black">1,000,000 H</span>
+          <span className="text-rose-400 font-mono text-xs font-black">1,000,000</span>
         </div>
       </div>
       <div className="p-3 bg-slate-950/50 flex justify-between items-center border-t border-slate-800">
         <span className="text-[10px] font-black text-slate-400">淨資產 (總資產 - 總負債)</span>
-        <span className="text-white font-mono text-sm font-black">102,500 H</span>
+        <span className="text-white font-mono text-sm font-black">102,500</span>
       </div>
     </section>
   </div>
@@ -126,7 +126,7 @@ const MockTransactionForm = () => (
         <div className="flex items-center gap-2 text-slate-400 text-[10px] font-bold">
           <Wallet size={14} className="text-emerald-500" /> 目前持有現金
         </div>
-        <div className="text-white font-black font-mono">102,500 H</div>
+        <div className="text-white font-black font-mono">102,500</div>
       </div>
 
       <div className="flex w-full bg-slate-800/50 p-1 rounded-xl border border-slate-700/50">
@@ -190,10 +190,10 @@ const MockTransactionForm = () => (
 
         <div className="grid grid-cols-2 gap-2">
           {[
-            { label: '首付', val: '100,000 H', color: 'text-rose-400' },
-            { label: '房貸金額', val: '1,000,000 H', color: 'text-rose-400' },
-            { label: '租金收入', val: '6,500 H', color: 'text-emerald-400' },
-            { label: '每月本利和 (0.5%)', val: '5,000 H', color: 'text-rose-400' },
+            { label: '首付', val: '100,000', color: 'text-rose-400' },
+            { label: '房貸金額', val: '1,000,000', color: 'text-rose-400' },
+            { label: '租金收入', val: '6,500', color: 'text-emerald-400' },
+            { label: '每月本利和 (1%)', val: '10,000', color: 'text-rose-400' },
           ].map(f => (
             <div key={f.label} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
               <div className="text-[9px] text-slate-500 font-bold mb-1">{f.label}</div>

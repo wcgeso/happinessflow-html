@@ -9,7 +9,7 @@ import { extractAssetSymbol, getBusinessAssetLabel, getRealEstateAssetLabel, get
 
 const formatMoney = (amount: number) => {
     const num = Number(amount);
-    return `${Math.abs(num).toLocaleString()} H`;
+    return Math.abs(num).toLocaleString();
 };
 
 type ExpenseType = 'housing_loan' | 'increase_monthly' | 'decrease_monthly' | '';
@@ -287,8 +287,8 @@ export const useTransactionLogic = ({
                 if (!amt) { showError("請輸入金額"); return; }
                 if (amt <= 0) { showError("定存金額必須大於 0"); return; }
                 if (amt > cash) { showError("現金不足"); return; }
-                txData = { name: '買入定期存款', amount: amt, cashChange: -amt, source: 'cash', usage: 'asset', assetDetails: { type: '定存', cashflow: Math.floor(amt * 0.005), downPayment: amt } };
-                impactList = [`現金 -${formatMoney(amt)}`, `定存 +${formatMoney(amt)}`, `定存利息(月) +${formatMoney(Math.floor(amt * 0.005))}`];
+                txData = { name: '買入定期存款', amount: amt, cashChange: -amt, source: 'cash', usage: 'asset', assetDetails: { type: '定存', cashflow: Math.floor(amt * 0.01), downPayment: amt } };
+                impactList = [`現金 -${formatMoney(amt)}`, `定存 +${formatMoney(amt)}`, `定存利息(月) +${formatMoney(Math.floor(amt * 0.01))}`];
                 expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Decrease' }, { category: 'Assets', name: '定存', direction: 'Increase' }, { category: 'Income', name: '定存利息', direction: 'Increase' }];
             } else if (assetType === '保險') {
                 let desc = '', pay: any = {}, qty = 0;
@@ -302,10 +302,13 @@ export const useTransactionLogic = ({
                 expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Decrease' }, { category: 'Expenses', name: '保險支出', direction: 'Increase' }];
             } else if (assetType === '飛行器' || assetType === '汽車') {
                 const c = Number(aircraftCash), l = Number(aircraftLoan);
-                if (c + l !== 500000) { showError("支付現金與貸款額度加總不足 500,000 H"); return; }
+                const carPrice = 600000;
+                const minDownPayment = 120000;
+                if (c + l !== carPrice) { showError("支付現金與貸款額度加總必須等於 600,000"); return; }
+                if (c < minDownPayment) { showError("汽車自備款至少需 120,000"); return; }
                 if (c > cash) { showError("現金不足"); return; }
-                txData = { name: '買入汽車（增加一顆骰子）', amount: 500000, cashChange: -c, source: l > 0 ? 'loan' : 'cash', usage: 'asset', assetDetails: { type: '汽車' as any, cashflow: 0, downPayment: c, loanAmount: l, loanInterest: Math.floor(l * 0.005) } };
-                impactList.push(`現金 -${formatMoney(c)}`, `汽車資產 +${formatMoney(500000)}`);
+                txData = { name: '買入汽車（增加一顆骰子）', amount: carPrice, cashChange: -c, source: l > 0 ? 'loan' : 'cash', usage: 'asset', assetDetails: { type: '汽車' as any, cashflow: 0, downPayment: c, loanAmount: l, loanInterest: Math.floor(l * 0.005) } };
+                impactList.push(`現金 -${formatMoney(c)}`, `汽車資產 +${formatMoney(carPrice)}`);
                 if (l > 0) impactList.push(`汽車貸款 +${formatMoney(l)}`);
                 expectedEntries.push({ category: 'Assets', name: '汽車', direction: 'Increase' });
                 if (c > 0) expectedEntries.push({ category: 'Assets', name: '現金', direction: 'Decrease' });
@@ -349,7 +352,7 @@ export const useTransactionLogic = ({
                 const amt = Number(withdrawAmount) * 10000;
                 if (!amt) { showError("請輸入解約金額"); return; }
                 if (amt > cdTotal) { showError("超過定存餘額"); return; }
-                const interest = Math.floor(amt * 0.005);
+                const interest = Math.floor(amt * 0.01);
                 txData = { name: `定存解約`, amount: amt, cashChange: amt, source: 'income', usage: 'cash', relatedAssetId: assets.find(a => a.type === '定存')?.id };
                 impactList = [`現金 +${formatMoney(amt)}`, `定存 -${formatMoney(amt)}`, `定存利息(月) -${formatMoney(interest)}`];
                 expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Increase' }, { category: 'Assets', name: '定存', direction: 'Decrease' }, { category: 'Income', name: '定存利息', direction: 'Decrease' }];
@@ -454,7 +457,7 @@ export const useTransactionLogic = ({
             if (loanSubMode === 'borrow') {
                 const amt = Number(borrowAmount);
                 if (!amt) { showError("請輸入借貸金額"); return; }
-                if (amt > salary * 10) { showError(`上限為 $${(salary * 10).toLocaleString()} H`); return; }
+                if (amt > salary * 10) { showError(`上限為 $${(salary * 10).toLocaleString()}`); return; }
                 txData = { name: `申請信用貸款`, amount: amt, cashChange: amt, source: 'loan', usage: 'cash', assetDetails: { type: '股票', cashflow: 0, downPayment: 0, loanAmount: amt, loanInterest: Math.floor(amt * 0.1) } };
                 impactList = [`現金 +${formatMoney(amt)}`, `信用貸款 +${formatMoney(amt)}`, `信貸利息 +${formatMoney(Math.floor(amt * 0.1))}`];
                 expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Increase' }, { category: 'Liabilities', name: '信用貸款', direction: 'Increase' }, { category: 'Expenses', name: '信貸利息', direction: 'Increase' }];

@@ -7,7 +7,7 @@ interface CashFlowLogProps {
     history: Transaction[];
 }
 
-const formatMoney = (amount: number) => `${amount.toLocaleString()} H`;
+const formatMoney = (amount: number) => amount.toLocaleString();
 
 export const CashFlowLog: React.FC<CashFlowLogProps> = ({ history }) => {
     // 計算累積現金流

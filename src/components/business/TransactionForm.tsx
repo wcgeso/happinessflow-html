@@ -46,6 +46,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 }) => {
   // Map old modes to new tabs
   let resolvedTab: 'broker' | 'banking' | 'wealth' = initialTab || 'broker';
+  let resolvedWealthProductType: 'insurance' | 'deposit' | 'car' = 'insurance';
   
   if (!initialTab) {
       if (initialMode === 'buy' || initialMode === 'sell') {
@@ -61,6 +62,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       }
   }
 
+  if (initialAssetType === '定存' || initialMode === 'deposit') {
+    resolvedWealthProductType = 'deposit';
+  } else if (initialAssetType === '保險' || initialMode === 'insurance') {
+    resolvedWealthProductType = 'insurance';
+  }
+
   return (
     <BankingAppModal
       cash={cash}
@@ -71,6 +78,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       previousMarketPrices={previousMarketPrices}
       medicalInsuranceCount={medicalInsuranceCount}
       initialTab={resolvedTab}
+      initialWealthProductType={resolvedWealthProductType}
       canUseBankProducts={canUseBankProducts}
       onTransaction={onTransaction}
       onClose={onCancel}

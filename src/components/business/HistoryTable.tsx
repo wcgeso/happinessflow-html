@@ -11,7 +11,7 @@ interface HistoryTableProps {
     disabled?: boolean;
 }
 
-const formatMoney = (amount: number) => `${amount.toLocaleString()} H`;
+const formatMoney = (amount: number) => amount.toLocaleString();
 
 export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTransaction, reportName, disabled = false }) => {
     const [confirmId, setConfirmId] = useState<string | null>(null);

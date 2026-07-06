@@ -75,7 +75,7 @@ export const RankListModal: React.FC<RankListModalProps> = ({
                                 </div>
                                 <div className="flex justify-between items-center mt-1">
                                     <div className="text-[10px] text-slate-500">
-                                        工作收入加成: +{p.bonus.toLocaleString()} H
+                                        工作收入加成: +{p.bonus.toLocaleString()}
                                     </div>
                                     <div className="px-2 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/20 text-[9px] font-black text-purple-400 uppercase tracking-tighter">
                                          擲骰子 ≥ {idx + 2} 點

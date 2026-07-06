@@ -100,7 +100,7 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
                                         </li>
                                         <li className="flex items-center gap-2">
                                             <div className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
-                                            <span className="whitespace-nowrap">企業收入增加 (第二骰點數 × 10,000 H)</span>
+                                            <span className="whitespace-nowrap">企業收入增加 (第二骰點數 × 10,000)</span>
                                         </li>
                                     </ul>
                                 </div>

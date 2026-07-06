@@ -101,9 +101,9 @@ export const BUSINESS_PRESETS: Record<string, {
   income: number;
 }> = {
   'N055': { name: '優質企業 (N055)', cost: 1000000, loanAmount: 800000, loanInterest: 4000, income: 24000 },
-  'N056': { name: '兼職工作室 (N056)', cost: 503000, loanAmount: 500000, loanInterest: 2500, income: 0 },
-  'N057': { name: '優質企業 (N057)', cost: 1200000, loanAmount: 960000, loanInterest: 4800, income: 28000 },
-  'N058': { name: '兼職工作室 (N058)', cost: 605000, loanAmount: 600000, loanInterest: 3000, income: 0 },
+  'N056': { name: '兼職工作室 (N056)', cost: 3000, loanAmount: 500000, loanInterest: 1500, income: 0 },
+  'N057': { name: '兼職工作室 (N057)', cost: 5000, loanAmount: 600000, loanInterest: 3000, income: 0 },
+  'N058': { name: '兼職工作室 (N058)', cost: 5000, loanAmount: 600000, loanInterest: 3000, income: 0 },
   'N059': { name: '優質企業 (N059)', cost: 1500000, loanAmount: 1200000, loanInterest: 6000, income: 35000 },
   'N060': { name: '優質企業 (N060)', cost: 2000000, loanAmount: 1600000, loanInterest: 8000, income: 45000 },
 };

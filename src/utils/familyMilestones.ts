@@ -8,6 +8,9 @@ export interface FamilyMilestoneStage {
   description: string;
   cost: string;
   points: string;
+  cashCostAmount?: number;
+  monthlyExpenseIncreaseAmount?: number;
+  happinessPointsValue: number;
 }
 
 export const FAMILY_MILESTONE_STAGES: FamilyMilestoneStage[] = [
@@ -17,8 +20,10 @@ export const FAMILY_MILESTONE_STAGES: FamilyMilestoneStage[] = [
     happinessId: 'h_date',
     label: '1. 第一次約會',
     description: '家庭重要歷程起點。安排約會，展開關係經營。',
-    cost: '3,000 H',
-    points: '2點'
+    cost: '3,000',
+    points: '2點',
+    cashCostAmount: 3000,
+    happinessPointsValue: 2
   },
   {
     cardId: 'H012',
@@ -26,8 +31,10 @@ export const FAMILY_MILESTONE_STAGES: FamilyMilestoneStage[] = [
     happinessId: 'h_proposal',
     label: '2. 難忘的求婚',
     description: '關係升級階段。表達承諾，進入求婚里程。',
-    cost: '5,000 H',
-    points: '2點'
+    cost: '5,000',
+    points: '2點',
+    cashCostAmount: 5000,
+    happinessPointsValue: 2
   },
   {
     cardId: 'H013',
@@ -35,8 +42,10 @@ export const FAMILY_MILESTONE_STAGES: FamilyMilestoneStage[] = [
     happinessId: 'h_wedding',
     label: '3. 浪漫的婚禮',
     description: '建立家庭的重要儀式。完成婚禮，正式進入家庭生活。',
-    cost: '100,000 H',
-    points: '4點'
+    cost: '100,000',
+    points: '4點',
+    cashCostAmount: 100000,
+    happinessPointsValue: 4
   },
   {
     cardId: 'H014',
@@ -44,8 +53,10 @@ export const FAMILY_MILESTONE_STAGES: FamilyMilestoneStage[] = [
     happinessId: 'h_child1',
     label: '4. 擁有第一個孩子',
     description: '迎接第一個孩子，家庭責任與幸福同步提升。',
-    cost: '月支出 +10,000 H',
-    points: '4點'
+    cost: '月支出 +10,000',
+    points: '4點',
+    monthlyExpenseIncreaseAmount: 10000,
+    happinessPointsValue: 4
   },
   {
     cardId: 'H015',
@@ -53,8 +64,10 @@ export const FAMILY_MILESTONE_STAGES: FamilyMilestoneStage[] = [
     happinessId: 'h_child2',
     label: '5. 擁有第二個孩子',
     description: '迎接第二個孩子，家庭規模與月支出再度增加。',
-    cost: '月支出 +10,000 H',
-    points: '4點'
+    cost: '月支出 +10,000',
+    points: '4點',
+    monthlyExpenseIncreaseAmount: 10000,
+    happinessPointsValue: 4
   }
 ];
 

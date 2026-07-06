@@ -49,13 +49,20 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
     const deckMeta = DECK_META[card.deck];
     const effectiveCloseDisabled = closeDisabled || isForcedBoardCard(card.cardId);
     const subtitleLabel = `${card.subtitle || ''} ${card.cardId}`.trim();
-    const normalizedDescription = normalizeCardCopy(card.description);
+    const familyMilestoneStatus = card.familyMilestoneStatus;
+    const isFamilyMilestoneCard =
+        card.deck === 'happiness' &&
+        card.subtitle === '家庭重要歷程' &&
+        !!familyMilestoneStatus?.stages?.length;
+    const currentFamilyStage = isFamilyMilestoneCard && familyMilestoneStatus.currentStageIndex >= 0
+        ? familyMilestoneStatus.stages[familyMilestoneStatus.currentStageIndex]
+        : null;
     const shortPrompt = (() => {
         if (card.deck === 'news') return '請看大地圖確認新聞卡內容，再決定接下來的操作。';
         if (card.deck === 'opportunity') return '請看大地圖確認機運卡內容，再決定是否接受或執行。';
+        if (isFamilyMilestoneCard) return '';
         return '請看大地圖確認幸福卡內容，再決定是否執行。';
     })();
-
     return (
         <div className="fixed inset-x-0 bottom-0 z-[10002] flex justify-center">
             <div
@@ -102,13 +109,10 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
                                     {/* Texture Pattern */}
                                     <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{ backgroundImage: 'radial-gradient(circle at center, #000 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
                                     
-                                    <div className="flex h-full flex-col items-center justify-center relative z-10">
-                                        <div className="flex h-24 w-24 items-center justify-center rounded-3xl border-2 border-white/30 bg-white/20 shadow-lg backdrop-blur-md mb-4 animate-pulse">
-                                            <div className="text-white drop-shadow-md scale-125">
-                                                {deckMeta.icon}
-                                            </div>
+                                    <div className={`relative z-10 flex h-full flex-col items-center justify-center transition-opacity duration-150 ${isRevealed ? 'opacity-0' : 'opacity-100'}`}>
+                                        <div className="text-2xl font-black tracking-widest text-slate-900/70 drop-shadow-sm mix-blend-color-burn">
+                                            {deckMeta.label}
                                         </div>
-                                        <div className="text-2xl font-black tracking-widest text-slate-900/70 drop-shadow-sm mix-blend-color-burn">{deckMeta.label}</div>
                                     </div>
                                 </div>
 
@@ -120,14 +124,8 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
                                     <div className={`h-2.5 w-full bg-gradient-to-r ${deckMeta.backClass} opacity-90`} />
                                     
                                     <div className="p-5 sm:p-6 flex flex-col h-[calc(100%-10px)] relative">
-                                        {/* Faint background watermark */}
-                                        <div className="absolute -right-6 -bottom-6 opacity-5 scale-150 pointer-events-none">
-                                            {deckMeta.icon}
-                                        </div>
-
                                         <div>
                                             <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.25em] text-slate-400">
-                                                <span className="text-slate-300">{deckMeta.icon}</span>
                                                 <span>{deckMeta.label}</span>
                                             </div>
                                             <div className="mt-2 text-2xl font-black leading-tight sm:text-3xl text-white drop-shadow-md">{card.title}</div>
@@ -140,9 +138,30 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
                                         
                                         {/* Flavor Text */}
                                         <div className="mt-auto pt-4 relative z-10">
-                                            <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-[13px] font-bold leading-relaxed text-cyan-100">
-                                                {shortPrompt}
-                                            </div>
+                                            {isFamilyMilestoneCard ? (
+                                                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">
+                                                            家庭重要歷程
+                                                        </div>
+                                                        <div className="rounded-full border border-cyan-400/30 bg-slate-800/80 px-3 py-1 text-[11px] font-black text-cyan-200">
+                                                            目前進度：第 {familyMilestoneStatus.currentStage} 階段
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
+                                                        <div className="text-[11px] font-black uppercase tracking-[0.16em] text-amber-200">
+                                                            目前階段
+                                                        </div>
+                                                        <div className="mt-2 text-lg font-black leading-tight text-white">
+                                                            {currentFamilyStage ? currentFamilyStage.label : '已完成所有階段'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-[13px] font-bold leading-relaxed text-cyan-100">
+                                                    {shortPrompt}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

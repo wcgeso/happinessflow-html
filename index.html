@@ -110,30 +110,18 @@
       font-size: 16px !important;
     }
   </style>
-  <script type="importmap">
-{
-  "imports": {
-    "recharts": "https://esm.sh/recharts@^3.6.0",
-    "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
-    "react-markdown": "https://esm.sh/react-markdown@^10.1.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "firebase/app": "https://esm.sh/firebase@10.9.0/app",
-    "firebase/auth": "https://esm.sh/firebase@10.9.0/auth",
-    "firebase/firestore": "https://esm.sh/firebase@10.9.0/firestore",
-    "firebase/": "https://esm.sh/firebase@^12.7.0/",
-    "path": "https://esm.sh/path@^0.12.7",
-    "vite": "https://esm.sh/vite@^7.3.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
-  }
-}
-</script>
 </head>
 
 <body class="bg-slate-950 text-white">
   <div id="root"></div>
+  <script>
+    window.addEventListener('error', function(event) {
+      document.body.innerHTML = '<div style="color:red;padding:20px;background:white"><h1>Global Error</h1><pre>' + event.error?.stack + '</pre></div>';
+    });
+    window.addEventListener('unhandledrejection', function(event) {
+      document.body.innerHTML = '<div style="color:red;padding:20px;background:white"><h1>Unhandled Promise Rejection</h1><pre>' + event.reason?.stack + '</pre></div>';
+    });
+  </script>
   <script type="module" src="/index.tsx"></script>
   <!-- Google Verification: Privacy Policy and Terms Links -->
   <div style="display:none;">

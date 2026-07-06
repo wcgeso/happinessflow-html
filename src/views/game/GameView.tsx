@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
 import { useGameLogic } from '../../hooks/useGameLogic';
@@ -15,6 +15,7 @@ import { RankListModal } from '../../components/modals/RankListModal';
 import { LifelongLearningModal } from '../../components/modals/LifelongLearningModal';
 import { HappinessListModal } from '../../components/modals/HappinessListModal';
 import { TutorialModal } from '../../components/modals/TutorialModal';
+import { BizUpgradeModal } from '../../components/modals/BizUpgradeModal';
 import { DiceRollContainer } from '../../components/game/DiceRollContainer';
 import { ScoreView } from './ScoreView';
 import { PromotionType } from '../../hooks/useDiceRollLogic';
@@ -26,18 +27,26 @@ import { BoardFinancialCheckModal } from '../../components/game/BoardFinancialCh
 import { HappinessWinAnimation } from '../../components/game/HappinessWinAnimation';
 import { hydrateBoardCardResult } from '../../utils/boardCardDisplay';
 import { formatMoney } from '../../utils/gameUtils';
-import { BoardCardResult, TransactionData } from '../../types';
-import { BoardAssetSaleCandidate, BoardFinancialAction, buildBoardAssetSaleFinancialAction, isForcedBoardCard, resolveBoardCardAction } from '../../utils/boardCardActions';
-import { NEWS_CARD_MAP } from '../../constants/cards';
+import { BoardCardResult, FamilyMilestoneJoinPrompt, SharedCardPrompt, TransactionData } from '../../types';
+import { BoardAssetSaleCandidate, BoardFinancialAction, BoardInvestmentAction, buildBoardAssetSaleFinancialAction, isForcedBoardCard, resolveBoardCardAction } from '../../utils/boardCardActions';
+import { HAPPINESS_CARD_MAP, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP } from '../../constants/cards';
 import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
+
+export const marketPricesMatch = (current: Record<string, number> | undefined, target: Record<string, number> | undefined) => {
+    if (!current || !target) return false;
+    const targetKeys = Object.keys(target);
+    if (targetKeys.length === 0) return false;
+    return targetKeys.every(key => (current[key] || 0) === (target[key] || 0));
+};
 
 export const GameView: React.FC<{ 
     onFinishGame: (meta: any) => void;
     isDevMode?: boolean;
 }> = ({ onFinishGame, isDevMode = false }) => {
+    const FAMILY_JOIN_RESULT_DISPLAY_MS = 2500;
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, leaveRoom, rollBoardDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, drawPostExamHappinessCard, drawBoardFollowupCard, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, abandonRealEstateCard, buyRealEstateFromMarket } = useRoom();
+    const { room, leaveRoom, rollBoardDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, submitSharedCardPromptResponse, clearSharedCardPrompt, setPendingStartupUpgradeAction, clearPendingStartupUpgradeAction, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, abandonRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -162,16 +171,46 @@ export const GameView: React.FC<{
     const [showRealEstateMarketModal, setShowRealEstateMarketModal] = useState(false);
     const [pendingForcedBoardPayment, setPendingForcedBoardPayment] = useState<TransactionData | null>(null);
     const [showForcedBoardPaymentModal, setShowForcedBoardPaymentModal] = useState(false);
+    const [boardInvestmentAmount, setBoardInvestmentAmount] = useState(0);
     const [shouldResumeBankFollowup, setShouldResumeBankFollowup] = useState(false);
     const [isBoardFinancialCompleted, setIsBoardFinancialCompleted] = useState(false);
     const [pendingHandledBoardCard, setPendingHandledBoardCard] = useState<{ key: string; card: BoardCardResult | null } | null>(null);
-    const [pendingBoardStepAdvance, setPendingBoardStepAdvance] = useState<'hospital' | null>(null);
+    const [pendingBoardStepAdvance, setPendingBoardStepAdvance] = useState<'hospital' | 'repair' | null>(null);
     const [pendingBoardLifelongRoll, setPendingBoardLifelongRoll] = useState<PromotionType | null>(null);
     const [pendingMarketPurchaseCardId, setPendingMarketPurchaseCardId] = useState<string | null>(null);
     const [showHospitalRollModal, setShowHospitalRollModal] = useState(false);
     const [hospitalRollValue, setHospitalRollValue] = useState<number | null>(null);
     const [lastHospitalPromptKey, setLastHospitalPromptKey] = useState<string | null>(null);
+    const [lastRepairPromptKey, setLastRepairPromptKey] = useState<string | null>(null);
     const [showBoardCardLog, setShowBoardCardLog] = useState(false);
+    const [isSubmittingFamilyJoin, setIsSubmittingFamilyJoin] = useState(false);
+    const [familyJoinRollValue, setFamilyJoinRollValue] = useState<number | null>(null);
+    const [familyJoinResult, setFamilyJoinResult] = useState<'passed' | 'failed' | null>(null);
+    const [familyJoinPromptSnapshot, setFamilyJoinPromptSnapshot] = useState<FamilyMilestoneJoinPrompt | null>(null);
+    const [visibleFamilyJoinPromptId, setVisibleFamilyJoinPromptId] = useState<string | null>(null);
+    const [dismissedFamilyJoinPromptIds, setDismissedFamilyJoinPromptIds] = useState<string[]>([]);
+    const [submittedFamilyJoinPromptIds, setSubmittedFamilyJoinPromptIds] = useState<string[]>([]);
+    const [handledFamilyJoinActionKeys, setHandledFamilyJoinActionKeys] = useState<string[]>([]);
+    const [showBizUpgradeModal, setShowBizUpgradeModal] = useState(false);
+    const [sharedCardPromptSnapshot, setSharedCardPromptSnapshot] = useState<SharedCardPrompt | null>(null);
+    const [visibleSharedCardPromptId, setVisibleSharedCardPromptId] = useState<string | null>(null);
+    const [dismissedSharedCardPromptIds, setDismissedSharedCardPromptIds] = useState<string[]>([]);
+    const [submittedSharedCardPromptIds, setSubmittedSharedCardPromptIds] = useState<string[]>([]);
+    const [sharedSaleSelectionIds, setSharedSaleSelectionIds] = useState<string[]>([]);
+    const [sharedInvestmentAmount, setSharedInvestmentAmount] = useState(0);
+    const [pendingSharedCardCompletion, setPendingSharedCardCompletion] = useState<{
+        promptId: string;
+        status: 'completed' | 'declined' | 'no_effect';
+        amount?: number;
+        selectedAssetIds?: string[];
+        note?: string;
+        startupUpgradeCardId?: string;
+    } | null>(null);
+    const [handledSharedPromptIds, setHandledSharedPromptIds] = useState<string[]>([]);
+    const [processedStoryRequestIds, setProcessedStoryRequestIds] = useState<string[]>([]);
+    const [isSubmittingClaim, setIsSubmittingClaim] = useState(false);
+    const [handledClaimKeys, setHandledClaimKeys] = useState<string[]>([]);
+    const familyJoinCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const [promotionType, setPromotionType] = useState<PromotionType | null>(null);
     const [isRollingBoardDice, setIsRollingBoardDice] = useState(false);
@@ -279,12 +318,28 @@ export const GameView: React.FC<{
     };
 
     const onModalMedicalConfirm = (type: 'medical' | 'aircraft') => {
-        if (type === 'medical') {
-            confirmMedicalClaim();
-        } else {
-            confirmAircraftClaim();
+        if (isSubmittingClaim) return;
+
+        const claimKey = type === 'medical' ? medicalClaimActionKey : vehicleClaimActionKey;
+        const canClaimNow = type === 'medical' ? canClaimMedical : canClaimVehicle;
+
+        if (!claimKey || !canClaimNow) {
+            showAlert(type === 'medical' ? '目前沒有可申請的醫療理賠事件' : '目前沒有可申請的汽車理賠事件', 'error');
+            return;
         }
-        setShowMedicalClaimModal(false);
+
+        setIsSubmittingClaim(true);
+        try {
+            if (type === 'medical') {
+                confirmMedicalClaim();
+            } else {
+                confirmAircraftClaim();
+            }
+            setHandledClaimKeys(prev => prev.includes(claimKey) ? prev : [...prev, claimKey]);
+            setShowMedicalClaimModal(false);
+        } finally {
+            setIsSubmittingClaim(false);
+        }
     };
 
     const onPromotionRegister = (type: PromotionType) => {
@@ -351,6 +406,11 @@ export const GameView: React.FC<{
 
     const boardState = room?.boardState || null;
     const currentPlayerRoomState = user?.uid ? room?.playerStates?.[user.uid] : null;
+    const pendingStartupUpgradeAction = currentPlayerRoomState?.pendingStartupUpgradeAction || gameState.pendingStartupUpgradeAction || null;
+    const familyJoinPrompt = boardState?.familyMilestoneJoinPrompt || null;
+    const sharedCardPrompt = boardState?.sharedCardPrompt || null;
+    const activeFamilyJoinPrompt = familyJoinPromptSnapshot ?? familyJoinPrompt;
+    const activeSharedCardPrompt = sharedCardPromptSnapshot ?? sharedCardPrompt;
     const isBoardTurn = !!(room?.isBoardGame && boardState?.currentTurnUid === user?.uid);
     const canUseBankProducts = !room?.isBoardGame || !!currentPlayerRoomState?.bankServiceWindowActive;
     const hasCar = gameState.assets.some(asset => asset.type === '汽車' || asset.type === '飛行器');
@@ -369,6 +429,10 @@ export const GameView: React.FC<{
         boardState?.currentEvent?.type === 'hospital'
         ? `${boardState.currentEvent.id}_hospital`
         : null;
+    const activeRepairPromptKey = boardState?.currentEvent?.playerUid === user?.uid &&
+        boardState?.currentEvent?.type === 'repair'
+        ? `${boardState.currentEvent.id}_repair`
+        : null;
 
     const activeBoardCardKey = activeBoardCard && boardState?.currentEvent
         ? `${boardState.currentEvent.id}_${activeBoardCard.cardId}`
@@ -377,14 +441,128 @@ export const GameView: React.FC<{
         () => (activeBoardCard ? resolveBoardCardAction(activeBoardCard.cardId, gameState) : null),
         [activeBoardCard?.cardId, gameState]
     );
+    const hasIncompleteSharedBoardPrompt = useMemo(() => {
+        if (sharedCardPrompt && !sharedCardPrompt.targetPlayerUids.every(uid => !!sharedCardPrompt.responses?.[uid])) {
+            return true;
+        }
+        if (familyJoinPrompt && !familyJoinPrompt.targetPlayerUids.every(uid => !!familyJoinPrompt.responses?.[uid])) {
+            return true;
+        }
+        return false;
+    }, [familyJoinPrompt, sharedCardPrompt]);
+    const activeInsuranceOpportunity = activeBoardCard ? OPPORTUNITY_CARD_MAP[activeBoardCard.cardId] : null;
+    const activeFamilyJoinActionKey = currentPlayerRoomState?.pendingFamilyMilestoneJoinAction
+        ? `${currentPlayerRoomState.pendingFamilyMilestoneJoinAction.promptId}_${currentPlayerRoomState.pendingFamilyMilestoneJoinAction.cardId}`
+        : null;
+    const isFamilyJoinTarget = !!(
+        activeFamilyJoinPrompt &&
+        user?.uid &&
+        activeFamilyJoinPrompt.sourcePlayerUid !== user.uid &&
+        activeFamilyJoinPrompt.targetPlayerUids.includes(user.uid)
+    );
+    const hasRespondedToFamilyJoin = !!(
+        activeFamilyJoinPrompt &&
+        user?.uid &&
+        (
+            activeFamilyJoinPrompt.responses?.[user.uid] ||
+            submittedFamilyJoinPromptIds.includes(activeFamilyJoinPrompt.id)
+        )
+    );
+    const shouldShowFamilyJoinModal = !!(
+        activeFamilyJoinPrompt &&
+        isFamilyJoinTarget &&
+        visibleFamilyJoinPromptId === activeFamilyJoinPrompt.id &&
+        !dismissedFamilyJoinPromptIds.includes(activeFamilyJoinPrompt.id)
+    );
+    const isSharedCardTarget = !!(
+        activeSharedCardPrompt &&
+        user?.uid &&
+        activeSharedCardPrompt.targetPlayerUids.includes(user.uid)
+    );
+    const hasRespondedToSharedCardPrompt = !!(
+        activeSharedCardPrompt &&
+        user?.uid &&
+        (
+            activeSharedCardPrompt.responses?.[user.uid] ||
+            submittedSharedCardPromptIds.includes(activeSharedCardPrompt.id)
+        )
+    );
+    const shouldShowSharedCardPromptModal = !!(
+        activeSharedCardPrompt &&
+        isSharedCardTarget &&
+        visibleSharedCardPromptId === activeSharedCardPrompt.id &&
+        !dismissedSharedCardPromptIds.includes(activeSharedCardPrompt.id)
+    );
     const displayBoardCard = useMemo(
         () => hydrateBoardCardResult(activeBoardCard, gameState),
         [activeBoardCard, gameState]
     );
+    const sharedCardLocalAction = useMemo(
+        () => (activeSharedCardPrompt ? resolveBoardCardAction(activeSharedCardPrompt.sourceCardId, gameState) : null),
+        [activeSharedCardPrompt, gameState]
+    );
+    const sharedDividendAmount = useMemo(() => {
+        if (!activeSharedCardPrompt || activeSharedCardPrompt.kind !== 'cash_dividend') return 0;
+        const newsCard = NEWS_CARD_MAP[activeSharedCardPrompt.sourceCardId];
+        if (!newsCard || newsCard.type !== 'cash_dividend') return 0;
+        return gameState.assets
+            .filter(asset => asset.type === '股票' && asset.quantity)
+            .reduce((sum, asset) => {
+                const symbol = asset.name.match(/[A-Z]\d+/)?.[0] as keyof typeof newsCard.dividendPerShare;
+                const perShare = symbol ? (newsCard.dividendPerShare[symbol] || 0) : 0;
+                return sum + ((asset.quantity || 0) * 100 * perShare);
+            }, 0);
+    }, [activeSharedCardPrompt, gameState.assets]);
+    const sharedStockDividendItems = useMemo(() => {
+        if (!activeSharedCardPrompt || activeSharedCardPrompt.kind !== 'stock_dividend') return [];
+        const newsCard = NEWS_CARD_MAP[activeSharedCardPrompt.sourceCardId];
+        if (!newsCard || newsCard.type !== 'stock_dividend') return [];
+        return gameState.assets
+            .filter(asset => asset.type === '股票' && asset.quantity)
+            .map(asset => {
+                const symbol = asset.name.match(/[A-Z]\d+/)?.[0] as keyof typeof newsCard.dividendRate;
+                const addedQty = symbol ? Math.ceil((asset.quantity || 0) * (newsCard.dividendRate[symbol] || 0)) : 0;
+                return { assetId: asset.id, addedQty, symbol };
+            })
+            .filter(item => item.addedQty > 0);
+    }, [activeSharedCardPrompt, gameState.assets]);
+    const startupUpgradeAsset = useMemo(() => {
+        if (!pendingStartupUpgradeAction) return null;
+        return gameState.assets.find(asset =>
+            asset.type === '企業' &&
+            !asset.isUpgraded &&
+            asset.name.includes(pendingStartupUpgradeAction.symbol || '')
+        ) || null;
+    }, [gameState.assets, pendingStartupUpgradeAction]);
+
+    useEffect(() => {
+        if (showBizUpgradeModal && !startupUpgradeAsset) {
+            setShowBizUpgradeModal(false);
+        }
+    }, [showBizUpgradeModal, startupUpgradeAsset]);
     const boardChoiceHasDismissOption = activeBoardCardAction?.kind === 'choice' &&
         activeBoardCardAction.options.some(option => option.action.kind === 'dismiss');
     const isForcedActiveBoardCard = !!(activeBoardCard && isForcedBoardCard(activeBoardCard.cardId));
     const isActiveBoardCardHandled = !!(activeBoardCardKey && handledBoardCardKeys.includes(activeBoardCardKey));
+    const medicalClaimActionKey = boardState?.currentEvent?.id && activeInsuranceOpportunity?.type === 'medical'
+        ? `${boardState.currentEvent.id}_medical_claim`
+        : null;
+    const vehicleClaimActionKey = boardState?.currentEvent?.id && activeInsuranceOpportunity?.type === 'aircraft_damage'
+        ? `${boardState.currentEvent.id}_vehicle_claim`
+        : null;
+    const canClaimMedical = !!(
+        medicalClaimActionKey &&
+        activeInsuranceOpportunity?.insurancePays &&
+        gameState.medicalInsuranceCount > 0 &&
+        !handledClaimKeys.includes(medicalClaimActionKey)
+    );
+    const canClaimVehicle = !!(
+        vehicleClaimActionKey &&
+        activeInsuranceOpportunity?.insurancePays &&
+        gameState.assets.some(a => (a.type === '汽車' || a.type === '飛行器') && a.isInsured) &&
+        activeBoardCardAction?.kind === 'financial' &&
+        !handledClaimKeys.includes(vehicleClaimActionKey)
+    );
     const isGameFinished = room?.status === 'finished';
     const isNonBoardOverlayOpen =
         showTransactionModal ||
@@ -392,7 +570,8 @@ export const GameView: React.FC<{
         showLifelongModal ||
         showMedicalClaimModal ||
         showTargetDreamModal ||
-        showRealEstateMarketModal;
+        showRealEstateMarketModal ||
+        showBizUpgradeModal;
     const isProcessingEvent =
         showPaydayModal ||
         showPromotionModal ||
@@ -403,6 +582,8 @@ export const GameView: React.FC<{
         isNonBoardOverlayOpen ||
         isActiveBankPromptPending ||
         isActiveSchoolPromptPending ||
+        shouldShowSharedCardPromptModal ||
+        shouldShowFamilyJoinModal ||
         (!!activeBoardCardKey && !isActiveBoardCardHandled);
     const visibleFlowModal =
         showTransactionModal ? 'transaction' :
@@ -422,24 +603,28 @@ export const GameView: React.FC<{
         !boardFinancialAction &&
         !isNonBoardOverlayOpen;
     const activeRoomMovement = boardState?.movement?.isActive ? boardState.movement : null;
+    const storyShareRequest = useMemo(() => {
+        if (!room?.pendingRequests || !user?.uid || !activeBoardCardKey || !activeBoardCard) return null;
+        return Object.values(room.pendingRequests).find(request =>
+            request.uid === user.uid &&
+            request.type === 'happiness' &&
+            request.happinessLabel === activeBoardCard.title
+        ) || null;
+    }, [activeBoardCard?.title, activeBoardCardKey, room?.pendingRequests, user?.uid]);
+    const boardShareRequest = useMemo(() => {
+        if (!room?.pendingRequests || !user?.uid || !activeBoardCardKey || !activeBoardCard) return null;
+        return Object.values(room.pendingRequests).find(request =>
+            request.uid === user.uid &&
+            request.type === 'board_share' &&
+            request.boardCardId === activeBoardCard.cardId
+        ) || null;
+    }, [activeBoardCard?.cardId, activeBoardCardKey, room?.pendingRequests, user?.uid]);
+    const requiresOpportunityShareApproval = !!(
+        activeBoardCard &&
+        activeBoardCard.deck === 'opportunity' &&
+        OPPORTUNITY_CARD_MAP[activeBoardCard.cardId]?.requiresStorySharing
+    );
 
-    const applyLocalBoardMarketPrices = (prices: Record<string, number>, code: string) => {
-        setGameState(prev => {
-            const hasChanges = Object.entries(prices).some(([symbol, price]) => prev.marketPrices[symbol] !== price);
-            if (!hasChanges) return prev;
-
-            return {
-                ...prev,
-                previousMarketPrices: { ...prev.marketPrices },
-                marketPrices: {
-                    ...prev.marketPrices,
-                    ...prices
-                },
-                lastPublishedCode: code,
-                lastMarketUpdateTimestamp: Date.now()
-            };
-        });
-    };
     const forcedBoardPaymentShortfall = pendingForcedBoardPayment
         ? Math.max(0, -(gameState.cash + pendingForcedBoardPayment.cashChange))
         : 0;
@@ -461,7 +646,7 @@ export const GameView: React.FC<{
         return null;
     };
 
-    const handleBoardDiceRoll = async () => {
+    const handleBoardDiceRoll = async (diceCount?: 1 | 2) => {
         const blockReason = getBoardRollBlockReason();
         if (blockReason || isProcessingEvent) {
             showAlert(blockReason || '請先完成目前事件', 'info');
@@ -469,7 +654,7 @@ export const GameView: React.FC<{
         }
         setIsRollingBoardDice(true);
         try {
-            const result = await rollBoardDice();
+            const result = await rollBoardDice(diceCount);
             return result;
         } catch (err: any) {
             showAlert(err.message || '擲骰失敗', 'error');
@@ -506,12 +691,279 @@ export const GameView: React.FC<{
     }, [activeBoardCardKey, lastBoardCardKey, canOpenNextBoardStep, isActiveBankPromptPending, isActiveSchoolPromptPending, hideAlert]);
 
     useEffect(() => {
+        if (activeBoardCardAction?.kind !== 'investment') {
+            setBoardInvestmentAmount(0);
+            return;
+        }
+
+        const affordableMax = Math.floor(gameState.cash / activeBoardCardAction.step) * activeBoardCardAction.step;
+        const seededAmount = affordableMax >= activeBoardCardAction.minAmount
+            ? Math.min(activeBoardCardAction.maxAmount, Math.max(activeBoardCardAction.defaultAmount, activeBoardCardAction.minAmount), affordableMax)
+            : activeBoardCardAction.minAmount;
+        setBoardInvestmentAmount(seededAmount);
+    }, [activeBoardCardAction, gameState.cash]);
+
+    useEffect(() => {
+        if (!activeSharedCardPrompt || activeSharedCardPrompt.kind !== 'investment') {
+            setSharedInvestmentAmount(0);
+            return;
+        }
+
+        const maxAffordable = Math.floor(gameState.cash / 1000000) * 1000000;
+        setSharedInvestmentAmount(maxAffordable >= 1000000 ? 1000000 : 0);
+    }, [activeSharedCardPrompt, gameState.cash]);
+
+    useEffect(() => {
+        return () => {
+            if (familyJoinCloseTimeoutRef.current) {
+                clearTimeout(familyJoinCloseTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!familyJoinPrompt?.id) {
+            if (!familyJoinPromptSnapshot) {
+                setVisibleFamilyJoinPromptId(null);
+            }
+            return;
+        }
+
+        if (!isFamilyJoinTarget || dismissedFamilyJoinPromptIds.includes(familyJoinPrompt.id)) {
+            return;
+        }
+
+        if (visibleFamilyJoinPromptId === familyJoinPrompt.id) {
+            setFamilyJoinPromptSnapshot(current =>
+                current?.id === familyJoinPrompt.id
+                    ? { ...familyJoinPrompt, responses: { ...familyJoinPrompt.responses } }
+                    : current
+            );
+            return;
+        }
+
+        if (hasRespondedToFamilyJoin) {
+            setFamilyJoinPromptSnapshot(current => current ?? { ...familyJoinPrompt, responses: { ...familyJoinPrompt.responses } });
+            return;
+        }
+
+        if (familyJoinCloseTimeoutRef.current) {
+            clearTimeout(familyJoinCloseTimeoutRef.current);
+            familyJoinCloseTimeoutRef.current = null;
+        }
+
+        setFamilyJoinPromptSnapshot({ ...familyJoinPrompt, responses: { ...familyJoinPrompt.responses } });
+        setVisibleFamilyJoinPromptId(familyJoinPrompt.id);
+        setFamilyJoinRollValue(null);
+        setFamilyJoinResult(null);
+        setIsSubmittingFamilyJoin(false);
+    }, [
+        dismissedFamilyJoinPromptIds,
+        familyJoinPrompt,
+        familyJoinPrompt?.id,
+        hasRespondedToFamilyJoin,
+        isFamilyJoinTarget,
+        visibleFamilyJoinPromptId
+    ]);
+
+    useEffect(() => {
+        if (!sharedCardPrompt?.id) {
+            if (!sharedCardPromptSnapshot) {
+                setVisibleSharedCardPromptId(null);
+            }
+            return;
+        }
+
+        if (!isSharedCardTarget || dismissedSharedCardPromptIds.includes(sharedCardPrompt.id)) {
+            return;
+        }
+
+        if (visibleSharedCardPromptId === sharedCardPrompt.id) {
+            setSharedCardPromptSnapshot({ ...sharedCardPrompt, responses: { ...sharedCardPrompt.responses } });
+            return;
+        }
+
+        if (hasRespondedToSharedCardPrompt) {
+            setSharedCardPromptSnapshot(current => current ?? { ...sharedCardPrompt, responses: { ...sharedCardPrompt.responses } });
+            return;
+        }
+
+        setSharedCardPromptSnapshot({ ...sharedCardPrompt, responses: { ...sharedCardPrompt.responses } });
+        setVisibleSharedCardPromptId(sharedCardPrompt.id);
+        setSharedSaleSelectionIds([]);
+        setIsSubmittingFamilyJoin(false);
+    }, [
+        dismissedSharedCardPromptIds,
+        hasRespondedToSharedCardPrompt,
+        isSharedCardTarget,
+        sharedCardPrompt,
+        sharedCardPrompt?.id,
+        sharedCardPromptSnapshot,
+        visibleSharedCardPromptId
+    ]);
+
+    useEffect(() => {
+        if (!shouldShowSharedCardPromptModal || !activeSharedCardPrompt || hasRespondedToSharedCardPrompt) return;
+
+        if (activeSharedCardPrompt.kind === 'cash_dividend' && sharedDividendAmount <= 0) {
+            void submitSharedPromptAndClose({
+                promptId: activeSharedCardPrompt.id,
+                status: 'no_effect',
+                note: '沒有符合條件股票'
+            });
+            return;
+        }
+
+        if (activeSharedCardPrompt.kind === 'stock_dividend' && sharedStockDividendItems.length === 0) {
+            void submitSharedPromptAndClose({
+                promptId: activeSharedCardPrompt.id,
+                status: 'no_effect',
+                note: '沒有符合條件股票'
+            });
+            return;
+        }
+
+        if (activeSharedCardPrompt.kind === 'asset_sale' && sharedCardLocalAction?.kind === 'asset_sale' && sharedCardLocalAction.items.length === 0) {
+            void submitSharedPromptAndClose({
+                promptId: activeSharedCardPrompt.id,
+                status: 'no_effect',
+                note: sharedCardLocalAction.emptyNote
+            });
+        }
+    }, [
+        activeSharedCardPrompt,
+        hasRespondedToSharedCardPrompt,
+        sharedCardLocalAction,
+        sharedDividendAmount,
+        sharedStockDividendItems.length,
+        shouldShowSharedCardPromptModal
+    ]);
+
+    useEffect(() => {
+        if (!storyShareRequest || !activeBoardCardAction || activeBoardCardAction.kind !== 'happiness') return;
+        if (processedStoryRequestIds.includes(storyShareRequest.id)) return;
+
+        if (storyShareRequest.status === 'approved') {
+            const applied = handleTransactionSubmit(activeBoardCardAction.txData);
+            if (!applied) return;
+            setProcessedStoryRequestIds(prev => [...prev, storyShareRequest.id]);
+            void clearRequest(storyShareRequest.id);
+            showAlert(`故事分享已確認，發放 ${activeBoardCardAction.points} 點幸福`, 'success');
+            void markBoardCardHandled();
+            return;
+        }
+
+        if (storyShareRequest.status === 'rejected') {
+            setProcessedStoryRequestIds(prev => [...prev, storyShareRequest.id]);
+            void clearRequest(storyShareRequest.id);
+            showAlert('故事分享尚未通過主持人確認，這張卡暫不發放幸福點', 'info');
+            setIsBoardCardDrawerOpen(true);
+        }
+    }, [
+        activeBoardCardAction,
+        clearRequest,
+        handleTransactionSubmit,
+        processedStoryRequestIds,
+        showAlert,
+        storyShareRequest
+    ]);
+
+    useEffect(() => {
+        if (!boardShareRequest || !activeBoardCardAction || !requiresOpportunityShareApproval) return;
+        if (processedStoryRequestIds.includes(boardShareRequest.id)) return;
+
+        const finalizeRejected = async () => {
+            setProcessedStoryRequestIds(prev => [...prev, boardShareRequest.id]);
+            await clearRequest(boardShareRequest.id);
+            showAlert('分享尚未通過主持人確認，這張卡暫不執行效果', 'info');
+            setIsBoardCardDrawerOpen(true);
+        };
+
+        const finalizeApproved = async () => {
+            setProcessedStoryRequestIds(prev => [...prev, boardShareRequest.id]);
+            await clearRequest(boardShareRequest.id);
+
+            if (activeBoardCardAction.kind === 'effect') {
+                await handleApplyBoardInstantEffect(activeBoardCardAction.title, activeBoardCardAction.afterApply);
+                return;
+            }
+
+            if (activeBoardCardAction.kind === 'choice') {
+                const acceptOption = activeBoardCardAction.options.find(option => option.id === 'accept');
+                if (!acceptOption) {
+                    showAlert('找不到可執行的卡片效果', 'error');
+                    setIsBoardCardDrawerOpen(true);
+                    return;
+                }
+
+                if (acceptOption.action.kind === 'effect') {
+                    await handleApplyBoardInstantEffect(acceptOption.action.title, acceptOption.action.afterApply);
+                    return;
+                }
+
+                if (acceptOption.action.kind === 'financial') {
+                    setBoardFinancialAction(acceptOption.action);
+                    setIsBoardFinancialCompleted(false);
+                    return;
+                }
+            }
+
+            showAlert('這張分享卡目前沒有可接續的效果', 'error');
+            setIsBoardCardDrawerOpen(true);
+        };
+
+        if (boardShareRequest.status === 'approved') {
+            void finalizeApproved();
+            return;
+        }
+
+        if (boardShareRequest.status === 'rejected') {
+            void finalizeRejected();
+        }
+    }, [
+        activeBoardCardAction,
+        boardShareRequest,
+        clearRequest,
+        processedStoryRequestIds,
+        requiresOpportunityShareApproval,
+        showAlert
+    ]);
+
+    useEffect(() => {
+        if (!activeSharedCardPrompt?.id) return;
+        if (handledSharedPromptIds.includes(activeSharedCardPrompt.id)) return;
+        const allResponded = activeSharedCardPrompt.targetPlayerUids.every(uid => !!activeSharedCardPrompt.responses?.[uid]);
+        if (!allResponded) return;
+        if (boardState?.currentEvent?.playerUid !== user?.uid || boardState?.currentCard?.cardId !== activeSharedCardPrompt.sourceCardId) return;
+
+        setHandledSharedPromptIds(prev => [...prev, activeSharedCardPrompt.id]);
+        (async () => {
+            await clearSharedCardPrompt(activeSharedCardPrompt.id);
+            await markBoardCardHandled();
+        })().catch((err: any) => {
+            showAlert(err?.message || '共享卡片事件結案失敗', 'error');
+        });
+    }, [
+        activeSharedCardPrompt,
+        boardState?.currentCard?.cardId,
+        boardState?.currentEvent?.playerUid,
+        clearSharedCardPrompt,
+        handledSharedPromptIds,
+        showAlert,
+        user?.uid
+    ]);
+
+    useEffect(() => {
         if (!activeBoardCardKey || !activeBoardCardAction || activeBoardCardAction.kind !== 'market') return;
+        if (marketPricesMatch(room?.marketPrices, activeBoardCardAction.prices)) {
+            setAppliedBoardMarketKeys(prev => prev.includes(activeBoardCardKey) ? prev : [...prev, activeBoardCardKey]);
+            setIsApplyingBoardMarket(false);
+            return;
+        }
         if (appliedBoardMarketKeys.includes(activeBoardCardKey) || isApplyingBoardMarket) return;
 
         let isCancelled = false;
         setIsApplyingBoardMarket(true);
-        applyLocalBoardMarketPrices(activeBoardCardAction.prices, activeBoardCardAction.code);
 
         applyBoardMarketPrices(activeBoardCardAction.prices, activeBoardCardAction.code, activeBoardCardAction.isBubble)
             .then(() => {
@@ -566,6 +1018,43 @@ export const GameView: React.FC<{
     }, [activeHospitalPromptKey, lastHospitalPromptKey, canOpenNextBoardStep, hideAlert]);
 
     useEffect(() => {
+        if (!activeRepairPromptKey || activeRepairPromptKey === lastRepairPromptKey) return;
+        if (!canOpenNextBoardStep) return;
+
+        const repairFee = boardState?.currentEvent?.repairFee || 0;
+        const repairHasCar = boardState?.currentEvent?.repairHasCar ?? true;
+
+        setLastRepairPromptKey(activeRepairPromptKey);
+        hideAlert();
+
+        if (!repairHasCar || repairFee <= 0) {
+            void advanceBoardEventQueue('repair');
+            return;
+        }
+
+        setPendingBoardStepAdvance('repair');
+        setBoardFinancialAction({
+            kind: 'financial',
+            label: '進入財務檢核',
+            txData: {
+                name: '棋盤事件：維修廠保養費',
+                amount: repairFee,
+                cashChange: -repairFee,
+                source: 'cash',
+                usage: 'expense',
+                impacts: [
+                    `汽車保養費 ${repairFee.toLocaleString()}`,
+                    `保養費骰點 ${boardState.currentEvent?.repairRoll || Math.max(1, Math.floor(repairFee / 2000))} 點`
+                ]
+            },
+            expectedEntries: [
+                { category: 'Assets', name: '現金', direction: 'Decrease' }
+            ]
+        });
+        setIsBoardFinancialCompleted(false);
+    }, [activeRepairPromptKey, advanceBoardEventQueue, boardState?.currentEvent?.repairFee, boardState?.currentEvent?.repairHasCar, boardState?.currentEvent?.repairRoll, canOpenNextBoardStep, hideAlert, lastRepairPromptKey]);
+
+    useEffect(() => {
         if (!pendingForcedBoardPayment || forcedBoardPaymentShortfall > 0) return;
         setShowForcedBoardPaymentModal(false);
     }, [pendingForcedBoardPayment, forcedBoardPaymentShortfall]);
@@ -574,7 +1063,12 @@ export const GameView: React.FC<{
         cardKey: string | null = activeBoardCardKey,
         card: typeof activeBoardCard = activeBoardCard
     ) => {
-        if (!cardKey) return;
+        if (!cardKey) return false;
+        if (hasIncompleteSharedBoardPrompt) {
+            setPendingHandledBoardCard({ key: cardKey, card });
+            showAlert('還有玩家尚未完成共享事件回覆，請等待所有人完成後再結案。', 'info');
+            return false;
+        }
 
         const eventId = boardState?.currentEvent?.id;
         setHandledBoardCardKeys(prev => prev.includes(cardKey) ? prev : [...prev, cardKey]);
@@ -599,12 +1093,39 @@ export const GameView: React.FC<{
                 }
             }
         }
+
+        return true;
     };
 
     const handleBoardCardReveal = () => {
         setIsBoardCardRevealed(true);
         if (boardState?.currentEvent?.id && activeBoardCard?.cardId) {
-            revealBoardCard(boardState.currentEvent.id, activeBoardCard.cardId);
+            const eventId = boardState.currentEvent.id;
+            const cardId = activeBoardCard.cardId;
+
+            void (async () => {
+                await revealBoardCard(eventId, cardId);
+
+                if (HAPPINESS_CARD_MAP[cardId]?.category === '家庭重要歷程') {
+                    void openFamilyMilestoneJoinPrompt(eventId, cardId);
+                }
+
+                const requiresSharedPrompt =
+                    (activeBoardCard.deck === 'opportunity' && activeBoardCardAction?.kind === 'asset_sale') ||
+                    (activeBoardCard.deck === 'news' && ['cash_dividend', 'stock_dividend', 'large_enterprise', 'small_business'].includes((NEWS_CARD_MAP[cardId] as any)?.type || ''));
+
+                if (!requiresSharedPrompt) {
+                    return;
+                }
+
+                const opened = await openSharedCardPrompt(eventId, cardId);
+                if (opened) {
+                    setIsBoardCardDrawerOpen(false);
+                    return;
+                }
+
+                showAlert('共享卡片事件建立失敗，請重新翻開或再試一次', 'error');
+            })();
         }
     };
 
@@ -619,25 +1140,81 @@ export const GameView: React.FC<{
     const handleApplyDirectHappiness = () => {
         if (!activeBoardCard || !activeBoardCardAction || activeBoardCardAction.kind !== 'happiness') return;
 
-        setGameState(prev => {
-            const newItem = {
-                id: `board_${activeBoardCard.cardId}_${Date.now()}`,
-                label: activeBoardCardAction.title,
-                points: activeBoardCardAction.points,
-                checked: true,
-                isCustom: true
-            };
-            const happiness = [...prev.happiness, newItem];
-            return {
-                ...prev,
-                happiness,
-                happinessTotal: happiness.reduce((sum, item) => sum + (item.checked ? item.points : 0), 0),
-                completedHappinessEvents: Array.from(new Set([...(prev.completedHappinessEvents || []), activeBoardCard.cardId]))
-            };
-        });
+        if (HAPPINESS_CARD_MAP[activeBoardCard.cardId]?.requiresStorySharing) {
+            if (!user?.uid || !room?.pendingRequests) return;
+            if (storyShareRequest?.status === 'pending') {
+                showAlert('故事分享確認已送出，請等待主持人確認', 'info');
+                return;
+            }
+
+            void submitRequest({
+                uid: user.uid,
+                playerName: user.name || gameState.playerName || '玩家',
+                type: 'happiness',
+                amount: activeBoardCardAction.points,
+                happinessLabel: activeBoardCard.title
+            });
+            setIsBoardCardDrawerOpen(false);
+            showAlert('故事分享已送出，等待執行端／主持人確認後才會發放幸福點', 'success');
+            return;
+        }
+
+        const applied = handleTransactionSubmit(activeBoardCardAction.txData);
+        if (!applied) return;
 
         showAlert(`已套用 ${activeBoardCardAction.points} 點幸福`, 'success');
         markBoardCardHandled();
+    };
+
+    const submitBoardShareApprovalRequest = () => {
+        if (!activeBoardCard || !user?.uid || !room?.pendingRequests) return;
+        if (boardShareRequest?.status === 'pending') {
+            showAlert('分享確認已送出，請等待主持人確認', 'info');
+            return;
+        }
+
+        void submitRequest({
+            uid: user.uid,
+            playerName: user.name || gameState.playerName || '玩家',
+            type: 'board_share',
+            amount: 0,
+            boardCardId: activeBoardCard.cardId,
+            shareLabel: activeBoardCard.title
+        });
+        setIsBoardCardDrawerOpen(false);
+        showAlert('分享確認已送出，等待執行端／主持人確認後才會繼續卡片效果', 'success');
+    };
+
+    const handleApplyBoardInstantEffect = async (title: string, afterApply?: { drawCard?: 'happiness' | 'news' }) => {
+        if (afterApply?.drawCard) {
+            setIsBoardCardDrawerOpen(false);
+            await drawBoardFollowupCard(
+                afterApply.drawCard,
+                `${title} 後續抽卡`,
+                `卡片效果觸發，再抽一張${afterApply.drawCard === 'happiness' ? '幸福卡' : '新聞卡'}`
+            );
+            showAlert('卡片效果已套用，請處理後續抽到的卡片', 'success');
+            return;
+        }
+
+        showAlert('卡片效果已套用', 'success');
+        await markBoardCardHandled();
+    };
+
+    const applyJoinDirectHappiness = async (
+        joinAction: { kind: 'happiness'; title: string; points: number; txData: TransactionData },
+        promptId: string,
+        actionKey: string
+    ) => {
+        const applied = handleTransactionSubmit(joinAction.txData);
+        if (!applied) {
+            return false;
+        }
+
+        await clearPendingFamilyMilestoneJoinAction(promptId);
+        setHandledFamilyJoinActionKeys(prev => prev.includes(actionKey) ? prev : [...prev, actionKey]);
+        showAlert(`已同步完成家庭歷程，獲得 ${joinAction.points} 點幸福`, 'success');
+        return true;
     };
 
     const applyResolvedBoardFinancialTx = async (txData: TransactionData) => {
@@ -692,6 +1269,43 @@ export const GameView: React.FC<{
             );
         }
 
+        if (pendingSharedCardCompletion) {
+            const submitted = await submitSharedCardPromptResponse({
+                promptId: pendingSharedCardCompletion.promptId,
+                status: pendingSharedCardCompletion.status,
+                amount: pendingSharedCardCompletion.amount,
+                selectedAssetIds: pendingSharedCardCompletion.selectedAssetIds,
+                note: pendingSharedCardCompletion.note
+            });
+            if (!submitted) {
+                showAlert('共享卡片結算回覆送出失敗，請再試一次', 'error');
+                return;
+            }
+            setSubmittedSharedCardPromptIds(prev =>
+                prev.includes(pendingSharedCardCompletion.promptId)
+                    ? prev
+                    : [...prev, pendingSharedCardCompletion.promptId]
+            );
+            if (pendingSharedCardCompletion.startupUpgradeCardId) {
+                const pendingSet = await setPendingStartupUpgradeAction({
+                    cardId: pendingSharedCardCompletion.startupUpgradeCardId,
+                    symbol: pendingSharedCardCompletion.startupUpgradeCardId
+                });
+                if (!pendingSet) {
+                    showAlert('建立企業升級等待流程失敗，請再試一次', 'error');
+                    return;
+                }
+                setGameState(prev => ({
+                    ...prev,
+                    pendingStartupUpgradeAction: {
+                        cardId: pendingSharedCardCompletion.startupUpgradeCardId!,
+                        symbol: pendingSharedCardCompletion.startupUpgradeCardId!
+                    }
+                }));
+            }
+            closeSharedCardPromptModal(pendingSharedCardCompletion.promptId);
+        }
+
         setPendingHandledBoardCard(handledCardKey ? { key: handledCardKey, card: handledCard } : null);
         setPendingBoardLifelongRoll(nextLifelongRoll);
         setIsBoardFinancialCompleted(true);
@@ -711,16 +1325,29 @@ export const GameView: React.FC<{
     };
 
     const finalizeBoardFinancialFlow = async () => {
-        if (pendingHandledBoardCard) {
-            await markBoardCardHandled(pendingHandledBoardCard.key, pendingHandledBoardCard.card);
+        const familyJoinPromptId = currentPlayerRoomState?.pendingFamilyMilestoneJoinAction?.promptId || null;
+        const familyJoinActionKey = activeFamilyJoinActionKey;
+        let handledBoardCard = true;
+
+        if (familyJoinPromptId) {
+            await clearPendingFamilyMilestoneJoinAction(familyJoinPromptId);
         }
-        if (pendingBoardStepAdvance) {
+        if (pendingHandledBoardCard) {
+            handledBoardCard = await markBoardCardHandled(pendingHandledBoardCard.key, pendingHandledBoardCard.card);
+        }
+        if (handledBoardCard && pendingBoardStepAdvance) {
             await advanceBoardEventQueue(pendingBoardStepAdvance);
         }
-        setPendingHandledBoardCard(null);
-        setPendingBoardStepAdvance(null);
+        if (handledBoardCard) {
+            setPendingHandledBoardCard(null);
+            setPendingBoardStepAdvance(null);
+            setPendingSharedCardCompletion(null);
+        }
         setIsBoardFinancialCompleted(false);
         setBoardFinancialAction(null);
+        if (familyJoinActionKey) {
+            setHandledFamilyJoinActionKeys(prev => prev.includes(familyJoinActionKey) ? prev : [...prev, familyJoinActionKey]);
+        }
 
         if (pendingMarketPurchaseCardId) {
             await buyRealEstateFromMarket(pendingMarketPurchaseCardId);
@@ -757,6 +1384,18 @@ export const GameView: React.FC<{
                 setIsBoardFinancialCompleted(false);
                 setShowRealEstateMarketModal(false);
             }
+            return;
+        }
+
+        if (cardAction.kind === 'financial' && !isSelfUse) {
+            if ((gameState.cash + cardAction.txData.cashChange) < 0) {
+                showAlert('現金不足，無法支付頭期款', 'error');
+                return;
+            }
+            setPendingMarketPurchaseCardId(cardId);
+            setBoardFinancialAction(cardAction);
+            setIsBoardFinancialCompleted(false);
+            setShowRealEstateMarketModal(false);
         }
     };
 
@@ -783,8 +1422,8 @@ export const GameView: React.FC<{
             usage: 'cash',
             cashChange: forcedBoardPaymentShortfall,
             impacts: [
-                `現金 +${forcedBoardPaymentShortfall.toLocaleString()} H`,
-                `信用貸款 +${forcedBoardPaymentShortfall.toLocaleString()} H`
+                `現金 +${forcedBoardPaymentShortfall.toLocaleString()}`,
+                `信用貸款 +${forcedBoardPaymentShortfall.toLocaleString()}`
             ]
         });
         if (!borrowed) return;
@@ -807,11 +1446,15 @@ export const GameView: React.FC<{
             name: `${pendingForcedBoardPayment.name} 強制計入負債`,
             amount: forcedBoardPaymentShortfall,
             source: 'loan',
-            usage: 'cash',
+            usage: 'forced_debt',
             cashChange: forcedBoardPaymentShortfall,
             impacts: [
-                `現金 +${forcedBoardPaymentShortfall.toLocaleString()} H`,
-                `信用貸款 +${forcedBoardPaymentShortfall.toLocaleString()} H`
+                `現金 +${forcedBoardPaymentShortfall.toLocaleString()}`,
+                `強制負債 +${forcedBoardPaymentShortfall.toLocaleString()}`
+            ],
+            financialCheckEntries: [
+                { category: 'Assets', name: '現金', direction: 'Increase' },
+                { category: 'Liabilities', name: '強制負債', direction: 'Increase' }
             ]
         });
         if (!borrowed) return;
@@ -819,7 +1462,7 @@ export const GameView: React.FC<{
         setShowForcedBoardPaymentModal(false);
         setPendingForcedBoardPayment(null);
         await applyResolvedBoardFinancialTx(pendingForcedBoardPayment);
-        showAlert('現金不足，已強制計入信用貸款並完成本回合事件', 'info');
+        showAlert('現金不足，已強制計入強制負債並完成本回合事件', 'info');
     };
 
     const handleBoardAssetSaleConfirm = (items: BoardAssetSaleCandidate[]) => {
@@ -834,6 +1477,64 @@ export const GameView: React.FC<{
         }
 
         setBoardFinancialAction(action);
+        setIsBoardFinancialCompleted(false);
+    };
+
+    const handleBoardInvestmentConfirm = () => {
+        if (!activeBoardCardAction || activeBoardCardAction.kind !== 'investment') return;
+
+        const investmentAction = activeBoardCardAction as BoardInvestmentAction;
+        const normalizedAmount = Math.floor(boardInvestmentAmount / investmentAction.step) * investmentAction.step;
+
+        if (normalizedAmount < investmentAction.minAmount) {
+            showAlert(`投資金額至少需 ${formatMoney(investmentAction.minAmount)}`, 'error');
+            return;
+        }
+
+        if (normalizedAmount > investmentAction.maxAmount) {
+            showAlert(`投資金額不可超過 ${formatMoney(investmentAction.maxAmount)}`, 'error');
+            return;
+        }
+
+        if (normalizedAmount > gameState.cash) {
+            showAlert('現金不足，無法支付投資金額', 'error');
+            return;
+        }
+
+        const investmentUnits = normalizedAmount / investmentAction.step;
+        const monthlyIncome = investmentUnits * investmentAction.monthlyReturnPerStep;
+        const businessLabel = `${investmentAction.businessSymbol} ${investmentAction.businessName}`.trim();
+
+        setIsBoardCardDrawerOpen(false);
+        setBoardFinancialAction({
+            kind: 'financial',
+            label: '進入財務檢核',
+            txData: {
+                name: `新聞卡：${activeBoardCard?.title || investmentAction.businessName}`,
+                amount: normalizedAmount,
+                cashChange: -normalizedAmount,
+                source: 'cash',
+                usage: 'asset',
+                assetDetails: {
+                    type: '企業',
+                    cashflow: monthlyIncome,
+                    downPayment: normalizedAmount,
+                    loanAmount: 0,
+                    loanInterest: 0,
+                    symbol: investmentAction.businessSymbol
+                },
+                impacts: [
+                    `現金 -${normalizedAmount.toLocaleString()}`,
+                    `${businessLabel} +${normalizedAmount.toLocaleString()}`,
+                    `企業收益(月) +${monthlyIncome.toLocaleString()}`
+                ]
+            },
+            expectedEntries: [
+                { category: 'Assets', name: '現金', direction: 'Decrease' },
+                { category: 'Assets', name: businessLabel, direction: 'Increase' },
+                { category: 'Income', name: '企業收益', direction: 'Increase' }
+            ]
+        });
         setIsBoardFinancialCompleted(false);
     };
 
@@ -853,7 +1554,7 @@ export const GameView: React.FC<{
                 source: 'cash',
                 usage: 'expense',
                 impacts: [
-                    `醫療支出 ${medicalFee.toLocaleString()} H`,
+                    `醫療支出 ${medicalFee.toLocaleString()}`,
                     `醫藥費骰點 ${hospitalRollValue} 點`
                 ]
             },
@@ -863,6 +1564,387 @@ export const GameView: React.FC<{
         });
         setIsBoardFinancialCompleted(false);
     };
+
+    const closeSharedCardPromptModal = (promptId: string) => {
+        setVisibleSharedCardPromptId(current => current === promptId ? null : current);
+        setSharedCardPromptSnapshot(current => current?.id === promptId ? null : current);
+        setDismissedSharedCardPromptIds(prev => prev.includes(promptId) ? prev : [...prev, promptId]);
+        setSharedSaleSelectionIds([]);
+        setSharedInvestmentAmount(0);
+    };
+
+    const submitSharedPromptAndClose = async (payload: {
+        promptId: string;
+        status: 'completed' | 'declined' | 'no_effect';
+        amount?: number;
+        selectedAssetIds?: string[];
+        note?: string;
+    }) => {
+        const submitted = await submitSharedCardPromptResponse(payload);
+        if (!submitted) {
+            showAlert('共享卡片回覆尚未送出，請再試一次', 'error');
+            return;
+        }
+        setSubmittedSharedCardPromptIds(prev => prev.includes(payload.promptId) ? prev : [...prev, payload.promptId]);
+        closeSharedCardPromptModal(payload.promptId);
+    };
+
+    const handleSharedCardDecline = async () => {
+        if (!activeSharedCardPrompt || hasRespondedToSharedCardPrompt) return;
+        await submitSharedPromptAndClose({
+            promptId: activeSharedCardPrompt.id,
+            status: 'declined',
+            note: '玩家選擇不參與'
+        });
+    };
+
+    const handleSharedDividendConfirm = async () => {
+        if (!activeSharedCardPrompt || hasRespondedToSharedCardPrompt) return;
+        if (activeSharedCardPrompt.kind === 'cash_dividend') {
+            if (sharedDividendAmount <= 0) {
+                await submitSharedPromptAndClose({
+                    promptId: activeSharedCardPrompt.id,
+                    status: 'no_effect',
+                    note: '沒有符合條件股票'
+                });
+                return;
+            }
+            setBoardFinancialAction({
+                kind: 'financial',
+                label: '進入財務檢核',
+                txData: {
+                    name: `新聞卡：${NEWS_CARD_MAP[activeSharedCardPrompt.sourceCardId]?.title || '股利發放'}`,
+                    amount: sharedDividendAmount,
+                    cashChange: sharedDividendAmount,
+                    source: 'income',
+                    usage: 'cash',
+                    impacts: [`現金 +${sharedDividendAmount.toLocaleString()}`]
+                },
+                expectedEntries: [{ category: 'Assets', name: '現金', direction: 'Increase' }]
+            });
+            setVisibleSharedCardPromptId(null);
+            setPendingSharedCardCompletion({
+                promptId: activeSharedCardPrompt.id,
+                status: 'completed',
+                amount: sharedDividendAmount,
+                note: '現金股利已結算'
+            });
+            return;
+        }
+
+        if (sharedStockDividendItems.length === 0) {
+            await submitSharedPromptAndClose({
+                promptId: activeSharedCardPrompt.id,
+                status: 'no_effect',
+                note: '沒有符合條件股票'
+            });
+            return;
+        }
+
+        setBoardFinancialAction({
+            kind: 'financial',
+            label: '進入財務檢核',
+            txData: {
+                name: `新聞卡：${NEWS_CARD_MAP[activeSharedCardPrompt.sourceCardId]?.title || '股息發放'}`,
+                amount: 0,
+                cashChange: 0,
+                source: 'income',
+                usage: 'stock_update',
+                stockDividendPayload: {
+                    items: sharedStockDividendItems.map(item => ({ assetId: item.assetId, addedQty: item.addedQty }))
+                },
+                impacts: ['股票張數增加']
+            },
+            expectedEntries: [{ category: 'Assets', name: '股票', direction: 'Increase' }]
+        });
+        setVisibleSharedCardPromptId(null);
+        setPendingSharedCardCompletion({
+            promptId: activeSharedCardPrompt.id,
+            status: 'completed',
+            note: '股票股息已結算'
+        });
+    };
+
+    const handleSharedAssetSaleConfirm = () => {
+        if (!activeSharedCardPrompt || sharedCardLocalAction?.kind !== 'asset_sale' || hasRespondedToSharedCardPrompt) return;
+        const selectedItems = sharedCardLocalAction.items.filter(item => sharedSaleSelectionIds.includes(item.id));
+        if (sharedCardLocalAction.items.length === 0) {
+            void submitSharedPromptAndClose({
+                promptId: activeSharedCardPrompt.id,
+                status: 'no_effect',
+                note: sharedCardLocalAction.emptyNote
+            });
+            return;
+        }
+        const action = buildBoardAssetSaleFinancialAction(
+            `卡片出售：${activeSharedCardPrompt.sourceCardId}`,
+            selectedItems
+        );
+        if (!action) {
+            showAlert('請先選擇要出售的資產，或直接放棄', 'error');
+            return;
+        }
+        setVisibleSharedCardPromptId(null);
+        setBoardFinancialAction(action);
+        setPendingSharedCardCompletion({
+            promptId: activeSharedCardPrompt.id,
+            status: 'completed',
+            amount: action.txData.cashChange,
+            selectedAssetIds: selectedItems.map(item => item.id),
+            note: '資產出售已完成'
+        });
+    };
+
+    const handleSharedInvestmentConfirm = () => {
+        if (!activeSharedCardPrompt || activeSharedCardPrompt.kind !== 'investment' || hasRespondedToSharedCardPrompt) return;
+        const newsCard = NEWS_CARD_MAP[activeSharedCardPrompt.sourceCardId];
+        if (!newsCard || newsCard.type !== 'large_enterprise') return;
+
+        const step = 1000000;
+        const normalizedAmount = Math.floor(sharedInvestmentAmount / step) * step;
+        if (normalizedAmount < step) {
+            showAlert(`投資金額至少需 ${formatMoney(step)}`, 'error');
+            return;
+        }
+        if (normalizedAmount > newsCard.maxInvestment) {
+            showAlert(`投資金額不可超過 ${formatMoney(newsCard.maxInvestment)}`, 'error');
+            return;
+        }
+        if (normalizedAmount > gameState.cash) {
+            showAlert('現金不足，無法支付投資金額', 'error');
+            return;
+        }
+        const monthlyIncome = (normalizedAmount / step) * newsCard.monthlyReturnPerMillion;
+        setBoardFinancialAction({
+            kind: 'financial',
+            label: '進入財務檢核',
+            txData: {
+                name: `新聞卡：${newsCard.title}`,
+                amount: normalizedAmount,
+                cashChange: -normalizedAmount,
+                source: 'cash',
+                usage: 'asset',
+                assetDetails: {
+                    type: '企業',
+                    cashflow: monthlyIncome,
+                    downPayment: normalizedAmount,
+                    loanAmount: 0,
+                    loanInterest: 0,
+                    symbol: newsCard.id
+                },
+                impacts: [
+                    `現金 -${normalizedAmount.toLocaleString()}`,
+                    `${newsCard.id} ${newsCard.businessName} +${normalizedAmount.toLocaleString()}`,
+                    `企業收益(月) +${monthlyIncome.toLocaleString()}`
+                ]
+            },
+            expectedEntries: [
+                { category: 'Assets', name: '現金', direction: 'Decrease' },
+                { category: 'Assets', name: `${newsCard.id} ${newsCard.businessName}`, direction: 'Increase' },
+                { category: 'Income', name: '企業收益', direction: 'Increase' }
+            ]
+        });
+        setVisibleSharedCardPromptId(null);
+        setPendingSharedCardCompletion({
+            promptId: activeSharedCardPrompt.id,
+            status: 'completed',
+            amount: normalizedAmount,
+            note: '大型企業投資已完成'
+        });
+    };
+
+    const handleSharedStartupLoanConfirm = () => {
+        if (!activeSharedCardPrompt || activeSharedCardPrompt.kind !== 'startup_loan' || hasRespondedToSharedCardPrompt) return;
+        const newsCard = NEWS_CARD_MAP[activeSharedCardPrompt.sourceCardId];
+        if (!newsCard || newsCard.type !== 'small_business') return;
+        const investmentAmount = newsCard.investmentPerMonth;
+
+        setBoardFinancialAction({
+            kind: 'financial',
+            label: '進入財務檢核',
+            txData: {
+                name: `新聞卡：${newsCard.title}`,
+                amount: investmentAmount,
+                cashChange: newsCard.loanAmount - investmentAmount,
+                source: 'loan',
+                usage: 'asset',
+                assetDetails: {
+                    type: '企業',
+                    cashflow: 0,
+                    downPayment: investmentAmount,
+                    loanAmount: newsCard.loanAmount,
+                    loanInterest: newsCard.interestPerMonth,
+                    symbol: newsCard.id
+                },
+                impacts: [
+                    `現金 -${investmentAmount.toLocaleString()}`,
+                    `現金（企業貸款） +${newsCard.loanAmount.toLocaleString()}`,
+                    `兼職工作室 ${newsCard.id} +${investmentAmount.toLocaleString()}`,
+                    `企業貸款 +${newsCard.loanAmount.toLocaleString()}`,
+                    `企業貸款利息(月) +${newsCard.interestPerMonth.toLocaleString()}`
+                ]
+            },
+            expectedEntries: [
+                { category: 'Assets', name: '現金', direction: 'Decrease' },
+                { category: 'Assets', name: '現金（企業貸款）', direction: 'Increase' },
+                { category: 'Assets', name: `${newsCard.id} 兼職工作室`, direction: 'Increase' },
+                { category: 'Liabilities', name: '企業貸款', direction: 'Increase' },
+                { category: 'Expenses', name: '企業貸款利息', direction: 'Increase' }
+            ]
+        });
+        setPendingSharedCardCompletion({
+            promptId: activeSharedCardPrompt.id,
+            status: 'completed',
+            amount: investmentAmount,
+            note: '創業貸款已建立',
+            startupUpgradeCardId: newsCard.id
+        });
+        closeSharedCardPromptModal(activeSharedCardPrompt.id);
+    };
+
+    const closeFamilyJoinModal = (promptId: string) => {
+        if (familyJoinCloseTimeoutRef.current) {
+            clearTimeout(familyJoinCloseTimeoutRef.current);
+            familyJoinCloseTimeoutRef.current = null;
+        }
+
+        setVisibleFamilyJoinPromptId(current => current === promptId ? null : current);
+        setFamilyJoinPromptSnapshot(current => current?.id === promptId ? null : current);
+        setDismissedFamilyJoinPromptIds(prev => prev.includes(promptId) ? prev : [...prev, promptId]);
+        setIsSubmittingFamilyJoin(false);
+    };
+
+    const handleFamilyJoinRoll = async () => {
+        if (!activeFamilyJoinPrompt || !user?.uid || isSubmittingFamilyJoin || hasRespondedToFamilyJoin) return;
+
+        const roll = Math.floor(Math.random() * 6) + 1;
+        const passed = roll >= activeFamilyJoinPrompt.requiredRoll;
+        const promptId = activeFamilyJoinPrompt.id;
+
+        setFamilyJoinRollValue(roll);
+        setFamilyJoinResult(passed ? 'passed' : 'failed');
+        setIsSubmittingFamilyJoin(true);
+
+        try {
+            await submitFamilyMilestoneJoinResponse({
+                promptId,
+                status: passed ? 'passed' : 'failed',
+                roll,
+                cardId: activeFamilyJoinPrompt.sourceCardId
+            });
+            setSubmittedFamilyJoinPromptIds(prev => prev.includes(promptId) ? prev : [...prev, promptId]);
+            showAlert(
+                passed
+                    ? `你擲出 ${roll} 點，成功加入家庭重要歷程`
+                    : `你擲出 ${roll} 點，未達 ${activeFamilyJoinPrompt.requiredRoll} 點，這次無法加入`,
+                passed ? 'success' : 'info'
+            );
+
+            if (familyJoinCloseTimeoutRef.current) {
+                clearTimeout(familyJoinCloseTimeoutRef.current);
+            }
+            familyJoinCloseTimeoutRef.current = setTimeout(() => {
+                closeFamilyJoinModal(promptId);
+            }, FAMILY_JOIN_RESULT_DISPLAY_MS);
+        } finally {
+            setIsSubmittingFamilyJoin(false);
+        }
+    };
+
+    const handleDeclineFamilyJoin = async () => {
+        if (!activeFamilyJoinPrompt || isSubmittingFamilyJoin || hasRespondedToFamilyJoin) return;
+        setIsSubmittingFamilyJoin(true);
+        try {
+            await submitFamilyMilestoneJoinResponse({
+                promptId: activeFamilyJoinPrompt.id,
+                status: 'declined',
+                cardId: activeFamilyJoinPrompt.sourceCardId
+            });
+            setSubmittedFamilyJoinPromptIds(prev => prev.includes(activeFamilyJoinPrompt.id) ? prev : [...prev, activeFamilyJoinPrompt.id]);
+            closeFamilyJoinModal(activeFamilyJoinPrompt.id);
+        } finally {
+            setIsSubmittingFamilyJoin(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!currentPlayerRoomState?.pendingFamilyMilestoneJoinAction || !activeFamilyJoinActionKey) return;
+        if (handledFamilyJoinActionKeys.includes(activeFamilyJoinActionKey)) return;
+        if (!canOpenNextBoardStep || !!boardFinancialAction || shouldShowFamilyJoinModal) return;
+
+        const { promptId, cardId } = currentPlayerRoomState.pendingFamilyMilestoneJoinAction;
+        const joinAction = resolveBoardCardAction(cardId, gameState);
+
+        if (joinAction.kind === 'choice') {
+            const acceptOption = joinAction.options.find(option => option.id === 'accept');
+            if (acceptOption?.action.kind === 'financial') {
+                setBoardFinancialAction(acceptOption.action);
+                setIsBoardFinancialCompleted(false);
+                return;
+            }
+            if (acceptOption?.action.kind === 'happiness') {
+                void applyJoinDirectHappiness(acceptOption.action, promptId, activeFamilyJoinActionKey);
+                return;
+            }
+
+            if (acceptOption?.action.kind === 'dismiss' || !acceptOption) {
+                void clearPendingFamilyMilestoneJoinAction(promptId);
+                setHandledFamilyJoinActionKeys(prev => prev.includes(activeFamilyJoinActionKey) ? prev : [...prev, activeFamilyJoinActionKey]);
+            }
+            return;
+        }
+
+        if (joinAction.kind === 'financial') {
+            setBoardFinancialAction(joinAction);
+            setIsBoardFinancialCompleted(false);
+            return;
+        }
+
+        if (joinAction.kind === 'happiness') {
+            void applyJoinDirectHappiness(joinAction, promptId, activeFamilyJoinActionKey);
+            return;
+        }
+
+        void clearPendingFamilyMilestoneJoinAction(promptId);
+        setHandledFamilyJoinActionKeys(prev => prev.includes(activeFamilyJoinActionKey) ? prev : [...prev, activeFamilyJoinActionKey]);
+        showAlert('這張家庭歷程目前無法同步結算，已略過', 'info');
+    }, [
+        activeFamilyJoinActionKey,
+        boardFinancialAction,
+        canOpenNextBoardStep,
+        clearPendingFamilyMilestoneJoinAction,
+        currentPlayerRoomState?.pendingFamilyMilestoneJoinAction,
+        gameState,
+        handledFamilyJoinActionKeys,
+        pendingHandledBoardCard,
+        pendingBoardStepAdvance,
+        pendingSharedCardCompletion,
+        shouldShowFamilyJoinModal,
+        showAlert
+    ]);
+
+    useEffect(() => {
+        if (!room?.isBoardGame || !boardState || !user?.uid || !activeFamilyJoinPrompt || !activeBoardCard) return;
+        if (boardState.currentEvent?.playerUid !== user.uid) return;
+        if (activeBoardCard.cardId !== activeFamilyJoinPrompt.sourceCardId) return;
+        if (HAPPINESS_CARD_MAP[activeBoardCard.cardId]?.category !== '家庭重要歷程') return;
+        const hasAllResponses = activeFamilyJoinPrompt.targetPlayerUids.every(uid => !!activeFamilyJoinPrompt.responses?.[uid]);
+        if (!hasAllResponses) return;
+        if (!pendingHandledBoardCard || pendingHandledBoardCard.key !== activeBoardCardKey) return;
+        if (isActiveBoardCardHandled) return;
+
+        void finalizeBoardFinancialFlow();
+    }, [
+        activeBoardCard,
+        activeBoardCardKey,
+        activeFamilyJoinPrompt,
+        finalizeBoardFinancialFlow,
+        isActiveBoardCardHandled,
+        pendingHandledBoardCard,
+        room?.isBoardGame,
+        boardState,
+        user?.uid
+    ]);
 
     return (
         <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500 pb-safe">
@@ -928,7 +2010,7 @@ export const GameView: React.FC<{
                 <button
                     type="button"
                     onClick={() => setShowBoardCardLog(true)}
-                    className="fixed right-4 top-[92px] z-50 flex items-center gap-2 rounded-full border border-amber-300/30 bg-slate-900/95 px-4 py-2.5 text-xs font-black text-amber-100 shadow-xl backdrop-blur-md"
+                    className="fixed right-4 top-[calc(env(safe-area-inset-top,0px)+112px)] z-50 flex items-center gap-2 rounded-full border border-amber-300/30 bg-slate-900/95 px-4 py-2.5 text-xs font-black text-amber-100 shadow-xl backdrop-blur-md"
                 >
                     <ScrollText size={16} />
                     抽卡日誌
@@ -948,6 +2030,235 @@ export const GameView: React.FC<{
                         onClose={() => setShowBoardCardLog(false)}
                     />
                 </>
+            )}
+
+            {shouldShowFamilyJoinModal && activeFamilyJoinPrompt && (
+                <div className="fixed inset-0 z-[10040] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-[32px] border border-amber-200/30 bg-[#fff8ee] p-6 text-[#6a4b2f] shadow-2xl">
+                        <div className="space-y-3">
+                            <div className="inline-flex rounded-full border border-[#d9b98b] bg-[#fff2de] px-4 py-1 text-sm font-black tracking-[0.2em] text-[#9a6f43]">
+                                家庭重要歷程
+                            </div>
+                            <h3 className="text-3xl font-black leading-tight">其他玩家同步參與</h3>
+                            <p className="text-base font-bold leading-relaxed text-[#7a5a3d]">
+                                {activeFamilyJoinPrompt.sourcePlayerName} 抽到家庭重要歷程卡。
+                                你現在可直接擲骰，擲出至少 {activeFamilyJoinPrompt.requiredRoll} 點就能一起參與這張卡。
+                            </p>
+                        </div>
+
+                        <div className="mt-6 rounded-[28px] border border-[#ead0ab] bg-white/80 p-5 text-center">
+                            <p className="text-sm font-bold tracking-[0.18em] text-[#b07c3f]">目前骰點</p>
+                            <div className="mt-3 text-5xl font-black text-[#5e432c]">
+                                {familyJoinRollValue ?? '-'}
+                            </div>
+                            {familyJoinResult && (
+                                <p className={`mt-3 text-base font-black ${familyJoinResult === 'passed' ? 'text-[#d97706]' : 'text-[#9a6f43]'}`}>
+                                    {familyJoinResult === 'passed' ? '達標，將開啟你的家庭歷程結算' : '未達標，這次無法加入'}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="mt-6 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={handleDeclineFamilyJoin}
+                                disabled={isSubmittingFamilyJoin || hasRespondedToFamilyJoin}
+                                className="flex-1 rounded-2xl border border-[#d9b98b] bg-white px-4 py-3 text-base font-black text-[#8b6a48] transition hover:bg-[#fff4e7] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {hasRespondedToFamilyJoin ? '已回覆' : '略過'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleFamilyJoinRoll}
+                                disabled={isSubmittingFamilyJoin || hasRespondedToFamilyJoin}
+                                className="flex-1 rounded-2xl bg-[#f59e0b] px-4 py-3 text-base font-black text-white transition hover:bg-[#f2a81f] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {hasRespondedToFamilyJoin ? '已送出' : (isSubmittingFamilyJoin ? '處理中...' : '立即擲骰')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {shouldShowSharedCardPromptModal && activeSharedCardPrompt && (
+                <div className="fixed inset-0 z-[10041] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+                    <div className="w-full max-w-lg rounded-[32px] border border-cyan-200/20 bg-slate-950 p-6 text-white shadow-2xl">
+                        <div className="space-y-3">
+                            <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-4 py-1 text-sm font-black tracking-[0.2em] text-cyan-200">
+                                共享卡片事件
+                            </div>
+                            <h3 className="text-3xl font-black leading-tight">
+                                {activeSharedCardPrompt.kind === 'asset_sale' && '出售資產回覆'}
+                                {activeSharedCardPrompt.kind === 'cash_dividend' && '現金股利結算'}
+                                {activeSharedCardPrompt.kind === 'stock_dividend' && '股票股息結算'}
+                                {activeSharedCardPrompt.kind === 'investment' && '大型企業投資'}
+                                {activeSharedCardPrompt.kind === 'startup_loan' && '創業貸款選擇'}
+                            </h3>
+                            <p className="text-sm leading-relaxed text-slate-300">
+                                {activeSharedCardPrompt.sourcePlayerName} 抽到 {activeSharedCardPrompt.sourceCardId}。
+                                請完成屬於你的回覆，全部玩家處理完成後，本事件才會正式結束。
+                            </p>
+                        </div>
+
+                        {activeSharedCardPrompt.kind === 'asset_sale' && sharedCardLocalAction?.kind === 'asset_sale' && (
+                            <div className="mt-6 space-y-3">
+                                {sharedCardLocalAction.items.length === 0 ? (
+                                    <div className="rounded-3xl border border-slate-800 bg-slate-900/80 px-4 py-4 text-sm leading-relaxed text-slate-300">
+                                        {sharedCardLocalAction.emptyNote}
+                                    </div>
+                                ) : (
+                                    <div className="max-h-[280px] space-y-2 overflow-y-auto pr-1">
+                                        {sharedCardLocalAction.items.map(item => {
+                                            const checked = sharedSaleSelectionIds.includes(item.id);
+                                            return (
+                                                <label key={item.id} className="block rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+                                                    <div className="flex items-start gap-3">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            disabled={!item.selectable}
+                                                            onChange={() => {
+                                                                if (!item.selectable) return;
+                                                                setSharedSaleSelectionIds(prev =>
+                                                                    prev.includes(item.id)
+                                                                        ? prev.filter(id => id !== item.id)
+                                                                        : [...prev, item.id]
+                                                                );
+                                                            }}
+                                                        />
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="font-black text-white">{item.asset.name}</div>
+                                                            <div className="mt-1 text-xs text-slate-400">{item.summary}</div>
+                                                            <div className="mt-2 text-sm font-bold text-emerald-300">入帳 {formatMoney(item.netCash)}</div>
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeSharedCardPrompt.kind === 'cash_dividend' && (
+                            <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-5 text-center">
+                                <div className="text-xs font-black tracking-[0.2em] text-slate-500">可領股利</div>
+                                <div className="mt-3 text-4xl font-black text-emerald-300">{formatMoney(sharedDividendAmount)}</div>
+                                <div className="mt-2 text-sm text-slate-400">
+                                    {sharedDividendAmount > 0 ? '依你目前持股計算完成' : '沒有符合條件股票'}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeSharedCardPrompt.kind === 'stock_dividend' && (
+                            <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
+                                <div className="text-xs font-black tracking-[0.2em] text-slate-500">配股內容</div>
+                                <div className="mt-3 space-y-2 text-sm text-slate-200">
+                                    {sharedStockDividendItems.length > 0 ? sharedStockDividendItems.map(item => (
+                                        <div key={item.assetId} className="flex items-center justify-between rounded-2xl bg-slate-950/70 px-3 py-2">
+                                            <span>{item.symbol}</span>
+                                            <span className="font-black text-emerald-300">+{item.addedQty} 張</span>
+                                        </div>
+                                    )) : (
+                                        <div className="rounded-2xl bg-slate-950/70 px-3 py-4 text-center text-slate-400">沒有符合條件股票</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeSharedCardPrompt.kind === 'investment' && (
+                            <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
+                                <div className="flex items-center justify-between text-xs font-black tracking-[0.16em] text-slate-500">
+                                    <span>投資金額</span>
+                                    <span>每次增減 {formatMoney(1000000)}</span>
+                                </div>
+                                <div className="mt-3 flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSharedInvestmentAmount(current => Math.max(0, current - 1000000))}
+                                        className="h-11 w-11 rounded-2xl bg-slate-800 text-xl font-black text-slate-200"
+                                    >
+                                        -
+                                    </button>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        step={1000000}
+                                        value={sharedInvestmentAmount || ''}
+                                        onChange={(event) => setSharedInvestmentAmount(parseInt(event.target.value, 10) || 0)}
+                                        className="h-11 flex-1 rounded-2xl border border-slate-700 bg-slate-950 px-3 text-center text-lg font-black text-white"
+                                        placeholder="0"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setSharedInvestmentAmount(current => current + 1000000)}
+                                        className="h-11 w-11 rounded-2xl bg-slate-800 text-xl font-black text-slate-200"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                                <div className="mt-3 text-xs font-bold text-slate-400">可用現金 {formatMoney(gameState.cash)}</div>
+                            </div>
+                        )}
+
+                        {activeSharedCardPrompt.kind === 'startup_loan' && (
+                            <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-5 text-sm leading-relaxed text-slate-300">
+                                接受後會建立兼職工作室、企業貸款與每月支出。之後經過銀行時，會觸發升級擲骰。
+                            </div>
+                        )}
+
+                        <div className="mt-6 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={handleSharedCardDecline}
+                                disabled={hasRespondedToSharedCardPrompt}
+                                className="flex-1 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-base font-black text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {hasRespondedToSharedCardPrompt ? '已回覆' : '放棄'}
+                            </button>
+                            {activeSharedCardPrompt.kind === 'asset_sale' && (
+                                <button
+                                    type="button"
+                                    onClick={handleSharedAssetSaleConfirm}
+                                    disabled={hasRespondedToSharedCardPrompt}
+                                    className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    進入出售
+                                </button>
+                            )}
+                            {(activeSharedCardPrompt.kind === 'cash_dividend' || activeSharedCardPrompt.kind === 'stock_dividend') && (
+                                <button
+                                    type="button"
+                                    onClick={handleSharedDividendConfirm}
+                                    disabled={hasRespondedToSharedCardPrompt}
+                                    className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    開始結算
+                                </button>
+                            )}
+                            {activeSharedCardPrompt.kind === 'investment' && (
+                                <button
+                                    type="button"
+                                    onClick={handleSharedInvestmentConfirm}
+                                    disabled={hasRespondedToSharedCardPrompt}
+                                    className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    參與投資
+                                </button>
+                            )}
+                            {activeSharedCardPrompt.kind === 'startup_loan' && (
+                                <button
+                                    type="button"
+                                    onClick={handleSharedStartupLoanConfirm}
+                                    disabled={hasRespondedToSharedCardPrompt}
+                                    className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    接受貸款
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
 
             {showLeaveConfirm && (
@@ -988,7 +2299,7 @@ export const GameView: React.FC<{
                 <HappinessWinAnimation onComplete={() => setShowWinAnimation(false)} />
             )}
 
-            <main className="fixed inset-0 overflow-y-auto no-scrollbar pt-[130px] pb-[120px] touch-pan-y">
+            <main className="fixed inset-0 overflow-y-auto no-scrollbar pt-[calc(110px+env(safe-area-inset-top,0px))] pb-[calc(200px+env(safe-area-inset-bottom,0px))] sm:pb-[calc(230px+env(safe-area-inset-bottom,0px))] touch-pan-y">
                 <div className="max-w-4xl mx-auto w-full px-4 md:px-6 space-y-6">
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <FinancialStatement
@@ -1078,7 +2389,42 @@ export const GameView: React.FC<{
                                         disabled={isActiveBoardCardHandled}
                                         className="rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        {isActiveBoardCardHandled ? '此卡已處理' : activeBoardCardAction.label}
+                                        {isActiveBoardCardHandled
+                                            ? '此卡已處理'
+                                            : HAPPINESS_CARD_MAP[activeBoardCard?.cardId || '']?.requiresStorySharing
+                                                ? (storyShareRequest?.status === 'pending' ? '等待主持人確認' : '送出故事分享確認')
+                                                : activeBoardCardAction.label}
+                                    </button>
+                                </div>
+                            )}
+
+                            {activeBoardCardAction.kind === 'effect' && (
+                                <div className={`grid gap-3 ${isForcedActiveBoardCard ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                                    {!isForcedActiveBoardCard && (
+                                        <button
+                                            onClick={markBoardCardHandled}
+                                            disabled={isActiveBoardCardHandled}
+                                            className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            關閉
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            if (requiresOpportunityShareApproval) {
+                                                submitBoardShareApprovalRequest();
+                                                return;
+                                            }
+                                            void handleApplyBoardInstantEffect(activeBoardCardAction.title, activeBoardCardAction.afterApply);
+                                        }}
+                                        disabled={isActiveBoardCardHandled}
+                                        className="rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        {isActiveBoardCardHandled
+                                            ? '此卡已處理'
+                                            : requiresOpportunityShareApproval
+                                                ? (boardShareRequest?.status === 'pending' ? '等待主持人確認' : '送出分享確認')
+                                                : activeBoardCardAction.label}
                                     </button>
                                 </div>
                             )}
@@ -1087,15 +2433,15 @@ export const GameView: React.FC<{
                                 <div className={`grid gap-3 ${isForcedActiveBoardCard ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                     <button
                                         onClick={() => {
-                                            applyLocalBoardMarketPrices(activeBoardCardAction.prices, activeBoardCardAction.code);
+                                            if (isApplyingBoardMarket) return;
                                             setTransactionQuickPreset({ initialTab: 'broker' });
                                             setShowTransactionModal(true);
                                             markBoardCardHandled();
                                         }}
-                                        disabled={isActiveBoardCardHandled}
+                                        disabled={isActiveBoardCardHandled || isApplyingBoardMarket || !appliedBoardMarketKeys.includes(activeBoardCardKey || '')}
                                         className="rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        前往交易
+                                        {isApplyingBoardMarket ? '同步行情中...' : '前往交易'}
                                     </button>
                                     {!isForcedActiveBoardCard && (
                                         <button
@@ -1121,8 +2467,28 @@ export const GameView: React.FC<{
                                                 <button
                                                     key={option.id}
                                                     onClick={() => {
+                                                        if (requiresOpportunityShareApproval && option.id === 'accept') {
+                                                            submitBoardShareApprovalRequest();
+                                                            return;
+                                                        }
                                                         if (option.action.kind === 'dismiss') {
                                                             markBoardCardHandled();
+                                                            return;
+                                                        }
+                                                        if (option.action.kind === 'happiness') {
+                                                            setIsBoardCardDrawerOpen(false);
+                                                            const applied = handleTransactionSubmit(option.action.txData);
+                                                            if (!applied) {
+                                                                setIsBoardCardDrawerOpen(true);
+                                                                return;
+                                                            }
+                                                            showAlert(`已套用 ${option.action.points} 點幸福`, 'success');
+                                                            void markBoardCardHandled();
+                                                            return;
+                                                        }
+                                                        if (option.action.kind === 'effect') {
+                                                            setIsBoardCardDrawerOpen(false);
+                                                            void handleApplyBoardInstantEffect(option.action.title, option.action.afterApply);
                                                             return;
                                                         }
                                                         setIsBoardCardDrawerOpen(false);
@@ -1137,7 +2503,11 @@ export const GameView: React.FC<{
                                                             : 'bg-emerald-600 text-white hover:bg-emerald-500'
                                                     }`}
                                                 >
-                                                    {isInsufficientCash ? `${option.label}（現金不足）` : option.label}
+                                                    {isInsufficientCash
+                                                        ? `${option.label}（現金不足）`
+                                                        : (requiresOpportunityShareApproval && option.id === 'accept')
+                                                            ? (boardShareRequest?.status === 'pending' ? '等待主持人確認' : '送出分享確認')
+                                                            : option.label}
                                                 </button>
                                             );
                                         })}
@@ -1151,6 +2521,71 @@ export const GameView: React.FC<{
                                             關閉
                                         </button>
                                     )}
+                                </div>
+                            )}
+
+                            {activeBoardCardAction.kind === 'investment' && (
+                                <div className="space-y-3">
+                                    <div className="rounded-3xl border border-slate-800 bg-slate-900/80 px-4 py-4 text-sm leading-relaxed text-slate-300">
+                                        {activeBoardCardAction.note}
+                                    </div>
+                                    <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
+                                        <div className="flex items-center justify-between text-xs font-black tracking-[0.16em] text-slate-500">
+                                            <span>投資金額</span>
+                                            <span>每次增減 {formatMoney(activeBoardCardAction.step)}</span>
+                                        </div>
+                                        <div className="mt-3 flex items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setBoardInvestmentAmount(current => Math.max(activeBoardCardAction.minAmount, current - activeBoardCardAction.step))}
+                                                className="h-11 w-11 rounded-2xl bg-slate-800 text-xl font-black text-slate-200 transition-colors hover:bg-slate-700"
+                                            >
+                                                -
+                                            </button>
+                                            <input
+                                                type="number"
+                                                min={activeBoardCardAction.minAmount}
+                                                max={activeBoardCardAction.maxAmount}
+                                                step={activeBoardCardAction.step}
+                                                value={boardInvestmentAmount || ''}
+                                                onChange={(event) => setBoardInvestmentAmount(parseInt(event.target.value, 10) || 0)}
+                                                className="h-11 flex-1 rounded-2xl border border-slate-700 bg-slate-950 px-3 text-center text-lg font-black text-white"
+                                                placeholder={activeBoardCardAction.minAmount.toString()}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setBoardInvestmentAmount(current => Math.min(activeBoardCardAction.maxAmount, current + activeBoardCardAction.step))}
+                                                className="h-11 w-11 rounded-2xl bg-slate-800 text-xl font-black text-slate-200 transition-colors hover:bg-slate-700"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                        <div className="mt-3 flex items-center justify-between text-xs font-bold text-slate-400">
+                                            <span>可用現金 {formatMoney(gameState.cash)}</span>
+                                            <span>上限 {formatMoney(activeBoardCardAction.maxAmount)}</span>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={markBoardCardHandled}
+                                            disabled={isActiveBoardCardHandled}
+                                            className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            關閉
+                                        </button>
+                                        <button
+                                            onClick={handleBoardInvestmentConfirm}
+                                            disabled={
+                                                isActiveBoardCardHandled ||
+                                                boardInvestmentAmount > gameState.cash ||
+                                                boardInvestmentAmount < activeBoardCardAction.minAmount ||
+                                                boardInvestmentAmount > activeBoardCardAction.maxAmount
+                                            }
+                                            className="rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {activeBoardCardAction.label}
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -1272,6 +2707,10 @@ export const GameView: React.FC<{
                         }
                         setPendingHandledBoardCard(null);
                         setPendingBoardLifelongRoll(null);
+                        if (pendingSharedCardCompletion) {
+                            setVisibleSharedCardPromptId(pendingSharedCardCompletion.promptId);
+                            setPendingSharedCardCompletion(null);
+                        }
                         setBoardFinancialAction(null);
                         if (activeBoardCardKey && !isActiveBoardCardHandled) {
                             setIsBoardCardDrawerOpen(true);
@@ -1513,6 +2952,12 @@ export const GameView: React.FC<{
                     onClose={() => {
                         if (paydayStep === 'confirm') {
                             handlePaydayConfirm();
+                            if (startupUpgradeAsset && pendingStartupUpgradeAction) {
+                                setShowPaydayModal(false);
+                                setPaydayStep('confirm');
+                                setShowBizUpgradeModal(true);
+                                return;
+                            }
                             if (canUseBankProducts) {
                                 setPaydayStep('followup');
                                 return;
@@ -1548,10 +2993,14 @@ export const GameView: React.FC<{
 
                         <div className="grid grid-cols-2 gap-3">
                             <button
-                                onClick={() => setHospitalRollValue(Math.floor(Math.random() * 6) + 1)}
-                                className="rounded-2xl bg-cyan-500 py-4 text-sm font-black text-slate-950 transition-colors hover:bg-cyan-400"
+                                onClick={() => {
+                                    if (hospitalRollValue) return;
+                                    setHospitalRollValue(Math.floor(Math.random() * 6) + 1);
+                                }}
+                                disabled={!!hospitalRollValue}
+                                className="rounded-2xl bg-cyan-500 py-4 text-sm font-black text-slate-950 transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                擲第二次骰子
+                                {hospitalRollValue ? '已完成擲骰' : '擲第二次骰子'}
                             </button>
                             <button
                                 onClick={handleHospitalRollConfirm}
@@ -1568,12 +3017,12 @@ export const GameView: React.FC<{
             {showMedicalClaimModal && (
                 <MedicalClaimModal
                     isOpen={showMedicalClaimModal}
-                    insuranceCount={gameState.medicalInsuranceCount}
-                    hasInsuredAircraft={gameState.assets.some(a => (a.type === '汽車' || a.type === '飛行器') && a.isInsured)}
+                    insuranceCount={canClaimMedical ? gameState.medicalInsuranceCount : 0}
+                    hasInsuredAircraft={canClaimVehicle}
                     formatMoney={formatMoney}
                     onConfirm={onModalMedicalConfirm}
                     onClose={() => setShowMedicalClaimModal(false)}
-                    disabled={room?.status === 'finished'}
+                    disabled={room?.status === 'finished' || isSubmittingClaim}
                 />
             )}
 
@@ -1597,6 +3046,32 @@ export const GameView: React.FC<{
                     onClose={handleDiceModalClose}
                     onResult={onDiceComplete}
                     promotionType={promotionType}
+                />
+            )}
+
+            {showBizUpgradeModal && startupUpgradeAsset && (
+                <BizUpgradeModal
+                    isOpen={showBizUpgradeModal}
+                    asset={startupUpgradeAsset}
+                    onClose={() => {
+                        setShowBizUpgradeModal(false);
+                        void (async () => {
+                            await clearPendingStartupUpgradeAction();
+                            await advanceBoardEventQueue('bank');
+                        })();
+                    }}
+                    onUpgrade={(diceRoll) => {
+                        setShowBizUpgradeModal(false);
+                        handleBizUpgrade(startupUpgradeAsset.id, diceRoll);
+                        setGameState(prev => ({
+                            ...prev,
+                            pendingStartupUpgradeAction: undefined
+                        }));
+                        void (async () => {
+                            await clearPendingStartupUpgradeAction();
+                            await advanceBoardEventQueue('bank');
+                        })();
+                    }}
                 />
             )}
 

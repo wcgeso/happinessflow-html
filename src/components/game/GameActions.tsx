@@ -3,7 +3,7 @@ import { CirclePlus, Dices, Target, Landmark, Building } from 'lucide-react';
 import { motion, useAnimation } from 'framer-motion';
 
 interface GameActionsProps {
-    onRollBoardDice?: () => Promise<any> | void;
+    onRollBoardDice?: (diceCount?: 1 | 2) => Promise<any> | void;
     onRollAnimationComplete?: (result: any) => void;
     onBuyRealEstate?: () => void;
     onShowMedical: () => void;
@@ -36,11 +36,29 @@ export const GameActions: React.FC<GameActionsProps> = ({
     const [isAnimating, setIsAnimating] = useState(false);
     const [diceResult, setDiceResult] = useState<number | null>(null);
     const [showLandingFace, setShowLandingFace] = useState(false);
+    const [selectedDiceCount, setSelectedDiceCount] = useState<1 | 2>(hasCar ? 2 : 1);
     const landingFaceTimerRef = useRef<NodeJS.Timeout | null>(null);
     const animationCompleteTimerRef = useRef<NodeJS.Timeout | null>(null);
     const shouldShowLandingFace = isAnimating && showLandingFace && diceResult !== null;
     const DICE_ROLL_DURATION_MS = 2400;
     const DICE_RESULT_REVEAL_MS = 850;
+
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 640);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    useEffect(() => {
+        setSelectedDiceCount(hasCar ? 2 : 1);
+    }, [hasCar]);
+
+    const tz = isMobile ? '25px' : '31px';
+    const tagTz = isMobile ? '31px' : '39px';
 
     // 根據結果動態分配骰子面，確保 Top 面永遠是骰出的點數
     const getDiceFaces = (result: number | null) => {
@@ -174,7 +192,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
 
         let rollResult: { total: number; dice: number[] } | void;
         try {
-            rollResult = await onRollBoardDice();
+            rollResult = await onRollBoardDice(hasCar ? selectedDiceCount : 1);
         } catch (e) {
             setIsAnimating(false);
             return;
@@ -220,17 +238,17 @@ export const GameActions: React.FC<GameActionsProps> = ({
         <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none pb-safe">
             {/* Dock 容器 */}
             <div className="mx-auto w-fit pointer-events-auto">
-                <div className="flex items-end gap-3 px-6 pb-6 pt-8">
+                <div className="flex items-end gap-1.5 sm:gap-3 px-3 sm:px-6 pb-6 pt-8">
                     {/* 左側：房市公告板 */}
                     {onShowRealEstateMarket && (
                         <button
                             onClick={onShowRealEstateMarket}
                             disabled={disabled}
-                            className={`group relative flex flex-col items-center gap-1.5 px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                            className={`group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
                             title={disabled ? "遊戲已結算" : "房市公告板"}
                         >
-                            <div className="w-[52px] h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-amber-400 rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(245,158,11,0.2)] group-active:scale-95 border border-slate-700">
-                                <Building size={24} strokeWidth={2} />
+                            <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-amber-400 rounded-[14px] sm:rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(245,158,11,0.2)] group-active:scale-95 border border-slate-700">
+                                <Building size={20} strokeWidth={2} className="sm:hidden" /><Building size={24} strokeWidth={2} className="hidden sm:block" />
                             </div>
                             <span className="text-[10px] font-black text-slate-400 tracking-wider transition-colors group-enabled:group-hover:text-amber-400">房市</span>
                         </button>
@@ -240,11 +258,11 @@ export const GameActions: React.FC<GameActionsProps> = ({
                     <button
                         onClick={onShowTargetDream}
                         disabled={disabled}
-                        className={`group relative flex flex-col items-center gap-1.5 px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                        className={`group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
                         title={disabled ? "遊戲已結算" : "購買目標與夢想"}
                     >
-                        <div className="w-[52px] h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-fuchsia-400 rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(217,70,239,0.2)] group-active:scale-95 border border-slate-700">
-                            <Target size={24} strokeWidth={2} />
+                        <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-fuchsia-400 rounded-[14px] sm:rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(217,70,239,0.2)] group-active:scale-95 border border-slate-700">
+                            <Target size={20} strokeWidth={2} className="sm:hidden" /><Target size={24} strokeWidth={2} className="hidden sm:block" />
                         </div>
                         <span className="text-[10px] font-black text-slate-400 tracking-wider transition-colors group-enabled:group-hover:text-fuchsia-400">目標</span>
                     </button>
@@ -270,8 +288,8 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                     whileTap={isActive ? { scale: 0.95 } : {}}
                                     onClick={handleDiceClick}
                                     style={{ touchAction: "manipulation", transformStyle: "preserve-3d" }}
-                                    className={`relative z-10 w-[64px] h-[64px] ${!isVisualActive ? 'opacity-50 cursor-not-allowed filter grayscale-[0.5]' : 'cursor-pointer'}`}
-                                    title={!isBoardTurn ? "尚未輪到你" : (isRollingBoardDice ? "同步中..." : `點擊拋擲${hasCar ? ' (2顆)' : ' (1顆)'}`)}
+                                    className={`relative z-10 w-[52px] h-[52px] sm:w-[64px] sm:h-[64px] ${!isVisualActive ? 'opacity-50 cursor-not-allowed filter grayscale-[0.5]' : 'cursor-pointer'}`}
+                                    title={!isBoardTurn ? "尚未輪到你" : (isRollingBoardDice ? "同步中..." : `點擊拋擲 (${hasCar ? `${selectedDiceCount}顆` : '1顆'})`)}
                                 >
 		                                    {/* 飛行中保留六面骰體，落地後只顯示單一結果面。 */}
 		                                    <div className="absolute inset-0 w-full h-full" style={{ transformStyle: shouldShowLandingFace ? "flat" : "preserve-3d" }}>
@@ -281,30 +299,48 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'translateZ(32px)' }}>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `translateZ(${tz})` }}>
                                                         {renderDots(faces.front)}
                                                     </div>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(180deg) translateZ(32px)' }}>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `rotateY(180deg) translateZ(${tz})` }}>
                                                         {renderDots(faces.back)}
                                                     </div>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(90deg) translateZ(32px)' }}>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `rotateY(90deg) translateZ(${tz})` }}>
                                                         {renderDots(faces.right)}
                                                     </div>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateY(-90deg) translateZ(32px)' }}>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `rotateY(-90deg) translateZ(${tz})` }}>
                                                         {renderDots(faces.left)}
                                                     </div>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateX(90deg) translateZ(32px)' }}>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `rotateX(90deg) translateZ(${tz})` }}>
                                                         {renderDots(faces.bottom)}
                                                     </div>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: 'rotateX(-90deg) translateZ(32px)' }}>
+                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `rotateX(-90deg) translateZ(${tz})` }}>
                                                         {renderDots(faces.top)}
                                                     </div>
                                                 </>
                                             )}
 
 	                                        {hasCar && isVisualActive && (
-                                            <div className="absolute -top-3 -right-3 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-sm" style={{ transform: 'translateZ(40px)' }}>
-                                                <span className="text-[10px] font-black text-amber-900 leading-none tracking-tighter">x2</span>
+                                            <div
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    if (!isActive) return;
+                                                    setSelectedDiceCount(prev => prev === 2 ? 1 : 2);
+                                                }}
+                                                onKeyDown={(event) => {
+                                                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                    if (!isActive) return;
+                                                    setSelectedDiceCount(prev => prev === 2 ? 1 : 2);
+                                                }}
+                                                className="absolute -top-3 -right-3 w-7 h-7 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-sm"
+                                                style={{ transform: `translateZ(${tagTz})` }}
+                                                title={isActive ? '點一下切換單骰 / 雙骰' : '持有汽車時可切換單骰 / 雙骰'}
+                                            >
+                                                <span className="text-[10px] font-black text-amber-900 leading-none tracking-tighter">x{selectedDiceCount}</span>
                                             </div>
                                         )}
                                     </div>
@@ -312,7 +348,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                 <span className={`text-[11px] font-black uppercase tracking-widest transition-colors ${
                                     isActive ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]' : 'text-slate-500'
                                 }`}>
-                                    {isRollingBoardDice ? '同步中' : (isBoardTurn ? '點擊拋擲' : '擲骰子')}
+                                    {isRollingBoardDice ? '同步中' : (isBoardTurn ? `點擊拋擲${hasCar ? ` (${selectedDiceCount}顆)` : ''}` : '擲骰子')}
                                 </span>
                             </div>
                         ) : (
@@ -335,11 +371,11 @@ export const GameActions: React.FC<GameActionsProps> = ({
                         <button
                             onClick={onShowTransaction}
                             disabled={disabled}
-                            className={`group relative flex flex-col items-center gap-1.5 px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                            className={`group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
                             title={disabled ? "遊戲已結算" : "數位銀行"}
                         >
-                            <div className="w-[52px] h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-emerald-400 rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] group-active:scale-95 border border-slate-700">
-                                <Landmark size={24} strokeWidth={2} />
+                            <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-emerald-400 rounded-[14px] sm:rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] group-active:scale-95 border border-slate-700">
+                                <Landmark size={20} strokeWidth={2} className="sm:hidden" /><Landmark size={24} strokeWidth={2} className="hidden sm:block" />
                             </div>
                             <span className="text-[10px] font-black text-slate-400 tracking-wider transition-colors group-enabled:group-hover:text-emerald-400">銀行</span>
                         </button>
@@ -349,11 +385,11 @@ export const GameActions: React.FC<GameActionsProps> = ({
                     <button
                         onClick={onShowMedical}
                         disabled={disabled}
-                        className={`group relative flex flex-col items-center gap-1.5 px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                        className={`group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
                         title={disabled ? "遊戲已結算" : "醫療理賠"}
                     >
-                        <div className="w-[52px] h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-rose-400 rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(244,63,94,0.2)] group-active:scale-95 border border-slate-700">
-                            <CirclePlus size={24} strokeWidth={2} />
+                        <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-rose-400 rounded-[14px] sm:rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(244,63,94,0.2)] group-active:scale-95 border border-slate-700">
+                            <CirclePlus size={20} strokeWidth={2} className="sm:hidden" /><CirclePlus size={24} strokeWidth={2} className="hidden sm:block" />
                         </div>
                         <span className="text-[10px] font-black text-slate-400 tracking-wider transition-colors group-enabled:group-hover:text-rose-400">醫療</span>
                     </button>

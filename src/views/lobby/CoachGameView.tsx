@@ -591,7 +591,7 @@ export const CoachGameView: React.FC = () => {
                     uid,
                     name: player?.name || '未知玩家',
                     type: 'warning',
-                    message: '現金流低於警戒值 (5,000 H)',
+                    message: '現金流低於警戒值 (5,000)',
                     value: summary.monthlyCashflow
                 };
             }
@@ -600,7 +600,7 @@ export const CoachGameView: React.FC = () => {
                     uid,
                     name: player?.name || '未知玩家',
                     type: 'danger',
-                    message: '現金嚴重不足 (低於 10,000 H)',
+                    message: '現金嚴重不足 (低於 10,000)',
                     value: state.cash
                 };
             }
@@ -1963,6 +1963,7 @@ export const CoachGameView: React.FC = () => {
                                                 {pendingRequest.insuranceType === 'medical' && ' (醫療)'}
                                                 {pendingRequest.insuranceType === 'aircraft' && ' (汽車)'}
                                                 {pendingRequest.type === 'happiness' && ` (${pendingRequest.happinessLabel})`}
+                                                {pendingRequest.type === 'board_share' && ` (${pendingRequest.shareLabel || pendingRequest.boardCardId || '卡片分享'})`}
                                                 {pendingRequest.type === 'lifelong' && pendingRequest.promotionType && ` (${
                                                     { 'enhance_profession': '職業能力', 'stock_ability': '股票投資', 'real_estate_ability': '不動產投資' }[pendingRequest.promotionType] || pendingRequest.promotionType
                                                 })`}

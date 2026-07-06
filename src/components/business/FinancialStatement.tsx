@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, FinancialSummary, Asset } from '../../types';
 import { REAL_ESTATE_PRESETS } from '../../constants';
-import { TrendingUp, Building, ChevronDown, ShieldCheck, ArrowUpCircle, ExternalLink, Wallet, Landmark, BarChart3, PieChart } from 'lucide-react';
+import { TrendingUp, Building, ChevronDown, ShieldCheck, ExternalLink, Wallet, Landmark, BarChart3, PieChart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { HistoryTable } from './HistoryTable';
 import { CashFlowLog } from './CashFlowLog';
-import { BizUpgradeModal } from '../modals/BizUpgradeModal';
 import { HouseConversionModal } from '../modals/HouseConversionModal';
 import { cn } from '../../utils/gameUtils';
 import { useGame } from '../../context/GameContext';
@@ -26,12 +25,16 @@ interface FinancialStatementProps {
 }
 
 const formatMoney = (amount: number, isMasked?: boolean) => {
-  if (isMasked) return '**** H';
-  return `${amount.toLocaleString()} H`;
+  if (isMasked) return '****';
+  return amount.toLocaleString();
 };
 
 const getAssetDisplayName = (asset: Asset) => {
   if (asset.type === '不動產') return getRealEstateAssetLabel(asset.name, asset.houseType);
+  if (asset.type === '企業' && asset.isUpgraded) {
+    const symbol = extractAssetSymbol(asset.name);
+    return symbol ? `${symbol} 小型企業` : '小型企業';
+  }
   if (asset.type === '企業') return getBusinessAssetLabel(asset.name, asset.name);
   if (asset.type === '股票') return getStockAssetLabel(asset.name);
   return asset.name;
@@ -85,7 +88,6 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   const [isIncomeOpen, setIsIncomeOpen] = useState(defaultShowDetails);
   const [isBalanceOpen, setIsBalanceOpen] = useState(defaultShowDetails);
   const [showFullDetails, setShowFullDetails] = useState(defaultShowDetails);
-  const [upgradingAsset, setUpgradingAsset] = useState<Asset | null>(null);
   const [convertingHouse, setConvertingHouse] = useState<Asset | null>(null);
 
   const { setGameState } = useGame();
@@ -132,6 +134,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   }] : [];
 
   const creditLoans = (gameState.liabilities || []).filter(l => l.type === '信用貸款');
+  const forcedDebts = (gameState.liabilities || []).filter(l => l.type === '強制負債');
   const realEstateLoans = (gameState.liabilities || []).filter(l => l.type === '不動產貸款');
   const businessLoans = (gameState.liabilities || []).filter(l => l.type === '企業貸款');
   const aircraftLoans = (gameState.liabilities || []).filter(l => l.type === '飛行器貸款' || l.type === '汽車貸款');
@@ -314,7 +317,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-orange-300 flex justify-between items-center">
                                 <span>定存利息</span>
-                                <span className="text-slate-500 font-normal lowercase">(利息0.5%)</span>
+                                <span className="text-slate-500 font-normal lowercase">(利息1%)</span>
                               </div>
                               {cds.map(cd => <TAccountSubItem key={cd.id} label={getAssetDisplayName(cd)} value={cd.cashflow} isMasked={isMasked} />)}
                             </div>
@@ -507,7 +510,6 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                             title="企業"
                             items={businesses}
                             color="text-emerald-300"
-                            onUpgradeClick={setUpgradingAsset}
                             onShowAlert={onShowAlert}
                             disabled={disabled}
                           />
@@ -527,6 +529,12 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                             <div className="text-[9px] font-black uppercase tracking-widest text-orange-300">信用貸款</div>
                             <TAccountSubItem label="信用貸款總額" value={creditLoans.reduce((sum, l) => sum + l.totalOwed, 0)} />
                             {(gameState.loans || 0) > 0 && <TAccountSubItem label="銀行貸款" value={gameState.loans || 0} />}
+                          </div>
+                        )}
+                        {forcedDebts.length > 0 && (
+                          <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
+                            <div className="text-[9px] font-black uppercase tracking-widest text-rose-300">強制負債</div>
+                            {forcedDebts.map(l => <TAccountSubItem key={l.id} label={l.name} value={l.totalOwed} />)}
                           </div>
                         )}
                         {realEstateLoans.length > 0 && (
@@ -605,17 +613,6 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
         </div>
       )}
 
-      {upgradingAsset && (
-        <BizUpgradeModal
-          isOpen={!!upgradingAsset}
-          onClose={() => setUpgradingAsset(null)}
-          asset={upgradingAsset}
-          onUpgrade={(diceRoll) => {
-            onUpgradeBiz?.(upgradingAsset.id, diceRoll);
-          }}
-        />
-      )}
-
       {convertingHouse && (
         <HouseConversionModal
           isOpen={!!convertingHouse}
@@ -627,7 +624,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
 
       {/* 底部 Tab 切換 (藥丸式懸浮切換器) */}
       {!hideNav && (
-        <div className="fixed bottom-[130px] left-0 right-0 z-[60] px-4 pointer-events-none flex justify-center">
+        <div className="fixed bottom-[calc(120px+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(175px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-[60] px-4 pointer-events-none flex justify-center">
           <div className="relative flex items-center bg-slate-900/80 backdrop-blur-xl p-1.5 rounded-full border border-slate-700/60 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] pointer-events-auto">
             {[
               { id: 'financial', label: '報表' },
@@ -678,7 +675,7 @@ const TAccountSubItem = ({ label, value, isMasked = false }: { label: React.Reac
   </div>
 );
 
-const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices = {}, previousMarketPrices = {}, onUpgradeClick, onHouseClick, onShowAlert, isMasked = false, disabled = false }: any) => (
+const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices = {}, previousMarketPrices = {}, onHouseClick, onShowAlert, isMasked = false, disabled = false }: any) => (
   <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
     <div className={cn("text-[9px] font-black uppercase tracking-widest", color)}>{title}</div>
     {items.map((item: any) => {
@@ -695,10 +692,6 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
 
       // For stocks, the value should be quantity * currentPrice
       const displayValue = isStock ? (item.quantity * currentPrice) : item.cost;
-
-      // Check for upgrade eligibility (N056, N058 and not yet upgraded)
-      const symbol = extractAssetSymbol(item.name);
-      const isEligibleForUpgrade = item.type === '企業' && (symbol === 'N056' || symbol === 'N058') && !item.isUpgraded;
 
       return (
         <div key={item.id} className="flex flex-col gap-0.5 pl-2 border-l border-slate-800 mb-2">
@@ -747,18 +740,6 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
                     <div className="flex items-center gap-1.5 w-full">
                       <span className="text-[11px] text-slate-200 font-bold">{getAssetDisplayName(item)}</span>
                       {item.isInsured && <ShieldCheck size={10} className="text-emerald-400 shrink-0" />}
-                      {isEligibleForUpgrade && !disabled && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onUpgradeClick?.(item);
-                          }}
-                          className="px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors border border-emerald-500/20"
-                          title="升級企業"
-                        >
-                          升級
-                        </button>
-                      )}
                     </div>
                   )}
                 </>

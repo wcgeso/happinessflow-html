@@ -1,0 +1,4340 @@
+[
+  {
+    "id": "C001",
+    "title": "終身學習一增強職業能力",
+    "deck": "opportunity",
+    "type": "ability_profession",
+    "category": "機運事件",
+    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於2，則職業等級無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "requirements": [
+        "move_clockwise_to_next_school",
+        "no_bank_payday_during_move",
+        "miss_rounds_1",
+        "apply_effect_after_school_dice",
+        "school_fee_5000",
+        "dice_requirement_2",
+        "move_to_school",
+        "no_bank_payday_this_round"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "abilityEffect": "profession_level_up",
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "school",
+      "missRounds": 1,
+      "noBankPassThisRound": true,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": 5000,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": 2,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "玩家接受後，完成移動至下一個學校格、停回合 1 次與學校骰點判定；完成學校骰點後，若成功則職業等級晉升一級，最高級者無效；所有結果套用後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C002",
+    "title": "終身學習一增強職業能力",
+    "deck": "opportunity",
+    "type": "ability_profession",
+    "category": "機運事件",
+    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於2，則職業等級！無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "requirements": [
+        "move_clockwise_to_next_school",
+        "no_bank_payday_during_move",
+        "miss_rounds_1",
+        "apply_effect_after_school_dice",
+        "school_fee_5000",
+        "dice_requirement_2",
+        "move_to_school",
+        "no_bank_payday_this_round"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "abilityEffect": "profession_level_up",
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "school",
+      "missRounds": 1,
+      "noBankPassThisRound": true,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": 5000,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": 2,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "玩家接受後，完成移動至下一個學校格、停回合 1 次與學校骰點判定；完成學校骰點後，若成功則職業等級晉升一級，最高級者無效；所有結果套用後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C003",
+    "title": "終身學習一增強職業能力",
+    "deck": "opportunity",
+    "type": "ability_profession",
+    "category": "機運事件",
+    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於2，則職業等級無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "requirements": [
+        "move_clockwise_to_next_school",
+        "no_bank_payday_during_move",
+        "miss_rounds_1",
+        "apply_effect_after_school_dice",
+        "school_fee_5000",
+        "dice_requirement_2",
+        "move_to_school",
+        "no_bank_payday_this_round"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "abilityEffect": "profession_level_up",
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "school",
+      "missRounds": 1,
+      "noBankPassThisRound": true,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": 5000,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": 2,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "玩家接受後，完成移動至下一個學校格、停回合 1 次與學校骰點判定；完成學校骰點後，若成功則職業等級晉升一級，最高級者無效；所有結果套用後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C004",
+    "title": "終身學習一增強職業能力",
+    "deck": "opportunity",
+    "type": "ability_profession",
+    "category": "機運事件",
+    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於2，則職業等級無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "requirements": [
+        "move_clockwise_to_next_school",
+        "no_bank_payday_during_move",
+        "miss_rounds_1",
+        "apply_effect_after_school_dice",
+        "school_fee_5000",
+        "dice_requirement_2",
+        "move_to_school",
+        "no_bank_payday_this_round"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "abilityEffect": "profession_level_up",
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "school",
+      "missRounds": 1,
+      "noBankPassThisRound": true,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": 5000,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": 2,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "玩家接受後，完成移動至下一個學校格、停回合 1 次與學校骰點判定；完成學校骰點後，若成功則職業等級晉升一級，最高級者無效；所有結果套用後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C005",
+    "title": "終身學習一投資股票的能力",
+    "deck": "opportunity",
+    "type": "ability_stock",
+    "category": "機運事件",
+    "description": "你有機會回到學校進修「投資股票的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費 10,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於4，則持有股票的股數全部增加一倍（100%）。不接受，則回收本卡片。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "requirements": [
+        "move_clockwise_to_next_school",
+        "no_bank_payday_during_move",
+        "miss_rounds_1",
+        "apply_effect_after_school_dice",
+        "school_fee_10000",
+        "dice_requirement_4",
+        "move_to_school",
+        "no_bank_payday_this_round"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "abilityEffect": "stock_double",
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "school",
+      "missRounds": 1,
+      "noBankPassThisRound": true,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": 10000,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": 4,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "玩家接受後，完成移動至下一個學校格、停回合 1 次與學校骰點判定；完成學校骰點後，若成功則持有股票股數全部增加一倍；所有結果套用後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C006",
+    "title": "終身學習一投資股票的能力",
+    "deck": "opportunity",
+    "type": "ability_stock",
+    "category": "機運事件",
+    "description": "你有機會回到學校進修「投資股票的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費10,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於4，則持有股票的股數全部增加一倍（100%）。不接受，則回收本卡片。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "requirements": [
+        "move_clockwise_to_next_school",
+        "no_bank_payday_during_move",
+        "miss_rounds_1",
+        "apply_effect_after_school_dice",
+        "school_fee_10000",
+        "dice_requirement_4",
+        "move_to_school",
+        "no_bank_payday_this_round"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "abilityEffect": "stock_double",
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "school",
+      "missRounds": 1,
+      "noBankPassThisRound": true,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": 10000,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": 4,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "玩家接受後，完成移動至下一個學校格、停回合 1 次與學校骰點判定；完成學校骰點後，若成功則持有股票股數全部增加一倍；所有結果套用後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C007",
+    "title": "終身學習一投資不動產的能力",
+    "deck": "opportunity",
+    "type": "ability_realestate",
+    "category": "機運事件",
+    "description": "你有機會回到學校進修「投資不動產的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於4，則所有現有與未來供出租不動產的房租收入，全部各增加 10,000H。不接受，則回收本卡片。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "requirements": [
+        "move_clockwise_to_next_school",
+        "no_bank_payday_during_move",
+        "miss_rounds_1",
+        "apply_effect_after_school_dice",
+        "school_fee_5000",
+        "dice_requirement_4",
+        "move_to_school",
+        "no_bank_payday_this_round"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "abilityEffect": "rent_plus_10000",
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "school",
+      "missRounds": 1,
+      "noBankPassThisRound": true,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": 5000,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": 4,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "玩家接受後，完成移動至下一個學校格、停回合 1 次與學校骰點判定；完成學校骰點後，若成功則所有現有與未來供出租不動產的房租收入各增加 10,000；所有結果套用後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C008",
+    "title": "終身學習一投資不動產的能力",
+    "deck": "opportunity",
+    "type": "ability_realestate",
+    "category": "機運事件",
+    "description": "你有機會回到學校進修「投資不動產的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費10,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於4，則所有現有與未來供出租不動產的房租收入，全部各增加10,000H。不接受，則回收本卡片。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "requirements": [
+        "move_clockwise_to_next_school",
+        "no_bank_payday_during_move",
+        "miss_rounds_1",
+        "apply_effect_after_school_dice",
+        "school_fee_10000",
+        "dice_requirement_4",
+        "move_to_school",
+        "no_bank_payday_this_round"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "abilityEffect": "rent_plus_10000",
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "school",
+      "missRounds": 1,
+      "noBankPassThisRound": true,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": 10000,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": 4,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "玩家接受後，完成移動至下一個學校格、停回合 1 次與學校骰點判定；完成學校骰點後，若成功則所有現有與未來供出租不動產的房租收入各增加 10,000；所有結果套用後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C009",
+    "title": "求購 單間小套房",
+    "deck": "opportunity",
+    "type": "purchase_1room",
+    "category": "市場交易",
+    "description": "因為推出一系列振興經濟的政策相當成功，帶動整體經濟的成長，產生了許多新的就業機會，形成新一波青年移民潮出現，也造成【單間小套房】需求大增。購買者願意以一間13,000,000H的價格購買，擁有【單間小套房】的所有玩家，都可以自由決定是否依此價格出售，出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否以收購價 3,000,000 出售符合條件資產",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否以收購價 3,000,000 出售符合條件資產",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": 3000000,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C010",
+    "title": "求購 單間小套房",
+    "deck": "opportunity",
+    "type": "purchase_1room",
+    "category": "市場交易",
+    "description": "因為推出一系列振興經濟的政策相當成功，帶動整體經濟的成長，產生了許多新的就業機會，形成新一波青年移民潮出現，也造成【單間小套房】需求大增。購買者願意以一間3,500,000H 的價格購買，擁有【單間小套房】的所有玩家，都可以自由決定是否依此價格出售，出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否以收購價 3,500,000 出售符合條件資產",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否以收購價 3,500,000 出售符合條件資產",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": 3500000,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C011",
+    "title": "求購 單間小套房",
+    "deck": "opportunity",
+    "type": "purchase_1room",
+    "category": "市場交易",
+    "description": "因為推出一系列振興經濟的政策相當成功，帶動整體經濟的成長，產生了許多新的就業機會，需求大增。形成新一波青年移民潮出現，也造成【單間小套房】購買者願意以一間4,500,000H 的價格購買，擁有【單間小套房】的所有玩家，都可以自由決定是否依此價格出售，出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否以收購價 4,500,000 出售符合條件資產",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否以收購價 4,500,000 出售符合條件資產",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": 4500000,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C012",
+    "title": "求購 單間小套房",
+    "deck": "opportunity",
+    "type": "purchase_1room",
+    "category": "市場交易",
+    "description": "因為推出一系列振興經濟的政策相當成功，帶動整體經濟的成長，產生了許多新的就業機會，形成新一波青年移民潮出現，也造成【單間小套房】需求大增。購買者願意以一間4,000,000H的價格購買，擁有【單間小套房】的所有玩家，都可以自由決定是否依此價格出售，出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否以收購價 4,000,000 出售符合條件資產",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否以收購價 4,000,000 出售符合條件資產",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": 4000000,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C013",
+    "title": "求購 各類型住宅",
+    "deck": "opportunity",
+    "type": "purchase_any_house",
+    "category": "市場交易",
+    "description": "未來景氣一致看好，吸引大型地產公司進來投資與收購優質的不動產。購買者願意以高於房屋總價50%的價格購買，擁有各類型住宅的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 50% 代表出售價格 = 資產總價 × 150%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 50% 代表出售價格 = 資產總價 × 150%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 50,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=50 表示溢價比例；最終出售價格為資產總價 × 150%。"
+    ]
+  },
+  {
+    "id": "C014",
+    "title": "求購 各類型住宅",
+    "deck": "opportunity",
+    "type": "purchase_any_house",
+    "category": "市場交易",
+    "description": "未來景氣一致看好，吸引大型地產公司進來投資與收購優質的不動產。購買者願意以高於房屋總價60%的價格購買，擁有各類型住宅的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 60% 代表出售價格 = 資產總價 × 160%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 60% 代表出售價格 = 資產總價 × 160%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 60,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=60 表示溢價比例；最終出售價格為資產總價 × 160%。"
+    ]
+  },
+  {
+    "id": "C015",
+    "title": "求購 各類型住宅",
+    "deck": "opportunity",
+    "type": "purchase_any_house",
+    "category": "市場交易",
+    "description": "推出新的都市更新政策，吸引大型建設公司前來推動社區開發案。你的住宅位置剛好在開發案中。購買者願意以高於房屋總價40%的價格購買，擁有各類型住宅的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 40% 代表出售價格 = 資產總價 × 140%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 40% 代表出售價格 = 資產總價 × 140%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 40,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=40 表示溢價比例；最終出售價格為資產總價 × 140%。"
+    ]
+  },
+  {
+    "id": "C016",
+    "title": "求購 各類型住宅",
+    "deck": "opportunity",
+    "type": "purchase_any_house",
+    "category": "市場交易",
+    "description": "未來景氣一致看好，吸引大型地產公司進來投資與收購優質的不動產。購買者願意以高於房屋總價70% 的價格購買，擁有各類型住宅的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 70% 代表出售價格 = 資產總價 × 170%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 70% 代表出售價格 = 資產總價 × 170%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 70,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=70 表示溢價比例；最終出售價格為資產總價 × 170%。"
+    ]
+  },
+  {
+    "id": "C017",
+    "title": "C017求購 兩房一廳/三房兩廳住宅",
+    "deck": "opportunity",
+    "type": "purchase_any_house",
+    "category": "市場交易",
+    "description": "為了滿足人人有房的目標，推出新的首次購屋優惠政策，帶動兩室一廳/三室兩廳住宅的買氣。<br>購買者願意以高於房屋總價130% 的價格購買，擁有<br>兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 30% 代表出售價格 = 資產總價 × 130%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 30% 代表出售價格 = 資產總價 × 130%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 30,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=30 表示溢價比例；最終出售價格為資產總價 × 130%。"
+    ]
+  },
+  {
+    "id": "C018",
+    "title": "求購 兩房一廳/三房兩廳住宅",
+    "deck": "opportunity",
+    "type": "purchase_any_house",
+    "category": "市場交易",
+    "description": "吸引人才政策相當成功。鼓勵專業人士移民，推出一系列吸引人才政策，許多專業人士攜家帶眷來定居。購買者願意以高於房屋總價50%的價格購買，擁有兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 50% 代表出售價格 = 資產總價 × 150%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 50% 代表出售價格 = 資產總價 × 150%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 50,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=50 表示溢價比例；最終出售價格為資產總價 × 150%。"
+    ]
+  },
+  {
+    "id": "C019",
+    "title": "求購 兩房一廳/三房兩廳住宅",
+    "deck": "opportunity",
+    "type": "purchase_any_house",
+    "category": "市場交易",
+    "description": "為了滿足人人有房的目標，推出新的首次購屋優惠政策，帶動兩室一廳/三室兩廳住宅的買氣。<br>購買者願意以高於房屋總價35% 的價格購買，擁有兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 35% 代表出售價格 = 資產總價 × 135%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 35% 代表出售價格 = 資產總價 × 135%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 35,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=35 表示溢價比例；最終出售價格為資產總價 × 135%。"
+    ]
+  },
+  {
+    "id": "C020",
+    "title": "C020求購 兩房一廳/三房兩廳住宅",
+    "deck": "opportunity",
+    "type": "purchase_any_house",
+    "category": "市場交易",
+    "description": "為了滿足人人有房的目標，推出新的首次購屋優惠政策，帶動兩室一廳/三室兩廳住宅的買氣。<br>購買者願意以高於房屋總價60% 的價格購買，擁有兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 60% 代表出售價格 = 資產總價 × 160%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 60% 代表出售價格 = 資產總價 × 160%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 60,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=60 表示溢價比例；最終出售價格為資產總價 × 160%。"
+    ]
+  },
+  {
+    "id": "C021",
+    "title": "求購 兩房一廳/三房兩廳住宅",
+    "deck": "opportunity",
+    "type": "purchase_any_house",
+    "category": "市場交易",
+    "description": "為了滿足人人有房的目標，推出新的首次購屋優惠政策，帶動兩室一廳/三室兩廳住宅的買氣。<br>購買者願意以高於房屋總價40%的價格購買，擁有兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 40% 代表出售價格 = 資產總價 × 140%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 40% 代表出售價格 = 資產總價 × 140%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 40,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=40 表示溢價比例；最終出售價格為資產總價 × 140%。"
+    ]
+  },
+  {
+    "id": "C022",
+    "title": "求購 兩房一廳/三房兩廳住宅",
+    "deck": "opportunity",
+    "type": "purchase_any_house",
+    "category": "市場交易",
+    "description": "吸引人才政策相當成功。鼓勵專業人士移民，推出一系列吸引人才政策，許多專業人士攜家帶眷來定居。<br>購買者願意以高於房屋總價45%的價格購買，擁有兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 45% 代表出售價格 = 資產總價 × 145%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 45% 代表出售價格 = 資產總價 × 145%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 45,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=45 表示溢價比例；最終出售價格為資產總價 × 145%。"
+    ]
+  },
+  {
+    "id": "C023",
+    "title": "求購 各類型店面",
+    "deck": "opportunity",
+    "type": "purchase_store",
+    "category": "市場交易",
+    "description": "景氣提升，商業活動熱絡，造成商用不動產的需求大增。購買者願意以高於店面總價 50%的價格購買，擁有各類型店面的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 50% 代表出售價格 = 資產總價 × 150%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 50% 代表出售價格 = 資產總價 × 150%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 50,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=50 表示溢價比例；最終出售價格為資產總價 × 150%。"
+    ]
+  },
+  {
+    "id": "C024",
+    "title": "求購 各類型店面",
+    "deck": "opportunity",
+    "type": "purchase_store",
+    "category": "市場交易",
+    "description": "推出一系列招商政策，吸引外地企業來投資，帶動商用不動產的需求。購買者願意以高於店面總價55%的價格購買，擁有各類型店面的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 55% 代表出售價格 = 資產總價 × 155%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 55% 代表出售價格 = 資產總價 × 155%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 55,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=55 表示溢價比例；最終出售價格為資產總價 × 155%。"
+    ]
+  },
+  {
+    "id": "C025",
+    "title": "求購 各類型店面",
+    "deck": "opportunity",
+    "type": "purchase_store",
+    "category": "市場交易",
+    "description": "景氣提升，商業活動熱絡，造成商用不動產的i需求大增。購買者願意以高於店面總價60%的價格購買，擁有各類型店面的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項/須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 60% 代表出售價格 = 資產總價 × 160%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 60% 代表出售價格 = 資產總價 × 160%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 60,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=60 表示溢價比例；最終出售價格為資產總價 × 160%。"
+    ]
+  },
+  {
+    "id": "C026",
+    "title": "求購 各類型店面",
+    "deck": "opportunity",
+    "type": "purchase_store",
+    "category": "市場交易",
+    "description": "吸推出一系列招商政策，吸引外地企業來推投資，帶動商用不動產的需求。到購購買者願意以高於店面總價45%的價格購買，擁有兩各類型店面的所有玩家，都可以自由決定是否依此價定格出售。出出售後取消其租金收入，仍有房屋貸款者，所得款項須！須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否出售；高於總價 45% 代表出售價格 = 資產總價 × 145%；purchasePercent 欄位語意為溢價比例，不是最終出售價格比例",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否出售；高於總價 45% 代表出售價格 = 資產總價 × 145%",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": 45,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的房屋或店面資產，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "purchasePercent=45 表示溢價比例；最終出售價格為資產總價 × 145%。"
+    ]
+  },
+  {
+    "id": "C027",
+    "title": "收購 獨特的創業點子",
+    "deck": "opportunity",
+    "type": "purchase_startup",
+    "category": "企業併購",
+    "description": "你擁有的兼職工作室被大型企業看上，願意以3,000,000H 的價格，收購你的兼職工作室。擁有兼職工作室的所有玩家（不含已成功晉升為小型企業），都可以自由決定是否要依此價格出售。但是仍有企業貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否以收購價 3,000,000 出售符合條件企業或工作室",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否以收購價 3,000,000 出售符合條件企業或工作室",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": 3000000,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的企業或工作室，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C028",
+    "title": "收購 獨特的創業點子",
+    "deck": "opportunity",
+    "type": "purchase_startup",
+    "category": "企業併購",
+    "description": "你擁有的兼職工作室被大型企業看上，願意以5,000,000H 的價格，收購你的兼職工作室。擁有兼職工作室的所有玩家（不含已成功晉升為小型企業），都可以自由決定是否要依此價格出售。但是仍有企業貸款者，所得款項須要先行扣除貸款金額。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否以收購價 5,000,000 出售符合條件企業或工作室",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否以收購價 5,000,000 出售符合條件企業或工作室",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": 5000000,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的企業或工作室，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C029",
+    "title": "企業併購",
+    "deck": "opportunity",
+    "type": "enterprise_acquisition",
+    "category": "企業併購",
+    "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的60倍為收購價格。<br>擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": 60
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的企業或工作室，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C030",
+    "title": "企業併購",
+    "deck": "opportunity",
+    "type": "enterprise_acquisition",
+    "category": "企業併購",
+    "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的50倍為收購價格。<br>擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": 50
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的企業或工作室，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C031",
+    "title": "企業併購",
+    "deck": "opportunity",
+    "type": "enterprise_acquisition",
+    "category": "企業併購",
+    "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的60倍為收購價格。<br>擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": 60
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的企業或工作室，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C032",
+    "title": "企業併購",
+    "deck": "opportunity",
+    "type": "enterprise_acquisition",
+    "category": "企業併購",
+    "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的50倍為收購價格。擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": 50
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的企業或工作室，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C033",
+    "title": "企業併購",
+    "deck": "opportunity",
+    "type": "enterprise_acquisition",
+    "category": "企業併購",
+    "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的70倍為收購價格。<br>擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": 70
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的企業或工作室，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C034",
+    "title": "企業併購",
+    "deck": "opportunity",
+    "type": "enterprise_acquisition",
+    "category": "企業併購",
+    "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的70倍為收購價格。<br>擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有符合條件的玩家<br>效果：各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有符合條件的玩家",
+      "scope": "all_eligible_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有符合條件的玩家"
+    },
+    "effects": {
+      "summary": "各符合條件玩家可自行決定是否依卡片收購倍率出售符合條件企業或工作室",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": 70
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有符合條件的玩家可各自決定是否處理自己的效果。"
+    },
+    "noEffectCondition": "若玩家沒有符合條件的企業或工作室，該玩家無效果，可直接完成。",
+    "completion": "所有符合條件玩家的出售選擇完成，並將各自交易結果完成財務檢核後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "文案過短，缺少完整正式描述。"
+    ]
+  },
+  {
+    "id": "C035",
+    "title": "天有不測風雲",
+    "deck": "opportunity",
+    "type": "medical",
+    "category": "機運事件",
+    "description": "爆發流感事件！你的運氣不好，感染了新型的蜂流感病毒，必須住院治療。抽到本卡的玩家，必須直接走到醫院格，且停賽一輪，並支付醫療費用20,000H。若有經過銀行格，無法領取月結餘。事先有購買醫療保險，則可領取保險理賠金50,000H，再用保險理賠金來支付醫療費用。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：現金 -20,000；若有醫療保險，另可申請理賠 50,000；移動至醫院；停回合 1",
+      "requirements": [
+        "move_to_hospital",
+        "miss_rounds_1"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "現金 -20,000；若有醫療保險，另可申請理賠 50,000；移動至醫院；停回合 1",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 20000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "hospital",
+      "missRounds": 1,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 20000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": 50000
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "玩家仍需支付卡片指定醫療費；若有醫療保險，另外可申請理賠 50,000。",
+      "type": "medical_insurance",
+      "payoutAmount": 50000
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "本卡必定生效；若有醫療保險，付款後可另外申請理賠 50,000。",
+    "completion": "醫療費付款、移動至醫院、停回合 1 與保險理賠（如適用）處理完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C036",
+    "title": "天有不測風雲",
+    "deck": "opportunity",
+    "type": "medical",
+    "category": "機運事件",
+    "description": "食物中毒！你沒有注意飲食安全，不小心食用到不新鮮的食品，造成上吐下瀉，必須住院治療。抽到本卡的玩家，必須直接走到醫院格，且停賽一輪，並支付醫療費用25,000H。若有經過銀行格，無法領取月結餘。事先有購買醫療保險，則可領取保險理賠金50,000H，再用保險理賠金來支付醫療費用。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：現金 -25,000；若有醫療保險，另可申請理賠 50,000；移動至醫院；停回合 1",
+      "requirements": [
+        "move_to_hospital",
+        "miss_rounds_1"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "現金 -25,000；若有醫療保險，另可申請理賠 50,000；移動至醫院；停回合 1",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 25000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "hospital",
+      "missRounds": 1,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 25000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": 50000
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "玩家仍需支付卡片指定醫療費；若有醫療保險，另外可申請理賠 50,000。",
+      "type": "medical_insurance",
+      "payoutAmount": 50000
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "本卡必定生效；若有醫療保險，付款後可另外申請理賠 50,000。",
+    "completion": "醫療費付款、移動至醫院、停回合 1 與保險理賠（如適用）處理完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C037",
+    "title": "天有不測風雲",
+    "deck": "opportunity",
+    "type": "medical",
+    "category": "機運事件",
+    "description": "發生意外！你運動時不小心跌倒，撞到了頭，被救護車送到了醫院。抽到本卡的玩家，必須直接走到醫院格，且停賽一輪，並支付醫療費用20,000H。若有經過銀行格，無法領取月結餘。事先有購買醫療保險，則可領取保險理賠金50,000H，再用保險理賠金來支付醫療費用。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：現金 -20,000；若有醫療保險，另可申請理賠 50,000；移動至醫院；停回合 1",
+      "requirements": [
+        "move_to_hospital",
+        "miss_rounds_1"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "現金 -20,000；若有醫療保險，另可申請理賠 50,000；移動至醫院；停回合 1",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 20000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "hospital",
+      "missRounds": 1,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 20000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": 50000
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "玩家仍需支付卡片指定醫療費；若有醫療保險，另外可申請理賠 50,000。",
+      "type": "medical_insurance",
+      "payoutAmount": 50000
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "本卡必定生效；若有醫療保險，付款後可另外申請理賠 50,000。",
+    "completion": "醫療費付款、移動至醫院、停回合 1 與保險理賠（如適用）處理完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C038",
+    "title": "天有不測風雲",
+    "deck": "opportunity",
+    "type": "aircraft_damage",
+    "category": "機運事件",
+    "description": "飛行器被偷！一夜起來，發現你的飛行器被偷了，連忙報案處理。抽到本卡的玩家，若你有買飛行器，失去你的飛行器一艘，並扣掉對應的幸福點，且之前申請之飛行器貸款無法取消。事先有購買飛行器產物保險，則可獲得飛行器購買價格 80%（400,000H）的保險理賠金。你可以用這筆理賠金去償還飛行器貸款。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡；玩家持有汽車<br>影響對象：抽到卡片的玩家<br>效果：失去汽車一輛；扣除汽車對應幸福點；原汽車貸款不取消；若有汽車保險，取得汽車購買價格 80% 理賠金",
+      "requirements": [
+        "requires_vehicle",
+        "vehicle_loss_keeps_loan"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "失去汽車一輛；扣除汽車對應幸福點；原汽車貸款不取消；若有汽車保險，取得汽車購買價格 80% 理賠金",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 0,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 0,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": 400000
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "若有汽車保險，可取得汽車購買價格 80% 理賠金。",
+      "type": "vehicle_insurance",
+      "payoutAmount": 400000
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家沒有汽車，本卡無效果，可直接完成。",
+    "completion": "移除汽車、扣除對應幸福點、保留原汽車貸款，並處理汽車保險理賠（如適用）後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "需完整確認程式是否已支援移除汽車、扣除幸福點並保留原汽車貸款。"
+    ]
+  },
+  {
+    "id": "C039",
+    "title": "天有不測風雲",
+    "deck": "opportunity",
+    "type": "aircraft_damage",
+    "category": "機運事件",
+    "description": "發生飛禍！開飛行器時使用通訊工具，未注意飛行安全，不小心撞到路旁的大樹，你的飛行器嚴重受損。抽到本卡的玩家，若你有買飛行器，必須直接走到飛行器4S專賣店，且停賽一輪，並支付維修費用100,000H。若有經過銀行格，無法領取月結餘。買這事先有購買飛行器保險，則不用支付維修費，因該筆費用由保險公司支付。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡；玩家持有汽車<br>影響對象：抽到卡片的玩家<br>效果：有汽車且無汽車保險時支付維修費 100,000；有汽車且有汽車保險時可申請理賠 100,000；移動至維修廠；停回合 1",
+      "requirements": [
+        "requires_vehicle",
+        "move_to_repair_shop",
+        "miss_rounds_1",
+        "move_to_4s_shop"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "有汽車且無汽車保險時支付維修費 100,000；有汽車且有汽車保險時可申請理賠 100,000；移動至維修廠；停回合 1",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 100000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": "repair_shop",
+      "missRounds": 1,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 100000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": 100000
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": true,
+      "summary": "有汽車且有汽車保險時可申請理賠 100,000；無保險時支付維修費。",
+      "type": "vehicle_insurance",
+      "payoutAmount": 100000
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家沒有汽車，本卡無效果，可直接完成。",
+    "completion": "汽車條件判定、維修費或保險理賠、移動至維修廠與停回合 1 完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C040",
+    "title": "天有不測風雲",
+    "deck": "opportunity",
+    "type": "aircraft_damage",
+    "category": "機運事件",
+    "description": "發生飛禍！開飛行器時未注意飛行器間距離，不小心撞到前方的飛行器，造成你和對方的飛行器嚴重受損。抽到本卡的玩家，若你有買飛行器，必須直接走到飛行器4S專賣店，且停賽一輪，並支付維修費用200,000H。若有經過銀行格，無法領取月結餘。事先有購買飛行器保險，則不用支付維修費，因該筆費用由保險公司支付。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡；玩家持有汽車<br>影響對象：抽到卡片的玩家<br>效果：有汽車且無汽車保險時支付維修費 200,000；有汽車且有汽車保險時可申請理賠 200,000；目前移動至維修廠 / 停回合規則仍需產品確認",
+      "requirements": [
+        "requires_vehicle"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "有汽車且無汽車保險時支付維修費 200,000；有汽車且有汽車保險時可申請理賠 200,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 200000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 200000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": 200000
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": true,
+      "summary": "有汽車且有汽車保險時可申請理賠 200,000；無保險時支付維修費。",
+      "type": "vehicle_insurance",
+      "payoutAmount": 200000
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家沒有汽車，本卡無效果，可直接完成。",
+    "completion": "汽車條件判定，以及維修費或保險理賠處理完成後，卡片事件完成；移動與停回合規則待產品確認。",
+    "status": "needs_product_confirmation",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": [
+      "目前缺少明確的移動至維修廠 / 停回合正式規則，需產品確認。"
+    ]
+  },
+  {
+    "id": "C041",
+    "title": "天有不測風雲",
+    "deck": "opportunity",
+    "type": "property_repair",
+    "category": "機運事件",
+    "description": "發生地震造成出租的房子需要修繕！房客向你反應，房屋的外牆出現裂縫，需要修理。抽到本卡的玩家，若你有出租用的住宅，則需要支付房屋修繕的費用 200,000H。若事先有購買房屋的保險，這筆費用由保險公司代玩家支付（必須每間房子都要有保險，若有至少一間房子沒有保險，仍必須支付費用）。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡；玩家持有房屋；若系統能區分出租，則以出租房屋為準<br>影響對象：抽到卡片的玩家<br>效果：有房屋且無房屋保險時支付修繕費 200,000；有房屋且有房屋保險時可申請理賠 200,000",
+      "requirements": [
+        "requires_real_estate",
+        "prefer_rental_real_estate_if_distinguishable"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "有房屋且無房屋保險時支付修繕費 200,000；有房屋且有房屋保險時可申請理賠 200,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 200000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 200000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": 200000
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": true,
+      "summary": "有房屋且有房屋保險時可申請理賠 200,000；無保險時支付修繕費。",
+      "type": "house_insurance",
+      "payoutAmount": 200000
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家沒有房屋，本卡無效果，可直接完成。",
+    "completion": "房屋條件判定，以及修繕費或房屋保險理賠處理完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C042",
+    "title": "線路起火",
+    "deck": "opportunity",
+    "type": "property_repair",
+    "category": "機運事件",
+    "description": "線路起火！所有出租用住宅需支付修繕費100,000H。若所有出租住宅都有房屋保險則免費。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡；玩家持有房屋；若系統能區分出租，則以出租房屋為準<br>影響對象：抽到卡片的玩家<br>效果：有房屋且無房屋保險時支付修繕費 100,000；有房屋且有房屋保險時可申請理賠 100,000",
+      "requirements": [
+        "requires_real_estate",
+        "prefer_rental_real_estate_if_distinguishable"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "有房屋且無房屋保險時支付修繕費 100,000；有房屋且有房屋保險時可申請理賠 100,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 100000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 100000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": 100000
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": true,
+      "summary": "有房屋且有房屋保險時可申請理賠 100,000；無保險時支付修繕費。",
+      "type": "house_insurance",
+      "payoutAmount": 100000
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家沒有房屋，本卡無效果，可直接完成。",
+    "completion": "房屋條件判定，以及修繕費或房屋保險理賠處理完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C043",
+    "title": "天有不測風雲",
+    "deck": "opportunity",
+    "type": "property_repair",
+    "category": "機運事件",
+    "description": "出租的房子因年久失修需要修繕！房客向你反應，房屋的裝潢需要整修。抽到本卡的玩家，若你有出租用的住宅，則需要支付房屋修繕的費用 150,000H。若事先有購買房屋的保險，這筆費用由保險公司代玩家支付（必須每間房子都要有保險，若有至少一間房子沒有保險，仍必須支付費用）。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡；玩家持有房屋；若系統能區分出租，則以出租房屋為準<br>影響對象：抽到卡片的玩家<br>效果：有房屋且無房屋保險時支付修繕費 150,000；有房屋且有房屋保險時可申請理賠 150,000",
+      "requirements": [
+        "requires_real_estate",
+        "prefer_rental_real_estate_if_distinguishable"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "有房屋且無房屋保險時支付修繕費 150,000；有房屋且有房屋保險時可申請理賠 150,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 150000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 150000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": 150000
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": true,
+      "summary": "有房屋且有房屋保險時可申請理賠 150,000；無保險時支付修繕費。",
+      "type": "house_insurance",
+      "payoutAmount": 150000
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家沒有房屋，本卡無效果，可直接完成。",
+    "completion": "房屋條件判定，以及修繕費或房屋保險理賠處理完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C044",
+    "title": "天有不測風雲",
+    "deck": "opportunity",
+    "type": "theft",
+    "category": "機運事件",
+    "description": "錢包被盜！因為不小心，遺失了錢包，包含現金與重辦重要證件，共損失了8,000H。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：現金 -8,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "現金 -8,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 8000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 8000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "依卡面直接處理",
+    "completion": "單卡財務效果完成後結束",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C045",
+    "title": "通貨膨漲",
+    "deck": "opportunity",
+    "type": "inflation",
+    "category": "機運事件",
+    "description": "因為種植農作物的成本提高，造成食品價格上漲。所有玩家月支出的飲食欄，增加3,000H。所有玩家的財務報表的月支出上，飲食欄增加3,000H、月支出總支欄增加3,000H，損益的周結餘欄減少 3,000H。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有玩家<br>效果：全體玩家月支出 +3,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "全體玩家月支出 +3,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": 3000,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": 3000,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "本卡直接影響所有玩家，無額外選擇。",
+    "completion": "全體玩家月支出更新完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C046",
+    "title": "通貨膨漲",
+    "deck": "opportunity",
+    "type": "inflation",
+    "category": "機運事件",
+    "description": "因為制衣的原物料成本上漲，造成服飾的價格提升。所有玩家月支出的服飾欄，增加2,000H。所有玩家的財務報表的月支出上，服飾欄增加2,000H、月支出總支欄增加2,000H，損益的周結餘欄減少 2,000H。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有玩家<br>效果：全體玩家月支出 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "全體玩家月支出 +2,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": 2000,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": 2000,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "本卡直接影響所有玩家，無額外選擇。",
+    "completion": "全體玩家月支出更新完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C047",
+    "title": "通貨膨漲",
+    "deck": "opportunity",
+    "type": "inflation",
+    "category": "機運事件",
+    "description": "因為能源礦產的減少，造成油價提升。所有玩家月支出的交通，增加2,000H。所有玩家的財務報表的月支出上，交通欄增加2,000H、月支出總支欄增加 2,000H，損益的周結餘欄減少2,000H。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有玩家<br>效果：全體玩家月支出 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "全體玩家月支出 +2,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": 2000,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": 2000,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "本卡直接影響所有玩家，無額外選擇。",
+    "completion": "全體玩家月支出更新完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C048",
+    "title": "通貨膨漲",
+    "deck": "opportunity",
+    "type": "inflation",
+    "category": "機運事件",
+    "description": "因為整體物價節節上升，提高了日用品的價格。所有玩家月支出的居住欄，增加 1,000H。所有玩家的財務報表的月支出上，居住欄增加1,000H、月支出總支欄增加1,000H，損益的周結餘欄減少 1,000H。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：所有玩家<br>效果：全體玩家月支出 +1,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "全體玩家月支出 +1,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": 1000,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": true
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": 1000,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "本卡直接影響所有玩家，無額外選擇。",
+    "completion": "全體玩家月支出更新完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C049",
+    "title": "違規闖紅燈",
+    "deck": "opportunity",
+    "type": "penalty",
+    "category": "機運事件",
+    "description": "一。違反交通規則。你因為貪圖方便，沒有遵守交通規則，過馬路闖紅燈被拍到，罰款 2,000H。增加3周結抽到本卡的玩家，需要向銀行支付2,000H。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：現金 -2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "現金 -2,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 2000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 2000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "依卡面直接處理",
+    "completion": "單卡財務效果完成後結束",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C050",
+    "title": "衝動消費買包包",
+    "deck": "opportunity",
+    "type": "penalty",
+    "category": "機運事件",
+    "description": "又在亂花錢！？你發現一款新上市的包包，非常喜歡它，願意花5,000H 把它買回家（雖然你已經有三個類似普加的包包）。習結抽到本卡的玩家，需要向銀行支付5,000H。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：現金 -5,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "現金 -5,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 5000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 5000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "依卡面直接處理",
+    "completion": "單卡財務效果完成後結束",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C051",
+    "title": "拾金不昧",
+    "deck": "opportunity",
+    "type": "reward",
+    "category": "機運事件",
+    "description": "拾金不昧。<br>你撿到50,000H，送到警察局，並且幫忙尋找失主，獎勵一張幸福卡。<br>抽到本卡的玩家，可以抽取一張幸福卡。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：後續抽牌 幸福卡",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "後續抽牌 幸福卡",
+      "abilityEffect": null,
+      "drawCard": "happiness",
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": true,
+      "summary": "Follow-up：後續抽幸福卡。",
+      "drawCard": "happiness"
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "本卡直接進入後續抽幸福卡流程。",
+    "completion": "後續幸福卡處理完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C052",
+    "title": "遺失鑰匙找鎖匠",
+    "deck": "opportunity",
+    "type": "penalty",
+    "category": "機運事件",
+    "description": "粗心大意。你不小心遺失了鑰匙，找鎖匠來幫忙開鎖和換鎖，花了 3,000H。抽到本卡的玩家，需要向銀行支付3,000H。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：現金 -3,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "現金 -3,000",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": 3000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": 3000,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "依卡面直接處理",
+    "completion": "單卡財務效果完成後結束",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C053",
+    "title": "熱心助人",
+    "deck": "opportunity",
+    "type": "reward",
+    "category": "機運事件",
+    "description": "熱心助人。<br>你喜歡熱心助人，獎勵一張幸福卡。<br>抽到本卡的玩家，只要說出一種熱心助人的做法，就可以抽取一張幸福卡。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：後續抽牌 幸福卡",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "後續抽牌 幸福卡",
+      "abilityEffect": null,
+      "drawCard": "happiness",
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": true,
+      "summary": "Follow-up：後續抽幸福卡。",
+      "drawCard": "happiness"
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "本卡直接進入後續抽幸福卡流程。",
+    "completion": "後續幸福卡處理完成後，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C054",
+    "title": "資源回收",
+    "deck": "opportunity",
+    "type": "reward",
+    "category": "機運事件",
+    "description": "資源回收。<br>你開始重視環境保護，開始學習並養成如何回收資源的方法或做法。<br>抽到本卡的玩家，只要說出一種資源回收的做法，就可以減少其他支出500H。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：玩家需說出資源回收的方法或做法；月支出 -500",
+      "requirements": [
+        "requires_recycling_method_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "玩家需說出資源回收的方法或做法；月支出 -500",
+      "abilityEffect": null,
+      "drawCard": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": -500,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": -500,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家未完成回收做法分享，則卡片效果不得成立。",
+    "completion": "玩家完成回收做法分享後，套用月支出 -500 並完成財務更新，卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C055",
+    "title": "奉獻所得",
+    "deck": "opportunity",
+    "type": "reward",
+    "category": "機運事件",
+    "description": "奉獻所得。你願意每一個月固定捐贈一小筆錢，來幫助需要幫助的人們。所有玩家，只要願意在月支出中的其他欄增加2,000H，就可以抽取一張幸福卡。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：玩家可選擇是否接受；接受後月支出 +2,000，並 Follow-up 抽幸福卡",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "玩家可選擇是否接受；接受後月支出 +2,000，並 Follow-up 抽幸福卡",
+      "abilityEffect": null,
+      "drawCard": "happiness",
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": 2000,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": 2000,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": true,
+      "summary": "Follow-up：接受後抽幸福卡。",
+      "drawCard": "happiness"
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家不接受，本卡無效果，可直接完成。",
+    "completion": "若玩家接受，套用月支出 +2,000，完成財務檢核 / 財務更新後，執行後續抽幸福卡流程；後續卡完成後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  },
+  {
+    "id": "C056",
+    "title": "善用時間",
+    "deck": "opportunity",
+    "type": "reward",
+    "category": "機運事件",
+    "description": "善用時間。<br>你懂得如何好好運用時間，尤其是懂得如何利用零碎的時間來學習。<br>抽到本卡的玩家，只要說出一種善用時間的做法或案例，就可以抽取一張新聞卡。",
+    "conditions": {
+      "trigger": "抽到機運卡",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：玩家需說出一種善用時間的做法或案例；完成後後續抽牌 新聞卡",
+      "requirements": [
+        "requires_time_use_sharing"
+      ]
+    },
+    "targets": {
+      "summary": "抽到卡片的玩家",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到卡片的玩家"
+    },
+    "effects": {
+      "summary": "玩家需說出一種善用時間的做法或案例；完成後後續抽牌 新聞卡",
+      "abilityEffect": null,
+      "drawCard": "news",
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "happinessLoss": null,
+      "goToSquare": null,
+      "missRounds": null,
+      "noBankPassThisRound": false,
+      "affectsAllPlayers": false
+    },
+    "amount": {
+      "schoolFee": null,
+      "purchasePrice": null,
+      "cashLoss": null,
+      "cashGain": null,
+      "monthlyExpenseChange": null,
+      "insurancePays": null
+    },
+    "multiplier": {
+      "diceRequirement": null,
+      "purchasePercent": null,
+      "acquisitionMultiple": null
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": true,
+      "summary": "Follow-up：玩家完成分享後抽新聞卡。",
+      "drawCard": "news"
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家未完成分享，則卡片效果不得成立。",
+    "completion": "玩家完成善用時間做法或案例分享後，執行後續抽新聞卡流程；後續卡完成後卡片事件完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/hooks/useGameLogic.ts"
+    ],
+    "notes": []
+  }
+]

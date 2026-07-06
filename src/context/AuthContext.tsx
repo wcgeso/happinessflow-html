@@ -285,13 +285,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (email: string, password: string) => {
-        setIsLoadingAuth(true);
         try {
             await safeAsync(signInWithEmailAndPassword(auth, email, password), null, (err) => { throw err; });
         } catch (error: any) {
             throw error;
-        } finally {
-            setIsLoadingAuth(false);
         }
     };
 
@@ -340,7 +337,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const register = async (email: string, password: string, playerName: string, refCode?: string) => {
-        setIsLoadingAuth(true);
         try {
             const userCredential = await safeAsync(createUserWithEmailAndPassword(auth, email, password), null, (err) => { throw err; });
             if (!userCredential) return;
@@ -398,8 +394,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error: any) {
             console.error('註冊錯誤:', error);
             throw error;
-        } finally {
-            setIsLoadingAuth(false);
         }
     };
 

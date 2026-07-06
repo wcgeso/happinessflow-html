@@ -147,7 +147,7 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                                               : "text-amber-400"
                                             : "text-slate-400"
                                     )}>
-                                        {opt.cost.toLocaleString()}<span className="text-[10px] ml-0.5">H</span>
+                                        {opt.cost.toLocaleString()}
                                     </div>
                                 </div>
                             </button>

@@ -1,0 +1,4393 @@
+[
+  {
+    "id": "N001",
+    "title": "百年榮景",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "經濟出現百年榮景，投資熱絡，股市創歷史新高",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 8500,
+        "A20": 7500,
+        "A30": 10500,
+        "A40": 12000,
+        "B50": 9500,
+        "B60": 11000,
+        "B70": 16000,
+        "B80": 20000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 8500,
+        "A20": 7500,
+        "A30": 10500,
+        "A40": 12000,
+        "B50": 9500,
+        "B60": 11000,
+        "B70": 16000,
+        "B80": 20000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N002",
+    "title": "泡沫化大跌",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "發生嚴重的泡沫化風暴，股市出現恐慌性大跌。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 800,
+        "A20": 700,
+        "A30": 600,
+        "A40": 800,
+        "B50": 600,
+        "B60": 400,
+        "B70": 800,
+        "B80": 1000
+      },
+      "specialRule": "所有持股數減半，不足1張捨去"
+    },
+    "amount": {
+      "prices": {
+        "A10": 800,
+        "A20": 700,
+        "A30": 600,
+        "A40": 800,
+        "B50": 600,
+        "B60": 400,
+        "B70": 800,
+        "B80": 1000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": true
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N003",
+    "title": "振興政策大漲",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "推出振興政策，股市大漲",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 6500,
+        "A20": 6000,
+        "A30": 12000,
+        "A40": 9500,
+        "B50": 8000,
+        "B60": 9500,
+        "B70": 12500,
+        "B80": 16000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 6500,
+        "A20": 6000,
+        "A30": 12000,
+        "A40": 9500,
+        "B50": 8000,
+        "B60": 9500,
+        "B70": 12500,
+        "B80": 16000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N004",
+    "title": "通貨緊縮",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "連續經濟的衰退，造成通貨緊縮。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 800,
+        "A20": 700,
+        "A30": 1000,
+        "A40": 1500,
+        "B50": 1100,
+        "B60": 500,
+        "B70": 1500,
+        "B80": 2000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 800,
+        "A20": 700,
+        "A30": 1000,
+        "A40": 1500,
+        "B50": 1100,
+        "B60": 500,
+        "B70": 1500,
+        "B80": 2000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N005",
+    "title": "景氣大好",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "景氣大好，交易市場熱絡",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 6000,
+        "A20": 6500,
+        "A30": 14000,
+        "A40": 8000,
+        "B50": 7500,
+        "B60": 9000,
+        "B70": 12000,
+        "B80": 14000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 6000,
+        "A20": 6500,
+        "A30": 14000,
+        "A40": 8000,
+        "B50": 7500,
+        "B60": 9000,
+        "B70": 12000,
+        "B80": 14000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N006",
+    "title": "呆帳企業虧損",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "呆帳！多家大型企業虧損，無法支付貸款利息。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格（依卡片價格表）。所有玩家皆可依更新價格，以「張」為單位自由買賣股票。",
+      "prices": {
+        "A10": 1000,
+        "A20": 1200,
+        "A30": 1000,
+        "A40": 1500,
+        "B50": 1200,
+        "B60": 800,
+        "B70": 2000,
+        "B80": 1500
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 1000,
+        "A20": 1200,
+        "A30": 1000,
+        "A40": 1500,
+        "B50": 1200,
+        "B60": 800,
+        "B70": 2000,
+        "B80": 1500
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "股票價格同步完成後，玩家可選擇買入、賣出或放棄交易。",
+    "completion": "股票價格同步完成。所有玩家完成交易或放棄交易後結束。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N007",
+    "title": "新科技",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "推出新的科技，帶動經濟發展。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 5500,
+        "A20": 6000,
+        "A30": 10000,
+        "A40": 7500,
+        "B50": 7000,
+        "B60": 8500,
+        "B70": 9500,
+        "B80": 13000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 5500,
+        "A20": 6000,
+        "A30": 10000,
+        "A40": 7500,
+        "B50": 7000,
+        "B60": 8500,
+        "B70": 9500,
+        "B80": 13000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N008",
+    "title": "傳染病疫情",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "發生嚴重傳染病疫情，影響經濟發展。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 1100,
+        "A20": 1700,
+        "A30": 2000,
+        "A40": 1200,
+        "B50": 1800,
+        "B60": 500,
+        "B70": 6000,
+        "B80": 2500
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 1100,
+        "A20": 1700,
+        "A30": 2000,
+        "A40": 1200,
+        "B50": 1800,
+        "B60": 500,
+        "B70": 6000,
+        "B80": 2500
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N009",
+    "title": "減稅振興",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "推出減稅政策，振興股市",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 5500,
+        "A20": 4500,
+        "A30": 9500,
+        "A40": 7000,
+        "B50": 7000,
+        "B60": 7500,
+        "B70": 10000,
+        "B80": 12500
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 5500,
+        "A20": 4500,
+        "A30": 9500,
+        "A40": 7000,
+        "B50": 7000,
+        "B60": 7500,
+        "B70": 10000,
+        "B80": 12500
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N010",
+    "title": "氣候異常歉收",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "氣候異常造成海洋洋流暖化，今年農作物大歉收。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 1500,
+        "A20": 1500,
+        "A30": 2500,
+        "A40": 2000,
+        "B50": 2200,
+        "B60": 1500,
+        "B70": 3000,
+        "B80": 3500
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 1500,
+        "A20": 1500,
+        "A30": 2500,
+        "A40": 2000,
+        "B50": 2200,
+        "B60": 1500,
+        "B70": 3000,
+        "B80": 3500
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N011",
+    "title": "教育政策",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "推出教育政策，帶動市場發展",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 4500,
+        "A20": 4000,
+        "A30": 9000,
+        "A40": 6500,
+        "B50": 8500,
+        "B60": 7000,
+        "B70": 9500,
+        "B80": 11000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 4500,
+        "A20": 4000,
+        "A30": 9000,
+        "A40": 6500,
+        "B50": 8500,
+        "B60": 7000,
+        "B70": 9500,
+        "B80": 11000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N012",
+    "title": "提高稅率",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "修改新稅法，提高稅率。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 2000,
+        "A20": 1500,
+        "A30": 3000,
+        "A40": 2200,
+        "B50": 2500,
+        "B60": 2200,
+        "B70": 2800,
+        "B80": 3000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 2000,
+        "A20": 1500,
+        "A30": 3000,
+        "A40": 2200,
+        "B50": 2500,
+        "B60": 2200,
+        "B70": 2800,
+        "B80": 3000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N013",
+    "title": "農產豐收",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "本季農產豐收，農產品交易量大增",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 8000,
+        "A20": 4000,
+        "A30": 8500,
+        "A40": 6000,
+        "B50": 6500,
+        "B60": 6000,
+        "B70": 8000,
+        "B80": 10000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 8000,
+        "A20": 4000,
+        "A30": 8500,
+        "A40": 6000,
+        "B50": 6500,
+        "B60": 6000,
+        "B70": 8000,
+        "B80": 10000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N014",
+    "title": "工程延誤",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "重大工程延誤，新機場工程延誤。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格（依卡片價格表）。所有玩家皆可依更新價格，以「張」為單位自由買賣股票。",
+      "prices": {
+        "A10": 4000,
+        "A20": 5000,
+        "A30": 2500,
+        "A40": 3000,
+        "B50": 3500,
+        "B60": 3000,
+        "B70": 3200,
+        "B80": 4000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 4000,
+        "A20": 5000,
+        "A30": 2500,
+        "A40": 3000,
+        "B50": 3500,
+        "B60": 3000,
+        "B70": 3200,
+        "B80": 4000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "股票價格同步完成後，玩家可選擇買入、賣出或放棄交易。",
+    "completion": "股票價格同步完成。所有玩家完成交易或放棄交易後結束。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N015",
+    "title": "觀光周活動",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "蜂富城推動觀光周活動。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格（依卡片價格表）。所有玩家皆可依更新價格，以「張」為單位自由買賣股票。",
+      "prices": {
+        "A10": 5500,
+        "A20": 5000,
+        "A30": 7500,
+        "A40": 6500,
+        "B50": 6000,
+        "B60": 8000,
+        "B70": 7500,
+        "B80": 9500
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 5500,
+        "A20": 5000,
+        "A30": 7500,
+        "A40": 6500,
+        "B50": 6000,
+        "B60": 8000,
+        "B70": 7500,
+        "B80": 9500
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "股票價格同步完成後，玩家可選擇買入、賣出或放棄交易。",
+    "completion": "股票價格同步完成。所有玩家完成交易或放棄交易後結束。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N016",
+    "title": "失業率提高",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "景氣下滑，近三個月失業率提高。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 2000,
+        "A20": 2600,
+        "A30": 3000,
+        "A40": 3500,
+        "B50": 3000,
+        "B60": 2500,
+        "B70": 4000,
+        "B80": 5000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 2000,
+        "A20": 2600,
+        "A30": 3000,
+        "A40": 3500,
+        "B50": 3000,
+        "B60": 2500,
+        "B70": 4000,
+        "B80": 5000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N017",
+    "title": "新藥研發",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "新藥研發成功，藥業前景一片看好。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格（依卡片價格表）。所有玩家皆可依更新價格，以「張」為單位自由買賣股票。",
+      "prices": {
+        "A10": 4500,
+        "A20": 5000,
+        "A30": 5000,
+        "A40": 5500,
+        "B50": 6000,
+        "B60": 7000,
+        "B70": 11500,
+        "B80": 9000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 4500,
+        "A20": 5000,
+        "A30": 5000,
+        "A40": 5500,
+        "B50": 6000,
+        "B60": 7000,
+        "B70": 11500,
+        "B80": 9000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "股票價格同步完成後，玩家可選擇買入、賣出或放棄交易。",
+    "completion": "股票價格同步完成。所有玩家完成交易或放棄交易後結束。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N018",
+    "title": "季報不如預期",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "最新一期季報出爐，成果不如預期。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格（依卡片價格表）。所有玩家皆可依更新價格，以「張」為單位自由買賣股票。",
+      "prices": {
+        "A10": 2200,
+        "A20": 2800,
+        "A30": 3000,
+        "A40": 3500,
+        "B50": 2500,
+        "B60": 5000,
+        "B70": 4000,
+        "B80": 6000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 2200,
+        "A20": 2800,
+        "A30": 3000,
+        "A40": 3500,
+        "B50": 2500,
+        "B60": 5000,
+        "B70": 4000,
+        "B80": 6000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "股票價格同步完成後，玩家可選擇買入、賣出或放棄交易。",
+    "completion": "股票價格同步完成。所有玩家完成交易或放棄交易後結束。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N019",
+    "title": "財政緊縮",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "財政吃緊，縮減公共建設支出。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 2300,
+        "A20": 3000,
+        "A30": 2000,
+        "A40": 3500,
+        "B50": 3000,
+        "B60": 4000,
+        "B70": 5500,
+        "B80": 6500
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 2300,
+        "A20": 3000,
+        "A30": 2000,
+        "A40": 3500,
+        "B50": 3000,
+        "B60": 4000,
+        "B70": 5500,
+        "B80": 6500
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N020",
+    "title": "礦場意外",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "NO14【股市新訊】重大工程延誤，新機場工程延誤。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 2500,
+        "A20": 3000,
+        "A30": 2200,
+        "A40": 4000,
+        "B50": 3500,
+        "B60": 4500,
+        "B70": 6000,
+        "B80": 7000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 2500,
+        "A20": 3000,
+        "A30": 2200,
+        "A40": 4000,
+        "B50": 3500,
+        "B60": 4500,
+        "B70": 6000,
+        "B80": 7000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N021",
+    "title": "景氣溫和",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "經濟學家分析，近期景氣溫和成長。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格（依卡片價格表）。所有玩家皆可依更新價格，以「張」為單位自由買賣股票。",
+      "prices": {
+        "A10": 3500,
+        "A20": 4000,
+        "A30": 7000,
+        "A40": 5000,
+        "B50": 5000,
+        "B60": 5500,
+        "B70": 7500,
+        "B80": 8500
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 3500,
+        "A20": 4000,
+        "A30": 7000,
+        "A40": 5000,
+        "B50": 5000,
+        "B60": 5500,
+        "B70": 7500,
+        "B80": 8500
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "股票價格同步完成後，玩家可選擇買入、賣出或放棄交易。",
+    "completion": "股票價格同步完成。所有玩家完成交易或放棄交易後結束。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N022",
+    "title": "鼓勵生育",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "推出鼓勵生育政策，孩子出生率提高，育兒用品大熱賣。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 6500,
+        "A20": 6000,
+        "A30": 6000,
+        "A40": 4500,
+        "B50": 4000,
+        "B60": 5000,
+        "B70": 6000,
+        "B80": 8000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 6500,
+        "A20": 6000,
+        "A30": 6000,
+        "A40": 4500,
+        "B50": 4000,
+        "B60": 5000,
+        "B70": 6000,
+        "B80": 8000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N023",
+    "title": "降低銀行利率",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "為刺激經濟活絡，降低銀行利率。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 3500,
+        "A20": 3000,
+        "A30": 7000,
+        "A40": 5000,
+        "B50": 5000,
+        "B60": 5000,
+        "B70": 7000,
+        "B80": 8000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 3500,
+        "A20": 3000,
+        "A30": 7000,
+        "A40": 5000,
+        "B50": 5000,
+        "B60": 5000,
+        "B70": 7000,
+        "B80": 8000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N024",
+    "title": "開學季文具",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "開學季，文具需求大增。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格（依卡片價格表）。所有玩家皆可依更新價格，以「張」為單位自由買賣股票。",
+      "prices": {
+        "A10": 4500,
+        "A20": 6500,
+        "A30": 5500,
+        "A40": 6000,
+        "B50": 9000,
+        "B60": 3000,
+        "B70": 6000,
+        "B80": 8500
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 4500,
+        "A20": 6500,
+        "A30": 5500,
+        "A40": 6000,
+        "B50": 9000,
+        "B60": 3000,
+        "B70": 6000,
+        "B80": 8500
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "股票價格同步完成後，玩家可選擇買入、賣出或放棄交易。",
+    "completion": "股票價格同步完成。所有玩家完成交易或放棄交易後結束。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N025",
+    "title": "大型運動賽事",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "舉辦大型運動賽事，湧入大批觀光人潮。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格",
+      "prices": {
+        "A10": 8500,
+        "A20": 4500,
+        "A30": 6000,
+        "A40": 7000,
+        "B50": 3000,
+        "B60": 7500,
+        "B70": 4000,
+        "B80": 8000
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 8500,
+        "A20": 4500,
+        "A30": 6000,
+        "A40": 7000,
+        "B50": 3000,
+        "B60": 7500,
+        "B70": 4000,
+        "B80": 8000
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "直接更新 room.marketPrices，並同步所有玩家。",
+    "completion": "更新 room.marketPrices、同步所有玩家、重新計算股票市值後完成。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N026",
+    "title": "新能源降運輸成本",
+    "deck": "news",
+    "type": "stock_price",
+    "category": "股市新訊",
+    "description": "新能源發現，將降低運輸成本。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：更新股票價格",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "更新股票價格（依卡片價格表）。所有玩家皆可依更新價格，以「張」為單位自由買賣股票。",
+      "prices": {
+        "A10": 3000,
+        "A20": 2500,
+        "A30": 6500,
+        "A40": 8000,
+        "B50": 4000,
+        "B60": 4500,
+        "B70": 6000,
+        "B80": 9500
+      },
+      "specialRule": null
+    },
+    "amount": {
+      "prices": {
+        "A10": 3000,
+        "A20": 2500,
+        "A30": 6500,
+        "A40": 8000,
+        "B50": 4000,
+        "B60": 4500,
+        "B70": 6000,
+        "B80": 9500
+      }
+    },
+    "multiplier": {
+      "isBubbleHalving": false
+    },
+    "financialCheck": false,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有玩家。"
+    },
+    "noEffectCondition": "股票價格同步完成後，玩家可選擇買入、賣出或放棄交易。",
+    "completion": "股票價格同步完成。所有玩家完成交易或放棄交易後結束。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N027",
+    "title": "股利發放",
+    "deck": "news",
+    "type": "cash_dividend",
+    "category": "股市新訊",
+    "description": "股利發放。各上市公司發放現金股利。每股發放現金股利",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：持有對應股票者<br>效果：依持股發放現金股利",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有持股玩家",
+      "scope": "all_stock_holders",
+      "affectsOtherPlayers": true,
+      "raw": "所有持股玩家"
+    },
+    "effects": {
+      "summary": "依持股發放現金股利",
+      "dividendPerShare": {
+        "A10": 4,
+        "A20": 3,
+        "A30": 5,
+        "A40": 5,
+        "B50": 4,
+        "B60": 4,
+        "B70": 6,
+        "B80": 7
+      }
+    },
+    "amount": {
+      "dividendPerShare": {
+        "A10": 4,
+        "A20": 3,
+        "A30": 5,
+        "A40": 5,
+        "B50": 4,
+        "B60": 4,
+        "B70": 6,
+        "B80": 7
+      }
+    },
+    "multiplier": {},
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有持股玩家。"
+    },
+    "noEffectCondition": "沒有符合條件股票。直接關閉。",
+    "completion": "所有持股玩家的股利入帳並完成財務更新後結束。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N028",
+    "title": "股息發放",
+    "deck": "news",
+    "type": "stock_dividend",
+    "category": "股市新訊",
+    "description": "股息發放。各上市公司發放股票股息。每股發放股票股息率",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：持有對應股票者<br>效果：依持股發放股票股息",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有持股玩家",
+      "scope": "all_stock_holders",
+      "affectsOtherPlayers": true,
+      "raw": "所有持股玩家"
+    },
+    "effects": {
+      "summary": "依持股發放股票股息",
+      "dividendRate": {
+        "A10": 0.4,
+        "A20": 0.3,
+        "A30": 0.5,
+        "A40": 0.5,
+        "B50": 0.4,
+        "B60": 0.4,
+        "B70": 0.6,
+        "B80": 0.7
+      }
+    },
+    "amount": {},
+    "multiplier": {
+      "dividendRate": {
+        "A10": 0.4,
+        "A20": 0.3,
+        "A30": 0.5,
+        "A40": 0.5,
+        "B50": 0.4,
+        "B60": 0.4,
+        "B70": 0.6,
+        "B80": 0.7
+      }
+    },
+    "financialCheck": true,
+    "choiceRequired": false,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "影響所有持股玩家。"
+    },
+    "noEffectCondition": "沒有符合條件股票。直接關閉。",
+    "completion": "所有持股玩家的股票股息入帳並完成財務更新後結束。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N029",
+    "title": "單間小套房出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "新區落成，某建設公司推出新的一房一廳小套房，適合單身或小家庭入住。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 1,100,000；頭期款 100,000；貸款 1,000,000；月付款 5,000；租金 6,500；淨收益 +1,500",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 1,100,000；頭期款 100,000；貸款 1,000,000；月付款 5,000；租金 6,500；淨收益 +1,500",
+      "propertyLabel": "單間小套房",
+      "houseType": "1room",
+      "totalPrice": 1100000,
+      "downPayment": 100000,
+      "loanAmount": 1000000,
+      "monthlyPayment": 5000,
+      "rent": 6500,
+      "netRentIncome": 1500,
+      "happinessBonus": 2,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 1100000,
+      "downPayment": 100000,
+      "loanAmount": 1000000,
+      "monthlyPayment": 5000,
+      "rent": 6500,
+      "netRentIncome": 1500
+    },
+    "multiplier": {
+      "happinessBonus": 2
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N030",
+    "title": "單間小套房出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "二手單間小套房出售。位置靜幽、交通便利，近中心商城，適合都會新貴入住。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 1,050,000；頭期款 50,000；貸款 1,000,000；月付款 5,000；租金 7,000；淨收益 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 1,050,000；頭期款 50,000；貸款 1,000,000；月付款 5,000；租金 7,000；淨收益 +2,000",
+      "propertyLabel": "單間小套房",
+      "houseType": "1room",
+      "totalPrice": 1050000,
+      "downPayment": 50000,
+      "loanAmount": 1000000,
+      "monthlyPayment": 5000,
+      "rent": 7000,
+      "netRentIncome": 2000,
+      "happinessBonus": 2,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 1050000,
+      "downPayment": 50000,
+      "loanAmount": 1000000,
+      "monthlyPayment": 5000,
+      "rent": 7000,
+      "netRentIncome": 2000
+    },
+    "multiplier": {
+      "happinessBonus": 2
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N031",
+    "title": "單間小套房出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "舊社區一房一廳單間小套房急售。原屋主即將換屋，降價出售。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 1,000,000；頭期款 100,000；貸款 900,000；月付款 4,500；租金 5,500；淨收益 +1,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 1,000,000；頭期款 100,000；貸款 900,000；月付款 4,500；租金 5,500；淨收益 +1,000",
+      "propertyLabel": "單間小套房",
+      "houseType": "1room",
+      "totalPrice": 1000000,
+      "downPayment": 100000,
+      "loanAmount": 900000,
+      "monthlyPayment": 4500,
+      "rent": 5500,
+      "netRentIncome": 1000,
+      "happinessBonus": 2,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 1000000,
+      "downPayment": 100000,
+      "loanAmount": 900000,
+      "monthlyPayment": 4500,
+      "rent": 5500,
+      "netRentIncome": 1000
+    },
+    "multiplier": {
+      "happinessBonus": 2
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N032",
+    "title": "舊屋翻新單間小套房",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "舊屋翻新。屋齡老舊的一房一廳單間小套房，重新裝修出售。周遭生活機能良好，近市集和學校。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 1,200,000；頭期款 200,000；貸款 1,000,000；月付款 5,000；租金 5,000；淨收益 +0",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 1,200,000；頭期款 200,000；貸款 1,000,000；月付款 5,000；租金 5,000；淨收益 +0",
+      "propertyLabel": "單間小套房",
+      "houseType": "1room",
+      "totalPrice": 1200000,
+      "downPayment": 200000,
+      "loanAmount": 1000000,
+      "monthlyPayment": 5000,
+      "rent": 5000,
+      "netRentIncome": 0,
+      "happinessBonus": 2,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 1200000,
+      "downPayment": 200000,
+      "loanAmount": 1000000,
+      "monthlyPayment": 5000,
+      "rent": 5000,
+      "netRentIncome": 0
+    },
+    "multiplier": {
+      "happinessBonus": 2
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N033",
+    "title": "單間小套房出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "精華地段住商兩用房出售。一房一廳單間小套房新建落成，可供居住或個人工作室使用。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 1,800,000；頭期款 300,000；貸款 1,500,000；月付款 7,500；租金 10,000；淨收益 +2,500",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 1,800,000；頭期款 300,000；貸款 1,500,000；月付款 7,500；租金 10,000；淨收益 +2,500",
+      "propertyLabel": "單間小套房",
+      "houseType": "1room",
+      "totalPrice": 1800000,
+      "downPayment": 300000,
+      "loanAmount": 1500000,
+      "monthlyPayment": 7500,
+      "rent": 10000,
+      "netRentIncome": 2500,
+      "happinessBonus": 2,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 1800000,
+      "downPayment": 300000,
+      "loanAmount": 1500000,
+      "monthlyPayment": 7500,
+      "rent": 10000,
+      "netRentIncome": 2500
+    },
+    "multiplier": {
+      "happinessBonus": 2
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N034",
+    "title": "單間小套房出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "新婚夫妻打算換屋，出售新購的一房一廳單間小套房。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 1,500,000；頭期款 200,000；貸款 1,300,000；月付款 6,500；租金 7,000；淨收益 +500",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 1,500,000；頭期款 200,000；貸款 1,300,000；月付款 6,500；租金 7,000；淨收益 +500",
+      "propertyLabel": "單間小套房",
+      "houseType": "1room",
+      "totalPrice": 1500000,
+      "downPayment": 200000,
+      "loanAmount": 1300000,
+      "monthlyPayment": 6500,
+      "rent": 7000,
+      "netRentIncome": 500,
+      "happinessBonus": 2,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 1500000,
+      "downPayment": 200000,
+      "loanAmount": 1300000,
+      "monthlyPayment": 6500,
+      "rent": 7000,
+      "netRentIncome": 500
+    },
+    "multiplier": {
+      "happinessBonus": 2
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N035",
+    "title": "兩房一廳出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "二手新屋出讓。三年內新建住宅兩房一廳出售，內附全新裝潢，立即可入住。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 3,000,000；頭期款 600,000；貸款 2,400,000；月付款 12,000；租金 14,000；淨收益 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 3,000,000；頭期款 600,000；貸款 2,400,000；月付款 12,000；租金 14,000；淨收益 +2,000",
+      "propertyLabel": "兩房一廳",
+      "houseType": "2room",
+      "totalPrice": 3000000,
+      "downPayment": 600000,
+      "loanAmount": 2400000,
+      "monthlyPayment": 12000,
+      "rent": 14000,
+      "netRentIncome": 2000,
+      "happinessBonus": 4,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 3000000,
+      "downPayment": 600000,
+      "loanAmount": 2400000,
+      "monthlyPayment": 12000,
+      "rent": 14000,
+      "netRentIncome": 2000
+    },
+    "multiplier": {
+      "happinessBonus": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N036",
+    "title": "兩房一廳出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "於商業中心附近新落成兩房一廳住宅，適合新婚用新房。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 3,600,000；頭期款 600,000；貸款 3,000,000；月付款 15,000；租金 15,000；淨收益 +0",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 3,600,000；頭期款 600,000；貸款 3,000,000；月付款 15,000；租金 15,000；淨收益 +0",
+      "propertyLabel": "兩房一廳",
+      "houseType": "2room",
+      "totalPrice": 3600000,
+      "downPayment": 600000,
+      "loanAmount": 3000000,
+      "monthlyPayment": 15000,
+      "rent": 15000,
+      "netRentIncome": 0,
+      "happinessBonus": 4,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 3600000,
+      "downPayment": 600000,
+      "loanAmount": 3000000,
+      "monthlyPayment": 15000,
+      "rent": 15000,
+      "netRentIncome": 0
+    },
+    "multiplier": {
+      "happinessBonus": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N037",
+    "title": "兩房一廳出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "老舊住宅出售。原屋主將要退休，計畫將其居住三十年老住宅出讓。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 2,000,000；頭期款 200,000；貸款 1,800,000；月付款 9,000；租金 12,000；淨收益 +3,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 2,000,000；頭期款 200,000；貸款 1,800,000；月付款 9,000；租金 12,000；淨收益 +3,000",
+      "propertyLabel": "兩房一廳",
+      "houseType": "2room",
+      "totalPrice": 2000000,
+      "downPayment": 200000,
+      "loanAmount": 1800000,
+      "monthlyPayment": 9000,
+      "rent": 12000,
+      "netRentIncome": 3000,
+      "happinessBonus": 4,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 2000000,
+      "downPayment": 200000,
+      "loanAmount": 1800000,
+      "monthlyPayment": 9000,
+      "rent": 12000,
+      "netRentIncome": 3000
+    },
+    "multiplier": {
+      "happinessBonus": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N038",
+    "title": "兩房一廳出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "交通便利的兩房一廳住宅釋出出售，適合小家庭或首購族入住。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 2,800,000；頭期款 300,000；貸款 2,500,000；月付款 12,500；租金 10,000；淨收益 -2,500",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 2,800,000；頭期款 300,000；貸款 2,500,000；月付款 12,500；租金 10,000；淨收益 -2,500",
+      "propertyLabel": "兩房一廳",
+      "houseType": "2room",
+      "totalPrice": 2800000,
+      "downPayment": 300000,
+      "loanAmount": 2500000,
+      "monthlyPayment": 12500,
+      "rent": 10000,
+      "netRentIncome": -2500,
+      "happinessBonus": 4,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 2800000,
+      "downPayment": 300000,
+      "loanAmount": 2500000,
+      "monthlyPayment": 12500,
+      "rent": 10000,
+      "netRentIncome": -2500
+    },
+    "multiplier": {
+      "happinessBonus": 4
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N039",
+    "title": "三房兩廳出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "二手新屋出售。三房兩廳住宅出售，近新工商特區，上班輕鬆。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 4,500,000；頭期款 500,000；貸款 4,000,000；月付款 20,000；租金 18,000；淨收益 -2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 4,500,000；頭期款 500,000；貸款 4,000,000；月付款 20,000；租金 18,000；淨收益 -2,000",
+      "propertyLabel": "三房兩廳",
+      "houseType": "3room",
+      "totalPrice": 4500000,
+      "downPayment": 500000,
+      "loanAmount": 4000000,
+      "monthlyPayment": 20000,
+      "rent": 18000,
+      "netRentIncome": -2000,
+      "happinessBonus": 6,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 4500000,
+      "downPayment": 500000,
+      "loanAmount": 4000000,
+      "monthlyPayment": 20000,
+      "rent": 18000,
+      "netRentIncome": -2000
+    },
+    "multiplier": {
+      "happinessBonus": 6
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N040",
+    "title": "三房兩廳出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "企業發生虧損，將出售三房兩廳主管宿舍變現。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 3,500,000；頭期款 300,000；貸款 3,200,000；月付款 16,000；租金 20,000；淨收益 +4,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 3,500,000；頭期款 300,000；貸款 3,200,000；月付款 16,000；租金 20,000；淨收益 +4,000",
+      "propertyLabel": "三房兩廳",
+      "houseType": "3room",
+      "totalPrice": 3500000,
+      "downPayment": 300000,
+      "loanAmount": 3200000,
+      "monthlyPayment": 16000,
+      "rent": 20000,
+      "netRentIncome": 4000,
+      "happinessBonus": 6,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 3500000,
+      "downPayment": 300000,
+      "loanAmount": 3200000,
+      "monthlyPayment": 16000,
+      "rent": 20000,
+      "netRentIncome": 4000
+    },
+    "multiplier": {
+      "happinessBonus": 6
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N041",
+    "title": "三房兩廳出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "優質三房兩廳住宅落成，位於重要交通要道，交通便利。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 4,500,000；頭期款 500,000；貸款 4,000,000；月付款 20,000；租金 22,000；淨收益 +2,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 4,500,000；頭期款 500,000；貸款 4,000,000；月付款 20,000；租金 22,000；淨收益 +2,000",
+      "propertyLabel": "三房兩廳",
+      "houseType": "3room",
+      "totalPrice": 4500000,
+      "downPayment": 500000,
+      "loanAmount": 4000000,
+      "monthlyPayment": 20000,
+      "rent": 22000,
+      "netRentIncome": 2000,
+      "happinessBonus": 6,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 4500000,
+      "downPayment": 500000,
+      "loanAmount": 4000000,
+      "monthlyPayment": 20000,
+      "rent": 22000,
+      "netRentIncome": 2000
+    },
+    "multiplier": {
+      "happinessBonus": 6
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N042",
+    "title": "三房兩廳出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "新家庭換屋首選。近名校學區，求學便利。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 5,000,000；頭期款 500,000；貸款 4,500,000；月付款 22,500；租金 20,000；淨收益 -2,500",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 5,000,000；頭期款 500,000；貸款 4,500,000；月付款 22,500；租金 20,000；淨收益 -2,500",
+      "propertyLabel": "三房兩廳",
+      "houseType": "3room",
+      "totalPrice": 5000000,
+      "downPayment": 500000,
+      "loanAmount": 4500000,
+      "monthlyPayment": 22500,
+      "rent": 20000,
+      "netRentIncome": -2500,
+      "happinessBonus": 6,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 5000000,
+      "downPayment": 500000,
+      "loanAmount": 4500000,
+      "monthlyPayment": 22500,
+      "rent": 20000,
+      "netRentIncome": -2500
+    },
+    "multiplier": {
+      "happinessBonus": 6
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N043",
+    "title": "五房三廳豪宅出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "豪華五房三廳豪宅新建落成。企業領導人的最佳選擇。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 15,000,000；頭期款 5,000,000；貸款 10,000,000；月付款 50,000；租金 55,000；淨收益 +5,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 15,000,000；頭期款 5,000,000；貸款 10,000,000；月付款 50,000；租金 55,000；淨收益 +5,000",
+      "propertyLabel": "五房三廳豪宅",
+      "houseType": "5room",
+      "totalPrice": 15000000,
+      "downPayment": 5000000,
+      "loanAmount": 10000000,
+      "monthlyPayment": 50000,
+      "rent": 55000,
+      "netRentIncome": 5000,
+      "happinessBonus": 8,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 15000000,
+      "downPayment": 5000000,
+      "loanAmount": 10000000,
+      "monthlyPayment": 50000,
+      "rent": 55000,
+      "netRentIncome": 5000
+    },
+    "multiplier": {
+      "happinessBonus": 8
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N044",
+    "title": "五房三廳豪宅出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "振興房市專案。配合經濟振興政策，推出低首付華宅方案，機會難得。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 12,000,000；頭期款 1,200,000；貸款 10,800,000；月付款 54,000；租金 50,000；淨收益 -4,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 12,000,000；頭期款 1,200,000；貸款 10,800,000；月付款 54,000；租金 50,000；淨收益 -4,000",
+      "propertyLabel": "五房三廳豪宅",
+      "houseType": "5room",
+      "totalPrice": 12000000,
+      "downPayment": 1200000,
+      "loanAmount": 10800000,
+      "monthlyPayment": 54000,
+      "rent": 50000,
+      "netRentIncome": -4000,
+      "happinessBonus": 8,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 12000000,
+      "downPayment": 1200000,
+      "loanAmount": 10800000,
+      "monthlyPayment": 54000,
+      "rent": 50000,
+      "netRentIncome": -4000
+    },
+    "multiplier": {
+      "happinessBonus": 8
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N045",
+    "title": "五房三廳豪宅出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "二手豪宅出售。原屋主計畫移民，欲出讓位於精華區的豪華住宅。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 16,000,000；頭期款 5,000,000；貸款 11,000,000；月付款 55,000；租金 55,000；淨收益 +0",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 16,000,000；頭期款 5,000,000；貸款 11,000,000；月付款 55,000；租金 55,000；淨收益 +0",
+      "propertyLabel": "五房三廳豪宅",
+      "houseType": "5room",
+      "totalPrice": 16000000,
+      "downPayment": 5000000,
+      "loanAmount": 11000000,
+      "monthlyPayment": 55000,
+      "rent": 55000,
+      "netRentIncome": 0,
+      "happinessBonus": 8,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 16000000,
+      "downPayment": 5000000,
+      "loanAmount": 11000000,
+      "monthlyPayment": 55000,
+      "rent": 55000,
+      "netRentIncome": 0
+    },
+    "multiplier": {
+      "happinessBonus": 8
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N046",
+    "title": "五房三廳豪宅出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "急售求現。因經濟不景氣，造成新一波售屋潮。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 9,000,000；頭期款 1,000,000；貸款 8,000,000；月付款 40,000；租金 50,000；淨收益 +10,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 9,000,000；頭期款 1,000,000；貸款 8,000,000；月付款 40,000；租金 50,000；淨收益 +10,000",
+      "propertyLabel": "五房三廳豪宅",
+      "houseType": "5room",
+      "totalPrice": 9000000,
+      "downPayment": 1000000,
+      "loanAmount": 8000000,
+      "monthlyPayment": 40000,
+      "rent": 50000,
+      "netRentIncome": 10000,
+      "happinessBonus": 8,
+      "canSelfUse": true
+    },
+    "amount": {
+      "totalPrice": 9000000,
+      "downPayment": 1000000,
+      "loanAmount": 8000000,
+      "monthlyPayment": 40000,
+      "rent": 50000,
+      "netRentIncome": 10000
+    },
+    "multiplier": {
+      "happinessBonus": 8
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N047",
+    "title": "小型店面出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "商業區微型店面求售。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 1,200,000；頭期款 120,000；貸款 1,080,000；月付款 5,400；租金 15,000；淨收益 +9,600",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 1,200,000；頭期款 120,000；貸款 1,080,000；月付款 5,400；租金 15,000；淨收益 +9,600",
+      "propertyLabel": "小型店面",
+      "houseType": "store_small",
+      "totalPrice": 1200000,
+      "downPayment": 120000,
+      "loanAmount": 1080000,
+      "monthlyPayment": 5400,
+      "rent": 15000,
+      "netRentIncome": 9600,
+      "happinessBonus": 0,
+      "canSelfUse": false
+    },
+    "amount": {
+      "totalPrice": 1200000,
+      "downPayment": 120000,
+      "loanAmount": 1080000,
+      "monthlyPayment": 5400,
+      "rent": 15000,
+      "netRentIncome": 9600
+    },
+    "multiplier": {
+      "happinessBonus": 0
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N048",
+    "title": "小型店面出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "商業區小型店面求售。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 1,800,000；頭期款 180,000；貸款 1,620,000；月付款 8,100；租金 20,000；淨收益 +11,900",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 1,800,000；頭期款 180,000；貸款 1,620,000；月付款 8,100；租金 20,000；淨收益 +11,900",
+      "propertyLabel": "小型店面",
+      "houseType": "store_small",
+      "totalPrice": 1800000,
+      "downPayment": 180000,
+      "loanAmount": 1620000,
+      "monthlyPayment": 8100,
+      "rent": 20000,
+      "netRentIncome": 11900,
+      "happinessBonus": 0,
+      "canSelfUse": false
+    },
+    "amount": {
+      "totalPrice": 1800000,
+      "downPayment": 180000,
+      "loanAmount": 1620000,
+      "monthlyPayment": 8100,
+      "rent": 20000,
+      "netRentIncome": 11900
+    },
+    "multiplier": {
+      "happinessBonus": 0
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N049",
+    "title": "小型店面出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "商業區微型店面求售。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 1,000,000；頭期款 80,000；貸款 920,000；月付款 4,600；租金 10,000；淨收益 +5,400",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 1,000,000；頭期款 80,000；貸款 920,000；月付款 4,600；租金 10,000；淨收益 +5,400",
+      "propertyLabel": "小型店面",
+      "houseType": "store_small",
+      "totalPrice": 1000000,
+      "downPayment": 80000,
+      "loanAmount": 920000,
+      "monthlyPayment": 4600,
+      "rent": 10000,
+      "netRentIncome": 5400,
+      "happinessBonus": 0,
+      "canSelfUse": false
+    },
+    "amount": {
+      "totalPrice": 1000000,
+      "downPayment": 80000,
+      "loanAmount": 920000,
+      "monthlyPayment": 4600,
+      "rent": 10000,
+      "netRentIncome": 5400
+    },
+    "multiplier": {
+      "happinessBonus": 0
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N050",
+    "title": "商業區小型店面出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "商業區小型店面求售。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 2,000,000；頭期款 400,000；貸款 1,600,000；月付款 8,000；租金 22,000；淨收益 +14,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 2,000,000；頭期款 400,000；貸款 1,600,000；月付款 8,000；租金 22,000；淨收益 +14,000",
+      "propertyLabel": "小型店面",
+      "houseType": "store_small",
+      "totalPrice": 2000000,
+      "downPayment": 400000,
+      "loanAmount": 1600000,
+      "monthlyPayment": 8000,
+      "rent": 22000,
+      "netRentIncome": 14000,
+      "happinessBonus": 0,
+      "canSelfUse": false
+    },
+    "amount": {
+      "totalPrice": 2000000,
+      "downPayment": 400000,
+      "loanAmount": 1600000,
+      "monthlyPayment": 8000,
+      "rent": 22000,
+      "netRentIncome": 14000
+    },
+    "multiplier": {
+      "happinessBonus": 0
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N051",
+    "title": "中型店面出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "商業區中型店面釋出出售，適合穩定收租與長期經營。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 5,000,000；頭期款 1,000,000；貸款 4,000,000；月付款 20,000；租金 40,000；淨收益 +20,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 5,000,000；頭期款 1,000,000；貸款 4,000,000；月付款 20,000；租金 40,000；淨收益 +20,000",
+      "propertyLabel": "中型店面",
+      "houseType": "store_medium",
+      "totalPrice": 5000000,
+      "downPayment": 1000000,
+      "loanAmount": 4000000,
+      "monthlyPayment": 20000,
+      "rent": 40000,
+      "netRentIncome": 20000,
+      "happinessBonus": 0,
+      "canSelfUse": false
+    },
+    "amount": {
+      "totalPrice": 5000000,
+      "downPayment": 1000000,
+      "loanAmount": 4000000,
+      "monthlyPayment": 20000,
+      "rent": 40000,
+      "netRentIncome": 20000
+    },
+    "multiplier": {
+      "happinessBonus": 0
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N052",
+    "title": "商業區中型店面出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "商業區中型店面求售。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 6,000,000；頭期款 3,000,000；貸款 3,000,000；月付款 15,000；租金 60,000；淨收益 +45,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 6,000,000；頭期款 3,000,000；貸款 3,000,000；月付款 15,000；租金 60,000；淨收益 +45,000",
+      "propertyLabel": "中型店面",
+      "houseType": "store_medium",
+      "totalPrice": 6000000,
+      "downPayment": 3000000,
+      "loanAmount": 3000000,
+      "monthlyPayment": 15000,
+      "rent": 60000,
+      "netRentIncome": 45000,
+      "happinessBonus": 0,
+      "canSelfUse": false
+    },
+    "amount": {
+      "totalPrice": 6000000,
+      "downPayment": 3000000,
+      "loanAmount": 3000000,
+      "monthlyPayment": 15000,
+      "rent": 60000,
+      "netRentIncome": 45000
+    },
+    "multiplier": {
+      "happinessBonus": 0
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N053",
+    "title": "大型店面出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "商業區大型店面求售。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 12,000,000；頭期款 4,000,000；貸款 8,000,000；月付款 40,000；租金 150,000；淨收益 +110,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 12,000,000；頭期款 4,000,000；貸款 8,000,000；月付款 40,000；租金 150,000；淨收益 +110,000",
+      "propertyLabel": "大型店面",
+      "houseType": "store_large",
+      "totalPrice": 12000000,
+      "downPayment": 4000000,
+      "loanAmount": 8000000,
+      "monthlyPayment": 40000,
+      "rent": 150000,
+      "netRentIncome": 110000,
+      "happinessBonus": 0,
+      "canSelfUse": false
+    },
+    "amount": {
+      "totalPrice": 12000000,
+      "downPayment": 4000000,
+      "loanAmount": 8000000,
+      "monthlyPayment": 40000,
+      "rent": 150000,
+      "netRentIncome": 110000
+    },
+    "multiplier": {
+      "happinessBonus": 0
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N054",
+    "title": "大型店面出售",
+    "deck": "news",
+    "type": "real_estate",
+    "category": "房市新訊",
+    "description": "商業區大型店面求售。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：抽到者<br>效果：總價 16,000,000；頭期款 6,000,000；貸款 10,000,000；月付款 50,000；租金 200,000；淨收益 +150,000",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "抽到者",
+      "scope": "self",
+      "affectsOtherPlayers": false,
+      "raw": "抽到者"
+    },
+    "effects": {
+      "summary": "總價 16,000,000；頭期款 6,000,000；貸款 10,000,000；月付款 50,000；租金 200,000；淨收益 +150,000",
+      "propertyLabel": "大型店面",
+      "houseType": "store_large",
+      "totalPrice": 16000000,
+      "downPayment": 6000000,
+      "loanAmount": 10000000,
+      "monthlyPayment": 50000,
+      "rent": 200000,
+      "netRentIncome": 150000,
+      "happinessBonus": 0,
+      "canSelfUse": false
+    },
+    "amount": {
+      "totalPrice": 16000000,
+      "downPayment": 6000000,
+      "loanAmount": 10000000,
+      "monthlyPayment": 50000,
+      "rent": 200000,
+      "netRentIncome": 150000
+    },
+    "multiplier": {
+      "happinessBonus": 0
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": false,
+      "affectsAllPlayers": false,
+      "otherPlayersCanJoin": false,
+      "summary": "僅影響事件玩家。"
+    },
+    "noEffectCondition": "若玩家放棄，則直接關閉。",
+    "completion": "若購買：建立資產、建立貸款、建立月收入、建立月支出。若放棄：直接關閉。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": []
+  },
+  {
+    "id": "N055",
+    "title": "優質大型企業徵求合夥人",
+    "deck": "news",
+    "type": "large_enterprise",
+    "category": "企業新訊",
+    "description": "知名大型遊樂園將建設新館，計畫徵求合夥投資人。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：玩家可選擇參與或不參與，並輸入投資金額",
+      "requirements": [
+        "requires_investment_amount_input"
+      ]
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "依玩家輸入投資金額建立企業。每投入100萬，增加月收入200,000。",
+      "businessName": "遊樂園",
+      "maxInvestment": 50000000,
+      "monthlyReturnPerMillion": 200000
+    },
+    "amount": {
+      "loanAmount": 0,
+      "maxInvestment": 50000000
+    },
+    "multiplier": {
+      "monthlyReturnPerMillion": 200000,
+      "inputStep": 1000000
+    },
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": false,
+      "summary": "不需要 Follow-up。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有玩家皆可自由選擇是否參與。"
+    },
+    "noEffectCondition": "若玩家不參與，則直接結束；若輸入金額不在範圍或現金不足，應無法成立。",
+    "completion": "完成財務檢核。建立企業收入。建立企業資產。",
+    "status": "complete",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": [
+      "需要輸入投資金額，並依正式財務檢核 / 交易流程成立。",
+      "N055 需先確認投資金額，再進入正式交易與財務檢核。"
+    ]
+  },
+  {
+    "id": "N056",
+    "title": "創業貸款",
+    "deck": "news",
+    "type": "small_business",
+    "category": "企業新訊",
+    "description": "最近創業貸款政策推出，每人最多可獲50萬\n低利息無擔保創業貸款。\n\n*所有玩家都可以參與*\n願意接受的玩家，可獲貸款50萬，但增加貸款利息支出 1,500。且經過銀行時，須擲骰子使其大於等於5。\n成功者可以使兼職工作室升等為小型企業，貸款和利息取消，並增加點數1萬倍的企業收入。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：投資金額 3000H/月；貸款 500000H；企業貸款利息 1500H/月",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "投資金額 3000H/月；貸款 500000H；企業貸款利息 1500H/月",
+      "loanAmount": 500000,
+      "interestPerMonth": 1500,
+      "investmentPerMonth": 3000
+    },
+    "amount": {
+      "loanAmount": 500000,
+      "interestPerMonth": 1500,
+      "investmentPerMonth": 3000
+    },
+    "multiplier": {},
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": true,
+      "summary": "銀行擲骰 >= 5；成功升級兼職工作室；取消貸款；取消本利和；增加企業收入。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有玩家皆可自由選擇是否接受。"
+    },
+    "noEffectCondition": "所有玩家皆可自由選擇是否接受；若不接受，則直接結束。",
+    "completion": "所有接受玩家完成貸款建立與財務檢核後結束。",
+    "status": "partial",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": [
+      "尚未完成銀行升級流程。"
+    ]
+  },
+  {
+    "id": "N057",
+    "title": "創業貸款",
+    "deck": "news",
+    "type": "small_business",
+    "category": "企業新訊",
+    "description": "最近創業貸款政策推出，每人最多可獲60萬\n低利息無擔保創業貸款。\n\n*所有玩家都可以參與*\n願意接受的玩家，可獲貸款60萬，但增加貸款利息支出 3,000。且經過銀行時，須擲骰子使其大於等於5。\n成功者可以使兼職工作室升等為小型企業，貸款和利息取消，並增加點數1萬倍的企業收入。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：投資金額 5000H/月；貸款 600000H；每月本利和 3000H/月",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "投資金額 5000H/月；貸款 600000H；每月本利和 3000H/月",
+      "loanAmount": 600000,
+      "interestPerMonth": 3000,
+      "investmentPerMonth": 5000
+    },
+    "amount": {
+      "loanAmount": 600000,
+      "interestPerMonth": 3000,
+      "investmentPerMonth": 5000
+    },
+    "multiplier": {},
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": true,
+      "summary": "銀行擲骰 >= 5；成功升級兼職工作室；取消貸款；取消本利和；增加企業收入。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有玩家皆可自由選擇是否接受。"
+    },
+    "noEffectCondition": "所有玩家皆可自由選擇是否接受；若不接受，則直接結束。",
+    "completion": "所有接受玩家完成貸款建立與財務檢核後結束。",
+    "status": "partial",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": [
+      "尚未完成銀行升級流程。"
+    ]
+  },
+  {
+    "id": "N058",
+    "title": "創業貸款",
+    "deck": "news",
+    "type": "small_business",
+    "category": "企業新訊",
+    "description": "最近創業貸款政策推出，每人最多可獲60萬\n低利息無擔保創業貸款。\n\n*所有玩家都可以參與*\n願意接受的玩家，可獲貸款60萬，但增加貸款利息支出 3,000。且經過銀行時，須擲骰子使其大於等於5。\n成功者可以使兼職工作室升等為小型企業，貸款和利息取消，並增加點數1萬倍的企業收入。",
+    "conditions": {
+      "trigger": "抽到新聞卡",
+      "raw": "觸發：抽到新聞卡<br>影響對象：所有玩家<br>效果：投資金額 5000H/月；貸款 600000H；每月本利和 3000H/月",
+      "requirements": []
+    },
+    "targets": {
+      "summary": "所有玩家",
+      "scope": "all_players",
+      "affectsOtherPlayers": true,
+      "raw": "所有玩家"
+    },
+    "effects": {
+      "summary": "投資金額 5000H/月；貸款 600000H；每月本利和 3000H/月",
+      "loanAmount": 600000,
+      "interestPerMonth": 3000,
+      "investmentPerMonth": 5000
+    },
+    "amount": {
+      "loanAmount": 600000,
+      "interestPerMonth": 3000,
+      "investmentPerMonth": 5000
+    },
+    "multiplier": {},
+    "financialCheck": true,
+    "choiceRequired": true,
+    "insurance": {
+      "canBlock": false,
+      "summary": "否",
+      "type": null,
+      "payoutAmount": null
+    },
+    "followUp": {
+      "required": true,
+      "summary": "銀行擲骰 >= 5；成功升級兼職工作室；取消貸款；取消本利和；增加企業收入。",
+      "drawCard": null
+    },
+    "multiplayer": {
+      "affectsOtherPlayers": true,
+      "affectsAllPlayers": true,
+      "otherPlayersCanJoin": false,
+      "summary": "所有玩家皆可自由選擇是否接受。"
+    },
+    "noEffectCondition": "所有玩家皆可自由選擇是否接受；若不接受，則直接結束。",
+    "completion": "所有接受玩家完成貸款建立與財務檢核後結束。",
+    "status": "partial",
+    "sourceCodeReference": [
+      "src/constants/cards.ts",
+      "src/utils/boardCardActions.ts",
+      "src/utils/boardCardDisplay.ts",
+      "src/views/game/GameView.tsx",
+      "src/context/RoomContext.tsx",
+      "src/components/business/FinancialStatement.tsx"
+    ],
+    "notes": [
+      "尚未完成銀行升級流程。"
+    ]
+  }
+]

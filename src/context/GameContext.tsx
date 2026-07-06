@@ -16,6 +16,7 @@ import { useRoom } from './RoomContext';
 import { GameState, GameRecord, FinancialSummary } from '../types';
 import { calculateFinancialSummary, calculateScoreResult } from '../utils/gameUtils';
 import { cleanObject, safeAsync } from '../utils/utils';
+import { globalGameCoreEngine, CommandGateway, LegacyGameAdapter } from '../game';
 
 interface GameContextValue {
     gameState: GameState;
@@ -38,6 +39,21 @@ const GameContext = createContext<GameContextValue | undefined>(undefined);
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user } = useAuth();
     const { room } = useRoom();
+
+    // ─── Milestone 0.5: Adapter Wiring ───────────────────────────────────────
+    // LegacyGameAdapter 就位，但所有 Feature Flags 為 false，
+    // 任何 dispatch 都回傳 null，不接管任何行為。
+    const coreGameAdapter = useMemo(
+        () => new LegacyGameAdapter(new CommandGateway(globalGameCoreEngine)),
+        []
+    );
+    // DEV only：確認 Adapter 接線成功（所有 flags = false，不接管任何行為）
+    useEffect(() => {
+        if (import.meta.env.DEV) {
+            console.debug('[GameContext] coreGameAdapter ready:', coreGameAdapter.isReady());
+        }
+    }, [coreGameAdapter]);
+    // ─────────────────────────────────────────────────────────────────────────
 
     const [gameState, setGameState] = useState<GameState>(() => {
         // 從 localStorage 恢復狀態 (選配)
@@ -127,7 +143,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 lastBoardEvent: existingRoomState?.lastBoardEvent ?? gameState.lastBoardEvent,
                 pendingCardAction: existingRoomState?.pendingCardAction ?? gameState.pendingCardAction,
                 bankServiceWindowActive: existingRoomState?.bankServiceWindowActive ?? gameState.bankServiceWindowActive,
-                bankServiceGrantedAtEventId: existingRoomState?.bankServiceGrantedAtEventId ?? gameState.bankServiceGrantedAtEventId
+                bankServiceGrantedAtEventId: existingRoomState?.bankServiceGrantedAtEventId ?? gameState.bankServiceGrantedAtEventId,
+                pendingFamilyMilestoneJoinAction: existingRoomState?.pendingFamilyMilestoneJoinAction ?? gameState.pendingFamilyMilestoneJoinAction
             });
             await safeAsync(updateDoc(roomRef, {
                 [`playerStates.${user.uid}`]: cleanedState

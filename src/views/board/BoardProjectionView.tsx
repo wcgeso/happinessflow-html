@@ -264,6 +264,11 @@ const CardStage: React.FC<{
     return starIndex === -1 ? '' : normalizedDescription.substring(starIndex).replace(/\*/g, '').trim();
   })();
   const normalizedEffectLines = (card.effectLines || []).map(line => normalizeCardCopy(line));
+  const familyMilestoneStatus = card.familyMilestoneStatus;
+  const isFamilyMilestoneCard =
+    card.deck === 'happiness' &&
+    card.subtitle === '家庭重要歷程' &&
+    !!familyMilestoneStatus?.stages?.length;
   const stockEffectMap = normalizedEffectLines.reduce<Record<string, string>>((acc, line) => {
     const [label, ...rest] = line.split('：');
     if (!label || rest.length === 0) return acc;
@@ -273,9 +278,13 @@ const CardStage: React.FC<{
   const isStockCard = card.deck === 'news' && normalizedEffectLines.length === 8 && normalizedEffectLines.some(line => line.includes('A10'));
 
   return (
-    <div className="w-[min(92vw,560px)]" style={{ perspective: '1400px' }}>
+    <div className="w-[calc(100vw-32px)] max-w-[560px]" style={{ perspective: '1400px' }}>
       <div
-        className="relative h-[min(78vh,760px)] min-h-[420px] w-full transition-transform duration-700"
+        className={`relative w-full transition-transform duration-700 ${
+          isFamilyMilestoneCard
+            ? 'h-[min(78vh,700px)] min-h-[420px]'
+            : 'h-[min(78vh,760px)] min-h-[420px]'
+        }`}
         style={{
           transformStyle: 'preserve-3d',
           transform: isRevealed ? 'rotateY(180deg)' : 'rotateY(0deg)'
@@ -287,13 +296,7 @@ const CardStage: React.FC<{
         >
           <div className="absolute inset-[12px] rounded-[20px] border border-white/60" />
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #5b4127 1px, transparent 1px)', backgroundSize: '14px 14px' }} />
-          <div className="relative z-10 flex h-full flex-col items-center justify-center text-[#4f3c29]">
-            <div className="mb-5 flex h-24 w-24 items-center justify-center rounded-[24px] border border-white/60 bg-white/35 shadow-inner">
-              {getCardIcon(card.deck, 38)}
-            </div>
-            <div className="text-3xl font-black tracking-[0.18em]">{theme.label}</div>
-            <div className="mt-3 text-sm font-black tracking-[0.28em] opacity-70">等待玩家翻開</div>
-          </div>
+          <div className="relative z-10 flex h-full items-center justify-center" />
         </div>
 
         <div
@@ -301,29 +304,73 @@ const CardStage: React.FC<{
           style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
         >
           <div className={`h-3 bg-gradient-to-r ${theme.cardBack}`} />
-          <div className="flex h-[calc(100%-12px)] min-h-0 flex-col overflow-hidden p-5 sm:p-6">
+          <div className={`flex h-[calc(100%-12px)] min-h-0 flex-col overflow-hidden ${isFamilyMilestoneCard ? 'p-4 sm:p-5' : 'p-4 sm:p-6'}`}>
             <div className="flex items-center gap-2 text-xs font-black tracking-[0.24em] text-[#9c7c58]">
               {getCardIcon(card.deck, 18)}
               <span>{theme.label}</span>
             </div>
-            <div className="mt-3 text-2xl font-black leading-tight sm:text-3xl">{card.title}</div>
+            <div className={`mt-3 break-words font-black leading-[1.05] ${isFamilyMilestoneCard ? 'text-[clamp(2.5rem,5.8vw,4.4rem)]' : 'text-[clamp(2rem,7vw,3rem)]'}`}>{card.title}</div>
             {subtitle && (
-              <div className="mt-3 w-fit rounded-full border border-[#d6bd9a] bg-[#f4e6d0] px-3 py-1 text-xs font-black tracking-[0.12em] text-[#76573a]">
+              <div className="mt-3 inline-flex max-w-full break-words rounded-full border border-[#d6bd9a] bg-[#f4e6d0] px-3 py-1 text-xs font-black tracking-[0.12em] text-[#76573a]">
                 {subtitle}
               </div>
             )}
-            <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-              {flavorText && (
-                <p className="whitespace-pre-wrap text-sm font-semibold leading-relaxed text-[#715742] sm:text-base">
+            <div className={`mt-4 min-h-0 flex-1 pr-1 ${isFamilyMilestoneCard ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+              {flavorText && !isFamilyMilestoneCard && (
+                <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-[#715742] sm:text-base">
                   {flavorText}
                 </p>
               )}
-              {ruleText && (
-                <div className="mt-4 rounded-[18px] border border-[#e5cfac] bg-[#fff6e6] px-4 py-4 text-sm font-bold leading-relaxed text-[#6f5336] whitespace-pre-wrap">
+              {ruleText && !isFamilyMilestoneCard && (
+                <div className="mt-4 rounded-[18px] border border-[#e5cfac] bg-[#fff6e6] px-4 py-4 text-sm font-bold leading-relaxed text-[#6f5336] whitespace-pre-wrap break-words">
                   {ruleText}
                 </div>
               )}
-              {!!normalizedEffectLines.length && (
+              {isFamilyMilestoneCard ? (
+                <div className="mt-3 space-y-2">
+                  <div className="rounded-[16px] border border-[#e6cfaa] bg-[#fff8ec] px-3 py-2.5 text-[12px] font-bold leading-relaxed text-[#6f5336] break-words sm:text-[13px]">
+                    抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於 4，才能完成一項歷程。
+                  </div>
+
+                  <div className="rounded-[18px] border border-[#e7d5bb] bg-white/90 p-3">
+                    <div className="mb-1.5 flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-[10px] font-black tracking-[0.22em] text-[#9c7c58]">
+                        家庭重要歷程
+                      </div>
+                    </div>
+
+                    <div className="mb-1 grid grid-cols-[minmax(0,1.7fr)_minmax(0,0.95fr)_minmax(0,0.55fr)] gap-2 px-1 text-[9px] font-black tracking-[0.1em] text-[#a4835b]">
+                      <div>階段</div>
+                      <div>花費</div>
+                      <div>幸福</div>
+                    </div>
+                    <div className="overflow-hidden rounded-[16px] border border-[#ead6b9] bg-[#fffdf8]">
+                      {familyMilestoneStatus.stages.map((stage: any, index: number) => {
+                        return (
+                          <div
+                            key={`${card.cardId}_${stage.cardId}`}
+                            className={`grid grid-cols-[minmax(0,1.7fr)_minmax(0,0.95fr)_minmax(0,0.55fr)] items-center gap-2 px-3 py-2 transition-all ${
+                              index % 2 === 0 ? 'bg-[#fffdf8]' : 'bg-[#fff9f0]'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <div className="break-words text-[12px] font-black leading-tight text-[#5b4127] sm:text-[13px]">
+                                {stage.label}
+                              </div>
+                            </div>
+                            <div className="min-w-0 break-words text-[11px] font-black leading-tight text-[#7a5a37] sm:text-[12px]">
+                              {stage.cost}
+                            </div>
+                            <div className="min-w-0 whitespace-nowrap text-[11px] font-black leading-tight text-[#5f4933] sm:text-[12px]">
+                              +{stage.points}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : !!normalizedEffectLines.length && (
                 isStockCard ? (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {STOCK_SYMBOL_COLUMNS.map((column, columnIndex) => (
@@ -350,7 +397,7 @@ const CardStage: React.FC<{
                 ) : (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {normalizedEffectLines.map((line, index) => (
-                      <div key={`${card.cardId}_${index}`} className="rounded-[14px] border border-[#ead6b9] bg-[#fffdf8] px-4 py-3 text-sm font-black leading-relaxed text-[#5f4933] whitespace-pre-wrap">
+                      <div key={`${card.cardId}_${index}`} className="rounded-[14px] border border-[#ead6b9] bg-[#fffdf8] px-4 py-3 text-sm font-black leading-relaxed text-[#5f4933] whitespace-pre-wrap break-words">
                         {line}
                       </div>
                     ))}

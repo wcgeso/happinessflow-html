@@ -58,9 +58,7 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
                                 <div className="text-slate-500 text-xs mt-1">下一階目標：擲骰子 ≥ {currentRankLevel + 1} 點</div>
                             </div>
                             <div className="flex flex-col items-end shrink-0">
-                                <div className="text-emerald-400 font-mono font-black text-xl">
-                                    1,000<span className="text-[10px] ml-1">H</span>
-                                </div>
+                                <div className="text-emerald-400 font-mono font-black text-xl">1,000</div>
                                 <CheckCircle2 size={16} className="text-amber-500 mt-1 animate-in zoom-in" />
                             </div>
                         </div>

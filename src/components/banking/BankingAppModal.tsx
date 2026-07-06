@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { X, TrendingUp, Landmark, ShieldCheck } from 'lucide-react';
+import { X, TrendingUp, Landmark, ShieldCheck, Car } from 'lucide-react';
 import { AccountEntry, Asset, TransactionData } from '../../types';
+import { STOCK_SYMBOLS } from '../../constants';
 import { getStockAssetLabel } from '../../utils/assetLabels';
 import { BrokerView } from './BrokerView';
 import { BankingView } from './BankingView';
 import { WealthView } from './WealthView';
 import { useRoom } from '../../context/RoomContext';
-import { useAuth } from '../../context/AuthContext';
-import { NEWS_CARD_MAP } from '../../constants/cards';
+import { extractAssetSymbol } from '../../utils/assetLabels';
 
-export type BankingTab = 'broker' | 'banking' | 'wealth';
+export type BankingTab = 'broker' | 'banking' | 'wealth' | 'vehicle';
 
 export interface BankingAppModalProps {
   cash: number;
@@ -20,6 +20,7 @@ export interface BankingAppModalProps {
   previousMarketPrices?: Record<string, number>;
   medicalInsuranceCount?: number;
   initialTab?: BankingTab;
+  initialWealthProductType?: 'insurance' | 'deposit' | 'car';
   canUseBankProducts?: boolean;
   onTransaction: (data: TransactionData) => void;
   onClose: () => void;
@@ -34,63 +35,47 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
   previousMarketPrices = {},
   medicalInsuranceCount = 0,
   initialTab = 'broker',
+  initialWealthProductType = 'insurance',
   canUseBankProducts = true,
   onTransaction,
   onClose
 }) => {
   const { room } = useRoom();
-  const { user } = useAuth();
-  const safeInitialTab = initialTab === 'wealth' && !canUseBankProducts ? 'broker' : initialTab;
-  const [activeTab, setActiveTab] = useState<BankingTab>(safeInitialTab);
-
-  useEffect(() => {
-    if (!canUseBankProducts && activeTab === 'wealth') {
-      setActiveTab('broker');
-    }
-  }, [activeTab, canUseBankProducts]);
+  const [activeTab, setActiveTab] = useState<BankingTab>(initialTab);
 
   const brokerAssets = useMemo(
     () => assets.map(asset => {
       if (asset.type !== '股票') return asset;
 
-      const symbolFromName = asset.name.replace(/^股票\s*/, '').trim();
+      const symbolFromName = extractAssetSymbol(asset.symbol || asset.name);
       return {
         ...asset,
         symbol: symbolFromName,
-        shares: asset.quantity || 0,
-        buyPrice: asset.lastPurchasePrice || 0
+        shares: asset.shares || asset.quantity || 0,
+        buyPrice: asset.buyPrice || asset.lastPurchasePrice || 0
       };
     }),
     [assets]
   );
 
-  const boardCardMarketPrices = useMemo(() => {
-    const currentCard = room?.boardState?.currentCard;
-    const currentEvent = room?.boardState?.currentEvent;
-    if (!currentCard || currentCard.deck !== 'news') return null;
-    if (currentEvent?.playerUid && user?.uid && currentEvent.playerUid !== user.uid) return null;
-
-    const newsCard = NEWS_CARD_MAP[currentCard.cardId];
-    if (!newsCard || newsCard.type !== 'stock_price') return null;
-
-    return newsCard.prices;
-  }, [room?.boardState?.currentCard, room?.boardState?.currentEvent, user?.uid]);
-
   const effectiveMarketPrices = useMemo(
-    () => ({
-      ...(room?.marketPrices || {}),
-      ...(marketPrices || {}),
-      ...(boardCardMarketPrices || {})
-    }),
-    [room?.marketPrices, marketPrices, boardCardMarketPrices]
+    () => Object.fromEntries(
+      STOCK_SYMBOLS.map(symbol => [
+        symbol,
+        room?.marketPrices?.[symbol] ?? marketPrices?.[symbol] ?? 0
+      ])
+    ) as Record<string, number>,
+    [room?.marketPrices, marketPrices]
   );
 
   const effectivePreviousMarketPrices = useMemo(
-    () => ({
-      ...(room?.previousMarketPrices || {}),
-      ...(previousMarketPrices || {})
-    }),
-    [room?.previousMarketPrices, previousMarketPrices]
+    () => Object.fromEntries(
+      STOCK_SYMBOLS.map(symbol => [
+        symbol,
+        room?.previousMarketPrices?.[symbol] ?? previousMarketPrices?.[symbol] ?? effectiveMarketPrices[symbol] ?? 0
+      ])
+    ) as Record<string, number>,
+    [effectiveMarketPrices, previousMarketPrices, room?.previousMarketPrices]
   );
 
   const buildFinancialCheckEntries = (data: TransactionData): AccountEntry[] => {
@@ -180,20 +165,20 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
         amount: insuranceAmount,
         cashChange: nextData.cashChange === 0 ? -insuranceAmount : nextData.cashChange,
         impacts: nextData.impacts || [
-          `保險支出(月) +${insuranceAmount.toLocaleString()} H`
+          `保險支出(月) +${insuranceAmount.toLocaleString()}`
         ]
       };
     }
 
     if (nextData.usage === 'buy_asset' && nextData.assetChange?.asset.type === '定存') {
       const depositAmount = nextData.amount || nextData.assetChange.asset.value || 0;
-      const monthlyInterest = Math.floor(depositAmount * 0.005);
+      const monthlyInterest = Math.floor(depositAmount * 0.01);
       return {
         ...nextData,
         impacts: nextData.impacts || [
-          `現金 -${depositAmount.toLocaleString()} H`,
-          `定存 +${depositAmount.toLocaleString()} H`,
-          `定存利息(月) +${monthlyInterest.toLocaleString()} H`
+          `現金 -${depositAmount.toLocaleString()}`,
+          `定存 +${depositAmount.toLocaleString()}`,
+          `定存利息(月) +${monthlyInterest.toLocaleString()}`
         ]
       };
     }
@@ -204,8 +189,8 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
       return {
         ...nextData,
         impacts: nextData.impacts || [
-          `現金 -${total.toLocaleString()} H`,
-          `${getStockAssetLabel(symbol)} +${total.toLocaleString()} H`
+          `現金 -${total.toLocaleString()}`,
+          `${getStockAssetLabel(symbol)} +${total.toLocaleString()}`
         ]
       };
     }
@@ -215,8 +200,8 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
       return {
         ...nextData,
         impacts: nextData.impacts || [
-          `現金 -${total.toLocaleString()} H`,
-          ...nextData.stockList.map(item => `${getStockAssetLabel(item.symbol)} +${(item.price * item.qty).toLocaleString()} H`)
+          `現金 -${total.toLocaleString()}`,
+          ...nextData.stockList.map(item => `${getStockAssetLabel(item.symbol)} +${(item.price * item.qty).toLocaleString()}`)
         ]
       };
     }
@@ -226,8 +211,8 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
       return {
         ...nextData,
         impacts: nextData.impacts || [
-          `現金 +${total.toLocaleString()} H`,
-          `${getStockAssetLabel(nextData.sellAssetPayload.symbol)} -${total.toLocaleString()} H`
+          `現金 +${total.toLocaleString()}`,
+          `${getStockAssetLabel(nextData.sellAssetPayload.symbol)} -${total.toLocaleString()}`
         ]
       };
     }
@@ -237,8 +222,8 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
       return {
         ...nextData,
         impacts: nextData.impacts || [
-          `現金 +${total.toLocaleString()} H`,
-          ...nextData.stockList.map(item => `${getStockAssetLabel(item.symbol)} -${(item.price * item.qty).toLocaleString()} H`)
+          `現金 +${total.toLocaleString()}`,
+          ...nextData.stockList.map(item => `${getStockAssetLabel(item.symbol)} -${(item.price * item.qty).toLocaleString()}`)
         ]
       };
     }
@@ -249,9 +234,9 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
       return {
         ...nextData,
         impacts: nextData.impacts || [
-          `現金 +${loanAmount.toLocaleString()} H`,
-          `信用貸款 +${loanAmount.toLocaleString()} H`,
-          `信貸利息(月) +${interest.toLocaleString()} H`
+          `現金 +${loanAmount.toLocaleString()}`,
+          `信用貸款 +${loanAmount.toLocaleString()}`,
+          `信貸利息(月) +${interest.toLocaleString()}`
         ]
       };
     }
@@ -261,8 +246,8 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
       return {
         ...nextData,
         impacts: nextData.impacts || [
-          `現金 -${repayAmount.toLocaleString()} H`,
-          `信用貸款 -${repayAmount.toLocaleString()} H`,
+          `現金 -${repayAmount.toLocaleString()}`,
+          `信用貸款 -${repayAmount.toLocaleString()}`,
           '信貸利息(月) 減少'
         ]
       };
@@ -274,7 +259,8 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
   const tabs = [
     { id: 'broker', label: '股票交易', icon: <TrendingUp size={16} /> },
     { id: 'banking', label: '信用貸款', icon: <Landmark size={16} /> },
-    { id: 'wealth', label: '理財商品', icon: <ShieldCheck size={16} /> }
+    { id: 'wealth', label: '理財商品', icon: <ShieldCheck size={16} /> },
+    { id: 'vehicle', label: '汽車資產', icon: <Car size={16} /> }
   ];
 
   return (
@@ -307,25 +293,22 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
             <div className="flex sm:flex-col gap-2">
               {tabs.map(tab => {
                 const isActive = activeTab === tab.id;
-                const isLocked = tab.id === 'wealth' && !canUseBankProducts;
+                const isLocked = false;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => {
-                      if (isLocked) return;
                       setActiveTab(tab.id as BankingTab);
                     }}
-                    disabled={isLocked}
+                    disabled={false}
                     className={`flex items-center gap-3 px-4 py-3 sm:py-3.5 rounded-2xl transition-all whitespace-nowrap sm:whitespace-normal font-black tracking-wider text-[14.5px] ${
                       isActive 
                         ? 'bg-indigo-600/20 text-indigo-400 shadow-inner ring-1 ring-indigo-500/50' 
-                        : isLocked
-                          ? 'text-slate-600 cursor-not-allowed'
-                          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                     }`}
                   >
                     {tab.icon}
-                    {tab.label}{isLocked ? ' (需先經過銀行)' : ''}
+                    {tab.label}
                   </button>
                 );
               })}
@@ -339,9 +322,9 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
 
           {/* Main Content */}
           <div className="flex-1 overflow-y-auto no-scrollbar bg-slate-900 p-4 sm:p-6 ">
-            {!canUseBankProducts && activeTab !== 'broker' && activeTab !== 'banking' && (
+            {!canUseBankProducts && activeTab === 'wealth' && (
               <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-200">
-                本回合尚未經過銀行，保險與定存會在經過銀行後開放，並持續到你下一次回合開始前。
+                本回合尚未經過銀行，保險與新增定存暫時無法辦理；定存解約仍可使用。
               </div>
             )}
             {activeTab === 'broker' && (
@@ -366,6 +349,21 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
                 salary={salary}
                 medicalInsuranceCount={medicalInsuranceCount}
                 assets={assets}
+                initialProductType={initialWealthProductType}
+                allowedProductTypes={['insurance', 'deposit']}
+                canUseBankProducts={canUseBankProducts}
+                onTransaction={(data) => onTransaction(normalizeTransactionForGame(data))}
+              />
+            )}
+            {activeTab === 'vehicle' && (
+              <WealthView
+                cash={cash}
+                salary={salary}
+                medicalInsuranceCount={medicalInsuranceCount}
+                assets={assets}
+                initialProductType="car"
+                allowedProductTypes={['car']}
+                canUseBankProducts={canUseBankProducts}
                 onTransaction={(data) => onTransaction(normalizeTransactionForGame(data))}
               />
             )}

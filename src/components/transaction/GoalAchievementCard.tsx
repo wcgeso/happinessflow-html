@@ -1,7 +1,7 @@
 import React from 'react';
 import { Enterprise, Dream, HappinessItem } from '../../types';
 
-const formatMoney = (amount: number) => `${Math.abs(amount).toLocaleString()} H`;
+const formatMoney = (amount: number) => Math.abs(amount).toLocaleString();
 
 interface GoalAchievementCardProps {
     type: 'enterprise' | 'dream';

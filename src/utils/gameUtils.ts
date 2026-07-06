@@ -116,7 +116,7 @@ export const calculateScoreResult = (gameState: GameState, summary: FinancialSum
 
 export const formatMoney = (amount: number) => {
     const lucky = Number(amount) || 0;
-    return `${lucky.toLocaleString()} H`;
+    return lucky.toLocaleString();
 };
 
 export function cn(...classes: (string | undefined | null | false)[]) {

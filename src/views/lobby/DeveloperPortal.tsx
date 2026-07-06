@@ -92,7 +92,7 @@ export const DeveloperPortal: React.FC<DeveloperPortalProps> = ({
                   <div>
                     <h2 className="text-2xl font-black text-white">開發者傳送門</h2>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="px-2 py-0.5 bg-slate-800 rounded text-[10px] font-mono text-slate-400">v{version}</span>
+                      <span className="px-2 py-0.5 bg-slate-800 rounded text-[10px] font-mono text-slate-400">{version}</span>
                       <span className="px-2 py-0.5 bg-indigo-500/10 rounded text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Dev Mode Active</span>
                     </div>
                   </div>

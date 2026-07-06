@@ -23,8 +23,12 @@ export const StockMarketModal: React.FC<StockMarketModalProps> = ({
     const [showEventResult, setShowEventResult] = useState(false);
 
     // 優先使用傳入的價格（執行師模式），否則使用 gameState（玩家模式）
-    const currentMarketPrices = marketPrices || gameState.marketPrices;
-    const currentPreviousMarketPrices = previousMarketPrices || gameState.previousMarketPrices;
+    const currentMarketPrices = marketPrices && Object.keys(marketPrices).length > 0
+        ? marketPrices
+        : gameState.marketPrices;
+    const currentPreviousMarketPrices = previousMarketPrices && Object.keys(previousMarketPrices).length > 0
+        ? previousMarketPrices
+        : gameState.previousMarketPrices;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
