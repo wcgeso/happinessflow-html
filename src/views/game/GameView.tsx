@@ -950,6 +950,9 @@ export const GameView: React.FC<{
 
     useEffect(() => {
         if (!activeBoardCardKey || !activeBoardCardAction || activeBoardCardAction.kind !== 'market') return;
+        // 依 docs/gdd/CARD_SYSTEM.md 揭示規則：市場行情相關卡片也必須在揭示後才可正式生效，
+        // 未翻牌前不得把行情寫入房間共享狀態（room.marketPrices 對全房間玩家可見）。
+        if (!isBoardCardRevealed) return;
         if (marketPricesMatch(room?.marketPrices, activeBoardCardAction.prices)) {
             setAppliedBoardMarketKeys(prev => prev.includes(activeBoardCardKey) ? prev : [...prev, activeBoardCardKey]);
             setIsApplyingBoardMarket(false);
@@ -979,7 +982,7 @@ export const GameView: React.FC<{
         return () => {
             isCancelled = true;
         };
-    }, [activeBoardCardKey, activeBoardCardAction, appliedBoardMarketKeys, applyBoardMarketPrices, isApplyingBoardMarket, showAlert]);
+    }, [activeBoardCardKey, activeBoardCardAction, appliedBoardMarketKeys, applyBoardMarketPrices, isApplyingBoardMarket, isBoardCardRevealed, showAlert]);
 
     useEffect(() => {
         if (!activeBankPromptKey || activeBankPromptKey === lastBankPromptKey || !isActiveBankPromptPending) return;
