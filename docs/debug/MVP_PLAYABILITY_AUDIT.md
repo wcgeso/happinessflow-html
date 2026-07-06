@@ -76,7 +76,7 @@
 |---|---|---|---|---|---|
 | P0-01（已修正 2026-07-07） | 共享事件結案入口不單一 | Event Queue 只能在共享回覆完成後結案 | ~~`advanceBoardEventQueue()` 會檢查 prompt 是否回齊，但 `dismissBoardCard()` 直接推進佇列，繞過相同檢查~~ 已修正：guard 邏輯收斂為 `src/utils/boardCardActions.ts` 的 `hasIncompleteSharedPrompts()` 單一事實來源，`dismissBoardCard()`、`advanceBoardEventQueue()` 與 UI 層 `hasIncompleteSharedBoardPrompt` 皆改為呼叫此共用函式；`dismissBoardCard()` 並補上 `runTransaction`，與 `advanceBoardEventQueue()` 對齊 | 事件結案規則分裂在兩個入口（已收斂為單一函式） | `src/context/RoomContext.tsx`, `src/views/game/GameView.tsx`, `src/utils/boardCardActions.ts` |
 | P0-02 | 本地玩家狀態與房間正式狀態雙軌，可能導致共享事件後玩家看到不同正式結果 | 共享效果套用後，所有玩家都應看到同一份正式財務 / 資產 / 幸福狀態 | `GameContext` 以 local `gameState` 為主，僅少量欄位從 `room.playerStates` 回填；room-level 共享寫入不會完整回灌到本地 | `playerStates` 與 local `gameState` 雙重 mutable state，沒有穩定單一權威同步 | `src/context/GameContext.tsx`, `src/views/game/GameView.tsx` |
-| P0-03 | 正式停留事件建立不完整 | 停留銀行 / 學校 / 維修廠 / 醫院 / 卡片格都要成為正式事件 | Legacy 只把卡片與醫院入佇列；停留銀行 / 學校 / 維修廠沒有正式 queue entry | `buildBoardMovementResolution()` 實作只完成部分 special square | `src/context/RoomContext.tsx` |
+| P0-03（已修正 2026-07-07） | 正式停留事件建立不完整 | 停留銀行 / 學校 / 維修廠 / 醫院 / 卡片格都要成為正式事件 | ~~Legacy 只把卡片與醫院入佇列；停留銀行 / 學校 / 維修廠沒有正式 queue entry~~ 稽核當下發現停留銀行 / 學校 / 醫院 / 卡片格皆已建立正式 queuedEvent；唯獨「經過維修廠」（非停留）仍只顯示文字提示，未建立正式事件、未走財務檢核。已修正：`buildBoardMovementResolution()` 的 `routeEvents` 加入 `repair` 類型，經過維修廠比照銀行/學校建立正式 queuedEvent，見 RM-03 | `buildBoardMovementResolution()` 實作已完成全部 special square（含經過維修廠） | `src/context/RoomContext.tsx` |
 
 ### 3.2 P1 — State / Multiplayer Corruption
 
@@ -96,9 +96,9 @@
 
 | ID | 正式規格 | Legacy Runtime | 來源衝突 |
 |---|---|---|---|
-| RM-01 | 停留銀行應建立正式 Bank Event，流程為 Payday → 自動處理 → 可選銀行服務 → 結束 | 停留銀行只寫提示字串，未建立正式 `bank` queue event | `GAME_OVERVIEW` / `GAME_SYSTEM_MAP` vs `buildBoardMovementResolution()` |
-| RM-02 | 停留學校應建立正式 School Event | 停留學校只寫提示字串，未建立正式 `school` queue event | 同上 |
-| RM-03 | 經過 / 停留維修廠都應建立正式事件 | 維修廠只寫提示字串；停留時直接先寫 `skipTurns`，未建立 repair event | 同上 |
+| RM-01（已修正，發現時已是修正狀態） | 停留銀行應建立正式 Bank Event，流程為 Payday → 自動處理 → 可選銀行服務 → 結束 | ~~停留銀行只寫提示字串，未建立正式 `bank` queue event~~ 稽核當下（2026-07-07）發現 `buildBoardMovementResolution()` 停留銀行（`landedSquare.type === 'bank'`）已建立正式 `bank` queuedEvent，本項描述為過時記錄 | `GAME_OVERVIEW` / `GAME_SYSTEM_MAP` vs `buildBoardMovementResolution()`（已對齊） |
+| RM-02（已修正，發現時已是修正狀態） | 停留學校應建立正式 School Event | ~~停留學校只寫提示字串，未建立正式 `school` queue event~~ 稽核當下（2026-07-07）發現停留學校已建立正式 `school` queuedEvent，本項描述為過時記錄 | 同上 |
+| RM-03（已修正 2026-07-07） | 經過 / 停留維修廠都應建立正式事件 | ~~維修廠只寫提示字串；停留時直接先寫 `skipTurns`，未建立 repair event~~ 停留維修廠原本就已建立正式 `repair` queuedEvent 並走財務檢核；但「經過維修廠」原本只顯示文字提示「請自行登錄」，未建立正式事件、未走財務檢核，違反 `docs/gdd/REPAIR_SYSTEM.md`「經過與停留都必須先擲一次正式事件骰點」「保養費不得以畫面顯示代替正式結果」。已修正：`buildBoardMovementResolution()` 的 `routeEvents` 加入 `repair` 類型，經過維修廠時比照銀行/學校建立正式 queuedEvent 並帶入 `repairFee`/`repairRoll`/`repairHasCar`，交由既有的 `repair` 事件財務檢核流程處理；不寫入 `skipTurns`（維持「只有停留才停回合」規則） | 同上（經過部分已修正，停留部分本就正確） |
 | RM-04 | 卡片效果必須 `Draw → Reveal → Resolve → Complete` | 市場新聞在 `activeBoardCardAction.kind === market` 時即同步 `room.marketPrices`，未明確等待 Reveal | `GAME_OVERVIEW` / `GAME_SYSTEM_MAP` vs `GameView.tsx` |
 | RM-05（已修正 2026-07-07） | 家庭歷程事件必須等待所有符合資格玩家回覆完成後才可結束 | ~~`familyMilestoneJoinPrompt` 可被 `dismissBoardCard()` 提前清除~~ 已修正：見 P0-01/P1-01，`dismissBoardCard()` 現在會先呼叫 `hasIncompleteSharedPrompts()` 檢查，未全員回覆不得清除 | `GAME_OVERVIEW` vs `RoomContext.tsx` / `GameView.tsx`（已對齊） |
 | RM-06 | 創業貸款 Follow-up 應是正式事件鏈的一部分 | Legacy 以玩家本地 `pendingStartupUpgradeAction` 表示，未進入正式 shared event / queue | `GAME_OVERVIEW` / `GAME_SYSTEM_MAP` vs `GameView.tsx` |

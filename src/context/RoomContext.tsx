@@ -366,8 +366,8 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
     const nextSkipTurns = { ...boardState.skipTurns };
     let passedBankThisTurn = false;
     let passedSchoolThisTurn = false;
-    const routeEvents: Array<{ type: 'bank' | 'school'; squareIndex: number }> = [];
-    const queuedRouteTypes = new Set<'bank' | 'school'>();
+    const routeEvents: Array<{ type: 'bank' | 'school' | 'repair'; squareIndex: number; repairRoll?: number; repairFee?: number }> = [];
+    const queuedRouteTypes = new Set<'bank' | 'school' | 'repair'>();
     const playerName = roomData.members.find(member => member.uid === playerUid)?.name || '玩家';
     const eventTimestamp = Date.now();
 
@@ -392,8 +392,15 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
             detailMessages.push(`經過${square.label}，可前往升等考試`);
         }
         if (square.type === 'repair' && !isLandingStep && hasCarAsset(playerState)) {
+            // 依 docs/gdd/REPAIR_SYSTEM.md：經過維修廠與停留維修廠都必須先擲一次正式事件骰點，
+            // 保養費必須走正式財務檢核，不得只顯示文字讓玩家自行登錄。
             const feeRoll = Math.floor(Math.random() * 6) + 1;
-            detailMessages.push(`經過維修廠，汽車保養費 ${feeRoll * 2000}，請自行登錄`);
+            const repairFee = feeRoll * 2000;
+            if (!queuedRouteTypes.has('repair')) {
+                queuedRouteTypes.add('repair');
+                routeEvents.push({ type: 'repair', squareIndex: movement.path[step], repairRoll: feeRoll, repairFee });
+            }
+            detailMessages.push(`經過維修廠，汽車保養費 ${repairFee}，請完成財務檢核`);
         }
     }
 
@@ -403,19 +410,27 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
 
     routeEvents.forEach((routeEvent, routeIndex) => {
         const isBank = routeEvent.type === 'bank';
+        const isRepair = routeEvent.type === 'repair';
         queuedEvents.push({
             event: {
                 id: `${playerUid}_${eventTimestamp}_${routeEvent.type}`,
                 playerUid,
                 playerName,
                 type: routeEvent.type,
-                summary: `${playerName} 經過${isBank ? '銀行' : '學校'}`,
-                detail: isBank
-                    ? '先領取月結餘，再決定是否購買保險或定存'
-                    : '請完成升等考試',
+                summary: isRepair ? `${playerName} 經過維修廠` : `${playerName} 經過${isBank ? '銀行' : '學校'}`,
+                detail: isRepair
+                    ? '經過維修廠，保養費 = 點數 x 2000，不停回合'
+                    : (isBank
+                        ? '先領取月結餘，再決定是否購買保險或定存'
+                        : '請完成升等考試'),
                 squareIndex: routeEvent.squareIndex,
                 timestamp: eventTimestamp + routeIndex,
-                rollTotal: movement.rollTotal
+                rollTotal: movement.rollTotal,
+                ...(isRepair ? {
+                    repairRoll: routeEvent.repairRoll,
+                    repairFee: routeEvent.repairFee,
+                    repairHasCar: true
+                } : {})
             }
         });
     });
