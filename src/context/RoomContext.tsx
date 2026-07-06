@@ -31,7 +31,7 @@ import {
     OPPORTUNITY_CARDS
 } from '../constants/cards';
 import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from '../utils/familyMilestones';
-import { resolveBoardCardAction } from '../utils/boardCardActions';
+import { resolveBoardCardAction, hasIncompleteSharedPrompts } from '../utils/boardCardActions';
 
 interface RoomMember {
     uid: string;
@@ -257,32 +257,11 @@ const activateBoardQueueEntry = (entry?: BoardQueuedEvent | null) => ({
     } : null
 });
 
-const shiftBoardQueue = (boardState: BoardState) => {
-    const queue = [...(boardState.pendingEvents || [])];
-    const nextEntry = queue.shift() || null;
-
-    return {
-        ...activateBoardQueueEntry(nextEntry),
-        familyMilestoneJoinPrompt: null,
-        pendingEvents: queue
-    };
-};
-
 const buildBoardEventAdvanceState = (roomData: Room) => {
     const boardState = roomData.boardState;
     if (!boardState) return null;
 
-    const sharedPrompt = boardState.sharedCardPrompt;
-    if (sharedPrompt) {
-        const hasAllSharedResponses = sharedPrompt.targetPlayerUids.every(uid => !!sharedPrompt.responses?.[uid]);
-        if (!hasAllSharedResponses) return null;
-    }
-
-    const familyPrompt = boardState.familyMilestoneJoinPrompt;
-    if (familyPrompt) {
-        const hasAllFamilyResponses = familyPrompt.targetPlayerUids.every(uid => !!familyPrompt.responses?.[uid]);
-        if (!hasAllFamilyResponses) return null;
-    }
+    if (hasIncompleteSharedPrompts(boardState)) return null;
 
     const queue = [...(boardState.pendingEvents || [])];
     const nextEntry = queue.shift() || null;
@@ -1215,21 +1194,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (expectedType && boardState.currentEvent?.type !== expectedType) return;
 
         // Event Completion Guard: Ensure no pending shared events
-        if (boardState.sharedCardPrompt) {
-            const prompt = boardState.sharedCardPrompt;
-            const hasAllResponses = prompt.targetPlayerUids.every(uid => prompt.responses?.[uid]);
-            if (!hasAllResponses) {
-                alert('還有玩家尚未完成卡片決策，請等待所有人完成後再推進事件。');
-                return;
-            }
-        }
-        if (boardState.familyMilestoneJoinPrompt) {
-            const prompt = boardState.familyMilestoneJoinPrompt;
-            const hasAllResponses = prompt.targetPlayerUids.every(uid => prompt.responses?.[uid]);
-            if (!hasAllResponses) {
-                alert('還有玩家尚未選擇是否加入家庭歷程，請等待所有人選擇後再推進事件。');
-                return;
-            }
+        if (hasIncompleteSharedPrompts(boardState)) {
+            alert('還有玩家尚未完成共享事件回覆，請等待所有人完成後再推進事件。');
+            return;
         }
 
         // Use runTransaction to prevent race conditions during deep state updates
@@ -1266,7 +1233,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
     });
 
-    const dismissBoardCard = async (eventId: string, cardId: string) => {
+    const dismissBoardCard = async (eventId: string, cardId: string) => executeWithLock(async () => {
         if (!room?.id || !room.isBoardGame || !room.boardState) return;
 
         const { boardState } = room;
@@ -1276,20 +1243,39 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!isCurrentCard) return;
 
-        const nextState = buildBoardEventAdvanceState(room);
-        if (!nextState) return;
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
-            ...nextState,
-            boardState: {
-                ...(nextState.boardState || boardState),
-                cardLog: nextState.boardState?.currentCard
-                    ? appendBoardCardLog(boardState, nextState.boardState.currentCard, nextState.boardState.currentEvent)
-                    : boardState.cardLog || [],
-                updatedAt: Date.now()
-            },
-            ...(nextState.playerStates ? { playerStates: nextState.playerStates } : {})
-        })));
-    };
+        if (hasIncompleteSharedPrompts(boardState)) return;
+
+        // Use runTransaction to prevent race conditions against concurrent
+        // submitFamilyMilestoneJoinResponse / submitSharedCardPromptResponse writes.
+        await safeAsync(runTransaction(db, async (transaction) => {
+            const roomRef = doc(db, 'rooms', room.id);
+            const roomDoc = await transaction.get(roomRef);
+            if (!roomDoc.exists()) return;
+            const currentRoom = roomDoc.data() as Room;
+            const currentBoardState = currentRoom.boardState;
+            if (!currentBoardState) return;
+
+            const isStillCurrentCard =
+                currentBoardState.currentEvent?.id === eventId &&
+                currentBoardState.currentCard?.cardId === cardId;
+            if (!isStillCurrentCard) return;
+
+            const nextState = buildBoardEventAdvanceState(currentRoom);
+            if (!nextState) return;
+
+            transaction.update(roomRef, cleanObject({
+                ...nextState,
+                boardState: {
+                    ...(nextState.boardState || currentBoardState),
+                    cardLog: nextState.boardState?.currentCard
+                        ? appendBoardCardLog(currentBoardState, nextState.boardState.currentCard, nextState.boardState.currentEvent)
+                        : currentBoardState.cardLog || [],
+                    updatedAt: Date.now()
+                },
+                ...(nextState.playerStates ? { playerStates: nextState.playerStates } : {})
+            }));
+        }));
+    });
 
     const drawPostExamHappinessCard = async (success: boolean) => {
         if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;

@@ -28,7 +28,7 @@ import { HappinessWinAnimation } from '../../components/game/HappinessWinAnimati
 import { hydrateBoardCardResult } from '../../utils/boardCardDisplay';
 import { formatMoney } from '../../utils/gameUtils';
 import { BoardCardResult, FamilyMilestoneJoinPrompt, SharedCardPrompt, TransactionData } from '../../types';
-import { BoardAssetSaleCandidate, BoardFinancialAction, BoardInvestmentAction, buildBoardAssetSaleFinancialAction, isForcedBoardCard, resolveBoardCardAction } from '../../utils/boardCardActions';
+import { BoardAssetSaleCandidate, BoardFinancialAction, BoardInvestmentAction, buildBoardAssetSaleFinancialAction, hasIncompleteSharedPrompts, isForcedBoardCard, resolveBoardCardAction } from '../../utils/boardCardActions';
 import { HAPPINESS_CARD_MAP, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP } from '../../constants/cards';
 import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
 
@@ -441,15 +441,10 @@ export const GameView: React.FC<{
         () => (activeBoardCard ? resolveBoardCardAction(activeBoardCard.cardId, gameState) : null),
         [activeBoardCard?.cardId, gameState]
     );
-    const hasIncompleteSharedBoardPrompt = useMemo(() => {
-        if (sharedCardPrompt && !sharedCardPrompt.targetPlayerUids.every(uid => !!sharedCardPrompt.responses?.[uid])) {
-            return true;
-        }
-        if (familyJoinPrompt && !familyJoinPrompt.targetPlayerUids.every(uid => !!familyJoinPrompt.responses?.[uid])) {
-            return true;
-        }
-        return false;
-    }, [familyJoinPrompt, sharedCardPrompt]);
+    const hasIncompleteSharedBoardPrompt = useMemo(
+        () => hasIncompleteSharedPrompts({ sharedCardPrompt, familyMilestoneJoinPrompt: familyJoinPrompt }),
+        [familyJoinPrompt, sharedCardPrompt]
+    );
     const activeInsuranceOpportunity = activeBoardCard ? OPPORTUNITY_CARD_MAP[activeBoardCard.cardId] : null;
     const activeFamilyJoinActionKey = currentPlayerRoomState?.pendingFamilyMilestoneJoinAction
         ? `${currentPlayerRoomState.pendingFamilyMilestoneJoinAction.promptId}_${currentPlayerRoomState.pendingFamilyMilestoneJoinAction.cardId}`

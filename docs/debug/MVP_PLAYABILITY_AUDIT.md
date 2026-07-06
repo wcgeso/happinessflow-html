@@ -57,11 +57,11 @@
 | Landing Event | 停留銀行 / 學校 / 醫院 / 維修廠 / 卡片格都要建立正式事件 | Legacy 只正式建立卡片與醫院；停留銀行 / 學校只寫提示，停留維修廠只寫提示與 `skipTurns` | `RULE MISMATCH` |
 | Card Draw | 抽卡後進入 Reveal | `buildBoardMovementResolution()` 抽卡後建立 `currentEvent.type = card` | 基本符合 |
 | Reveal | Reveal 前不得生效 | `handleBoardCardReveal()` 會呼叫 `revealBoardCard()`；但市場新聞在 `useEffect` 中只要解析出 `market` action 就會同步股價，不等 Reveal | `RULE MISMATCH` |
-| Shared Event | 家庭歷程 / 收購 / 股利 / 投資 / 創業貸款都需等待全體目標回覆 | `sharedCardPrompt` 有 all-responded watcher；`familyMilestoneJoinPrompt` 沒有對應的結案 watcher，且 `dismissBoardCard()` 可直接清掉 prompt | `P1` |
+| Shared Event | 家庭歷程 / 收購 / 股利 / 投資 / 創業貸款都需等待全體目標回覆 | 已修正（2026-07-07）：`sharedCardPrompt` 與 `familyMilestoneJoinPrompt` 皆由共用函式 `hasIncompleteSharedPrompts()` 判斷 all-responded，`dismissBoardCard()` 已無法在未全員回覆前清掉 prompt | 基本符合（原 `P1` 已修正） |
 | Resolve | 效果只應套用一次 | 多數效果由 `handleTransactionSubmit()` 或 room-level 寫入完成，但缺乏事件層 idempotency token | `P1` 風險 |
 | Financial Check | 正式交易要先走財務處理 | `boardFinancialAction` + `BoardFinancialCheckModal` 負責大多數棋盤交易 | 基本符合，但共享 / 後續卡仍有分流 |
 | Follow-up Event | Follow-up 仍屬正式事件鏈 | 學校考後幸福卡有正式 `exam_happiness` 事件；創業貸款 follow-up 只寫成玩家本地 `pendingStartupUpgradeAction`，不是正式共享事件 | `RULE MISMATCH` |
-| Event Queue Complete | 只有 Queue 清空且共享事件完成後才能切換回合 | `advanceBoardEventQueue()` 有 prompt guard；但 `dismissBoardCard()` 直接走 `buildBoardEventAdvanceState()`，繞過 guard | `P1` |
+| Event Queue Complete | 只有 Queue 清空且共享事件完成後才能切換回合 | 已修正（2026-07-07）：`advanceBoardEventQueue()` 與 `dismissBoardCard()` 皆呼叫 `buildBoardEventAdvanceState()`，且該函式已內建 `hasIncompleteSharedPrompts()` guard，`dismissBoardCard()` 不再能繞過 | 基本符合（原 `P1` 已修正） |
 | Next Player | 所有事件完成後才切換下一位 | 若 movement 沒有 queued event 會直接切下一位；若 queued event 結束，`buildBoardEventAdvanceState()` 決定下一位 | 基本符合，但前提是事件建立與結案都正確 |
 
 ---
@@ -74,7 +74,7 @@
 
 | Bug ID | 問題 | Expected Behavior | Actual Behavior | Root Cause | 最小修改範圍 |
 |---|---|---|---|---|---|
-| P0-01 | 共享事件結案入口不單一 | Event Queue 只能在共享回覆完成後結案 | `advanceBoardEventQueue()` 會檢查 prompt 是否回齊，但 `dismissBoardCard()` 直接推進佇列，繞過相同檢查 | 事件結案規則分裂在兩個入口 | `src/context/RoomContext.tsx`, `src/views/game/GameView.tsx` |
+| P0-01（已修正 2026-07-07） | 共享事件結案入口不單一 | Event Queue 只能在共享回覆完成後結案 | ~~`advanceBoardEventQueue()` 會檢查 prompt 是否回齊，但 `dismissBoardCard()` 直接推進佇列，繞過相同檢查~~ 已修正：guard 邏輯收斂為 `src/utils/boardCardActions.ts` 的 `hasIncompleteSharedPrompts()` 單一事實來源，`dismissBoardCard()`、`advanceBoardEventQueue()` 與 UI 層 `hasIncompleteSharedBoardPrompt` 皆改為呼叫此共用函式；`dismissBoardCard()` 並補上 `runTransaction`，與 `advanceBoardEventQueue()` 對齊 | 事件結案規則分裂在兩個入口（已收斂為單一函式） | `src/context/RoomContext.tsx`, `src/views/game/GameView.tsx`, `src/utils/boardCardActions.ts` |
 | P0-02 | 本地玩家狀態與房間正式狀態雙軌，可能導致共享事件後玩家看到不同正式結果 | 共享效果套用後，所有玩家都應看到同一份正式財務 / 資產 / 幸福狀態 | `GameContext` 以 local `gameState` 為主，僅少量欄位從 `room.playerStates` 回填；room-level 共享寫入不會完整回灌到本地 | `playerStates` 與 local `gameState` 雙重 mutable state，沒有穩定單一權威同步 | `src/context/GameContext.tsx`, `src/views/game/GameView.tsx` |
 | P0-03 | 正式停留事件建立不完整 | 停留銀行 / 學校 / 維修廠 / 醫院 / 卡片格都要成為正式事件 | Legacy 只把卡片與醫院入佇列；停留銀行 / 學校 / 維修廠沒有正式 queue entry | `buildBoardMovementResolution()` 實作只完成部分 special square | `src/context/RoomContext.tsx` |
 
@@ -82,8 +82,8 @@
 
 | Bug ID | 問題 | 影響 | Root Cause | 最小修改範圍 |
 |---|---|---|---|---|
-| P1-01 | 家庭歷程共同參與可能提前結束 | 其他玩家尚未回覆，主事件就被結案，導致「多人事件提前結束」 | `markBoardCardHandled()` → `dismissBoardCard()` 直接推進；`buildBoardEventAdvanceState()` 會清掉 `familyMilestoneJoinPrompt` | `src/views/game/GameView.tsx`, `src/context/RoomContext.tsx` |
-| P1-02 | 家庭歷程沒有正式的 all-responded completion path | 事件不是依「所有人回覆完成」結案，而是依 UI 關閉或財務流尾端結案 | `sharedCardPrompt` 有 watcher，`familyMilestoneJoinPrompt` 沒有對等 watcher | `src/views/game/GameView.tsx` |
+| P1-01（已修正 2026-07-07） | 家庭歷程共同參與可能提前結束 | ~~其他玩家尚未回覆，主事件就被結案，導致「多人事件提前結束」~~ 已修正：見 P0-01，`dismissBoardCard()` 現在會先檢查 `hasIncompleteSharedPrompts()`，未全員回覆前直接中止、不寫入 Firestore | `markBoardCardHandled()` → `dismissBoardCard()` 直接推進；`buildBoardEventAdvanceState()` 會清掉 `familyMilestoneJoinPrompt`（已加上前置 guard） | `src/views/game/GameView.tsx`, `src/context/RoomContext.tsx` |
+| P1-02（已修正 2026-07-07） | 家庭歷程沒有正式的 all-responded completion path | ~~事件不是依「所有人回覆完成」結案，而是依 UI 關閉或財務流尾端結案~~ 已修正：`GameView.tsx` 的 `hasIncompleteSharedBoardPrompt` 已改為呼叫 `hasIncompleteSharedPrompts()`，與 `familyMilestoneJoinPrompt` 全員回覆判斷邏輯一致；全員回覆後由既有 retry watcher（`GameView.tsx` 財務流程 useEffect）觸發正式結案 | `sharedCardPrompt` 有 watcher，`familyMilestoneJoinPrompt` 沒有對等 watcher（現由共用 guard 函式統一判斷） | `src/views/game/GameView.tsx` |
 | P1-03 | 共享效果可能只更新 room，不更新受影響玩家本地畫面 | 玩家 A / B 對同一正式狀態看到不同內容 | `applyBoardExpenseToAllPlayers()` 與其他 room-level 寫入後，`GameContext` 不會完整 hydrate 回 local | `src/context/GameContext.tsx`, `src/context/RoomContext.tsx` |
 | P1-04 | 規則所有權分裂在 resolver 與畫面流程 | 同一張卡的正式規則同時存在 current-player resolver 與 shared prompt 特判，容易重複處理或漏處理 | `resolveBoardCardAction()` 回傳 current-player action；`GameView` 再對特定卡型做 shared flow 分流 | `src/utils/boardCardActions.ts`, `src/views/game/GameView.tsx` |
 | P1-05 | 金融 / 幸福效果缺乏事件級 idempotency | 若 modal 重開、effect watcher 重跑、snapshot 延遲，可能重複扣款或重複加幸福 | 沒有以 eventId / cardKey 為正式結算 token | `src/views/game/GameView.tsx`, `src/hooks/useGameLogic.ts` |
@@ -100,7 +100,7 @@
 | RM-02 | 停留學校應建立正式 School Event | 停留學校只寫提示字串，未建立正式 `school` queue event | 同上 |
 | RM-03 | 經過 / 停留維修廠都應建立正式事件 | 維修廠只寫提示字串；停留時直接先寫 `skipTurns`，未建立 repair event | 同上 |
 | RM-04 | 卡片效果必須 `Draw → Reveal → Resolve → Complete` | 市場新聞在 `activeBoardCardAction.kind === market` 時即同步 `room.marketPrices`，未明確等待 Reveal | `GAME_OVERVIEW` / `GAME_SYSTEM_MAP` vs `GameView.tsx` |
-| RM-05 | 家庭歷程事件必須等待所有符合資格玩家回覆完成後才可結束 | `familyMilestoneJoinPrompt` 可被 `dismissBoardCard()` 提前清除 | `GAME_OVERVIEW` vs `RoomContext.tsx` / `GameView.tsx` |
+| RM-05（已修正 2026-07-07） | 家庭歷程事件必須等待所有符合資格玩家回覆完成後才可結束 | ~~`familyMilestoneJoinPrompt` 可被 `dismissBoardCard()` 提前清除~~ 已修正：見 P0-01/P1-01，`dismissBoardCard()` 現在會先呼叫 `hasIncompleteSharedPrompts()` 檢查，未全員回覆不得清除 | `GAME_OVERVIEW` vs `RoomContext.tsx` / `GameView.tsx`（已對齊） |
 | RM-06 | 創業貸款 Follow-up 應是正式事件鏈的一部分 | Legacy 以玩家本地 `pendingStartupUpgradeAction` 表示，未進入正式 shared event / queue | `GAME_OVERVIEW` / `GAME_SYSTEM_MAP` vs `GameView.tsx` |
 | RM-07 | 醫院事件應為「第二次擲骰 → 支付醫療費 → 停回合 1 次」 | landing hospital 時已先寫入 `skipTurns`，早於醫療費正式結算 | `GAME_OVERVIEW` vs `buildBoardMovementResolution()` |
 

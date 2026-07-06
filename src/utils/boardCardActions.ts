@@ -1,8 +1,32 @@
 import { REAL_ESTATE_TYPES } from '../constants';
 import { NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP, HAPPINESS_CARD_MAP } from '../constants/cards';
-import { AccountEntry, Asset, BatchSellItem, GameState, Liability, TransactionData } from '../types';
+import { AccountEntry, Asset, BatchSellItem, BoardState, GameState, Liability, TransactionData } from '../types';
 import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from './familyMilestones';
 import { getBusinessAssetLabel, getRealEstateAssetLabel } from './assetLabels';
+
+/**
+ * 單一事實來源：判斷棋盤事件是否還有玩家尚未完成共享回覆
+ * （sharedCardPrompt / familyMilestoneJoinPrompt）。
+ * 依 docs/gdd/CARD_SYSTEM.md Edge Cases 與 docs/gdd/FAMILY_SYSTEM.md 完成條件，
+ * 只要仍有符合資格玩家未回覆，事件就不得結案。
+ */
+export const hasIncompleteSharedPrompts = (
+  boardState: Pick<BoardState, 'sharedCardPrompt' | 'familyMilestoneJoinPrompt'> | null | undefined
+): boolean => {
+  if (!boardState) return false;
+
+  const sharedPrompt = boardState.sharedCardPrompt;
+  if (sharedPrompt && !sharedPrompt.targetPlayerUids.every(uid => !!sharedPrompt.responses?.[uid])) {
+    return true;
+  }
+
+  const familyPrompt = boardState.familyMilestoneJoinPrompt;
+  if (familyPrompt && !familyPrompt.targetPlayerUids.every(uid => !!familyPrompt.responses?.[uid])) {
+    return true;
+  }
+
+  return false;
+};
 
 export interface BoardFinancialAction {
   kind: 'financial';
