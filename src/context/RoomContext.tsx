@@ -279,24 +279,8 @@ const buildBoardEventAdvanceState = (roomData: Room) => {
         });
     }
 
-    const nextTurn = getNextTurnUid(boardState);
-    const nextTurnUid = nextTurn?.nextUid || boardState.currentTurnUid;
-    const nextPlayerStates = { ...(roomData.playerStates || {}) };
-    const nextTurnPlayerState = nextTurnUid ? nextPlayerStates[nextTurnUid] : null;
-
-    if (
-        nextTurnUid &&
-        boardState.currentTurnUid &&
-        nextTurnUid !== boardState.currentTurnUid &&
-        nextTurnPlayerState?.bankServiceWindowActive
-    ) {
-        nextPlayerStates[nextTurnUid] = cleanObject({
-            ...nextTurnPlayerState,
-            bankServiceWindowActive: false,
-            bankServiceGrantedAtEventId: undefined
-        }) as GameState;
-    }
-
+    // 事件佇列清空後不再自動換人：回合改由玩家自己按「結束回合」才真正切換，
+    // 這裡只清掉已完成的事件狀態，currentTurnUid 維持不變。
     return cleanObject({
         boardState: {
             ...boardState,
@@ -304,11 +288,8 @@ const buildBoardEventAdvanceState = (roomData: Room) => {
             familyMilestoneJoinPrompt: null,
             sharedCardPrompt: null,
             pendingEvents: [],
-            currentTurnUid: nextTurnUid || null,
-            skipTurns: nextTurn?.skipTurns || boardState.skipTurns,
             updatedAt: Date.now()
-        },
-        ...(Object.keys(nextPlayerStates).length > 0 ? { playerStates: nextPlayerStates } : {})
+        }
     });
 };
 
@@ -336,7 +317,7 @@ const appendBoardCardLog = (
 
 const getNextTurnUid = (boardState: BoardState) => {
     if (!boardState.turnOrder.length) return null;
-    if (!boardState.currentTurnUid) return boardState.turnOrder[0];
+    if (!boardState.currentTurnUid) return { nextUid: boardState.turnOrder[0], skipTurns: boardState.skipTurns };
 
     let index = boardState.turnOrder.indexOf(boardState.currentTurnUid);
     const skipTurns = { ...boardState.skipTurns };
@@ -562,25 +543,8 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
         nextPlayerStates[playerUid] = updatedPlayerState;
     }
 
-    const hasQueuedBoardEvents = !!currentQueueEntry;
-    const nextTurn = hasQueuedBoardEvents
-        ? null
-        : getNextTurnUid({
-            ...boardState,
-            currentTurnUid: playerUid,
-            skipTurns: nextSkipTurns
-        });
-    const nextTurnUid = nextTurn?.nextUid || playerUid;
-    const nextTurnPlayerState = nextTurnUid ? nextPlayerStates[nextTurnUid] : null;
-
-    if (!hasQueuedBoardEvents && nextTurnUid !== playerUid && nextTurnPlayerState?.bankServiceWindowActive) {
-        nextPlayerStates[nextTurnUid] = cleanObject({
-            ...nextTurnPlayerState,
-            bankServiceWindowActive: false,
-            bankServiceGrantedAtEventId: undefined
-        }) as GameState;
-    }
-
+    // 回合不再於移動/事件結算後自動換人：玩家自己按「結束回合」才會真正切換到
+    // 下一位，這裡無論有沒有排隊事件，currentTurnUid 都維持在移動的玩家身上。
     return cleanObject({
         boardState: {
             ...boardState,
@@ -588,8 +552,8 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
                 ...boardState.playerPositions,
                 [playerUid]: nextPosition
             },
-            skipTurns: hasQueuedBoardEvents ? nextSkipTurns : (nextTurn?.skipTurns || nextSkipTurns),
-            currentTurnUid: nextTurn?.nextUid || playerUid,
+            skipTurns: nextSkipTurns,
+            currentTurnUid: playerUid,
             lastRoll: boardState.lastRoll,
             ...activateBoardQueueEntry(currentQueueEntry),
             pendingEvents: remainingQueue,
@@ -623,6 +587,7 @@ interface RoomContextValue {
     revealBoardCard: (eventId: string, cardId: string) => Promise<void>;
     dismissBoardCard: (eventId: string, cardId: string) => Promise<void>;
     advanceBoardEventQueue: (expectedType?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup') => Promise<void>;
+    endTurn: () => Promise<void>;
     drawPostExamHappinessCard: (success: boolean) => Promise<void>;
     drawBoardFollowupCard: (deck: 'happiness' | 'news', summary: string, detail?: string) => Promise<void>;
     openFamilyMilestoneJoinPrompt: (eventId: string, cardId: string) => Promise<void>;
@@ -1265,6 +1230,70 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     updatedAt: Date.now()
                 },
                 ...(nextState.playerStates ? { playerStates: nextState.playerStates } : {})
+            }));
+        }));
+    });
+
+    // 回合不再於事件結算後自動切換，玩家必須自己確認所有動作都完成後按下
+    // 「結束回合」才會真正換到下一位，比照大富翁的回合節奏。
+    const endTurn = async () => executeWithLock(async () => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+
+        const { boardState } = room;
+        if (boardState.currentTurnUid !== user.uid) return;
+
+        if (boardState.movement) {
+            alert('移動尚未完成，無法結束回合。');
+            return;
+        }
+
+        if (boardState.currentEvent || (boardState.pendingEvents && boardState.pendingEvents.length > 0)) {
+            alert('請先完成目前的棋盤事件，才能結束回合。');
+            return;
+        }
+
+        if (hasIncompleteSharedPrompts(boardState)) {
+            alert('還有玩家尚未完成共享事件回覆，請等待所有人完成後再結束回合。');
+            return;
+        }
+
+        await safeAsync(runTransaction(db, async (transaction) => {
+            const roomRef = doc(db, 'rooms', room.id);
+            const roomDoc = await transaction.get(roomRef);
+            if (!roomDoc.exists()) return;
+            const currentRoom = roomDoc.data() as Room;
+            const currentBoardState = currentRoom.boardState;
+            if (!currentBoardState) return;
+
+            // Transaction 內重新檢查，避免競態下重複結束回合或跳過尚未完成的事件。
+            if (currentBoardState.currentTurnUid !== user.uid) return;
+            if (currentBoardState.movement) return;
+            if (currentBoardState.currentEvent || (currentBoardState.pendingEvents && currentBoardState.pendingEvents.length > 0)) return;
+            if (hasIncompleteSharedPrompts(currentBoardState)) return;
+
+            const nextTurn = getNextTurnUid(currentBoardState);
+            const nextTurnUid = nextTurn?.nextUid || user.uid;
+            const nextPlayerStates = { ...(currentRoom.playerStates || {}) };
+            const nextTurnPlayerState = nextTurnUid ? nextPlayerStates[nextTurnUid] : null;
+
+            // 銀行服務窗口只在「輪回窗口持有者自己」時才關閉，不因為中間別人的
+            // 回合開始而提前關閉（維持既有規則語意）。
+            if (nextTurnUid !== user.uid && nextTurnPlayerState?.bankServiceWindowActive) {
+                nextPlayerStates[nextTurnUid] = cleanObject({
+                    ...nextTurnPlayerState,
+                    bankServiceWindowActive: false,
+                    bankServiceGrantedAtEventId: undefined
+                }) as GameState;
+            }
+
+            transaction.update(roomRef, cleanObject({
+                boardState: {
+                    ...currentBoardState,
+                    currentTurnUid: nextTurnUid,
+                    skipTurns: nextTurn?.skipTurns || currentBoardState.skipTurns,
+                    updatedAt: Date.now()
+                },
+                ...(Object.keys(nextPlayerStates).length > 0 ? { playerStates: nextPlayerStates } : {})
             }));
         }));
     });
@@ -1963,6 +1992,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             revealBoardCard,
             dismissBoardCard,
             advanceBoardEventQueue,
+            endTurn,
             drawPostExamHappinessCard,
             drawBoardFollowupCard,
             openFamilyMilestoneJoinPrompt,

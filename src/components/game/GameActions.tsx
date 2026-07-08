@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { CirclePlus, Dices, Target, Landmark, Building } from 'lucide-react';
+import { CirclePlus, Dices, Target, Landmark, Building, CheckCircle2 } from 'lucide-react';
 import { motion, useAnimation } from 'framer-motion';
 
 interface GameActionsProps {
@@ -12,6 +12,8 @@ interface GameActionsProps {
     onShowSettlement: () => void;
     onShowTargetDream: () => void;
     onShowRealEstateMarket?: () => void;
+    onEndTurn?: () => void;
+    canEndTurn?: boolean;
     isBoardTurn?: boolean;
     isRollingBoardDice?: boolean;
     hasCar?: boolean;
@@ -27,6 +29,8 @@ export const GameActions: React.FC<GameActionsProps> = ({
     onShowSettlement,
     onShowTargetDream,
     onShowRealEstateMarket,
+    onEndTurn,
+    canEndTurn = false,
     isBoardTurn = false,
     isRollingBoardDice = false,
     hasCar = false,
@@ -393,6 +397,21 @@ export const GameActions: React.FC<GameActionsProps> = ({
                         </div>
                         <span className="text-[10px] font-black text-slate-400 tracking-wider transition-colors group-enabled:group-hover:text-rose-400">醫療</span>
                     </button>
+
+                    {/* 右側：結束回合（棋盤模式，比照大富翁由玩家自己按結束才換人） */}
+                    {onRollBoardDice && onEndTurn && (
+                        <button
+                            onClick={onEndTurn}
+                            disabled={disabled || !canEndTurn}
+                            className={`group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${(disabled || !canEndTurn) ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                            title={!isBoardTurn ? '尚未輪到你' : (canEndTurn ? '結束回合，換下一位玩家' : '請先完成目前的棋盤事件')}
+                        >
+                            <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-amber-400 rounded-[14px] sm:rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(245,158,11,0.2)] group-active:scale-95 border border-slate-700">
+                                <CheckCircle2 size={20} strokeWidth={2} className="sm:hidden" /><CheckCircle2 size={24} strokeWidth={2} className="hidden sm:block" />
+                            </div>
+                            <span className="text-[10px] font-black text-slate-400 tracking-wider transition-colors group-enabled:group-hover:text-amber-400">結束回合</span>
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

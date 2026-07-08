@@ -48,7 +48,7 @@ export const GameView: React.FC<{
     const FAMILY_JOIN_ROLL_TICK_MS = 90;
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, leaveRoom, rollBoardDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, submitSharedCardPromptResponse, clearSharedCardPrompt, setPendingStartupUpgradeAction, clearPendingStartupUpgradeAction, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, abandonRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
+    const { room, leaveRoom, rollBoardDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, submitSharedCardPromptResponse, clearSharedCardPrompt, setPendingStartupUpgradeAction, clearPendingStartupUpgradeAction, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, abandonRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -596,6 +596,18 @@ export const GameView: React.FC<{
         !isBoardCardDrawerOpen &&
         !boardFinancialAction &&
         !isNonBoardOverlayOpen;
+    // 回合不再自動結束，玩家自己按「結束回合」才換下一位（比照大富翁）。
+    // 條件：輪到自己、沒有正在移動、沒有排隊中/進行中的棋盤事件、
+    // 沒有未回覆完的共享事件、且畫面上沒有任何流程視窗擋著。
+    const canEndTurn = !!(
+        isBoardTurn &&
+        !boardState?.movement?.isActive &&
+        !boardState?.currentEvent &&
+        !(boardState?.pendingEvents && boardState.pendingEvents.length > 0) &&
+        !hasIncompleteSharedBoardPrompt &&
+        !isProcessingEvent &&
+        !isRollingBoardDice
+    );
     const activeRoomMovement = boardState?.movement?.isActive ? boardState.movement : null;
     const storyShareRequest = useMemo(() => {
         if (!room?.pendingRequests || !user?.uid || !activeBoardCardKey || !activeBoardCard) return null;
@@ -654,6 +666,18 @@ export const GameView: React.FC<{
             showAlert(err.message || '擲骰失敗', 'error');
             setIsRollingBoardDice(false);
             throw err;
+        }
+    };
+
+    const handleEndTurn = async () => {
+        if (!canEndTurn) {
+            showAlert('請先完成目前的棋盤事件，才能結束回合。', 'info');
+            return;
+        }
+        try {
+            await endTurn();
+        } catch (err: any) {
+            showAlert(err?.message || '結束回合失敗，請再試一次', 'error');
         }
     };
 
@@ -2374,6 +2398,8 @@ export const GameView: React.FC<{
                     setShowScoreView(true);
                     setIsSettlement(true);
                 }}
+                onEndTurn={handleEndTurn}
+                canEndTurn={canEndTurn}
                 isBoardTurn={isBoardTurn}
                 isRollingBoardDice={isRollingBoardDice}
                 hasCar={hasCar}
