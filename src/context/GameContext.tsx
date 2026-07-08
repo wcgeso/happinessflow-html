@@ -522,12 +522,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 expenses: sharedState.expenses ?? prev.expenses,
                 lastSharedExpenseSyncedAt: syncedAt
             }));
+
+            // 給受影響玩家一個可見的確認，而不是悄悄改數字卻毫無提示（見 M2/P1-03）。
+            if (sharedState.lastBoardEvent) {
+                showAlert(`📋 ${sharedState.lastBoardEvent}，財務報表已同步更新`, 'info', true);
+            }
         }, (err) => {
             console.error("[GameContext] 監聽共享支出效果失敗:", err);
         });
 
         return () => unsubscribe();
-    }, [room?.id, room?.hostId, user?.uid, gameState.isSetup, gameState.lastSharedExpenseSyncedAt]);
+    }, [room?.id, room?.hostId, user?.uid, gameState.isSetup, gameState.lastSharedExpenseSyncedAt, showAlert]);
 
     // 合併官方紀錄 + 玩家自存紀錄（官方優先，自存紀錄補充沒有官方紀錄的場次）
     const gameHistory = useMemo(() => {

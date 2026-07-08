@@ -1728,15 +1728,29 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         summary: string;
         detail?: string;
     }) => {
-        if (!room?.id || !room.isBoardGame || !room.playerStates) return;
+        if (!room?.id || !room.isBoardGame || !room.playerStates || !user) return;
 
         // 共享效果的正式來源是 room.playerStates，每位玩家的本地 gameState 都必須
         // 依 sharedExpenseSyncedAt 這個時間戳把此次共享支出回灌，避免本地防抖同步
         // 用舊資料覆寫掉這次的正式共享結果（見 P0-02）。
+        //
+        // 抽卡者自己（user.uid）已經透過一般單人交易流程（handleTransactionSubmit）
+        // 在本地正確套用過這筆支出，這裡只補一個新的 lastBoardEvent 讓其他寫入不會
+        // 遺失既有欄位，但不重新計算 expenses、也不更新 lastSharedExpenseSyncedAt，
+        // 避免抽卡者的本地正確結果被 GameContext 的回灌監聽用（落後的）room 舊值覆寫，
+        // 造成支出被重複套用兩次。
         const syncedAt = Date.now();
 
         const nextPlayerStates = Object.fromEntries(
             Object.entries(room.playerStates).map(([uid, state]) => {
+                if (uid === user.uid) {
+                    return [uid, cleanObject({
+                        ...state,
+                        pendingCardAction: payload.detail || payload.summary,
+                        lastBoardEvent: payload.summary
+                    })];
+                }
+
                 const currentVal = state.expenses?.[payload.category] || 0;
                 const nextVal = payload.isIncrease
                     ? currentVal + payload.amount

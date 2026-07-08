@@ -1241,22 +1241,15 @@ export const GameView: React.FC<{
 
         if (boardFinancialAction?.afterApply?.affectsAllPlayersExpense) {
             const effect = boardFinancialAction.afterApply.affectsAllPlayersExpense;
+            // 注意：抽卡者自己的本地 expenses 已經由上面的 handleTransactionSubmit()
+            // 透過 expensePayload 正確套用過一次，這裡只需要把效果廣播給其他玩家，
+            // 不能再對本地 gameState 重複套用同一筆支出（否則抽卡者會被算兩次）。
             await applyBoardExpenseToAllPlayers({
                 amount: effect.amount,
                 category: effect.category,
                 isIncrease: effect.isIncrease,
                 summary: boardFinancialAction.txData.name,
                 detail: `全體玩家${effect.isIncrease ? '增加' : '減少'}${formatMoney(effect.amount)} 的${effect.category === 'basicLiving' ? '餐飲、服飾、居住類' : effect.category === 'transportEdu' ? '交通、教育、娛樂類' : '其他、醫療、育兒類'}月支出`
-            });
-            setGameState(prev => {
-                const currentVal = prev.expenses[effect.category] || 0;
-                return {
-                    ...prev,
-                    expenses: {
-                        ...prev.expenses,
-                        [effect.category]: effect.isIncrease ? currentVal + effect.amount : Math.max(0, currentVal - effect.amount)
-                    }
-                };
             });
         }
 
