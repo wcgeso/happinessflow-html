@@ -44,6 +44,8 @@ export const GameView: React.FC<{
     isDevMode?: boolean;
 }> = ({ onFinishGame, isDevMode = false }) => {
     const FAMILY_JOIN_RESULT_DISPLAY_MS = 2500;
+    const FAMILY_JOIN_ROLL_ANIMATION_MS = 700;
+    const FAMILY_JOIN_ROLL_TICK_MS = 90;
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
     const { room, leaveRoom, rollBoardDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, submitSharedCardPromptResponse, clearSharedCardPrompt, setPendingStartupUpgradeAction, clearPendingStartupUpgradeAction, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, abandonRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
@@ -186,6 +188,7 @@ export const GameView: React.FC<{
     const [isSubmittingFamilyJoin, setIsSubmittingFamilyJoin] = useState(false);
     const [familyJoinRollValue, setFamilyJoinRollValue] = useState<number | null>(null);
     const [familyJoinResult, setFamilyJoinResult] = useState<'passed' | 'failed' | null>(null);
+    const [isFamilyJoinRolling, setIsFamilyJoinRolling] = useState(false);
     const [familyJoinPromptSnapshot, setFamilyJoinPromptSnapshot] = useState<FamilyMilestoneJoinPrompt | null>(null);
     const [visibleFamilyJoinPromptId, setVisibleFamilyJoinPromptId] = useState<string | null>(null);
     const [dismissedFamilyJoinPromptIds, setDismissedFamilyJoinPromptIds] = useState<string[]>([]);
@@ -211,6 +214,7 @@ export const GameView: React.FC<{
     const [isSubmittingClaim, setIsSubmittingClaim] = useState(false);
     const [handledClaimKeys, setHandledClaimKeys] = useState<string[]>([]);
     const familyJoinCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const familyJoinRollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const [promotionType, setPromotionType] = useState<PromotionType | null>(null);
     const [isRollingBoardDice, setIsRollingBoardDice] = useState(false);
@@ -707,6 +711,9 @@ export const GameView: React.FC<{
         return () => {
             if (familyJoinCloseTimeoutRef.current) {
                 clearTimeout(familyJoinCloseTimeoutRef.current);
+            }
+            if (familyJoinRollIntervalRef.current) {
+                clearInterval(familyJoinRollIntervalRef.current);
             }
         };
     }, []);
@@ -1832,8 +1839,32 @@ export const GameView: React.FC<{
         setIsSubmittingFamilyJoin(false);
     };
 
-    const handleFamilyJoinRoll = async () => {
-        if (!activeFamilyJoinPrompt || !user?.uid || isSubmittingFamilyJoin || hasRespondedToFamilyJoin) return;
+    const handleFamilyJoinRoll = () => {
+        if (!activeFamilyJoinPrompt || !user?.uid || isSubmittingFamilyJoin || hasRespondedToFamilyJoin || isFamilyJoinRolling) return;
+
+        setIsFamilyJoinRolling(true);
+        setFamilyJoinResult(null);
+
+        if (familyJoinRollIntervalRef.current) {
+            clearInterval(familyJoinRollIntervalRef.current);
+        }
+        // 骰子先快速跳動幾次製造隨機感，再定格在最終結果，避免點擊後數字瞬間定死。
+        familyJoinRollIntervalRef.current = setInterval(() => {
+            setFamilyJoinRollValue(Math.floor(Math.random() * 6) + 1);
+        }, FAMILY_JOIN_ROLL_TICK_MS);
+
+        setTimeout(() => {
+            if (familyJoinRollIntervalRef.current) {
+                clearInterval(familyJoinRollIntervalRef.current);
+                familyJoinRollIntervalRef.current = null;
+            }
+            setIsFamilyJoinRolling(false);
+            void finalizeFamilyJoinRoll();
+        }, FAMILY_JOIN_ROLL_ANIMATION_MS);
+    };
+
+    const finalizeFamilyJoinRoll = async () => {
+        if (!activeFamilyJoinPrompt || !user?.uid) return;
 
         const roll = Math.floor(Math.random() * 6) + 1;
         const passed = roll >= activeFamilyJoinPrompt.requiredRoll;
@@ -2066,7 +2097,7 @@ export const GameView: React.FC<{
 
                         <div className="mt-6 rounded-[28px] border border-[#ead0ab] bg-white/80 p-5 text-center">
                             <p className="text-sm font-bold tracking-[0.18em] text-[#b07c3f]">目前骰點</p>
-                            <div className="mt-3 text-5xl font-black text-[#5e432c]">
+                            <div className={`mt-3 text-5xl font-black text-[#5e432c] transition-transform ${isFamilyJoinRolling ? 'animate-bounce' : ''}`}>
                                 {familyJoinRollValue ?? '-'}
                             </div>
                             {familyJoinResult && (
@@ -2080,7 +2111,7 @@ export const GameView: React.FC<{
                             <button
                                 type="button"
                                 onClick={handleDeclineFamilyJoin}
-                                disabled={isSubmittingFamilyJoin || hasRespondedToFamilyJoin}
+                                disabled={isSubmittingFamilyJoin || hasRespondedToFamilyJoin || isFamilyJoinRolling}
                                 className="flex-1 rounded-2xl border border-[#d9b98b] bg-white px-4 py-3 text-base font-black text-[#8b6a48] transition hover:bg-[#fff4e7] disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {hasRespondedToFamilyJoin ? '已回覆' : '略過'}
@@ -2088,10 +2119,10 @@ export const GameView: React.FC<{
                             <button
                                 type="button"
                                 onClick={handleFamilyJoinRoll}
-                                disabled={isSubmittingFamilyJoin || hasRespondedToFamilyJoin}
+                                disabled={isSubmittingFamilyJoin || hasRespondedToFamilyJoin || isFamilyJoinRolling}
                                 className="flex-1 rounded-2xl bg-[#f59e0b] px-4 py-3 text-base font-black text-white transition hover:bg-[#f2a81f] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {hasRespondedToFamilyJoin ? '已送出' : (isSubmittingFamilyJoin ? '處理中...' : '立即擲骰')}
+                                {hasRespondedToFamilyJoin ? '已送出' : (isFamilyJoinRolling ? '擲骰中...' : (isSubmittingFamilyJoin ? '處理中...' : '立即擲骰'))}
                             </button>
                         </div>
                     </div>
