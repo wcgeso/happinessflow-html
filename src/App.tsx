@@ -7,6 +7,7 @@ import { DeveloperPortal } from './views/lobby/DeveloperPortal';
 import { Terminal, ShieldCheck, UserCircle, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { InstallPromptBanner } from './components/modals/InstallPromptBanner';
+import { DeviceFrame } from './components/common/DeviceFrame';
 
 // Lazy load views
 const AuthView = React.lazy(() => import('./views/auth/AuthView').then(module => ({ default: module.AuthView })));
@@ -720,6 +721,14 @@ const MainRouting = ({
     }
 };
 
+// 執行師 / GM 需要寬螢幕監控畫面，不套用手機外框
+const DeviceFrameGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { user } = useAuth();
+    const isCoachOrGM = user?.role === 'coach' || user?.title === '遊戲管理員';
+    if (isCoachOrGM) return <>{children}</>;
+    return <DeviceFrame>{children}</DeviceFrame>;
+};
+
 export default function App() {
     useEffect(() => {
         // 防止行動端瀏覽器彈性滾動 (Elastic Scrolling)
@@ -736,14 +745,21 @@ export default function App() {
         };
     }, []);
 
+    // 投影模式（大螢幕棋盤）必須維持桌面滿版，不套用手機外框
+    const isBoardProjection = !!new URLSearchParams(window.location.search).get('boardRoom');
+
+    const content = (
+        <div className="flex-1 w-full h-full overflow-hidden bg-slate-950 select-none touch-none flex flex-col">
+            <AppContent />
+            <InstallPromptBanner />
+        </div>
+    );
+
     return (
         <AuthProvider>
             <RoomProvider>
                 <GameProvider>
-                    <div className="flex-1 w-full h-full overflow-hidden bg-slate-950 select-none touch-none flex flex-col">
-                        <AppContent />
-                        <InstallPromptBanner />
-                    </div>
+                    {isBoardProjection ? content : <DeviceFrameGate>{content}</DeviceFrameGate>}
                 </GameProvider>
             </RoomProvider>
         </AuthProvider>
