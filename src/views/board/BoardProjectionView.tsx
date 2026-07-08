@@ -194,6 +194,35 @@ const getAnimatedBoardPosition = (room: Room | null, playerUid: string, now: num
   return movement.path[stepIndex] ?? movement.startPosition;
 };
 
+// 大富翁式分段移動：算出「這段還沒走完的步數」加上「事件結案後還要繼續走的步數」，
+// 顯示給投影幕看剩餘部署還有幾步。
+const getRemainingMovementSteps = (room: Room | null, playerUid: string, now: number): number => {
+  const boardState = room?.boardState;
+  const movement = boardState?.movement;
+  if (!movement || movement.playerUid !== playerUid) return 0;
+
+  const remainingAfterThisLeg = movement.remainingPath?.length || 0;
+
+  if (!movement.isActive) {
+    // 已經停靠在事件格，這段本身走完了，只剩下之後要繼續走的部分。
+    return remainingAfterThisLeg;
+  }
+
+  const elapsed = Math.max(0, now - movement.startedAt);
+  if (elapsed < movement.introDelayMs) {
+    return movement.path.length + remainingAfterThisLeg;
+  }
+
+  const stepElapsed = elapsed - movement.introDelayMs;
+  const stepIndex = Math.min(
+    movement.path.length - 1,
+    Math.floor(stepElapsed / movement.stepDurationMs)
+  );
+  const remainingInThisLeg = Math.max(0, movement.path.length - 1 - stepIndex);
+
+  return remainingInThisLeg + remainingAfterThisLeg;
+};
+
 const getAvatarStyle = (player: { photoPosition?: string; photoScale?: string }) => {
   let position = { x: 50, y: 50 };
   let scale = 1;
@@ -797,7 +826,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
             </div>
 
             <AnimatePresence>
-              {movement?.isActive && (
+              {movement && (movement.isActive || (movement.remainingPath?.length ?? 0) > 0) && (
                 <motion.div
                   initial={{ opacity: 0, y: -20, scale: 0.9 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -805,9 +834,14 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
                   className="absolute left-1/2 top-[112px] z-20 -translate-x-1/2 rounded-full border border-[#d8b98f] bg-[linear-gradient(180deg,rgba(255,252,246,0.96),rgba(247,235,213,0.95))] px-6 py-3 text-center shadow-[0_18px_40px_-22px_rgba(104,75,43,0.55)]"
                 >
-                  <div className="text-xs font-black tracking-[0.28em] text-[#9b7b58]">移動中</div>
+                  <div className="text-xs font-black tracking-[0.28em] text-[#9b7b58]">
+                    {movement.isActive ? '移動中' : '停靠處理中'}
+                  </div>
                   <div className="mt-1 text-lg font-black text-[#4f3c29]">
                     {movingPlayerName} 前進 <span className="mx-1 text-2xl text-[#d44c28]">{movement.rollTotal}</span> 格
+                  </div>
+                  <div className="mt-1 text-sm font-bold text-[#9b7b58]">
+                    剩餘部署 <span className="mx-1 text-xl text-[#d44c28]">{getRemainingMovementSteps(room, movement.playerUid, animationNow)}</span> 步
                   </div>
                 </motion.div>
               )}

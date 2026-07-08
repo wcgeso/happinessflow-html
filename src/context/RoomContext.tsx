@@ -208,18 +208,22 @@ const BOARD_MOVE_STEP_DURATION_MS = 380;
 const BOARD_MOVE_LANDING_DELAY_MS = 600;
 const BOARD_DICE_ROLL_ANIMATION_MS = 3500;
 const BOARD_MOVE_STALE_BUFFER_MS = 2000;
+// 分段移動（大富翁式）：在「經過事件」停靠後，繼續走剩下步數前的短暫停頓，
+// 不需要再等第一次擲骰的骰子動畫時間。
+const BOARD_MOVE_CONTINUE_DELAY_MS = 500;
 const BOARD_CARD_LOG_LIMIT = 40;
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// 注意：第一段移動的 introDelayMs 已內含 BOARD_DICE_ROLL_ANIMATION_MS
+// （600+3500=4100ms），本身就超過骰子動畫時間，不需要再額外套用下限；
+// 分段移動的「繼續走」不需要等骰子動畫，直接照這段實際步數計算即可，
+// 不能沿用骰子動畫下限，否則每次接續都會被迫多等 3.5 秒。
 const getBoardMovementSettleMs = (movement: {
     path: unknown[];
     stepDurationMs: number;
     introDelayMs: number;
     landingDelayMs: number;
-}) => Math.max(
-    BOARD_DICE_ROLL_ANIMATION_MS,
-    movement.introDelayMs + movement.path.length * movement.stepDurationMs + movement.landingDelayMs
-);
+}) => movement.introDelayMs + movement.path.length * movement.stepDurationMs + movement.landingDelayMs;
 
 const createInitialBoardState = (members: RoomMember[], playerStates?: Record<string, GameState>): BoardState => {
     const playerMembers = members.filter(member => member.role !== 'coach');
@@ -279,8 +283,34 @@ const buildBoardEventAdvanceState = (roomData: Room) => {
         });
     }
 
-    // 事件佇列清空後不再自動換人：回合改由玩家自己按「結束回合」才真正切換，
-    // 這裡只清掉已完成的事件狀態，currentTurnUid 維持不變。
+    // 事件佇列清空後，檢查這位玩家是不是還有上一段「經過事件」停靠後
+    // 剩下的步數要繼續走（大富翁式的分段移動）；有的話直接接續下一段動畫，
+    // 沒有的話回合改由玩家自己按「結束回合」才真正切換，currentTurnUid 維持不變。
+    const pendingMovement = boardState.movement;
+    if (pendingMovement && !pendingMovement.isActive && pendingMovement.path.length > 0) {
+        const movingPlayerState = roomData.playerStates?.[pendingMovement.playerUid];
+        const { legPath, remainingPath } = splitMovementLeg(pendingMovement.path, movingPlayerState);
+
+        return cleanObject({
+            boardState: {
+                ...boardState,
+                ...activateBoardQueueEntry(null),
+                familyMilestoneJoinPrompt: null,
+                sharedCardPrompt: null,
+                pendingEvents: [],
+                movement: {
+                    ...pendingMovement,
+                    path: legPath,
+                    remainingPath: remainingPath.length > 0 ? remainingPath : undefined,
+                    startedAt: Date.now(),
+                    introDelayMs: BOARD_MOVE_CONTINUE_DELAY_MS,
+                    isActive: true
+                },
+                updatedAt: Date.now()
+            }
+        });
+    }
+
     return cleanObject({
         boardState: {
             ...boardState,
@@ -288,6 +318,7 @@ const buildBoardEventAdvanceState = (roomData: Room) => {
             familyMilestoneJoinPrompt: null,
             sharedCardPrompt: null,
             pendingEvents: [],
+            movement: null,
             updatedAt: Date.now()
         }
     });
@@ -336,85 +367,134 @@ const getNextTurnUid = (boardState: BoardState) => {
     return { nextUid: boardState.currentTurnUid, skipTurns };
 };
 
-const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
+// 依大富翁式的走法拆段：掃描這段還沒走的步數，找到第一個「經過事件」格
+// （銀行/學校/維修廠）就在那裡切一段（legPath），該格之後剩下的步數留到
+// 下一段再走（remainingPath）；如果整段都沒有經過事件格，代表這段直接
+// 走到真正的終點（remainingPath 為空）。
+const splitMovementLeg = (
+    steps: number[],
+    playerState: GameState | undefined
+): { legPath: number[]; remainingPath: number[] } => {
+    for (let i = 0; i < steps.length - 1; i += 1) {
+        const square = getSquareByIndex(steps[i]);
+        if (
+            square.type === 'bank' ||
+            square.type === 'school' ||
+            (square.type === 'repair' && hasCarAsset(playerState))
+        ) {
+            return { legPath: steps.slice(0, i + 1), remainingPath: steps.slice(i + 1) };
+        }
+    }
+    return { legPath: steps, remainingPath: [] };
+};
+
+const buildBoardMovementLegResolution = (roomData: Room, playerUid: string) => {
     const boardState = roomData.boardState;
     const movement = boardState?.movement;
     if (!boardState || !movement || movement.playerUid !== playerUid) return null;
 
     const playerState = roomData.playerStates?.[playerUid];
     const nextPosition = movement.path[movement.path.length - 1] ?? movement.startPosition;
-    const detailMessages: string[] = [];
-    const nextSkipTurns = { ...boardState.skipTurns };
-    let passedBankThisTurn = false;
-    let passedSchoolThisTurn = false;
-    const routeEvents: Array<{ type: 'bank' | 'school' | 'repair'; squareIndex: number; repairRoll?: number; repairFee?: number }> = [];
-    const queuedRouteTypes = new Set<'bank' | 'school' | 'repair'>();
     const playerName = roomData.members.find(member => member.uid === playerUid)?.name || '玩家';
     const eventTimestamp = Date.now();
+    const nextPlayerStates = { ...(roomData.playerStates || {}) };
 
-    for (let step = 0; step < movement.path.length; step += 1) {
-        const square = getSquareByIndex(movement.path[step]);
-        const isLandingStep = step === movement.path.length - 1;
+    // 這段路徑是否在「經過事件」格停下（而不是走到真正的終點）。
+    const isIntermediateStop = !!(movement.remainingPath && movement.remainingPath.length > 0);
+
+    if (isIntermediateStop) {
+        const square = getSquareByIndex(nextPosition);
+        let event: BoardEventLog;
+        let extraFields: Partial<GameState> = {};
 
         if (square.type === 'bank') {
-            passedBankThisTurn = true;
-            if (!queuedRouteTypes.has('bank') && !isLandingStep) {
-                queuedRouteTypes.add('bank');
-                routeEvents.push({ type: 'bank', squareIndex: movement.path[step] });
-            }
-            detailMessages.push(`經過${square.label}，請完成月結餘確認`);
-        }
-        if (square.type === 'school') {
-            passedSchoolThisTurn = true;
-            if (!queuedRouteTypes.has('school') && !isLandingStep) {
-                queuedRouteTypes.add('school');
-                routeEvents.push({ type: 'school', squareIndex: movement.path[step] });
-            }
-            detailMessages.push(`經過${square.label}，可前往升等考試`);
-        }
-        if (square.type === 'repair' && !isLandingStep && hasCarAsset(playerState)) {
+            event = {
+                id: `${playerUid}_${eventTimestamp}_bank`,
+                playerUid,
+                playerName,
+                type: 'bank',
+                summary: `${playerName} 經過${square.label}`,
+                detail: '先領取月結餘，再決定是否購買保險或定存',
+                squareIndex: nextPosition,
+                timestamp: eventTimestamp,
+                rollTotal: movement.rollTotal
+            };
+            extraFields = { bankServiceWindowActive: true, bankServiceGrantedAtEventId: event.id };
+        } else if (square.type === 'school') {
+            event = {
+                id: `${playerUid}_${eventTimestamp}_school`,
+                playerUid,
+                playerName,
+                type: 'school',
+                summary: `${playerName} 經過${square.label}`,
+                detail: '請完成升等考試',
+                squareIndex: nextPosition,
+                timestamp: eventTimestamp,
+                rollTotal: movement.rollTotal
+            };
+        } else {
             // 依 docs/gdd/REPAIR_SYSTEM.md：經過維修廠與停留維修廠都必須先擲一次正式事件骰點，
             // 保養費必須走正式財務檢核，不得只顯示文字讓玩家自行登錄。
-            const feeRoll = Math.floor(Math.random() * 6) + 1;
-            const repairFee = feeRoll * 2000;
-            if (!queuedRouteTypes.has('repair')) {
-                queuedRouteTypes.add('repair');
-                routeEvents.push({ type: 'repair', squareIndex: movement.path[step], repairRoll: feeRoll, repairFee });
-            }
-            detailMessages.push(`經過維修廠，汽車保養費 ${repairFee}，請完成財務檢核`);
+            const repairRoll = Math.floor(Math.random() * 6) + 1;
+            const repairFee = repairRoll * 2000;
+            event = {
+                id: `${playerUid}_${eventTimestamp}_repair`,
+                playerUid,
+                playerName,
+                type: 'repair',
+                summary: `${playerName} 經過維修廠`,
+                detail: `經過維修廠，汽車保養費 ${repairFee}，請完成財務檢核`,
+                squareIndex: nextPosition,
+                timestamp: eventTimestamp,
+                rollTotal: movement.rollTotal,
+                repairRoll,
+                repairFee,
+                repairHasCar: true
+            };
         }
+
+        const updatedPlayerState = playerState ? cleanObject({
+            ...playerState,
+            boardPosition: nextPosition,
+            lastBoardEvent: event.summary,
+            pendingCardAction: event.detail,
+            ...extraFields
+        }) : undefined;
+        if (updatedPlayerState) {
+            nextPlayerStates[playerUid] = updatedPlayerState;
+        }
+
+        return cleanObject({
+            boardState: {
+                ...boardState,
+                playerPositions: {
+                    ...boardState.playerPositions,
+                    [playerUid]: nextPosition
+                },
+                ...activateBoardQueueEntry({ event }),
+                pendingEvents: [],
+                // 先暫停在這格（isActive:false），記住剩下要走的步數；
+                // 事件結案後由 advanceBoardEventQueue 觸發下一段動畫。
+                movement: {
+                    ...movement,
+                    path: movement.remainingPath || [],
+                    remainingPath: undefined,
+                    isActive: false
+                },
+                updatedAt: eventTimestamp
+            },
+            ...(Object.keys(nextPlayerStates).length > 0 ? { playerStates: nextPlayerStates } : {})
+        });
     }
 
+    // 這是最後一段：真正走到終點，比照原本落點事件邏輯處理
+    // （抽卡／醫院／維修廠停留／學校停留／銀行停留）。
+    const nextSkipTurns = { ...boardState.skipTurns };
+    let passedBankThisTurn = false;
+    const detailMessages: string[] = [];
     const landedSquare = getSquareByIndex(nextPosition);
     let deckState = boardState.deckState;
     const queuedEvents: BoardQueuedEvent[] = [];
-
-    routeEvents.forEach((routeEvent, routeIndex) => {
-        const isBank = routeEvent.type === 'bank';
-        const isRepair = routeEvent.type === 'repair';
-        queuedEvents.push({
-            event: {
-                id: `${playerUid}_${eventTimestamp}_${routeEvent.type}`,
-                playerUid,
-                playerName,
-                type: routeEvent.type,
-                summary: isRepair ? `${playerName} 經過維修廠` : `${playerName} 經過${isBank ? '銀行' : '學校'}`,
-                detail: isRepair
-                    ? '經過維修廠，保養費 = 點數 x 2000，不停回合'
-                    : (isBank
-                        ? '先領取月結餘，再決定是否購買保險或定存'
-                        : '請完成升等考試'),
-                squareIndex: routeEvent.squareIndex,
-                timestamp: eventTimestamp + routeIndex,
-                rollTotal: movement.rollTotal,
-                ...(isRepair ? {
-                    repairRoll: routeEvent.repairRoll,
-                    repairFee: routeEvent.repairFee,
-                    repairHasCar: true
-                } : {})
-            }
-        });
-    });
 
     if (landedSquare.type === 'happiness' || landedSquare.type === 'opportunity' || landedSquare.type === 'news') {
         const drawResult = drawBoardCard(deckState, landedSquare.type, playerState);
@@ -430,7 +510,7 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
                     summary: `${playerName} 停在${landedSquare.label}`,
                     detail: `抽到${landedSquare.label}卡：${drawResult.card.title}`,
                     squareIndex: nextPosition,
-                    timestamp: eventTimestamp + routeEvents.length,
+                    timestamp: eventTimestamp,
                     rollTotal: movement.rollTotal
                 },
                 card: drawResult.card
@@ -450,7 +530,7 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
                 summary: `${playerName} 抵達醫院`,
                 detail: '棋子到達後再擲一次骰子，醫藥費 = 點數 x 1000',
                 squareIndex: nextPosition,
-                timestamp: eventTimestamp + routeEvents.length,
+                timestamp: eventTimestamp,
                 rollTotal: movement.rollTotal,
                 hospitalSkipTurns: landedSquare.pauseTurns || 1
             }
@@ -476,7 +556,7 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
                     ? `棋子到達後保養費 = 點數 x 2000，並停回合 1 次`
                     : '目前沒有汽車，本次維修廠無效果',
                 squareIndex: nextPosition,
-                timestamp: eventTimestamp + routeEvents.length,
+                timestamp: eventTimestamp,
                 rollTotal: movement.rollTotal,
                 repairRoll,
                 repairFee: hasCar ? repairFee : 0,
@@ -494,7 +574,7 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
                 summary: `${playerName} 停留在學校`,
                 detail: '請完成升等考試',
                 squareIndex: nextPosition,
-                timestamp: eventTimestamp + routeEvents.length,
+                timestamp: eventTimestamp,
                 rollTotal: movement.rollTotal
             }
         });
@@ -510,7 +590,7 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
                 summary: `${playerName} 停留在銀行`,
                 detail: '先領取月結餘，再決定是否購買保險或定存',
                 squareIndex: nextPosition,
-                timestamp: eventTimestamp + routeEvents.length,
+                timestamp: eventTimestamp,
                 rollTotal: movement.rollTotal
             }
         });
@@ -528,7 +608,6 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
     };
     const [currentQueueEntry, ...remainingQueue] = queuedEvents;
 
-    const nextPlayerStates = { ...(roomData.playerStates || {}) };
     const updatedPlayerState = playerState ? cleanObject({
         ...playerState,
         boardPosition: nextPosition,
@@ -689,7 +768,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const movementDeadline = movement.startedAt + getBoardMovementSettleMs(movement);
 
                     if (Date.now() > movementDeadline + BOARD_MOVE_STALE_BUFFER_MS) {
-                        const staleResolution = buildBoardMovementResolution(data, movement.playerUid);
+                        const staleResolution = buildBoardMovementLegResolution(data, movement.playerUid);
                         if (staleResolution) {
                             console.warn('偵測到過期的棋盤移動狀態，自動補完收尾:', data.id, movement.playerUid);
                             safeAsync(updateDoc(doc(db, 'rooms', targetRoomId), staleResolution)).catch(err => {
@@ -984,11 +1063,16 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         }
 
+        // 大富翁式分段移動：這次擲骰只先走到第一個「經過事件」格（或直接走到終點，
+        // 若中途沒有經過事件格），剩下的步數留到事件結案後再繼續走。
+        const { legPath: firstLegPath, remainingPath: firstLegRemaining } = splitMovementLeg(path, playerState);
+
         const rollTimestamp = Date.now();
         const movement = {
             playerUid: user.uid,
             startPosition,
-            path,
+            path: firstLegPath,
+            remainingPath: firstLegRemaining.length > 0 ? firstLegRemaining : undefined,
             rollTotal: total,
             dice,
             startedAt: rollTimestamp,
@@ -1039,7 +1123,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return;
                 }
 
-                const resolution = buildBoardMovementResolution(latestRoom, user.uid);
+                const resolution = buildBoardMovementLegResolution(latestRoom, user.uid);
                 if (!resolution) return;
 
                 await safeAsync(updateDoc(doc(db, 'rooms', room.id), resolution));
@@ -1182,6 +1266,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
         }
 
+        // 若這次推進事件後又接續了下一段分段移動動畫，記下來，交易成功後再排程
+        // 等待動畫結束、觸發下一段的正式結算（比照 rollBoardDice 的做法）。
+        let resumedMovement: { playerUid: string; startedAt: number; settleDelayMs: number } | null = null;
+
         // Use runTransaction to prevent race conditions during deep state updates
         await safeAsync(runTransaction(db, async (transaction) => {
             const roomRef = doc(db, 'rooms', room.id);
@@ -1190,10 +1278,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const currentRoom = roomDoc.data() as Room;
             const currentBoardState = currentRoom.boardState;
             if (!currentBoardState) return;
-            
+
             // Check again in transaction
             if (expectedType && currentBoardState.currentEvent?.type !== expectedType) return;
-            
+
             // Avoid advancing if same event ID was already advanced
             if (currentBoardState.currentEvent?.id !== boardState.currentEvent?.id) {
                 return; // Event already changed
@@ -1220,6 +1308,15 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const nextState = buildBoardEventAdvanceState(roomForAdvance);
             if (!nextState) return;
 
+            const nextMovement = nextState.boardState?.movement;
+            if (nextMovement?.isActive) {
+                resumedMovement = {
+                    playerUid: nextMovement.playerUid,
+                    startedAt: nextMovement.startedAt,
+                    settleDelayMs: getBoardMovementSettleMs(nextMovement)
+                };
+            }
+
             transaction.update(roomRef, cleanObject({
                 ...nextState,
                 boardState: {
@@ -1232,6 +1329,34 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 ...(nextState.playerStates ? { playerStates: nextState.playerStates } : {})
             }));
         }));
+
+        if (resumedMovement) {
+            const { playerUid, startedAt, settleDelayMs } = resumedMovement;
+            void (async () => {
+                await wait(settleDelayMs);
+                try {
+                    const latestSnap = await safeAsync(getDoc(doc(db, 'rooms', room.id)));
+                    if (!latestSnap?.exists()) return;
+
+                    const latestRoom = latestSnap.data() as Room;
+                    const latestMovement = latestRoom.boardState?.movement;
+                    if (
+                        !latestMovement?.isActive ||
+                        latestMovement.playerUid !== playerUid ||
+                        latestMovement.startedAt !== startedAt
+                    ) {
+                        return;
+                    }
+
+                    const legResolution = buildBoardMovementLegResolution(latestRoom, playerUid);
+                    if (!legResolution) return;
+
+                    await safeAsync(updateDoc(doc(db, 'rooms', room.id), legResolution));
+                } catch (err) {
+                    console.error('分段棋盤移動結算失敗:', err);
+                }
+            })();
+        }
     });
 
     // 回合不再於事件結算後自動切換，玩家必須自己確認所有動作都完成後按下

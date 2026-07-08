@@ -213,6 +213,8 @@ export interface BoardMovementState {
   playerUid: string;
   startPosition: number;
   path: number[];
+  // 大富翁式分段移動：這段路徑走完後，還沒走的剩餘步數（沒有就代表這段已經是終點）。
+  remainingPath?: number[];
   rollTotal: number;
   dice: number[];
   startedAt: number;
