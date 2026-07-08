@@ -1112,8 +1112,15 @@ export const GameView: React.FC<{
                 }
 
                 const opened = await openSharedCardPrompt(eventId, cardId);
-                if (opened) {
+                if (opened === 'opened') {
                     setIsBoardCardDrawerOpen(false);
+                    return;
+                }
+
+                if (opened === 'no_target') {
+                    // 沒有任何玩家（含抽卡者）符合這張卡的資格，視為本次無效果，直接結案。
+                    setIsBoardCardDrawerOpen(false);
+                    void markBoardCardHandled();
                     return;
                 }
 
@@ -1585,6 +1592,19 @@ export const GameView: React.FC<{
         }
         setSubmittedSharedCardPromptIds(prev => prev.includes(payload.promptId) ? prev : [...prev, payload.promptId]);
         closeSharedCardPromptModal(payload.promptId);
+
+        // 來源玩家（抽卡者）自己回覆完共享卡片後，必須讓自己的卡片事件跟著結案，
+        // 否則卡片會永遠卡在「未處理」，導致骰子被「請先完成目前卡片」擋住。
+        // dismissBoardCard 內建的 hasIncompleteSharedPrompts guard 仍會等其他玩家
+        // 全部回覆完才真正推進事件佇列，這裡呼叫不會提前結束事件。
+        if (
+            activeSharedCardPrompt?.id === payload.promptId &&
+            activeSharedCardPrompt.sourcePlayerUid === user?.uid &&
+            activeBoardCardKey &&
+            !isActiveBoardCardHandled
+        ) {
+            void markBoardCardHandled();
+        }
     };
 
     const handleSharedCardDecline = async () => {

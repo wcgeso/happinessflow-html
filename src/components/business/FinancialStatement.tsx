@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, FinancialSummary, Asset } from '../../types';
-import { REAL_ESTATE_PRESETS } from '../../constants';
+import { REAL_ESTATE_PRESETS, REAL_ESTATE_TYPES } from '../../constants';
 import { TrendingUp, Building, ChevronDown, ShieldCheck, ExternalLink, Wallet, Landmark, BarChart3, PieChart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { HistoryTable } from './HistoryTable';
@@ -27,6 +27,14 @@ interface FinancialStatementProps {
 const formatMoney = (amount: number, isMasked?: boolean) => {
   if (isMasked) return '****';
   return amount.toLocaleString();
+};
+
+// 店面（小型／中型／大型）只能出租，不支援自用／出租轉換
+const isStoreAsset = (asset: Asset) => {
+  const symbol = extractAssetSymbol(asset.name);
+  if (symbol && REAL_ESTATE_TYPES[symbol]) return REAL_ESTATE_TYPES[symbol].type === 'store';
+  if (asset.name.includes('店面')) return true;
+  return !!asset.houseType?.startsWith('store');
 };
 
 const getAssetDisplayName = (asset: Asset) => {
@@ -703,22 +711,29 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
                     <span className="text-[11px] text-slate-200 font-bold">
                       {getRealEstateAssetLabel(item.name, item.houseType)}
                     </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!disabled) onHouseClick?.(item);
-                      }}
-                      disabled={disabled}
-                      className={cn(
-                        "text-[9px] font-black px-1.5 py-0.5 rounded transition-all",
-                        item.isSelfUse
-                          ? "bg-amber-500/20 text-amber-500 border border-amber-500/30 hover:bg-amber-500/30"
-                          : "bg-blue-500/20 text-blue-500 border border-blue-500/30 hover:bg-blue-500/30",
-                        disabled && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      {item.isSelfUse ? "自用" : "出租"}
-                    </button>
+                    {isStoreAsset(item) ? (
+                      // 店面只能出租，不提供自用／出租轉換
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-500 border border-blue-500/30">
+                        出租
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!disabled) onHouseClick?.(item);
+                        }}
+                        disabled={disabled}
+                        className={cn(
+                          "text-[9px] font-black px-1.5 py-0.5 rounded transition-all",
+                          item.isSelfUse
+                            ? "bg-amber-500/20 text-amber-500 border border-amber-500/30 hover:bg-amber-500/30"
+                            : "bg-blue-500/20 text-blue-500 border border-blue-500/30 hover:bg-blue-500/30",
+                          disabled && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        {item.isSelfUse ? "自用" : "出租"}
+                      </button>
+                    )}
                     {item.isInsured && <ShieldCheck size={10} className="text-emerald-400 shrink-0" />}
                   </div>
                 </>

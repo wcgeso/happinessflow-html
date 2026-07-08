@@ -296,10 +296,10 @@ export const useTransactionLogic = ({
                 else if (insType === 'house') { qty = insSelectedHouses.length; if (qty <= 0) { showError("請選擇投保房屋"); return; } desc = `買入房屋保險 (${qty}間)`; pay = { targetAssetIds: insSelectedHouses }; }
                 else if (insType === 'aircraft') { if (!insAircraftSelected) { showError("請勾選汽車保險"); return; } qty = 1; desc = `買入汽車保險`; pay = { aircraft: true }; }
                 const total = qty * 2000;
-                if (total > cash) { showError("現金不足"); return; }
-                txData = { name: desc, amount: total, cashChange: -total, source: 'cash', usage: 'expense', insuranceType: insType, insurancePayload: pay };
-                impactList = [`現金 -${formatMoney(total)}`, `保險月支出 +${formatMoney(total)}`];
-                expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Decrease' }, { category: 'Expenses', name: '保險支出', direction: 'Increase' }];
+                // 保險是每月固定支出（依保單張數即時計算），不是一次性現金支出，購買當下不扣現金。
+                txData = { name: desc, amount: total, cashChange: 0, source: 'cash', usage: 'expense', insuranceType: insType, insurancePayload: pay };
+                impactList = [`保險月支出 +${formatMoney(total)}`];
+                expectedEntries = [{ category: 'Expenses', name: '保險支出', direction: 'Increase' }];
             } else if (assetType === '飛行器' || assetType === '汽車') {
                 const c = Number(aircraftCash), l = Number(aircraftLoan);
                 const carPrice = 600000;

@@ -539,10 +539,10 @@ export const useGameLogic = () => {
         }
 
         if (data.usage === 'insurance') {
+            // 保險是每月固定支出，購買當下不扣現金，維持呼叫端傳入的 cashChange（通常為 0）。
             return {
                 ...data,
                 usage: 'expense',
-                cashChange: data.cashChange === 0 ? -(data.expensePayload?.amount || 0) : data.cashChange,
                 amount: data.amount || data.expensePayload?.amount || 0
             };
         }

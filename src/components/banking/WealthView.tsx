@@ -56,6 +56,8 @@ export const WealthView: React.FC<WealthViewProps> = ({
 
   const handleBuyInsurance = () => {
     if (!canUseBankProducts) return;
+    // 保險費用由 medicalInsuranceCount 即時計算（見 calculateFinancialSummary 的 insuranceCost），
+    // 不需要另外疊加 expensePayload，否則會與保險費用公式重複計算。
     onTransaction({
       name: '購買醫療險',
       amount: 0,
@@ -63,8 +65,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
       source: 'cash',
       usage: 'insurance',
       insuranceType: 'medical',
-      insurancePayload: { medicalQty: 1 },
-      expensePayload: { category: 'otherMedicalChild', amount: 2000, isIncrease: true }
+      insurancePayload: { medicalQty: 1 }
     });
   };
 

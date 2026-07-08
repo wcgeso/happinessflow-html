@@ -626,7 +626,7 @@ interface RoomContextValue {
     drawPostExamHappinessCard: (success: boolean) => Promise<void>;
     drawBoardFollowupCard: (deck: 'happiness' | 'news', summary: string, detail?: string) => Promise<void>;
     openFamilyMilestoneJoinPrompt: (eventId: string, cardId: string) => Promise<void>;
-    openSharedCardPrompt: (eventId: string, cardId: string) => Promise<boolean>;
+    openSharedCardPrompt: (eventId: string, cardId: string) => Promise<'opened' | 'no_target' | false>;
     submitFamilyMilestoneJoinResponse: (payload: {
         promptId: string;
         status: 'passed' | 'failed' | 'declined';
@@ -1454,14 +1454,14 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
     };
 
-    const openSharedCardPrompt = async (eventId: string, cardId: string) => {
+    const openSharedCardPrompt = async (eventId: string, cardId: string): Promise<'opened' | 'no_target' | false> => {
         if (!room?.id || !room.isBoardGame || !room.boardState || !user) return false;
 
         const opportunityCard = OPPORTUNITY_CARDS.find(card => card.id === cardId);
         const newsCard = NEWS_CARDS.find(card => card.id === cardId);
         const promptId = `${eventId}_${cardId}_shared`;
 
-        if (room.boardState.sharedCardPrompt?.id === promptId) return true;
+        if (room.boardState.sharedCardPrompt?.id === promptId) return 'opened';
 
         const isCurrentCard =
             room.boardState.currentEvent?.id === eventId &&
@@ -1507,6 +1507,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return true;
             });
 
+        // 若沒有任何玩家（含抽卡者）符合此共享卡片的資格，就不建立等待中的共享提示——
+        // 否則會產生一個沒有人看得到、也沒有人能回覆的提示，導致這張卡永遠卡在未處理狀態。
+        // 比照家庭卡「沒有其他符合資格玩家」的邊界處理：直接視為本次無效果。
+        if (targetPlayerUids.length === 0) return 'no_target';
+
         const prompt: SharedCardPrompt = {
             id: promptId,
             kind,
@@ -1540,7 +1545,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
         });
 
-        return true;
+        return 'opened';
     };
 
     const submitFamilyMilestoneJoinResponse = async (payload: {

@@ -84,8 +84,8 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
     }
 
     if (data.usage === 'insurance' || data.insuranceType) {
+      // 保險是每月固定支出，購買當下不扣現金，正式答案只有保險支出增加。
       return [
-        { category: 'Assets', name: '現金', direction: 'Decrease' },
         { category: 'Expenses', name: '保險支出', direction: 'Increase' }
       ];
     }
@@ -163,7 +163,7 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
         ...nextData,
         name: nextData.name || `購買${insuranceLabel}`,
         amount: insuranceAmount,
-        cashChange: nextData.cashChange === 0 ? -insuranceAmount : nextData.cashChange,
+        // 保險是每月固定支出，購買當下不扣現金，維持呼叫端傳入的 cashChange（通常為 0）。
         impacts: nextData.impacts || [
           `保險支出(月) +${insuranceAmount.toLocaleString()}`
         ]
