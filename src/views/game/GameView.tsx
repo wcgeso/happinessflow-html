@@ -2013,6 +2013,34 @@ export const GameView: React.FC<{
         user?.uid
     ]);
 
+    // 共享卡片提示（投資/新創貸款/資產出售/股利等，例如 N055）的等待所有玩家回覆
+    // 版本。抽卡者若在其他玩家還沒回覆完之前就先操作（例如按「放棄」），
+    // markBoardCardHandled 當下會因為 hasIncompleteSharedBoardPrompt 而失敗、
+    // 只記下 pendingHandledBoardCard 等之後重試。但先前只有「家庭重要歷程」
+    // 提示有對應的重試 effect，一般共享卡片提示完全沒有人在其他玩家回覆完後
+    // 觸發重試，導致卡片永遠卡在「未處理」，骰子與結束回合按鈕跟著永久卡住。
+    useEffect(() => {
+        if (!room?.isBoardGame || !boardState || !user?.uid || !activeSharedCardPrompt || !activeBoardCard) return;
+        if (boardState.currentEvent?.playerUid !== user.uid) return;
+        if (activeBoardCard.cardId !== activeSharedCardPrompt.sourceCardId) return;
+        const hasAllResponses = activeSharedCardPrompt.targetPlayerUids.every(uid => !!activeSharedCardPrompt.responses?.[uid]);
+        if (!hasAllResponses) return;
+        if (!pendingHandledBoardCard || pendingHandledBoardCard.key !== activeBoardCardKey) return;
+        if (isActiveBoardCardHandled) return;
+
+        void finalizeBoardFinancialFlow();
+    }, [
+        activeBoardCard,
+        activeBoardCardKey,
+        activeSharedCardPrompt,
+        finalizeBoardFinancialFlow,
+        isActiveBoardCardHandled,
+        pendingHandledBoardCard,
+        room?.isBoardGame,
+        boardState,
+        user?.uid
+    ]);
+
     return (
         <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500 pb-safe">
             {showScoreView && (
