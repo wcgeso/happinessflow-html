@@ -604,12 +604,14 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     // 那一刻寫死的，若當下有玩家剛加入、尚未同步到房主端就開局，理論上會被
     // 房主端的自動補齊機制（healMissingTurnOrderPlayers）修正回來，但那需要
     // 等房主端的 Firestore 監聽收到更新才會觸發。這裡在畫面層再加一層保險：
-    // 只要 room.members 裡有非教練玩家不在 turnOrder，也照樣畫出棋偶，
-    // 避免補齊機制還沒跑完之前，投影幕地圖暫時性地漏人。
+    // 只要 room.members 裡有非「這場遊戲主持人」的成員不在 turnOrder，也照樣
+    // 畫出棋偶，避免補齊機制還沒跑完之前，投影幕地圖暫時性地漏人。
+    // 注意：判斷是不是玩家要看「是不是這場的房主」（room.hostId），不能看
+    // 帳號的全域角色（role）——執行師帳號也可能以參與者身分加入別人的房間。
     const uids = [
       ...room.boardState.turnOrder,
       ...room.members
-        .filter(member => member.role !== 'coach' && !room.boardState!.turnOrder.includes(member.uid))
+        .filter(member => member.uid !== room.hostId && !room.boardState!.turnOrder.includes(member.uid))
         .map(member => member.uid)
     ];
     return uids.map(uid => {

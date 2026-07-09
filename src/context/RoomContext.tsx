@@ -225,8 +225,12 @@ const getBoardMovementSettleMs = (movement: {
     landingDelayMs: number;
 }) => movement.introDelayMs + movement.path.length * movement.stepDurationMs + movement.landingDelayMs;
 
-const createInitialBoardState = (members: RoomMember[], playerStates?: Record<string, GameState>): BoardState => {
-    const playerMembers = members.filter(member => member.role !== 'coach');
+const createInitialBoardState = (members: RoomMember[], hostId: string, playerStates?: Record<string, GameState>): BoardState => {
+    // 棋盤上該顯示誰，判斷依據是「是不是這個房間的主持人」，而不是帳號的
+    // 全域角色（role）。執行師帳號也可能以參與者身分加入別人開的房間，
+    // 這種情況下他就是玩家，理應出現在棋盤上；只有真正主持這場遊戲的人
+    // （room.hostId）才不需要棋偶。
+    const playerMembers = members.filter(member => member.uid !== hostId);
     const turnOrder = playerMembers.map(member => member.uid);
     const positions = Object.fromEntries(turnOrder.map(uid => [uid, 0]));
     const skipTurns = Object.fromEntries(turnOrder.map(uid => [uid, playerStates?.[uid]?.skipTurns || 0]));
@@ -259,7 +263,7 @@ const getMissingTurnOrderPlayerUids = (room: Room): string[] => {
     if (!boardState || room.status !== 'playing') return [];
     const turnOrderSet = new Set(boardState.turnOrder);
     return room.members
-        .filter(member => member.role !== 'coach' && !turnOrderSet.has(member.uid))
+        .filter(member => member.uid !== room.hostId && !turnOrderSet.has(member.uid))
         .map(member => member.uid);
 };
 
@@ -950,7 +954,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     joinedAt: new Date(),
                     photoPosition: user.photoPosition,
                     photoScale: user.photoScale
-                }]) : null,
+                }], user.uid) : null,
                 ...(settings?.isBoardGame ? { isBoardGame: true } : {}),
                 ...(settings?.isPractice ? { isPractice: true } : {})
             };
@@ -1000,8 +1004,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 throw new Error('遊戲已開始或已結束');
             }
 
-            // 檢查人數限制 (排除教練)
-            const playerMembers = roomData.members.filter(m => m.role === 'player');
+            // 檢查人數限制（排除房主本人，執行師帳號也可能以參與者身分加入別人的房間）
+            const playerMembers = roomData.members.filter(m => m.uid !== roomData.hostId);
             if (playerMembers.length >= roomData.maxPlayers) throw new Error('房間已滿');
 
             const newMember: RoomMember = {
@@ -1083,7 +1087,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (currentRoom.hostId !== user.uid) return;
 
                 const nextBoardState = currentRoom.isBoardGame
-                    ? createInitialBoardState(currentRoom.members, currentRoom.playerStates)
+                    ? createInitialBoardState(currentRoom.members, currentRoom.hostId, currentRoom.playerStates)
                     : null;
 
                 transaction.update(roomRef, {
@@ -1657,7 +1661,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (room.boardState.familyMilestoneJoinPrompt?.id === promptId) return;
 
         const targetPlayerUids = room.members
-            .filter(member => member.role !== 'coach' && member.uid !== user.uid)
+            .filter(member => member.uid !== room.hostId && member.uid !== user.uid)
             .map(member => member.uid)
             .filter(uid => {
                 const playerState = room.playerStates?.[uid];
@@ -1719,7 +1723,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!kind) return false;
 
-        const playerMembers = room.members.filter(member => member.role !== 'coach');
+        const playerMembers = room.members.filter(member => member.uid !== room.hostId);
         const targetPlayerUids = playerMembers
             .map(member => member.uid)
             .filter(uid => {
