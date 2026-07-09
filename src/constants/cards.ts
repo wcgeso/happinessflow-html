@@ -207,9 +207,10 @@ const normalizeNewsSubtype = (category?: string): NewsCard['subtype'] => {
 };
 
 const rawEffectsSummary = (card: RawCardRecord) => normalizeCardCopy(card.effects?.summary);
-const rawConditionSummary = (card: RawCardRecord) => normalizeCardCopy(card.conditions?.raw);
-const rawCompletionSummary = (card: RawCardRecord) => normalizeCardCopy(card.completion);
-const rawNoEffectSummary = (card: RawCardRecord) => normalizeCardCopy(card.noEffectCondition);
+// 投影幕的卡片規則文字優先取 description 裡「*」後半段的規則段落；
+// 只有 description 沒有規則段落時，才用 effects.summary 補位，避免
+// 同一條規則被講兩遍。
+const hasDescriptionRuleSection = (card: RawCardRecord) => !!card.description?.includes('*');
 
 export const HAPPINESS_CARDS: HappinessCard[] = happinessRawCards.map(card => ({
   id: card.id,
@@ -375,7 +376,9 @@ export const buildHappinessCardMetaFromSchema = (cardId: string, playerState?: G
     pushUniqueLine(effectLines, `目前進度：第 ${familyMilestoneStatus.currentStage} 階段`);
   }
 
-  pushUniqueLine(effectLines, rawEffectsSummary(rawCard));
+  if (!hasDescriptionRuleSection(rawCard)) {
+    pushUniqueLine(effectLines, rawEffectsSummary(rawCard));
+  }
   pushUniqueLine(effectLines, `幸福 +${card.happinessPoints}`);
   if (card.cashCost) pushUniqueLine(effectLines, `一次性支出 ${formatAmount(card.cashCost)}`);
   if (card.monthlyExpenseIncrease) {
@@ -384,10 +387,6 @@ export const buildHappinessCardMetaFromSchema = (cardId: string, playerState?: G
   if (card.childrenIncrease) pushUniqueLine(effectLines, `孩子數 +${card.childrenIncrease}`);
   if (card.otherPlayersCanJoin) pushUniqueLine(effectLines, `其他玩家可擲骰加入（至少 ${card.joinDiceMin || 0} 點）`);
   if (card.requiresStorySharing) pushUniqueLine(effectLines, '需要玩家分享故事');
-  if (rawCard.choiceRequired) pushUniqueLine(effectLines, '需要玩家選擇是否接受');
-  if (rawCard.financialCheck) pushUniqueLine(effectLines, '需要完成財務檢核');
-  pushUniqueLine(effectLines, rawNoEffectSummary(rawCard));
-  pushUniqueLine(effectLines, rawCompletionSummary(rawCard));
 
   return {
     deck: 'happiness' as const,
@@ -405,8 +404,9 @@ export const buildOpportunityCardMetaFromSchema = (cardId: string) => {
   if (!card || !rawCard) return null;
 
   const effectLines: string[] = [];
-  pushUniqueLine(effectLines, rawEffectsSummary(rawCard));
-  pushUniqueLine(effectLines, rawConditionSummary(rawCard));
+  if (!hasDescriptionRuleSection(rawCard)) {
+    pushUniqueLine(effectLines, rawEffectsSummary(rawCard));
+  }
   if (card.schoolFee) pushUniqueLine(effectLines, `學費 ${formatAmount(card.schoolFee)}`);
   if (card.diceRequirement) pushUniqueLine(effectLines, `判定需求：至少 ${card.diceRequirement} 點`);
   if (card.purchasePrice) pushUniqueLine(effectLines, `收購價格 ${formatAmount(card.purchasePrice)}`);
@@ -427,10 +427,6 @@ export const buildOpportunityCardMetaFromSchema = (cardId: string) => {
   if (card.affectsAllPlayers) pushUniqueLine(effectLines, rawCard.multiplayer?.summary || '影響所有符合條件玩家');
   if (card.drawCard) pushUniqueLine(effectLines, `後續抽一張${card.drawCard === 'happiness' ? '幸福' : '新聞'}卡`);
   if (card.requiresStorySharing) pushUniqueLine(effectLines, '需要完成口頭分享');
-  if (rawCard.choiceRequired) pushUniqueLine(effectLines, '需要玩家選擇');
-  if (rawCard.financialCheck) pushUniqueLine(effectLines, '需要完成財務檢核');
-  pushUniqueLine(effectLines, rawNoEffectSummary(rawCard));
-  pushUniqueLine(effectLines, rawCompletionSummary(rawCard));
 
   return {
     deck: 'opportunity' as const,
@@ -447,7 +443,9 @@ export const buildNewsCardMetaFromSchema = (cardId: string) => {
   if (!card || !rawCard) return null;
 
   const effectLines: string[] = [];
-  pushUniqueLine(effectLines, rawEffectsSummary(rawCard));
+  if (!hasDescriptionRuleSection(rawCard)) {
+    pushUniqueLine(effectLines, rawEffectsSummary(rawCard));
+  }
 
   if (card.type === 'stock_price') {
     Object.entries(card.prices).forEach(([code, price]) => pushUniqueLine(effectLines, `${code}：${formatAmount(price)}`));
@@ -472,11 +470,6 @@ export const buildNewsCardMetaFromSchema = (cardId: string) => {
     pushUniqueLine(effectLines, `最高投資額度：${formatAmount(card.maxInvestment)}`);
     pushUniqueLine(effectLines, `投資報酬率：每投資 1,000,000，月收益 +${formatAmount(card.monthlyReturnPerMillion)}`);
   }
-
-  if (rawCard.choiceRequired) pushUniqueLine(effectLines, '需要玩家選擇');
-  if (rawCard.financialCheck) pushUniqueLine(effectLines, '需要完成財務檢核');
-  pushUniqueLine(effectLines, rawNoEffectSummary(rawCard));
-  pushUniqueLine(effectLines, rawCompletionSummary(rawCard));
 
   return {
     deck: 'news' as const,

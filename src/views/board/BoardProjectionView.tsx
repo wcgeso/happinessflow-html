@@ -441,6 +441,11 @@ const CardStage: React.FC<{
   }, {});
   const isStockCard = card.deck === 'news' && normalizedEffectLines.length === 8 && normalizedEffectLines.some(line => line.includes('A10'));
   const parsedEffectLines = parseLabelValueLines(remainingEffectLines);
+  // 沒有冒號的整句敘述（例如規則說明）不適合塞進「標籤：數值」的緊湊格子，
+  // 併到下方規則框一起呈現；格子區只留真正結構化的標籤/數值資料。
+  const labeledEffectLines = parsedEffectLines.filter(line => line.label !== null);
+  const sentenceEffectLines = parsedEffectLines.filter(line => line.label === null).map(line => line.value);
+  const combinedRuleText = [ruleText, ...sentenceEffectLines].filter(Boolean).join('\n');
 
   return (
     <div className="w-[calc(100vw-32px)] max-w-[560px]" style={{ perspective: '1400px' }}>
@@ -473,17 +478,12 @@ const CardStage: React.FC<{
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-xs font-black tracking-[0.24em] text-[#9c7c58]">
                 {getCardIcon(card.deck, 18)}
-                <span>{theme.label}</span>
+                <span>{card.subtitle && card.subtitle !== theme.label ? `${theme.label}・${card.subtitle}` : theme.label}</span>
                 {drawerName && <span className="text-[#c2a374]">・{drawerName} 抽到</span>}
               </div>
               <span className="shrink-0 text-[10px] font-bold tracking-widest text-[#c2a374]">{card.cardId}</span>
             </div>
             <div className={`mt-3 break-words font-black leading-[1.05] ${isFamilyMilestoneCard ? 'text-[clamp(2.5rem,5.8vw,4.4rem)]' : 'text-[clamp(2rem,7vw,3rem)]'}`}>{card.title}</div>
-            {card.subtitle && (
-              <div className="mt-3 inline-flex max-w-full break-words rounded-full border border-[#d6bd9a] bg-[#f4e6d0] px-3 py-1 text-xs font-black tracking-[0.12em] text-[#76573a] self-start">
-                {card.subtitle}
-              </div>
-            )}
             {!isFamilyMilestoneCard && <ImpactSummaryBar impacts={impacts} />}
             <div className={`mt-4 min-h-0 flex-1 pr-1 ${isFamilyMilestoneCard ? 'overflow-hidden' : 'overflow-y-auto'}`}>
               {flavorText && !isFamilyMilestoneCard && (
@@ -491,9 +491,9 @@ const CardStage: React.FC<{
                   {flavorText}
                 </p>
               )}
-              {ruleText && !isFamilyMilestoneCard && (
+              {combinedRuleText && !isFamilyMilestoneCard && (
                 <div className="mt-4 rounded-[18px] border border-[#e5cfac] bg-[#fff6e6] px-4 py-4 text-sm font-bold leading-relaxed text-[#6f5336] whitespace-pre-wrap break-words">
-                  {ruleText}
+                  {combinedRuleText}
                 </div>
               )}
               {isFamilyMilestoneCard ? (
@@ -540,7 +540,7 @@ const CardStage: React.FC<{
                     </div>
                   </div>
                 </div>
-              ) : !!remainingEffectLines.length && (
+              ) : (isStockCard ? !!remainingEffectLines.length : !!labeledEffectLines.length) && (
                 isStockCard ? (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {STOCK_SYMBOL_COLUMNS.map((column, columnIndex) => (
@@ -566,7 +566,7 @@ const CardStage: React.FC<{
                   </div>
                 ) : (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {parsedEffectLines.map(line => (
+                    {labeledEffectLines.map(line => (
                       <EffectLineChip key={line.key} line={line} />
                     ))}
                   </div>
