@@ -319,6 +319,37 @@ const parseImpactLines = (lines: string[]): { impacts: ParsedImpactLine[]; rest:
   return { impacts, rest };
 };
 
+// 泛用版「標籤：數值」解析，套用在還沒被 parseImpactLines 吃掉的
+// effectLines 上。原本股票新聞卡才有的表格化呈現（標籤置頂、數值置右、
+// 大字級），推廣成所有卡片的預設樣式，取代整段文字塞格子；沒有冒號的
+// 行就當作說明文字，原樣呈現。
+interface ParsedLabelValueLine { key: string; label: string | null; value: string; }
+const parseLabelValueLines = (lines: string[]): ParsedLabelValueLine[] => {
+  return lines.map((line, index) => {
+    const separatorIndex = line.search(/[：:]/);
+    if (separatorIndex === -1) {
+      return { key: `${line}_${index}`, label: null, value: line };
+    }
+    const label = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1).trim();
+    if (!label || !value) {
+      return { key: `${line}_${index}`, label: null, value: line };
+    }
+    return { key: `${line}_${index}`, label, value };
+  });
+};
+
+const EffectLineChip: React.FC<{ line: ParsedLabelValueLine }> = ({ line }) => (
+  <div className="rounded-[14px] border border-[#ead6b9] bg-[#fffdf8] px-4 py-2.5">
+    {line.label && (
+      <div className="text-[10px] font-black tracking-[0.14em] text-[#a4835b]">{line.label}</div>
+    )}
+    <div className={`font-black leading-snug text-[#5f4933] whitespace-pre-wrap break-words ${line.label ? 'text-base' : 'text-sm'}`}>
+      {line.value}
+    </div>
+  </div>
+);
+
 const IMPACT_TONE_STYLE: Record<ImpactTone, { bg: string; text: string; icon: React.ReactNode }> = {
   expense: { bg: 'bg-rose-50 border-rose-200', text: 'text-rose-700', icon: <TrendingDown size={18} /> },
   income: { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', icon: <TrendingUp size={18} /> },
@@ -409,6 +440,7 @@ const CardStage: React.FC<{
     return acc;
   }, {});
   const isStockCard = card.deck === 'news' && normalizedEffectLines.length === 8 && normalizedEffectLines.some(line => line.includes('A10'));
+  const parsedEffectLines = parseLabelValueLines(remainingEffectLines);
 
   return (
     <div className="w-[calc(100vw-32px)] max-w-[560px]" style={{ perspective: '1400px' }}>
@@ -466,8 +498,8 @@ const CardStage: React.FC<{
               )}
               {isFamilyMilestoneCard ? (
                 <div className="mt-3 space-y-2">
-                  <div className="rounded-[16px] border border-[#e6cfaa] bg-[#fff8ec] px-3 py-2.5 text-[12px] font-bold leading-relaxed text-[#6f5336] break-words sm:text-[13px]">
-                    抽到卡片的玩家，可以自由決定是否依序完成一項歷程，並獲得對應的幸福點（最多只有兩個孩子）。其他玩家也有機會參與，但須先擲骰子，使其大於等於 4，才能完成一項歷程。
+                  <div className="rounded-[12px] border border-[#e6cfaa] bg-[#fff8ec] px-3 py-1.5 text-[11px] font-bold leading-snug text-[#6f5336] break-words sm:text-[12px]">
+                    主玩家依序推進；其他玩家擲骰 ≥4 可共同參與
                   </div>
 
                   <div className="rounded-[18px] border border-[#e7d5bb] bg-white/90 p-3">
@@ -534,10 +566,8 @@ const CardStage: React.FC<{
                   </div>
                 ) : (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {remainingEffectLines.map((line, index) => (
-                      <div key={`${card.cardId}_${index}`} className="rounded-[14px] border border-[#ead6b9] bg-[#fffdf8] px-4 py-3 text-sm font-black leading-relaxed text-[#5f4933] whitespace-pre-wrap break-words">
-                        {line}
-                      </div>
+                    {parsedEffectLines.map(line => (
+                      <EffectLineChip key={line.key} line={line} />
                     ))}
                   </div>
                 )
