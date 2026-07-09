@@ -1009,14 +1009,30 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const startRoomGame = async () => {
         if (!room || user?.uid !== room.hostId) return;
         try {
-            const nextBoardState = room.isBoardGame ? createInitialBoardState(room.members, room.playerStates) : null;
-            await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
-                status: 'playing',
-                playerStates: {}, // 清空舊的玩家狀態
-                pendingRequests: {}, // 初始化審核請求
-                startedAt: Date.now(), // 新增開始時間戳，用來觸發玩家重設狀態
-                sessionId: `${room.id}_${Date.now()}`, // 每場遊戲產生新的唯一 sessionId，避免覆蓋上一場紀錄
-                boardState: nextBoardState
+            // 讀取本地 room 快照有可能落後於 Firestore 最新狀態（例如玩家剛加入、
+            // 監聽尚未同步回房主端），若直接拿本地 room.members 建立 turnOrder，
+            // 會漏掉剛加入但還沒同步到的玩家，導致棋盤永久少人。改用 transaction
+            // 內即時讀取最新的房間文件，確保 turnOrder 以 Firestore 當下的真實
+            // members 為準。
+            await safeAsync(runTransaction(db, async (transaction) => {
+                const roomRef = doc(db, 'rooms', room.id);
+                const roomDoc = await transaction.get(roomRef);
+                if (!roomDoc.exists()) return;
+                const currentRoom = roomDoc.data() as Room;
+                if (currentRoom.hostId !== user.uid) return;
+
+                const nextBoardState = currentRoom.isBoardGame
+                    ? createInitialBoardState(currentRoom.members, currentRoom.playerStates)
+                    : null;
+
+                transaction.update(roomRef, {
+                    status: 'playing',
+                    playerStates: {}, // 清空舊的玩家狀態
+                    pendingRequests: {}, // 初始化審核請求
+                    startedAt: Date.now(), // 新增開始時間戳，用來觸發玩家重設狀態
+                    sessionId: `${room.id}_${Date.now()}`, // 每場遊戲產生新的唯一 sessionId，避免覆蓋上一場紀錄
+                    boardState: nextBoardState
+                });
             }));
         } catch (err: any) {
             setError(err.message);
