@@ -600,7 +600,19 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
 
   const players = useMemo(() => {
     if (!room?.boardState) return [];
-    return room.boardState.turnOrder.map(uid => {
+    // 正常情況下 turnOrder 已涵蓋所有玩家。但因為 turnOrder 是在「開始遊戲」
+    // 那一刻寫死的，若當下有玩家剛加入、尚未同步到房主端就開局，理論上會被
+    // 房主端的自動補齊機制（healMissingTurnOrderPlayers）修正回來，但那需要
+    // 等房主端的 Firestore 監聽收到更新才會觸發。這裡在畫面層再加一層保險：
+    // 只要 room.members 裡有非教練玩家不在 turnOrder，也照樣畫出棋偶，
+    // 避免補齊機制還沒跑完之前，投影幕地圖暫時性地漏人。
+    const uids = [
+      ...room.boardState.turnOrder,
+      ...room.members
+        .filter(member => member.role !== 'coach' && !room.boardState!.turnOrder.includes(member.uid))
+        .map(member => member.uid)
+    ];
+    return uids.map(uid => {
       const member = room.members.find(item => item.uid === uid);
       return {
         uid,
