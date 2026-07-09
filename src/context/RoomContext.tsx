@@ -251,6 +251,18 @@ const createInitialBoardState = (members: RoomMember[], playerStates?: Record<st
     };
 };
 
+// 找出已在 room.members 裡、但因為加入時序競態而漏掉沒被寫進
+// boardState.turnOrder 的玩家 uid（例如玩家剛加入、房主端監聽還沒同步到，
+// 就被按下開始遊戲）。回傳缺漏的 uid 清單，供補寫使用。
+const getMissingTurnOrderPlayerUids = (room: Room): string[] => {
+    const boardState = room.boardState;
+    if (!boardState || room.status !== 'playing') return [];
+    const turnOrderSet = new Set(boardState.turnOrder);
+    return room.members
+        .filter(member => member.role !== 'coach' && !turnOrderSet.has(member.uid))
+        .map(member => member.uid);
+};
+
 const activateBoardQueueEntry = (entry?: BoardQueuedEvent | null) => ({
     currentEvent: entry?.event || null,
     currentCard: entry?.card || null,
@@ -741,6 +753,48 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    // 補救措施：即使開始遊戲時已改用 transaction 讀最新 room.members，仍有極小
+    // 機率因為加入房間的玩家端寫入還沒真正落地到 Firestore（樂觀本地更新先於
+    // 真正 write 完成）而錯過。這裡由房主端持續監看，只要偵測到 room.members
+    // 裡有玩家不在 boardState.turnOrder 內，就自動補寫，避免棋盤永久漏人。
+    const isHealingTurnOrderRef = useRef<boolean>(false);
+    const healMissingTurnOrderPlayers = useCallback(async (snapshotRoom: Room) => {
+        if (isHealingTurnOrderRef.current) return;
+        if (snapshotRoom.hostId !== user?.uid) return;
+        if (getMissingTurnOrderPlayerUids(snapshotRoom).length === 0) return;
+
+        isHealingTurnOrderRef.current = true;
+        try {
+            await safeAsync(runTransaction(db, async (transaction) => {
+                const roomRef = doc(db, 'rooms', snapshotRoom.id);
+                const roomDoc = await transaction.get(roomRef);
+                if (!roomDoc.exists()) return;
+                const currentRoom = roomDoc.data() as Room;
+                const missingUids = getMissingTurnOrderPlayerUids(currentRoom);
+                if (!missingUids.length || !currentRoom.boardState) return;
+
+                console.warn('偵測到玩家不在棋盤 turnOrder 內，自動補齊:', missingUids);
+                const boardState = currentRoom.boardState;
+                const nextTurnOrder = [...boardState.turnOrder, ...missingUids];
+                const nextPositions = { ...boardState.playerPositions };
+                const nextSkipTurns = { ...boardState.skipTurns };
+                missingUids.forEach(uid => {
+                    nextPositions[uid] = nextPositions[uid] ?? 0;
+                    nextSkipTurns[uid] = nextSkipTurns[uid] ?? (currentRoom.playerStates?.[uid]?.skipTurns || 0);
+                });
+
+                transaction.update(roomRef, {
+                    'boardState.turnOrder': nextTurnOrder,
+                    'boardState.playerPositions': nextPositions,
+                    'boardState.skipTurns': nextSkipTurns,
+                    'boardState.currentTurnUid': boardState.currentTurnUid ?? nextTurnOrder[0] ?? null
+                });
+            }));
+        } finally {
+            isHealingTurnOrderRef.current = false;
+        }
+    }, [user?.uid]);
+
     // 監聽房間狀態
     useEffect(() => {
         if (!user) return;
@@ -793,6 +847,13 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     console.log('偵測到待審核請求:', Object.keys(data.pendingRequests).length, '筆');
                 }
                 setRoom(data);
+
+                // 房主端自動修復：偵測到有玩家漏在 turnOrder 之外就補齊
+                if (data.hostId === user.uid) {
+                    healMissingTurnOrderPlayers(data).catch(err => {
+                        console.error('自動補齊 turnOrder 失敗:', err);
+                    });
+                }
 
                 // 更新 playerStates (不論是否為房主，只要 data 內有就更新)
                 if (data.playerStates) {
