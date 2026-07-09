@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, GraduationCap, Heart, Landmark, Newspaper, ScrollText, Sparkles, Wrench } from 'lucide-react';
+import { Activity, GraduationCap, Heart, HeartCrack, Landmark, Newspaper, ScrollText, Sparkles, TrendingDown, TrendingUp, Wrench } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
 import SafeImage from '../../components/common/SafeImage';
@@ -275,14 +275,117 @@ const renderPlayerToken = (player: {
   );
 };
 
+// 卡片 UI/UX 重整：把 effectLines 裡「真正影響玩家的數字」（現金/幸福/月支出等）
+// 挑出來做成大字效果摘要條，跟流程/規則類的文字（需要選擇、財務檢核…）分開，
+// 讓數字變成整張卡的視覺焦點，而不是跟故事文案、規則說明混在一起。
+type ImpactTone = 'expense' | 'income' | 'happiness' | 'happiness-negative';
+
+interface ParsedImpactLine {
+  key: string;
+  label: string;
+  value: string;
+  tone: ImpactTone;
+}
+
+const IMPACT_LINE_MATCHERS: Array<{ prefix: string; label: string; tone: ImpactTone | ((line: string) => ImpactTone) }> = [
+  { prefix: '現金 -', label: '現金支出', tone: 'expense' },
+  { prefix: '現金 +', label: '現金收入', tone: 'income' },
+  { prefix: '一次性支出', label: '一次性支出', tone: 'expense' },
+  { prefix: '幸福 +', label: '幸福', tone: 'happiness' },
+  { prefix: '幸福 -', label: '幸福', tone: 'happiness-negative' },
+  { prefix: '月支出', label: '月支出調整', tone: 'expense' },
+  { prefix: '保險理賠', label: '保險理賠', tone: 'income' },
+  { prefix: '租金收入（月）', label: '月租金收入', tone: 'income' },
+  { prefix: '企業貸款利息（月）', label: '企業貸款利息', tone: 'expense' },
+  { prefix: '貸款利息（月）', label: '貸款利息', tone: 'expense' },
+  { prefix: '淨收益（月）', label: '月淨收益', tone: line => (line.includes('-') ? 'expense' : 'income') }
+];
+
+const parseImpactLines = (lines: string[]): { impacts: ParsedImpactLine[]; rest: string[] } => {
+  const impacts: ParsedImpactLine[] = [];
+  const rest: string[] = [];
+
+  lines.forEach((line, index) => {
+    const matcher = IMPACT_LINE_MATCHERS.find(m => line.startsWith(m.prefix));
+    if (!matcher) {
+      rest.push(line);
+      return;
+    }
+    const value = line.slice(matcher.prefix.length).replace(/^[：:\s]+/, '').trim();
+    const tone = typeof matcher.tone === 'function' ? matcher.tone(line) : matcher.tone;
+    impacts.push({ key: `${line}_${index}`, label: matcher.label, value, tone });
+  });
+
+  return { impacts, rest };
+};
+
+const IMPACT_TONE_STYLE: Record<ImpactTone, { bg: string; text: string; icon: React.ReactNode }> = {
+  expense: { bg: 'bg-rose-50 border-rose-200', text: 'text-rose-700', icon: <TrendingDown size={18} /> },
+  income: { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', icon: <TrendingUp size={18} /> },
+  happiness: { bg: 'bg-pink-50 border-pink-200', text: 'text-pink-600', icon: <Heart size={18} /> },
+  'happiness-negative': { bg: 'bg-rose-50 border-rose-200', text: 'text-rose-700', icon: <HeartCrack size={18} /> }
+};
+
+const ImpactSummaryBar: React.FC<{ impacts: ParsedImpactLine[] }> = ({ impacts }) => {
+  if (!impacts.length) return null;
+
+  return (
+    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {impacts.map(impact => {
+        const style = IMPACT_TONE_STYLE[impact.tone];
+        return (
+          <div
+            key={impact.key}
+            className={`flex items-center gap-2 rounded-[16px] border-2 px-3 py-2.5 ${style.bg}`}
+          >
+            <span className={style.text}>{style.icon}</span>
+            <div className="min-w-0">
+              <div className="truncate text-[10px] font-black uppercase tracking-wider text-[#9c7c58]">{impact.label}</div>
+              <div className={`truncate text-[clamp(1.1rem,2.4vw,1.5rem)] font-black leading-tight ${style.text}`}>{impact.value}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// 底部狀態列：讓全場看得懂「現在卡在哪一步」，而不是只看到一張靜止的卡。
+const getCardStatusLabel = (params: {
+  isRevealed: boolean;
+  drawerName: string;
+  cardId?: string;
+  sharedPrompt?: { sourceCardId: string; targetPlayerUids: string[]; responses?: Record<string, unknown> } | null;
+  familyPrompt?: { sourceCardId: string; targetPlayerUids: string[]; responses?: Record<string, unknown> } | null;
+}): string => {
+  const { isRevealed, drawerName, cardId, sharedPrompt, familyPrompt } = params;
+
+  if (!isRevealed) return `等待 ${drawerName} 翻牌`;
+
+  if (familyPrompt && familyPrompt.sourceCardId === cardId) {
+    const total = familyPrompt.targetPlayerUids.length;
+    const responded = familyPrompt.targetPlayerUids.filter(uid => !!familyPrompt.responses?.[uid]).length;
+    if (responded < total) return `等待其他玩家共同參與回覆（${responded}/${total}）`;
+  }
+
+  if (sharedPrompt && sharedPrompt.sourceCardId === cardId) {
+    const total = sharedPrompt.targetPlayerUids.length;
+    const responded = sharedPrompt.targetPlayerUids.filter(uid => !!sharedPrompt.responses?.[uid]).length;
+    if (responded < total) return `等待玩家回覆（${responded}/${total}）`;
+  }
+
+  return `等待 ${drawerName} 完成處理`;
+};
+
 const CardStage: React.FC<{
   card: BoardCardResult | null;
   isRevealed: boolean;
-}> = ({ card, isRevealed }) => {
+  drawerName?: string;
+  statusLabel?: string;
+}> = ({ card, isRevealed, drawerName, statusLabel }) => {
   if (!card) return null;
 
   const theme = SQUARE_THEME[DECK_TO_SQUARE_TYPE[card.deck]];
-  const subtitle = `${card.subtitle || ''} ${card.cardId}`.trim();
   const normalizedDescription = normalizeCardCopy(card.description);
   const flavorText = (() => {
     const starIndex = normalizedDescription.indexOf('*');
@@ -298,7 +401,8 @@ const CardStage: React.FC<{
     card.deck === 'happiness' &&
     card.subtitle === '家庭重要歷程' &&
     !!familyMilestoneStatus?.stages?.length;
-  const stockEffectMap = normalizedEffectLines.reduce<Record<string, string>>((acc, line) => {
+  const { impacts, rest: remainingEffectLines } = parseImpactLines(normalizedEffectLines);
+  const stockEffectMap = remainingEffectLines.reduce<Record<string, string>>((acc, line) => {
     const [label, ...rest] = line.split('：');
     if (!label || rest.length === 0) return acc;
     acc[label.trim()] = rest.join('：').trim();
@@ -334,19 +438,24 @@ const CardStage: React.FC<{
         >
           <div className={`h-3 bg-gradient-to-r ${theme.cardBack}`} />
           <div className={`flex h-[calc(100%-12px)] min-h-0 flex-col overflow-hidden ${isFamilyMilestoneCard ? 'p-4 sm:p-5' : 'p-4 sm:p-6'}`}>
-            <div className="flex items-center gap-2 text-xs font-black tracking-[0.24em] text-[#9c7c58]">
-              {getCardIcon(card.deck, 18)}
-              <span>{theme.label}</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-black tracking-[0.24em] text-[#9c7c58]">
+                {getCardIcon(card.deck, 18)}
+                <span>{theme.label}</span>
+                {drawerName && <span className="text-[#c2a374]">・{drawerName} 抽到</span>}
+              </div>
+              <span className="shrink-0 text-[10px] font-bold tracking-widest text-[#c2a374]">{card.cardId}</span>
             </div>
             <div className={`mt-3 break-words font-black leading-[1.05] ${isFamilyMilestoneCard ? 'text-[clamp(2.5rem,5.8vw,4.4rem)]' : 'text-[clamp(2rem,7vw,3rem)]'}`}>{card.title}</div>
-            {subtitle && (
-              <div className="mt-3 inline-flex max-w-full break-words rounded-full border border-[#d6bd9a] bg-[#f4e6d0] px-3 py-1 text-xs font-black tracking-[0.12em] text-[#76573a]">
-                {subtitle}
+            {card.subtitle && (
+              <div className="mt-3 inline-flex max-w-full break-words rounded-full border border-[#d6bd9a] bg-[#f4e6d0] px-3 py-1 text-xs font-black tracking-[0.12em] text-[#76573a] self-start">
+                {card.subtitle}
               </div>
             )}
+            {!isFamilyMilestoneCard && <ImpactSummaryBar impacts={impacts} />}
             <div className={`mt-4 min-h-0 flex-1 pr-1 ${isFamilyMilestoneCard ? 'overflow-hidden' : 'overflow-y-auto'}`}>
               {flavorText && !isFamilyMilestoneCard && (
-                <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-[#715742] sm:text-base">
+                <p className="whitespace-pre-wrap break-words border-l-2 border-[#e5cfac] pl-3 text-xs italic leading-relaxed text-[#a4896c] sm:text-sm">
                   {flavorText}
                 </p>
               )}
@@ -399,7 +508,7 @@ const CardStage: React.FC<{
                     </div>
                   </div>
                 </div>
-              ) : !!normalizedEffectLines.length && (
+              ) : !!remainingEffectLines.length && (
                 isStockCard ? (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {STOCK_SYMBOL_COLUMNS.map((column, columnIndex) => (
@@ -425,7 +534,7 @@ const CardStage: React.FC<{
                   </div>
                 ) : (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {normalizedEffectLines.map((line, index) => (
+                    {remainingEffectLines.map((line, index) => (
                       <div key={`${card.cardId}_${index}`} className="rounded-[14px] border border-[#ead6b9] bg-[#fffdf8] px-4 py-3 text-sm font-black leading-relaxed text-[#5f4933] whitespace-pre-wrap break-words">
                         {line}
                       </div>
@@ -434,6 +543,11 @@ const CardStage: React.FC<{
                 )
               )}
             </div>
+            {statusLabel && (
+              <div className="mt-3 shrink-0 rounded-[14px] border border-[#e5cfac] bg-[#f4e6d0]/70 px-3 py-2 text-center text-xs font-black tracking-[0.06em] text-[#76573a]">
+                {statusLabel}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -617,6 +731,18 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     revealState?.cardId === currentCard.cardId &&
     revealState?.isRevealed
   );
+  const currentDrawerName = boardState?.currentEvent?.playerUid
+    ? room.members.find(member => member.uid === boardState.currentEvent?.playerUid)?.name || '玩家'
+    : '玩家';
+  const cardStatusLabel = currentCard
+    ? getCardStatusLabel({
+        isRevealed: isCardRevealed,
+        drawerName: currentDrawerName,
+        cardId: currentCard.cardId,
+        sharedPrompt: boardState?.sharedCardPrompt || null,
+        familyPrompt: boardState?.familyMilestoneJoinPrompt || null
+      })
+    : '';
   const zoomPercent = Math.round(zoom * 100);
   const scaledBoardWidth = BOARD_WIDTH * zoom;
   const scaledBoardHeight = BOARD_HEIGHT * zoom;
@@ -856,6 +982,8 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
             <CardStage
               card={currentCard}
               isRevealed={isCardRevealed}
+              drawerName={currentDrawerName}
+              statusLabel={cardStatusLabel}
             />
           </div>
         </div>
