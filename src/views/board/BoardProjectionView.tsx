@@ -821,6 +821,17 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
           <div className="text-[10px] font-black tracking-[0.2em] text-[#9c7c58]">目前回合</div>
           <div className="text-lg font-black text-[#4f3c29]">{currentTurnName}</div>
         </div>
+        {import.meta.env.DEV && (
+          <>
+            <div className="h-8 w-px bg-[#d9bd98]" />
+            <div className="flex flex-col items-center" title="除錯用：房間成員數／turnOrder 人數／畫面顯示棋偶數">
+              <div className="text-[10px] font-black tracking-[0.2em] text-[#c2685c]">DEBUG</div>
+              <div className="text-xs font-black text-[#c2685c]">
+                成員{room.members.length}／輪序{boardState?.turnOrder.length ?? 0}／棋偶{players.length}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div
