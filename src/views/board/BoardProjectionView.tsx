@@ -992,7 +992,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                     {movingPlayerName} 前進 <span className="mx-1 text-2xl text-[#d44c28]">{movement.rollTotal}</span> 格
                   </div>
                   <div className="mt-1 text-sm font-bold text-[#9b7b58]">
-                    剩餘部署 <span className="mx-1 text-xl text-[#d44c28]">{getRemainingMovementSteps(room, movement.playerUid, animationNow)}</span> 步
+                    剩餘 <span className="mx-1 text-xl text-[#d44c28]">{getRemainingMovementSteps(room, movement.playerUid, animationNow)}</span> 步
                   </div>
                 </motion.div>
               )}
