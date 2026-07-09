@@ -240,6 +240,7 @@ const createInitialBoardState = (members: RoomMember[], hostId: string, playerSt
         turnOrder,
         playerPositions: positions,
         skipTurns,
+        hasRolledThisTurn: false,
         lastRoll: null,
         currentCard: null,
         currentCardReveal: null,
@@ -1116,6 +1117,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (boardState.currentTurnUid !== user.uid) {
             throw new Error('還沒輪到你');
         }
+        if (boardState.hasRolledThisTurn) {
+            throw new Error('這回合已經擲過骰子了，請先按「結束回合」再換下一位');
+        }
 
         const playerState = room.playerStates?.[user.uid];
         const diceCount = hasCarAsset(playerState)
@@ -1166,6 +1170,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const updates: Record<string, any> = {
             'boardState.currentTurnUid': user.uid,
+            'boardState.hasRolledThisTurn': true,
             'boardState.lastRoll': {
                 uid: user.uid,
                 dice,
@@ -1496,6 +1501,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 boardState: {
                     ...currentBoardState,
                     currentTurnUid: nextTurnUid,
+                    hasRolledThisTurn: false,
                     skipTurns: nextTurn?.skipTurns || currentBoardState.skipTurns,
                     updatedAt: Date.now()
                 },

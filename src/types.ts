@@ -271,6 +271,9 @@ export interface BoardState {
   turnOrder: string[];
   playerPositions: Record<string, number>;
   skipTurns: Record<string, number>;
+  // 這一回合（currentTurnUid 這位玩家）是否已經擲過骰子。每次結束回合換人
+  // 時重設為 false，避免玩家忘記按「結束回合」而在同一回合內重複擲骰。
+  hasRolledThisTurn?: boolean;
   lastRoll: {
     uid: string;
     dice: number[];
