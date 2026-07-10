@@ -13,6 +13,7 @@ import {
     deleteDoc,
     serverTimestamp,
     arrayUnion,
+    arrayRemove,
     deleteField,
     runTransaction
 } from 'firebase/firestore';
@@ -2023,11 +2024,20 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!room?.id || !room.isBoardGame || !room.boardState || !user) return null;
 
         const currentPosition = room.boardState.playerPositions?.[user.uid] || 0;
-        const nextIndex = BOARD_SQUARES.find((square, index) =>
-            index !== currentPosition &&
-            square.type === payload.squareType &&
-            ((index - currentPosition + BOARD_SQUARES.length) % BOARD_SQUARES.length) > 0
-        )?.index;
+        const boardLength = BOARD_SQUARES.length;
+        // 找「順時針方向最近」的目標格，不是陣列裡第一個同類型格——
+        // 原本的寫法 (index - currentPosition + N) % N > 0 對任何
+        // index !== currentPosition 恆為真，等於沒有真正比較距離，
+        // 導致玩家常被送到陣列順序較前面、但實際上在棋盤上是「往回走」的格子。
+        const nextSquare = BOARD_SQUARES
+            .filter(square => square.type === payload.squareType && square.index !== currentPosition)
+            .reduce<typeof BOARD_SQUARES[number] | null>((closest, square) => {
+                const distance = (square.index - currentPosition + boardLength) % boardLength;
+                if (!closest) return square;
+                const closestDistance = (closest.index - currentPosition + boardLength) % boardLength;
+                return distance < closestDistance ? square : closest;
+            }, null);
+        const nextIndex = nextSquare?.index;
 
         if (nextIndex === undefined) return null;
 
