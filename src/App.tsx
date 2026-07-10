@@ -439,6 +439,7 @@ const MainRouting = ({
                     previousMarketPrices: {},
                     lastPublishedCode: '',
                     lastMarketUpdateTimestamp: 0,
+                    boardGameStartedAt: room.startedAt,
                     abilities: {
                         stockAbilityCount: 0,
                         realEstateAbilityCount: 0,

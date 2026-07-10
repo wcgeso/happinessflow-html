@@ -55,16 +55,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [coreGameAdapter]);
     // ─────────────────────────────────────────────────────────────────────────
 
+    // localStorage 的還原鍵值必須帶帳號 uid 才能還原，避免同一台裝置換帳號
+    // 登入時，把上一個帳號的財務資料誤還原成新登入者的 gameState（見稽核
+    // 報告 C2）。useState 初始化時 useAuth() 的 user 通常還沒 hydrate 完成
+    // （Firebase Auth 是非同步的），所以這裡先給預設值，實際還原交給下面
+    // 依 user?.uid 觸發的 effect 處理。
+    const getGameStateStorageKey = (uid: string) => `happiness_game_state_${uid}`;
+
     const [gameState, setGameState] = useState<GameState>(() => {
-        // 從 localStorage 恢復狀態 (選配)
-        const saved = localStorage.getItem('happiness_game_state');
-        if (saved) {
-            try {
-                return JSON.parse(saved);
-            } catch (e) {
-                console.error('Failed to parse saved game state', e);
-            }
-        }
         return {
             profession: null,
             selectedEnterprise: null,
@@ -110,12 +108,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, []);
 
-    // 自動保存到 localStorage
+    // 帳號可用後，還原這個帳號自己專屬的本機存檔（只在還沒開始任何設定流程
+    // 時還原一次，避免蓋掉使用者這個工作階段內已經產生的新狀態）。
+    const hasHydratedLocalStateRef = useRef(false);
     useEffect(() => {
-        if (gameState.isSetup || gameState.selectionStep) {
-            localStorage.setItem('happiness_game_state', JSON.stringify(gameState));
+        if (!user?.uid || hasHydratedLocalStateRef.current) return;
+        hasHydratedLocalStateRef.current = true;
+
+        const saved = localStorage.getItem(getGameStateStorageKey(user.uid));
+        if (!saved) return;
+        try {
+            const parsed = JSON.parse(saved) as GameState;
+            setGameState(prev => (prev.isSetup || prev.selectionStep ? prev : parsed));
+        } catch (e) {
+            console.error('Failed to parse saved game state', e);
         }
-    }, [gameState]);
+    }, [user?.uid]);
+
+    // 自動保存到 localStorage（依帳號 uid 分開存放，避免同裝置換帳號互相汙染）
+    useEffect(() => {
+        if (!user?.uid) return;
+        if (gameState.isSetup || gameState.selectionStep) {
+            localStorage.setItem(getGameStateStorageKey(user.uid), JSON.stringify(gameState));
+        }
+    }, [gameState, user?.uid]);
 
     // 生成 sessionId（遊戲開始時）
     useEffect(() => {
@@ -132,6 +148,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 只要不是房主，且 (已完成初始設定 或 正在進行選擇步驟)，就同步狀態
         if (!room?.id || !user || user.uid === room.hostId) return;
         if (!gameState.isSetup && !gameState.selectionStep) return;
+        // 防止跨場遊戲殘留狀態外洩（C2）：本地 gameState 必須是「為了目前這場
+        // 房間遊戲（room.startedAt）而重設/建立的」才允許同步進 Firestore。
+        // 玩家剛加入新房間、但本地還殘留上一場遊戲的 gameState（尚未被
+        // App.tsx 的重設流程處理到）時，這裡直接跳過，避免把上一場的財務
+        // 資料寫進新房間的 playerStates，之後又被誤判為「斷線重連的雲端
+        // 存檔」而還原回本地，造成新局帶著上一場的錢開局。
+        if (room.startedAt && gameState.boardGameStartedAt !== room.startedAt) return;
 
         const timeoutId = setTimeout(async () => {
             const roomRef = doc(db, 'rooms', room.id);

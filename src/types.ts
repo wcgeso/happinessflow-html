@@ -319,6 +319,10 @@ export interface GameState {
   lastPublishedCode: string;
   lastMarketUpdateTimestamp?: number;
   lastSharedExpenseSyncedAt?: number;
+  // 標記這份 gameState 是為了「哪一場」棋盤遊戲（room.startedAt）而重設/建立的。
+  // 用來擋掉跨場遊戲的殘留本地狀態被誤同步進新房間（見稽核報告 C2）：只有
+  // stamp 對得上目前房間 startedAt 的 gameState，才會被同步寫回 Firestore。
+  boardGameStartedAt?: number;
   abilities: GameAbilities;
   completedHappinessEvents: string[];
   appliedBoardFinancialEventIds?: string[];
