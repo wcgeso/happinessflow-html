@@ -118,24 +118,31 @@ export const CoachGameView: React.FC = () => {
         return requests[0];
     }, [room?.pendingRequests]);
 
-    // 倒數計時邏輯
+    // 倒數計時邏輯：deps 只依賴 isPaused，不依賴 timeLeft——原本把 timeLeft
+    // 放進依賴陣列，但 timeLeft 本身每秒都會被這個 effect 自己的
+    // setInterval 改變，導致每秒都要 clearInterval 再重新 setInterval 一次，
+    // 純屬多餘的計時器churn。改成計時器自己在 callback 內判斷是否歸零，
+    // 歸零時自行 clearInterval，不需要依賴外部 timeLeft 值來決定要不要建立。
     useEffect(() => {
-        let timer: NodeJS.Timeout;
-        if (!isPaused && timeLeft > 0) {
-            timer = setInterval(() => {
-                setTimeLeft(prev => {
-                    const next = Math.max(0, prev - 1);
-                    // 每 10 秒向 Firestore 同步一次，或者當計時結束時同步
-                    if (next % 10 === 0 || next === 0) {
-                        updateRoomTimer(next, isPaused);
-                    }
-                    return next;
-                });
-            }, 1000);
-        }
+        if (isPaused) return;
+
+        const timer = setInterval(() => {
+            setTimeLeft(prev => {
+                if (prev <= 0) {
+                    clearInterval(timer);
+                    return 0;
+                }
+                const next = prev - 1;
+                // 每 10 秒向 Firestore 同步一次，或者當計時結束時同步
+                if (next % 10 === 0 || next === 0) {
+                    updateRoomTimer(next, isPaused);
+                }
+                return next;
+            });
+        }, 1000);
 
         return () => clearInterval(timer);
-    }, [isPaused, timeLeft, updateRoomTimer]);
+    }, [isPaused, updateRoomTimer]);
 
     // 遊戲時間到自動存檔邏輯
     const prevTimeLeftRef = useRef(timeLeft);

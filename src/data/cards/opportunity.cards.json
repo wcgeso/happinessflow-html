@@ -5,19 +5,17 @@
     "deck": "opportunity",
     "type": "ability_profession",
     "category": "機運事件",
-    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於2，則職業等級無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
+    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於2，則職業等級無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
     "conditions": {
       "trigger": "抽到機運卡",
-      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
       "requirements": [
         "move_clockwise_to_next_school",
-        "no_bank_payday_during_move",
         "miss_rounds_1",
         "apply_effect_after_school_dice",
         "school_fee_5000",
         "dice_requirement_2",
-        "move_to_school",
-        "no_bank_payday_this_round"
+        "move_to_school"
       ]
     },
     "targets": {
@@ -27,7 +25,7 @@
       "raw": "抽到卡片的玩家"
     },
     "effects": {
-      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
       "abilityEffect": "profession_level_up",
       "drawCard": null,
       "cashLoss": null,
@@ -36,7 +34,7 @@
       "happinessLoss": null,
       "goToSquare": "school",
       "missRounds": 1,
-      "noBankPassThisRound": true,
+      "noBankPassThisRound": false,
       "affectsAllPlayers": false
     },
     "amount": {
@@ -89,19 +87,17 @@
     "deck": "opportunity",
     "type": "ability_profession",
     "category": "機運事件",
-    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於2，則職業等級！無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
+    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於2，則職業等級！無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
     "conditions": {
       "trigger": "抽到機運卡",
-      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
       "requirements": [
         "move_clockwise_to_next_school",
-        "no_bank_payday_during_move",
         "miss_rounds_1",
         "apply_effect_after_school_dice",
         "school_fee_5000",
         "dice_requirement_2",
-        "move_to_school",
-        "no_bank_payday_this_round"
+        "move_to_school"
       ]
     },
     "targets": {
@@ -111,7 +107,7 @@
       "raw": "抽到卡片的玩家"
     },
     "effects": {
-      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
       "abilityEffect": "profession_level_up",
       "drawCard": null,
       "cashLoss": null,
@@ -120,7 +116,7 @@
       "happinessLoss": null,
       "goToSquare": "school",
       "missRounds": 1,
-      "noBankPassThisRound": true,
+      "noBankPassThisRound": false,
       "affectsAllPlayers": false
     },
     "amount": {
@@ -173,19 +169,17 @@
     "deck": "opportunity",
     "type": "ability_profession",
     "category": "機運事件",
-    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於2，則職業等級無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
+    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於2，則職業等級無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
     "conditions": {
       "trigger": "抽到機運卡",
-      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
       "requirements": [
         "move_clockwise_to_next_school",
-        "no_bank_payday_during_move",
         "miss_rounds_1",
         "apply_effect_after_school_dice",
         "school_fee_5000",
         "dice_requirement_2",
-        "move_to_school",
-        "no_bank_payday_this_round"
+        "move_to_school"
       ]
     },
     "targets": {
@@ -195,7 +189,7 @@
       "raw": "抽到卡片的玩家"
     },
     "effects": {
-      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
       "abilityEffect": "profession_level_up",
       "drawCard": null,
       "cashLoss": null,
@@ -204,7 +198,7 @@
       "happinessLoss": null,
       "goToSquare": "school",
       "missRounds": 1,
-      "noBankPassThisRound": true,
+      "noBankPassThisRound": false,
       "affectsAllPlayers": false
     },
     "amount": {
@@ -257,19 +251,17 @@
     "deck": "opportunity",
     "type": "ability_profession",
     "category": "機運事件",
-    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於2，則職業等級無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
+    "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於2，則職業等級無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
     "conditions": {
       "trigger": "抽到機運卡",
-      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
       "requirements": [
         "move_clockwise_to_next_school",
-        "no_bank_payday_during_move",
         "miss_rounds_1",
         "apply_effect_after_school_dice",
         "school_fee_5000",
         "dice_requirement_2",
-        "move_to_school",
-        "no_bank_payday_this_round"
+        "move_to_school"
       ]
     },
     "targets": {
@@ -279,7 +271,7 @@
       "raw": "抽到卡片的玩家"
     },
     "effects": {
-      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
+      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 2",
       "abilityEffect": "profession_level_up",
       "drawCard": null,
       "cashLoss": null,
@@ -288,7 +280,7 @@
       "happinessLoss": null,
       "goToSquare": "school",
       "missRounds": 1,
-      "noBankPassThisRound": true,
+      "noBankPassThisRound": false,
       "affectsAllPlayers": false
     },
     "amount": {
@@ -341,19 +333,17 @@
     "deck": "opportunity",
     "type": "ability_stock",
     "category": "機運事件",
-    "description": "你有機會回到學校進修「投資股票的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費 10,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於4，則持有股票的股數全部增加一倍（100%）。不接受，則回收本卡片。",
+    "description": "你有機會回到學校進修「投資股票的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費 10,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於4，則持有股票的股數全部增加一倍（100%）。不接受，則回收本卡片。",
     "conditions": {
       "trigger": "抽到機運卡",
-      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 10,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
       "requirements": [
         "move_clockwise_to_next_school",
-        "no_bank_payday_during_move",
         "miss_rounds_1",
         "apply_effect_after_school_dice",
         "school_fee_10000",
         "dice_requirement_4",
-        "move_to_school",
-        "no_bank_payday_this_round"
+        "move_to_school"
       ]
     },
     "targets": {
@@ -363,7 +353,7 @@
       "raw": "抽到卡片的玩家"
     },
     "effects": {
-      "summary": "學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "summary": "學費 10,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
       "abilityEffect": "stock_double",
       "drawCard": null,
       "cashLoss": null,
@@ -372,7 +362,7 @@
       "happinessLoss": null,
       "goToSquare": "school",
       "missRounds": 1,
-      "noBankPassThisRound": true,
+      "noBankPassThisRound": false,
       "affectsAllPlayers": false
     },
     "amount": {
@@ -425,19 +415,17 @@
     "deck": "opportunity",
     "type": "ability_stock",
     "category": "機運事件",
-    "description": "你有機會回到學校進修「投資股票的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費10,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於4，則持有股票的股數全部增加一倍（100%）。不接受，則回收本卡片。",
+    "description": "你有機會回到學校進修「投資股票的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費10,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於4，則持有股票的股數全部增加一倍（100%）。不接受，則回收本卡片。",
     "conditions": {
       "trigger": "抽到機運卡",
-      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 10,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
       "requirements": [
         "move_clockwise_to_next_school",
-        "no_bank_payday_during_move",
         "miss_rounds_1",
         "apply_effect_after_school_dice",
         "school_fee_10000",
         "dice_requirement_4",
-        "move_to_school",
-        "no_bank_payday_this_round"
+        "move_to_school"
       ]
     },
     "targets": {
@@ -447,7 +435,7 @@
       "raw": "抽到卡片的玩家"
     },
     "effects": {
-      "summary": "學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "summary": "學費 10,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
       "abilityEffect": "stock_double",
       "drawCard": null,
       "cashLoss": null,
@@ -456,7 +444,7 @@
       "happinessLoss": null,
       "goToSquare": "school",
       "missRounds": 1,
-      "noBankPassThisRound": true,
+      "noBankPassThisRound": false,
       "affectsAllPlayers": false
     },
     "amount": {
@@ -509,19 +497,17 @@
     "deck": "opportunity",
     "type": "ability_realestate",
     "category": "機運事件",
-    "description": "你有機會回到學校進修「投資不動產的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於4，則所有現有與未來供出租不動產的房租收入，全部各增加 10,000H。不接受，則回收本卡片。",
+    "description": "你有機會回到學校進修「投資不動產的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於4，則所有現有與未來供出租不動產的房租收入，全部各增加 10,000H。不接受，則回收本卡片。",
     "conditions": {
       "trigger": "抽到機運卡",
-      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 5,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
       "requirements": [
         "move_clockwise_to_next_school",
-        "no_bank_payday_during_move",
         "miss_rounds_1",
         "apply_effect_after_school_dice",
         "school_fee_5000",
         "dice_requirement_4",
-        "move_to_school",
-        "no_bank_payday_this_round"
+        "move_to_school"
       ]
     },
     "targets": {
@@ -531,7 +517,7 @@
       "raw": "抽到卡片的玩家"
     },
     "effects": {
-      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "summary": "學費 5,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
       "abilityEffect": "rent_plus_10000",
       "drawCard": null,
       "cashLoss": null,
@@ -540,7 +526,7 @@
       "happinessLoss": null,
       "goToSquare": "school",
       "missRounds": 1,
-      "noBankPassThisRound": true,
+      "noBankPassThisRound": false,
       "affectsAllPlayers": false
     },
     "amount": {
@@ -593,19 +579,17 @@
     "deck": "opportunity",
     "type": "ability_realestate",
     "category": "機運事件",
-    "description": "你有機會回到學校進修「投資不動產的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費10,000H後，直接走到學校格，且停賽一輪。若有經過銀行格，無法領取月結餘。並擲一顆骰子，若點數大於、等於4，則所有現有與未來供出租不動產的房租收入，全部各增加10,000H。不接受，則回收本卡片。",
+    "description": "你有機會回到學校進修「投資不動產的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費10,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於4，則所有現有與未來供出租不動產的房租收入，全部各增加10,000H。不接受，則回收本卡片。",
     "conditions": {
       "trigger": "抽到機運卡",
-      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "raw": "觸發：抽到機運卡<br>影響對象：抽到卡片的玩家<br>效果：學費 10,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
       "requirements": [
         "move_clockwise_to_next_school",
-        "no_bank_payday_during_move",
         "miss_rounds_1",
         "apply_effect_after_school_dice",
         "school_fee_10000",
         "dice_requirement_4",
-        "move_to_school",
-        "no_bank_payday_this_round"
+        "move_to_school"
       ]
     },
     "targets": {
@@ -615,7 +599,7 @@
       "raw": "抽到卡片的玩家"
     },
     "effects": {
-      "summary": "學費 10,000；沿棋盤順時針移動至下一個學校格；若移動過程經過銀行，不領取月結餘；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
+      "summary": "學費 10,000；沿棋盤順時針移動至下一個學校格；到達學校後停回合 1 次；完成學校骰點後套用能力效果；骰點門檻 ≥ 4",
       "abilityEffect": "rent_plus_10000",
       "drawCard": null,
       "cashLoss": null,
@@ -624,7 +608,7 @@
       "happinessLoss": null,
       "goToSquare": "school",
       "missRounds": 1,
-      "noBankPassThisRound": true,
+      "noBankPassThisRound": false,
       "affectsAllPlayers": false
     },
     "amount": {

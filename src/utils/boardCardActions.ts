@@ -642,7 +642,7 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
                 moveToSquare: {
                   squareType: 'school',
                   skipTurns: opportunityCard.missRounds || 1,
-                  detail: '終身學習已接受，直接移動到學校，經過銀行不領取月結餘，並暫停一回合'
+                  detail: '終身學習已接受，直接移動到學校，並暫停一回合'
                 }
               } : undefined
             }
