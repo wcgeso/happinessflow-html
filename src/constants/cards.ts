@@ -405,9 +405,6 @@ export const buildOpportunityCardMetaFromSchema = (cardId: string) => {
   if (!card || !rawCard) return null;
 
   const effectLines: string[] = [];
-  if (!hasDescriptionRuleSection(rawCard)) {
-    pushUniqueLine(effectLines, rawEffectsSummary(rawCard));
-  }
   if (card.schoolFee) pushUniqueLine(effectLines, `學費 ${formatAmount(card.schoolFee)}`);
   if (card.diceRequirement) pushUniqueLine(effectLines, `判定需求：至少 ${card.diceRequirement} 點`);
   if (card.purchasePrice) pushUniqueLine(effectLines, `收購價格 ${formatAmount(card.purchasePrice)}`);
@@ -485,6 +482,7 @@ export function normalizeCardCopy(text?: string | null): string {
   return text
     ? text
       .replaceAll('飛行器', '汽車')
+      .replaceAll('<br>', '\n')
       .replace('《二、不獲得幸福點2點。', '')
       .replace('二、不獲得幸福點2點。', '')
       .trim()

@@ -293,6 +293,7 @@ const IMPACT_LINE_MATCHERS: Array<{ prefix: string; label: string; tone: ImpactT
   { prefix: '一次性支出', label: '一次性支出', tone: 'expense' },
   { prefix: '幸福 +', label: '幸福', tone: 'happiness' },
   { prefix: '幸福 -', label: '幸福', tone: 'happiness-negative' },
+  { prefix: '自用幸福：+', label: '幸福', tone: 'happiness' },
   { prefix: '月支出', label: '月支出調整', tone: 'expense' },
   { prefix: '保險理賠', label: '保險理賠', tone: 'income' },
   { prefix: '租金收入（月）', label: '月租金收入', tone: 'income' },
@@ -433,19 +434,24 @@ const CardStage: React.FC<{
     card.subtitle === '家庭重要歷程' &&
     !!familyMilestoneStatus?.stages?.length;
   const { impacts, rest: remainingEffectLines } = parseImpactLines(normalizedEffectLines);
+  const stockSymbolCount = STOCK_SYMBOL_COLUMNS.flat().length;
+  const stockPriceLineCount = remainingEffectLines.filter(line =>
+    STOCK_SYMBOL_COLUMNS.flat().some(symbol => line.startsWith(`${symbol}：`))
+  ).length;
   const stockEffectMap = remainingEffectLines.reduce<Record<string, string>>((acc, line) => {
     const [label, ...rest] = line.split('：');
     if (!label || rest.length === 0) return acc;
     acc[label.trim()] = rest.join('：').trim();
     return acc;
   }, {});
-  const isStockCard = card.deck === 'news' && normalizedEffectLines.length === 8 && normalizedEffectLines.some(line => line.includes('A10'));
+  const isStockCard = card.deck === 'news' && stockPriceLineCount === stockSymbolCount;
   const parsedEffectLines = parseLabelValueLines(remainingEffectLines);
   // 沒有冒號的整句敘述（例如規則說明）不適合塞進「標籤：數值」的緊湊格子，
   // 併到下方規則框一起呈現；格子區只留真正結構化的標籤/數值資料。
   const labeledEffectLines = parsedEffectLines.filter(line => line.label !== null);
   const sentenceEffectLines = parsedEffectLines.filter(line => line.label === null).map(line => line.value);
-  const combinedRuleText = [ruleText, ...sentenceEffectLines].filter(Boolean).join('\n');
+  const combinedRuleText = [ruleText, ...(isStockCard ? [] : sentenceEffectLines)].filter(Boolean).join('\n');
+  const stockSummaryCaption = isStockCard ? sentenceEffectLines.filter(Boolean).join(' ') : '';
 
   return (
     <div className="w-[calc(100vw-32px)] max-w-[560px]" style={{ perspective: '1400px' }}>
@@ -485,7 +491,7 @@ const CardStage: React.FC<{
             </div>
             <div className={`mt-3 break-words font-black leading-[1.05] ${isFamilyMilestoneCard ? 'text-[clamp(2.5rem,5.8vw,4.4rem)]' : 'text-[clamp(2rem,7vw,3rem)]'}`}>{card.title}</div>
             {!isFamilyMilestoneCard && <ImpactSummaryBar impacts={impacts} />}
-            <div className={`mt-4 min-h-0 flex-1 pr-1 ${isFamilyMilestoneCard ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+            <div className={`mt-4 min-h-0 flex-1 pr-1 ${isFamilyMilestoneCard ? 'overflow-hidden' : 'overflow-y-auto no-scrollbar'}`}>
               {flavorText && !isFamilyMilestoneCard && (
                 <p className="whitespace-pre-wrap break-words border-l-2 border-[#e5cfac] pl-3 text-xs italic leading-relaxed text-[#a4896c] sm:text-sm">
                   {flavorText}
@@ -494,6 +500,11 @@ const CardStage: React.FC<{
               {combinedRuleText && !isFamilyMilestoneCard && (
                 <div className="mt-4 rounded-[18px] border border-[#e5cfac] bg-[#fff6e6] px-4 py-4 text-sm font-bold leading-relaxed text-[#6f5336] whitespace-pre-wrap break-words">
                   {combinedRuleText}
+                </div>
+              )}
+              {isStockCard && stockSummaryCaption && (
+                <div className="mt-2 text-[11px] font-semibold italic text-[#a4896c]">
+                  {stockSummaryCaption}
                 </div>
               )}
               {isFamilyMilestoneCard ? (
@@ -545,17 +556,11 @@ const CardStage: React.FC<{
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {STOCK_SYMBOL_COLUMNS.map((column, columnIndex) => (
                       <div key={`${card.cardId}_column_${columnIndex}`} className="rounded-[18px] border border-[#ead6b9] bg-[#fffdf8] p-3">
-                        <div className="mb-3 text-[11px] font-black tracking-[0.24em] text-[#9c7c58]">
-                          {columnIndex === 0 ? 'A 區股票' : 'B 區股票'}
-                        </div>
                         <div className="space-y-2">
                           {column.map(symbol => (
                             <div key={`${card.cardId}_${symbol}`} className="flex items-center justify-between gap-3 rounded-[12px] border border-[#f0e2ca] bg-white px-3 py-2 text-sm font-black text-[#5f4933]">
-                              <div className="min-w-0">
-                                <div>{symbol}</div>
-                                <div className="text-[11px] font-bold text-[#8b6a45]">
-                                  {STOCK_NAMES[symbol] || '未命名股票'}
-                                </div>
+                              <div className="min-w-0 truncate">
+                                {symbol} {STOCK_NAMES[symbol] || '未命名股票'}
                               </div>
                               <span className="text-right">{stockEffectMap[symbol] || '-'}</span>
                             </div>
