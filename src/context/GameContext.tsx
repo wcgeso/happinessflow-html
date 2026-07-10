@@ -481,7 +481,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const { updates, code, isBubble } = data.marketUpdates;
 
                     if (isBubble) {
+                        // 泡沫破裂除了持股減半，泡沫卡本身通常也帶有崩跌後的新股價，
+                        // 之前只呼叫 bubbleBurst() 沒有連帶套用 updates，導致崩跌後
+                        // 的新股價從未真正寫進本地 gameState（詳見稽核報告 C3）。
                         bubbleBurst(code);
+                        updateMarketPrices(updates, code);
                         showAlert(`💥 股市泡沫破裂！代碼：${code}\n所有股票數量已減半。`, 'error', true);
                     } else {
                         updateMarketPrices(updates, code);

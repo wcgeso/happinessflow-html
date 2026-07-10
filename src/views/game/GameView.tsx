@@ -56,56 +56,25 @@ export const GameView: React.FC<{
         }
     }, [room?.status]);
 
-    // 監控房間的市場價格更新
+    // 監控房間的市場價格更新（只做純粹的價格同步，不處理 marketUpdates 事件
+    // 本身——事件的一次性處理，包含泡沫破裂時的持股減半與提示，統一交給
+    // GameContext 那個監聽器負責，避免兩邊搶著寫 lastMarketUpdateTimestamp
+    // 造成競態：這裡原本也會在偵測到 marketUpdates 時搶先蓋掉
+    // lastMarketUpdateTimestamp，導致 GameContext 那邊「timestamp >
+    // lastMarketUpdateTimestamp」的守門條件永遠不成立，bubbleBurst()
+    // 持股減半的效果因此經常不會真的執行（詳見稽核報告 C3）。
     useEffect(() => {
-        let shouldUpdateState = false;
-        let newState = {};
+        if (!room?.marketPrices || Object.keys(room.marketPrices).length === 0) return;
 
-        // 1. 同步價格
-        if (room?.marketPrices && Object.keys(room.marketPrices).length > 0) {
-            // 檢查是否需要更新價格（避免無效渲染）
-            const pricesChanged = JSON.stringify(room.marketPrices) !== JSON.stringify(gameState.marketPrices);
+        const pricesChanged = JSON.stringify(room.marketPrices) !== JSON.stringify(gameState.marketPrices);
+        if (!pricesChanged) return;
 
-            if (pricesChanged) {
-                shouldUpdateState = true;
-                newState = {
-                    ...newState,
-                    previousMarketPrices: room.previousMarketPrices || gameState.previousMarketPrices,
-                    marketPrices: { ...room.marketPrices }
-                };
-            }
-        }
-
-        // 2. 處理行情通知
-        if (room?.marketUpdates && room.marketUpdates.timestamp !== gameState.lastMarketUpdateTimestamp) {
-            const { code, isBubble, timestamp } = room.marketUpdates;
-
-            shouldUpdateState = true;
-            newState = {
-                ...newState,
-                lastMarketUpdateTimestamp: timestamp,
-                lastPublishedCode: code
-            };
-
-            // 只有在遊戲進行中且是最近的更新才顯示通知 (避免重新整理時跳出)
-            const isRecent = (Date.now() - timestamp) < 10000; // 10秒內的更新
-
-            if (isRecent) {
-                if (isBubble) {
-                    showAlert(`⚠️ 股市泡沫破裂！\n代碼: ${code}\n所有股價大幅下跌`, 'error', false);
-                } else {
-                    showAlert(`📈 股市行情更新\n代碼: ${code}`, 'success', false);
-                }
-            }
-        }
-
-        if (shouldUpdateState) {
-            setGameState(prev => ({
-                ...prev,
-                ...newState
-            }));
-        }
-    }, [room?.marketPrices, room?.previousMarketPrices, room?.marketUpdates, gameState.lastMarketUpdateTimestamp, gameState.marketPrices, setGameState, showAlert]);
+        setGameState(prev => ({
+            ...prev,
+            previousMarketPrices: room.previousMarketPrices || prev.previousMarketPrices,
+            marketPrices: { ...room.marketPrices }
+        }));
+    }, [room?.marketPrices, room?.previousMarketPrices, gameState.marketPrices, setGameState]);
 
     // 監控遊戲時間結束
     useEffect(() => {
@@ -2452,7 +2421,7 @@ export const GameView: React.FC<{
                                 <div className={`grid gap-3 ${isForcedActiveBoardCard ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                     {!isForcedActiveBoardCard && (
                                         <button
-                                            onClick={markBoardCardHandled}
+                                            onClick={() => { void markBoardCardHandled(); }}
                                             disabled={isActiveBoardCardHandled}
                                             className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
@@ -2477,7 +2446,7 @@ export const GameView: React.FC<{
                                 <div className={`grid gap-3 ${isForcedActiveBoardCard ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                     {!isForcedActiveBoardCard && (
                                         <button
-                                            onClick={markBoardCardHandled}
+                                            onClick={() => { void markBoardCardHandled(); }}
                                             disabled={isActiveBoardCardHandled}
                                             className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
@@ -2502,7 +2471,7 @@ export const GameView: React.FC<{
                                 <div className={`grid gap-3 ${isForcedActiveBoardCard ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                     {!isForcedActiveBoardCard && (
                                         <button
-                                            onClick={markBoardCardHandled}
+                                            onClick={() => { void markBoardCardHandled(); }}
                                             disabled={isActiveBoardCardHandled}
                                             className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
@@ -2545,7 +2514,7 @@ export const GameView: React.FC<{
                                     </button>
                                     {!isForcedActiveBoardCard && (
                                         <button
-                                            onClick={markBoardCardHandled}
+                                            onClick={() => { void markBoardCardHandled(); }}
                                             disabled={isActiveBoardCardHandled}
                                             className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
@@ -2614,7 +2583,7 @@ export const GameView: React.FC<{
                                     </div>
                                     {!boardChoiceHasDismissOption && (
                                         <button
-                                            onClick={markBoardCardHandled}
+                                            onClick={() => { void markBoardCardHandled(); }}
                                             disabled={isActiveBoardCardHandled}
                                             className="w-full rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
@@ -2667,7 +2636,7 @@ export const GameView: React.FC<{
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
-                                            onClick={markBoardCardHandled}
+                                            onClick={() => { void markBoardCardHandled(); }}
                                             disabled={isActiveBoardCardHandled}
                                             className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
@@ -2695,7 +2664,7 @@ export const GameView: React.FC<{
                                         {activeBoardCardAction.note}
                                     </div>
                                     <button
-                                        onClick={markBoardCardHandled}
+                                        onClick={() => { void markBoardCardHandled(); }}
                                         disabled={isActiveBoardCardHandled}
                                         className="w-full rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
@@ -2770,7 +2739,7 @@ export const GameView: React.FC<{
 
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
-                                            onClick={markBoardCardHandled}
+                                            onClick={() => { void markBoardCardHandled(); }}
                                             disabled={isActiveBoardCardHandled}
                                             className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
