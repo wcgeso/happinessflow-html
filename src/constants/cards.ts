@@ -376,9 +376,10 @@ export const buildHappinessCardMetaFromSchema = (cardId: string, playerState?: G
     pushUniqueLine(effectLines, `目前進度：第 ${familyMilestoneStatus.currentStage} 階段`);
   }
 
-  if (!hasDescriptionRuleSection(rawCard)) {
-    pushUniqueLine(effectLines, rawEffectsSummary(rawCard));
-  }
+  // 幸福卡的 effects.summary 內容（例如「幸福 +2；需要故事分享」）完全是下面
+  // 結構化欄位（幸福/一次性支出/月支出/需要故事分享）的白話重述，兩者同時
+  // push 會讓 ImpactSummaryBar 出現「幸福點增加」的重複容器，所以幸福卡不
+  // 需要另外顯示 summary，直接省略。
   pushUniqueLine(effectLines, `幸福 +${card.happinessPoints}`);
   if (card.cashCost) pushUniqueLine(effectLines, `一次性支出 ${formatAmount(card.cashCost)}`);
   if (card.monthlyExpenseIncrease) {
