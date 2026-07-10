@@ -167,6 +167,24 @@ const getGridPosition = (index: number) => {
   return { gridColumn: `${column}`, gridRow: `${row}` };
 };
 
+// 棋盤是口字型外圈佈局（頂/右/底/左四邊），中間是完全空白的內部區域。
+// 「剩餘步數」氣泡永遠往內部空白方向顯示，不但不會疊到隔壁棋格，也不用
+// 再依賴 z-index 去跟隔壁棋格的堆疊上下文搶層級。
+type BadgeDirection = 'down' | 'left' | 'up' | 'right';
+const getBoardEdgeInwardDirection = (index: number): BadgeDirection => {
+  if (index <= 13) return 'down';   // 頂邊 → 往下（往內部）
+  if (index <= 25) return 'left';   // 右邊 → 往左
+  if (index <= 39) return 'up';     // 底邊 → 往上
+  return 'right';                   // 左邊 → 往右
+};
+
+const BADGE_DIRECTION_CLASSES: Record<BadgeDirection, string> = {
+  down: 'top-full mt-3 left-1/2 -translate-x-1/2',
+  up: 'bottom-full mb-3 left-1/2 -translate-x-1/2',
+  left: 'right-full mr-3 top-1/2 -translate-y-1/2',
+  right: 'left-full ml-3 top-1/2 -translate-y-1/2'
+};
+
 const getAnimatedBoardPosition = (room: Room | null, playerUid: string, now: number) => {
   const boardState = room?.boardState;
   const settledPosition = boardState?.playerPositions?.[playerUid] || 0;
@@ -938,6 +956,14 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                 const isCurrentEventSquare = movement?.isActive
                   ? movingPlayerPosition === square.index
                   : boardState?.currentEvent?.squareIndex === square.index;
+                const badgeDirection = getBoardEdgeInwardDirection(square.index);
+                // 這個棋格上有玩家正顯示「剩餘步數」氣泡時，把棋格自己的堆疊層級
+                // 拉到最高，確保氣泡（巢狀在棋格的堆疊上下文內）不會被隔壁棋格蓋過。
+                const hasRemainingBadge = groupedPlayers.some(player => {
+                  const isMoving = movement?.isActive && movement.playerUid === player.uid;
+                  const isPausedMidMove = !movement?.isActive && movement?.playerUid === player.uid && (movement?.remainingPath?.length ?? 0) > 0;
+                  return isMoving || isPausedMidMove;
+                });
 
                 return (
                   <div
@@ -949,7 +975,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                       theme.bg,
                       theme.border,
                       theme.glow,
-                      hasPlayers ? 'z-30' : 'z-10'
+                      hasRemainingBadge ? 'z-40' : (hasPlayers ? 'z-30' : 'z-10')
                     ].join(' ')}
                     style={getGridPosition(square.index)}
                   >
@@ -979,11 +1005,13 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                           return (
                             <div key={player.uid} className="relative" style={{ zIndex: isMoving ? 100 : isCurrentTurn ? 40 : 30 - idx }}>
                               {showRemainingBadge && (
-                                <div className="pointer-events-none absolute -top-10 left-1/2 z-[110] -translate-x-1/2 whitespace-nowrap rounded-full border border-[#ffefd6] bg-[#4f3c29] px-3 py-1.5 text-center shadow-[0_8px_16px_-6px_rgba(0,0,0,0.6)]">
-                                  <div className="text-[9px] font-black tracking-[0.2em] text-[#e8c795]">
+                                <div
+                                  className={`pointer-events-none absolute z-[110] whitespace-nowrap rounded-full border border-[#ffefd6] bg-[#4f3c29] px-4 py-2 text-center shadow-[0_8px_16px_-6px_rgba(0,0,0,0.6)] ${BADGE_DIRECTION_CLASSES[badgeDirection]}`}
+                                >
+                                  <div className="text-[10px] font-black tracking-[0.2em] text-[#e8c795]">
                                     {isMoving ? '移動中' : '停靠處理中'}
                                   </div>
-                                  <div className="text-[11px] font-black text-[#ffefd6]">
+                                  <div className="text-sm font-black text-[#ffefd6]">
                                     剩餘 {getRemainingMovementSteps(room, player.uid, animationNow)} 步
                                   </div>
                                 </div>
