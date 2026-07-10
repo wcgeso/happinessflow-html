@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Activity, GraduationCap, Heart, HeartCrack, Landmark, Newspaper, ScrollText, Sparkles, TrendingDown, TrendingUp, Wrench } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
@@ -765,9 +765,6 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const currentCard = currentPlayerState
     ? hydrateBoardCardResult(boardState?.currentCard || null, currentPlayerState)
     : boardState?.currentCard || null;
-  const movingPlayerName = movement
-    ? room.members.find(member => member.uid === movement.playerUid)?.name || '玩家'
-    : '';
   const revealState = boardState?.currentCardReveal;
   const isCardRevealed = !!(
     currentCard &&
@@ -969,11 +966,21 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                         {groupedPlayers.slice(0, 6).map((player, idx) => {
                           const isMoving = movement?.isActive && movement.playerUid === player.uid;
                           const isCurrentTurn = currentTurnUid === player.uid;
+                          // 頂端提示已移除，改成完全跟著棋偶走的浮動氣泡：只要這位玩家還在
+                          // 移動中，或是移動暫停在「經過事件」等待處理（remainingPath 還有
+                          // 剩餘步數），就顯示氣泡，涵蓋原本頂端提示涵蓋的兩種狀態。
+                          const isPausedMidMove = !movement?.isActive && movement?.playerUid === player.uid && (movement?.remainingPath?.length ?? 0) > 0;
+                          const showRemainingBadge = isMoving || isPausedMidMove;
                           return (
                             <div key={player.uid} className="relative" style={{ zIndex: isMoving ? 100 : isCurrentTurn ? 40 : 30 - idx }}>
-                              {isMoving && (
-                                <div className="pointer-events-none absolute -top-8 left-1/2 z-[110] -translate-x-1/2 whitespace-nowrap rounded-full border border-[#ffefd6] bg-[#4f3c29] px-2.5 py-1 text-[11px] font-black text-[#ffefd6] shadow-[0_8px_16px_-6px_rgba(0,0,0,0.6)]">
-                                  剩餘 {getRemainingMovementSteps(room, player.uid, animationNow)} 步
+                              {showRemainingBadge && (
+                                <div className="pointer-events-none absolute -top-10 left-1/2 z-[110] -translate-x-1/2 whitespace-nowrap rounded-full border border-[#ffefd6] bg-[#4f3c29] px-3 py-1.5 text-center shadow-[0_8px_16px_-6px_rgba(0,0,0,0.6)]">
+                                  <div className="text-[9px] font-black tracking-[0.2em] text-[#e8c795]">
+                                    {isMoving ? '移動中' : '停靠處理中'}
+                                  </div>
+                                  <div className="text-[11px] font-black text-[#ffefd6]">
+                                    剩餘 {getRemainingMovementSteps(room, player.uid, animationNow)} 步
+                                  </div>
                                 </div>
                               )}
                               <motion.div
@@ -1008,28 +1015,6 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                 );
               })}
             </div>
-
-            <AnimatePresence>
-              {movement && (movement.isActive || (movement.remainingPath?.length ?? 0) > 0) && (
-                <motion.div
-                  initial={{ opacity: 0, y: -20, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.9 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  className="absolute left-1/2 top-[112px] z-20 -translate-x-1/2 rounded-full border border-[#d8b98f] bg-[linear-gradient(180deg,rgba(255,252,246,0.96),rgba(247,235,213,0.95))] px-6 py-3 text-center shadow-[0_18px_40px_-22px_rgba(104,75,43,0.55)]"
-                >
-                  <div className="text-xs font-black tracking-[0.28em] text-[#9b7b58]">
-                    {movement.isActive ? '移動中' : '停靠處理中'}
-                  </div>
-                  <div className="mt-1 text-lg font-black text-[#4f3c29]">
-                    {movingPlayerName} 前進 <span className="mx-1 text-2xl text-[#d44c28]">{movement.rollTotal}</span> 格
-                  </div>
-                  <div className="mt-1 text-sm font-bold text-[#9b7b58]">
-                    剩餘 <span className="mx-1 text-xl text-[#d44c28]">{getRemainingMovementSteps(room, movement.playerUid, animationNow)}</span> 步
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </main>
         </div>
       </div>
