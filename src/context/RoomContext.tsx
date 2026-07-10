@@ -1556,99 +1556,105 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const drawPostExamHappinessCard = async (success: boolean) => {
-        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+        if (!room?.id || !room.isBoardGame || !user) return;
 
-        const drawResult = drawBoardCard(room.boardState.deckState, 'happiness', room.playerStates?.[user.uid]);
-        if (!drawResult) return;
+        // H1：牌堆抽卡（deckState 的 shift/push）必須以交易當下的最新狀態為準，
+        // 直接拿本地 room 快照整包覆寫，若和其他並發寫入（例如另一個棋盤事件
+        // 剛好也在更新 boardState）交錯，會把對方的結果連同這次抽卡一起蓋掉，
+        // 也可能因為用了過期的 deckState 導致抽到已經被抽走的卡。
+        await safeAsync(runTransaction(db, async (transaction) => {
+            const roomRef = doc(db, 'rooms', room.id);
+            const roomDoc = await transaction.get(roomRef);
+            if (!roomDoc.exists()) return;
+            const currentRoom = roomDoc.data() as Room;
+            const currentBoardState = currentRoom.boardState;
+            if (!currentBoardState) return;
 
-        const timestamp = Date.now();
-        const eventId = `${user.uid}_${timestamp}_exam_happiness`;
-        const playerName = room.members.find(member => member.uid === user.uid)?.name || user.name || '玩家';
+            const drawResult = drawBoardCard(currentBoardState.deckState, 'happiness', currentRoom.playerStates?.[user.uid]);
+            if (!drawResult) return;
 
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
-            boardState: {
-                ...room.boardState,
-                deckState: drawResult.deckState,
-                currentCard: drawResult.card,
-                currentCardReveal: {
-                    eventId,
-                    cardId: drawResult.card.cardId,
-                    isRevealed: false
-                },
-                currentEvent: {
-                    id: eventId,
-                    playerUid: user.uid,
-                    playerName,
-                    type: 'exam_happiness',
-                    summary: `${playerName}${success ? '考完升等考試' : '完成升等考試'}後抽到幸福卡`,
-                    detail: `考試結束後抽到幸福卡：${drawResult.card.title}`,
-                    squareIndex: room.boardState.playerPositions?.[user.uid] || 0,
-                    timestamp,
-                    rollTotal: room.boardState.lastRoll?.total || 0
-                },
-                pendingEvents: room.boardState.pendingEvents || [],
-                cardLog: appendBoardCardLog(room.boardState, drawResult.card, {
-                    id: eventId,
-                    playerUid: user.uid,
-                    playerName,
-                    type: 'exam_happiness',
-                    summary: `${playerName}${success ? '考完升等考試' : '完成升等考試'}後抽到幸福卡`,
-                    detail: `考試結束後抽到幸福卡：${drawResult.card.title}`,
-                    squareIndex: room.boardState.playerPositions?.[user.uid] || 0,
-                    timestamp,
-                    rollTotal: room.boardState.lastRoll?.total || 0
-                }),
-                updatedAt: timestamp
-            }
-        })));
+            const timestamp = Date.now();
+            const eventId = `${user.uid}_${timestamp}_exam_happiness`;
+            const playerName = currentRoom.members.find(member => member.uid === user.uid)?.name || user.name || '玩家';
+            const event: BoardEventLog = {
+                id: eventId,
+                playerUid: user.uid,
+                playerName,
+                type: 'exam_happiness',
+                summary: `${playerName}${success ? '考完升等考試' : '完成升等考試'}後抽到幸福卡`,
+                detail: `考試結束後抽到幸福卡：${drawResult.card.title}`,
+                squareIndex: currentBoardState.playerPositions?.[user.uid] || 0,
+                timestamp,
+                rollTotal: currentBoardState.lastRoll?.total || 0
+            };
+
+            transaction.update(roomRef, cleanObject({
+                boardState: {
+                    ...currentBoardState,
+                    deckState: drawResult.deckState,
+                    currentCard: drawResult.card,
+                    currentCardReveal: {
+                        eventId,
+                        cardId: drawResult.card.cardId,
+                        isRevealed: false
+                    },
+                    currentEvent: event,
+                    pendingEvents: currentBoardState.pendingEvents || [],
+                    cardLog: appendBoardCardLog(currentBoardState, drawResult.card, event),
+                    updatedAt: timestamp
+                }
+            }));
+        }));
     };
 
     const drawBoardFollowupCard = async (deck: 'happiness' | 'news', summary: string, detail?: string) => {
-        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+        if (!room?.id || !room.isBoardGame || !user) return;
 
-        const drawResult = drawBoardCard(room.boardState.deckState, deck, room.playerStates?.[user.uid]);
-        if (!drawResult) return;
+        // H1：同 drawPostExamHappinessCard，改用交易避免用過期的本地 deckState
+        // 快照覆寫掉並發寫入的 boardState，或抽到已經被抽走的卡片。
+        await safeAsync(runTransaction(db, async (transaction) => {
+            const roomRef = doc(db, 'rooms', room.id);
+            const roomDoc = await transaction.get(roomRef);
+            if (!roomDoc.exists()) return;
+            const currentRoom = roomDoc.data() as Room;
+            const currentBoardState = currentRoom.boardState;
+            if (!currentBoardState) return;
 
-        const timestamp = Date.now();
-        const eventId = `${user.uid}_${timestamp}_${deck}_followup`;
-        const playerName = room.members.find(member => member.uid === user.uid)?.name || user.name || '玩家';
+            const drawResult = drawBoardCard(currentBoardState.deckState, deck, currentRoom.playerStates?.[user.uid]);
+            if (!drawResult) return;
 
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
-            boardState: {
-                ...room.boardState,
-                deckState: drawResult.deckState,
-                currentCard: drawResult.card,
-                currentCardReveal: {
-                    eventId,
-                    cardId: drawResult.card.cardId,
-                    isRevealed: false
-                },
-                currentEvent: {
-                    id: eventId,
-                    playerUid: user.uid,
-                    playerName,
-                    type: 'followup',
-                    summary,
-                    detail: detail || `接續效果抽到${deck === 'happiness' ? '幸福卡' : '新聞卡'}：${drawResult.card.title}`,
-                    squareIndex: room.boardState.playerPositions?.[user.uid] || 0,
-                    timestamp,
-                    rollTotal: room.boardState.lastRoll?.total || 0
-                },
-                pendingEvents: room.boardState.pendingEvents || [],
-                cardLog: appendBoardCardLog(room.boardState, drawResult.card, {
-                    id: eventId,
-                    playerUid: user.uid,
-                    playerName,
-                    type: 'followup',
-                    summary,
-                    detail: detail || `接續效果抽到${deck === 'happiness' ? '幸福卡' : '新聞卡'}：${drawResult.card.title}`,
-                    squareIndex: room.boardState.playerPositions?.[user.uid] || 0,
-                    timestamp,
-                    rollTotal: room.boardState.lastRoll?.total || 0
-                }),
-                updatedAt: timestamp
-            }
-        })));
+            const timestamp = Date.now();
+            const eventId = `${user.uid}_${timestamp}_${deck}_followup`;
+            const playerName = currentRoom.members.find(member => member.uid === user.uid)?.name || user.name || '玩家';
+            const event: BoardEventLog = {
+                id: eventId,
+                playerUid: user.uid,
+                playerName,
+                type: 'followup',
+                summary,
+                detail: detail || `接續效果抽到${deck === 'happiness' ? '幸福卡' : '新聞卡'}：${drawResult.card.title}`,
+                squareIndex: currentBoardState.playerPositions?.[user.uid] || 0,
+                timestamp,
+                rollTotal: currentBoardState.lastRoll?.total || 0
+            };
+
+            transaction.update(roomRef, cleanObject({
+                boardState: {
+                    ...currentBoardState,
+                    deckState: drawResult.deckState,
+                    currentCard: drawResult.card,
+                    currentCardReveal: {
+                        eventId,
+                        cardId: drawResult.card.cardId,
+                        isRevealed: false
+                    },
+                    currentEvent: event,
+                    pendingEvents: currentBoardState.pendingEvents || [],
+                    cardLog: appendBoardCardLog(currentBoardState, drawResult.card, event),
+                    updatedAt: timestamp
+                }
+            }));
+        }));
     };
 
     const openFamilyMilestoneJoinPrompt = async (eventId: string, cardId: string) => {
@@ -1981,39 +1987,50 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 遺失既有欄位，但不重新計算 expenses、也不更新 lastSharedExpenseSyncedAt，
         // 避免抽卡者的本地正確結果被 GameContext 的回灌監聽用（落後的）room 舊值覆寫，
         // 造成支出被重複套用兩次。
-        const syncedAt = Date.now();
+        // H1：全體玩家的支出增減必須以交易當下的最新 expenses 為基準才能相加/
+        // 相減，用本地 room.playerStates 快照整包覆寫，若跟另一筆並發的共享
+        // 支出效果（例如同時觸發的另一張新聞卡）交錯，會有一方的增減結果被
+        // 覆寫掉、憑空消失。
+        await safeAsync(runTransaction(db, async (transaction) => {
+            const roomRef = doc(db, 'rooms', room.id);
+            const roomDoc = await transaction.get(roomRef);
+            if (!roomDoc.exists()) return;
+            const currentRoom = roomDoc.data() as Room;
+            if (!currentRoom.playerStates) return;
 
-        const nextPlayerStates = Object.fromEntries(
-            Object.entries(room.playerStates).map(([uid, state]) => {
-                if (uid === user.uid) {
+            const syncedAt = Date.now();
+            const nextPlayerStates = Object.fromEntries(
+                Object.entries(currentRoom.playerStates).map(([uid, state]) => {
+                    if (uid === user.uid) {
+                        return [uid, cleanObject({
+                            ...state,
+                            pendingCardAction: payload.detail || payload.summary,
+                            lastBoardEvent: payload.summary
+                        })];
+                    }
+
+                    const currentVal = state.expenses?.[payload.category] || 0;
+                    const nextVal = payload.isIncrease
+                        ? currentVal + payload.amount
+                        : Math.max(0, currentVal - payload.amount);
+
                     return [uid, cleanObject({
                         ...state,
+                        expenses: {
+                            ...state.expenses,
+                            [payload.category]: nextVal
+                        },
                         pendingCardAction: payload.detail || payload.summary,
-                        lastBoardEvent: payload.summary
+                        lastBoardEvent: payload.summary,
+                        lastSharedExpenseSyncedAt: syncedAt
                     })];
-                }
+                })
+            );
 
-                const currentVal = state.expenses?.[payload.category] || 0;
-                const nextVal = payload.isIncrease
-                    ? currentVal + payload.amount
-                    : Math.max(0, currentVal - payload.amount);
-
-                return [uid, cleanObject({
-                    ...state,
-                    expenses: {
-                        ...state.expenses,
-                        [payload.category]: nextVal
-                    },
-                    pendingCardAction: payload.detail || payload.summary,
-                    lastBoardEvent: payload.summary,
-                    lastSharedExpenseSyncedAt: syncedAt
-                })];
-            })
-        );
-
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
-            playerStates: nextPlayerStates
-        })));
+            transaction.update(roomRef, cleanObject({
+                playerStates: nextPlayerStates
+            }));
+        }));
     };
 
     const moveCurrentPlayerToSquare = async (payload: {
@@ -2021,46 +2038,50 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         skipTurns?: number;
         detail?: string;
     }) => {
-        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return null;
+        if (!room?.id || !room.isBoardGame || !user) return null;
 
-        const currentPosition = room.boardState.playerPositions?.[user.uid] || 0;
         const boardLength = BOARD_SQUARES.length;
-        // 找「順時針方向最近」的目標格，不是陣列裡第一個同類型格——
-        // 原本的寫法 (index - currentPosition + N) % N > 0 對任何
-        // index !== currentPosition 恆為真，等於沒有真正比較距離，
-        // 導致玩家常被送到陣列順序較前面、但實際上在棋盤上是「往回走」的格子。
-        const nextSquare = BOARD_SQUARES
-            .filter(square => square.type === payload.squareType && square.index !== currentPosition)
-            .reduce<typeof BOARD_SQUARES[number] | null>((closest, square) => {
-                const distance = (square.index - currentPosition + boardLength) % boardLength;
-                if (!closest) return square;
-                const closestDistance = (closest.index - currentPosition + boardLength) % boardLength;
-                return distance < closestDistance ? square : closest;
-            }, null);
-        const nextIndex = nextSquare?.index;
 
-        if (nextIndex === undefined) return null;
+        // H1：原本直接把本地 room.boardState/room.playerStates 整包（含所有其他
+        // 玩家的欄位）覆寫回去，若跟其他玩家並發的寫入交錯，會用過期的本地
+        // 快照蓋掉他們剛寫入的新資料。改用交易讀最新狀態算出正確的
+        // currentPosition/nextIndex，並只用點記法（dotted path）寫入這位玩家
+        // 自己的欄位，不會動到其他玩家的資料。
+        let nextIndex: number | undefined;
+        await safeAsync(runTransaction(db, async (transaction) => {
+            const roomRef = doc(db, 'rooms', room.id);
+            const roomDoc = await transaction.get(roomRef);
+            if (!roomDoc.exists()) return;
+            const currentRoom = roomDoc.data() as Room;
+            const currentBoardState = currentRoom.boardState;
+            if (!currentBoardState) return;
 
-        const playerState = room.playerStates?.[user.uid];
-        const nextSkipTurns = Math.max(playerState?.skipTurns || 0, payload.skipTurns || 0);
-        const timestamp = Date.now();
+            const currentPosition = currentBoardState.playerPositions?.[user.uid] || 0;
+            // 找「順時針方向最近」的目標格，不是陣列裡第一個同類型格——
+            // 原本的寫法 (index - currentPosition + N) % N > 0 對任何
+            // index !== currentPosition 恆為真，等於沒有真正比較距離，
+            // 導致玩家常被送到陣列順序較前面、但實際上在棋盤上是「往回走」的格子。
+            const nextSquare = BOARD_SQUARES
+                .filter(square => square.type === payload.squareType && square.index !== currentPosition)
+                .reduce<typeof BOARD_SQUARES[number] | null>((closest, square) => {
+                    const distance = (square.index - currentPosition + boardLength) % boardLength;
+                    if (!closest) return square;
+                    const closestDistance = (closest.index - currentPosition + boardLength) % boardLength;
+                    return distance < closestDistance ? square : closest;
+                }, null);
 
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject({
-            boardState: {
-                ...room.boardState,
-                playerPositions: {
-                    ...room.boardState.playerPositions,
-                    [user.uid]: nextIndex
-                },
-                skipTurns: {
-                    ...(room.boardState.skipTurns || {}),
-                    [user.uid]: nextSkipTurns
-                },
-                updatedAt: timestamp
-            },
-            playerStates: {
-                ...(room.playerStates || {}),
-                [user.uid]: cleanObject({
+            if (!nextSquare) return;
+            nextIndex = nextSquare.index;
+
+            const playerState = currentRoom.playerStates?.[user.uid];
+            const nextSkipTurns = Math.max(playerState?.skipTurns || 0, payload.skipTurns || 0);
+            const timestamp = Date.now();
+
+            transaction.update(roomRef, cleanObject({
+                [`boardState.playerPositions.${user.uid}`]: nextIndex,
+                [`boardState.skipTurns.${user.uid}`]: nextSkipTurns,
+                'boardState.updatedAt': timestamp,
+                [`playerStates.${user.uid}`]: cleanObject({
                     ...playerState,
                     boardPosition: nextIndex,
                     skipTurns: nextSkipTurns,
@@ -2069,10 +2090,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     bankServiceWindowActive: false,
                     bankServiceGrantedAtEventId: undefined
                 })
-            }
-        })));
+            }));
+        }));
 
-        return nextIndex;
+        return nextIndex ?? null;
     };
 
     const applyBoardMarketPrices = async (updates: Record<string, number>, code: string, isBubble: boolean = false) => {
