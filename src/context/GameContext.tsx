@@ -9,6 +9,7 @@ import {
     orderBy,
     setDoc,
     serverTimestamp,
+    runTransaction,
 } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAuth } from './AuthContext';
@@ -158,27 +159,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const timeoutId = setTimeout(async () => {
             const roomRef = doc(db, 'rooms', room.id);
-            const existingRoomState = room.playerStates?.[user.uid];
-            // 若房間端的共享支出同步時間戳比本地新，代表本地的回灌監聽尚未趕上，
-            // 這次寫回必須保留房間端的正式共享結果，避免用舊的本地 expenses 覆寫掉它（P0-02）。
-            const roomHasNewerSharedExpense =
-                (existingRoomState?.lastSharedExpenseSyncedAt || 0) > (gameState.lastSharedExpenseSyncedAt || 0);
-            const cleanedState = cleanObject({
-                ...gameState,
-                boardPosition: existingRoomState?.boardPosition ?? gameState.boardPosition,
-                skipTurns: existingRoomState?.skipTurns ?? gameState.skipTurns,
-                lastBoardEvent: existingRoomState?.lastBoardEvent ?? gameState.lastBoardEvent,
-                pendingCardAction: existingRoomState?.pendingCardAction ?? gameState.pendingCardAction,
-                bankServiceWindowActive: existingRoomState?.bankServiceWindowActive ?? gameState.bankServiceWindowActive,
-                bankServiceGrantedAtEventId: existingRoomState?.bankServiceGrantedAtEventId ?? gameState.bankServiceGrantedAtEventId,
-                pendingFamilyMilestoneJoinAction: existingRoomState?.pendingFamilyMilestoneJoinAction ?? gameState.pendingFamilyMilestoneJoinAction,
-                ...(roomHasNewerSharedExpense ? {
-                    expenses: existingRoomState?.expenses ?? gameState.expenses,
-                    lastSharedExpenseSyncedAt: existingRoomState?.lastSharedExpenseSyncedAt
-                } : {})
-            });
-            await safeAsync(updateDoc(roomRef, {
-                [`playerStates.${user.uid}`]: cleanedState
+            // H2：這裡原本直接讀取 effect 閉包捕捉到的 room.playerStates（依賴陣列
+            // 只有 room?.id，不含 room 本體），800ms 的 debounce 延遲期間如果
+            // RoomContext 那邊剛好寫入了新的 boardPosition/pendingCardAction 等
+            // 欄位，這裡會讀到過期的舊值，寫回時把剛寫入的新值覆蓋掉。改用
+            // runTransaction 在真正要寫入的當下即時讀取最新的房間文件，避免用
+            // 過期快照覆寫掉並發寫入的新結果。
+            await safeAsync(runTransaction(db, async (transaction) => {
+                const roomSnap = await transaction.get(roomRef);
+                if (!roomSnap.exists()) return;
+                const currentRoom = roomSnap.data();
+                const existingRoomState = currentRoom.playerStates?.[user.uid];
+                // 若房間端的共享支出同步時間戳比本地新，代表本地的回灌監聽尚未趕上，
+                // 這次寫回必須保留房間端的正式共享結果，避免用舊的本地 expenses 覆寫掉它（P0-02）。
+                const roomHasNewerSharedExpense =
+                    (existingRoomState?.lastSharedExpenseSyncedAt || 0) > (gameState.lastSharedExpenseSyncedAt || 0);
+                const cleanedState = cleanObject({
+                    ...gameState,
+                    boardPosition: existingRoomState?.boardPosition ?? gameState.boardPosition,
+                    skipTurns: existingRoomState?.skipTurns ?? gameState.skipTurns,
+                    lastBoardEvent: existingRoomState?.lastBoardEvent ?? gameState.lastBoardEvent,
+                    pendingCardAction: existingRoomState?.pendingCardAction ?? gameState.pendingCardAction,
+                    bankServiceWindowActive: existingRoomState?.bankServiceWindowActive ?? gameState.bankServiceWindowActive,
+                    bankServiceGrantedAtEventId: existingRoomState?.bankServiceGrantedAtEventId ?? gameState.bankServiceGrantedAtEventId,
+                    pendingFamilyMilestoneJoinAction: existingRoomState?.pendingFamilyMilestoneJoinAction ?? gameState.pendingFamilyMilestoneJoinAction,
+                    ...(roomHasNewerSharedExpense ? {
+                        expenses: existingRoomState?.expenses ?? gameState.expenses,
+                        lastSharedExpenseSyncedAt: existingRoomState?.lastSharedExpenseSyncedAt
+                    } : {})
+                });
+                transaction.update(roomRef, {
+                    [`playerStates.${user.uid}`]: cleanedState
+                });
             }));
         }, 800); // 800ms 延遲避免過度頻繁寫入
 
