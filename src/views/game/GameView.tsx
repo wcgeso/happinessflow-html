@@ -1364,6 +1364,12 @@ export const GameView: React.FC<{
         }
         if (pendingHandledBoardCard) {
             handledBoardCard = await markBoardCardHandled(pendingHandledBoardCard.key, pendingHandledBoardCard.card);
+        } else if (activeBoardCardKey && !isActiveBoardCardHandled && boardState?.currentEvent?.playerUid === user?.uid) {
+            // pendingHandledBoardCard 只是本機暫存狀態，若中途重新整理過網頁就會
+            // 遺失，導致「等其他玩家回覆完後自動重試」的機制永久失效、卡片卡死。
+            // 這裡改用 Firestore 上持久化的狀態直接判斷：這張卡如果還沒結案、
+            // 而且輪到自己，就直接嘗試結案，不依賴本機暫存的重試旗標。
+            handledBoardCard = await markBoardCardHandled(activeBoardCardKey, activeBoardCard);
         }
         if (handledBoardCard && pendingBoardStepAdvance) {
             await advanceBoardEventQueue(pendingBoardStepAdvance);
@@ -1990,6 +1996,13 @@ export const GameView: React.FC<{
         showAlert
     ]);
 
+    // 注意：這兩個重試 effect 不再依賴 pendingHandledBoardCard（本機暫存的重試
+    // 旗標）——那個旗標只在「本次網頁工作階段內曾經失敗過一次」才會被設起來，
+    // 一旦中途重新整理過網頁就會遺失，導致其他玩家後來才回覆完時完全沒有人會
+    // 再嘗試結案，卡片與骰子/結束回合永久卡住（實際發生過：N055、N056）。
+    // 改成單純看 Firestore 上持久化的狀態：這張卡是不是自己抽到的、還沒結案、
+    // 而共享/家庭提示現在是不是已經全員回覆完，只要條件成立就直接嘗試結案，
+    // 不管本機有沒有暫存過重試旗標。
     useEffect(() => {
         if (!room?.isBoardGame || !boardState || !user?.uid || !activeFamilyJoinPrompt || !activeBoardCard) return;
         if (boardState.currentEvent?.playerUid !== user.uid) return;
@@ -1997,7 +2010,6 @@ export const GameView: React.FC<{
         if (HAPPINESS_CARD_MAP[activeBoardCard.cardId]?.category !== '家庭重要歷程') return;
         const hasAllResponses = activeFamilyJoinPrompt.targetPlayerUids.every(uid => !!activeFamilyJoinPrompt.responses?.[uid]);
         if (!hasAllResponses) return;
-        if (!pendingHandledBoardCard || pendingHandledBoardCard.key !== activeBoardCardKey) return;
         if (isActiveBoardCardHandled) return;
 
         void finalizeBoardFinancialFlow();
@@ -2007,25 +2019,17 @@ export const GameView: React.FC<{
         activeFamilyJoinPrompt,
         finalizeBoardFinancialFlow,
         isActiveBoardCardHandled,
-        pendingHandledBoardCard,
         room?.isBoardGame,
         boardState,
         user?.uid
     ]);
 
-    // 共享卡片提示（投資/新創貸款/資產出售/股利等，例如 N055）的等待所有玩家回覆
-    // 版本。抽卡者若在其他玩家還沒回覆完之前就先操作（例如按「放棄」），
-    // markBoardCardHandled 當下會因為 hasIncompleteSharedBoardPrompt 而失敗、
-    // 只記下 pendingHandledBoardCard 等之後重試。但先前只有「家庭重要歷程」
-    // 提示有對應的重試 effect，一般共享卡片提示完全沒有人在其他玩家回覆完後
-    // 觸發重試，導致卡片永遠卡在「未處理」，骰子與結束回合按鈕跟著永久卡住。
     useEffect(() => {
         if (!room?.isBoardGame || !boardState || !user?.uid || !activeSharedCardPrompt || !activeBoardCard) return;
         if (boardState.currentEvent?.playerUid !== user.uid) return;
         if (activeBoardCard.cardId !== activeSharedCardPrompt.sourceCardId) return;
         const hasAllResponses = activeSharedCardPrompt.targetPlayerUids.every(uid => !!activeSharedCardPrompt.responses?.[uid]);
         if (!hasAllResponses) return;
-        if (!pendingHandledBoardCard || pendingHandledBoardCard.key !== activeBoardCardKey) return;
         if (isActiveBoardCardHandled) return;
 
         void finalizeBoardFinancialFlow();
@@ -2035,7 +2039,6 @@ export const GameView: React.FC<{
         activeSharedCardPrompt,
         finalizeBoardFinancialFlow,
         isActiveBoardCardHandled,
-        pendingHandledBoardCard,
         room?.isBoardGame,
         boardState,
         user?.uid
