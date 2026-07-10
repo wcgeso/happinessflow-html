@@ -161,10 +161,12 @@ export const useGameLogic = () => {
             // 1. Fundamental Cash Reversal (Uses the actual record's cashChange)
             newState.cash -= (deletedTx.cashChange || 0);
 
-            if (!deletedTx.details) return newState;
-
-            try {
+            if (deletedTx.details) try {
                 const data: any = JSON.parse(deletedTx.details);
+
+                if (data.boardEventId) {
+                    newState.appliedBoardFinancialEventIds = (newState.appliedBoardFinancialEventIds || []).filter(id => id !== data.boardEventId);
+                }
 
                 // 2. State Content Reversal
                 if (data.usage === 'asset') {
@@ -182,12 +184,14 @@ export const useGameLogic = () => {
                         newState.assets = updatedAssets;
                     } else if (data.assetDetails) {
                         const details = data.assetDetails;
-                        newState.assets = newState.assets.filter(a => {
-                            if (details.symbol) {
-                                return !(a.type === details.type && extractAssetSymbol(a.name) === details.symbol);
-                            }
-                            return a.name !== `${details.type} ${details.symbol || ''}`.trim();
-                        });
+                        newState.assets = data.createdAssetId
+                            ? newState.assets.filter(a => a.id !== data.createdAssetId)
+                            : newState.assets.filter(a => {
+                                if (details.symbol) {
+                                    return !(a.type === details.type && extractAssetSymbol(a.name) === details.symbol);
+                                }
+                                return a.name !== `${details.type} ${details.symbol || ''}`.trim();
+                            });
                         if (details.loanAmount && details.loanAmount > 0) {
                             const loanName = `${details.type === '不動產' ? '不動產貸款' : details.type === '企業' ? '企業貸款' : '汽車貸款'} (${details.symbol || ''})`.trim();
                             newState.liabilities = newState.liabilities.filter(l => l.name !== loanName);
@@ -466,6 +470,13 @@ export const useGameLogic = () => {
                 console.error("Failed to parse transaction details for reversal", e);
             }
 
+            const totalCashChange = newState.history.reduce((sum, tx) => sum + (tx.cashChange || 0), 0);
+            let runningBalance = newState.cash - totalCashChange;
+            newState.history = newState.history.map(tx => {
+                runningBalance += (tx.cashChange || 0);
+                return { ...tx, balance: runningBalance };
+            });
+
             return newState;
         });
 
@@ -684,8 +695,6 @@ export const useGameLogic = () => {
             finalSuccessMessage = '保險已生效';
         }
 
-        let autoRepayAmount = 0;
-
         setGameState(prev => {
             let newState = { ...prev };
             newState.cash += data.cashChange;
@@ -736,12 +745,13 @@ export const useGameLogic = () => {
                         houseType: details.houseType,
                         isInsured: false
                     };
+                    storageData.createdAssetId = newAsset.id;
                     newState.assets = [...newState.assets, newAsset];
                     if (loanAmt > 0) {
                         const loanTypeMap: Record<string, '不動產貸款' | '企業貸款' | '汽車貸款'> = { '不動產': '不動產貸款', '企業': '企業貸款', '飛行器': '汽車貸款', '汽車': '汽車貸款' };
                         const loanType = loanTypeMap[details.type];
                         if (loanType) {
-                            newState.liabilities = [...newState.liabilities, { id: generateId(), name: `${loanType} (${details.symbol || ''})`.trim(), totalOwed: loanAmt, monthlyPayment: details.loanInterest || 0, type: loanType }];
+                            newState.liabilities = [...newState.liabilities, { id: generateId(), name: `${loanType} (${details.symbol || ''})`.trim(), totalOwed: loanAmt, monthlyPayment: details.loanInterest || 0, type: loanType, linkedAssetId: newAsset.id }];
                         }
                     }
 
@@ -892,7 +902,7 @@ export const useGameLogic = () => {
             } else if (data.usage === 'expense_update' && data.expensePayload) {
                 const { category, amount: expAmount, isIncrease } = data.expensePayload;
                 const currentVal = newState.expenses[category] || 0;
-                newState.expenses = { ...newState.expenses, [category]: isIncrease ? currentVal + expAmount : currentVal - expAmount };
+                newState.expenses = { ...newState.expenses, [category]: isIncrease ? currentVal + expAmount : Math.max(0, currentVal - expAmount) };
             } else if (data.usage === 'cash' && data.source === 'income') {
                 let updatedAssets = [...newState.assets];
                 if (data.stockList && data.stockList.length > 0) {
@@ -994,28 +1004,6 @@ export const useGameLogic = () => {
             };
             newState.history = [...newState.history, newTx];
 
-            const shouldAutoRepay = data.cashChange > 0 && !(data.source === 'loan' && data.usage === 'cash') && data.usage !== 'forced_debt';
-            if (shouldAutoRepay) {
-                const autoRepayResult = applyAutoLiabilityRepayment(newState);
-                newState = autoRepayResult.nextState;
-                autoRepayAmount = autoRepayResult.repaidAmount;
-
-                if (autoRepayAmount > 0) {
-                    const autoRepayTx: Transaction = {
-                        id: generateId(),
-                        timestamp: Date.now(),
-                        name: '自動償還負債',
-                        amount: autoRepayAmount,
-                        sourceLabel: '支出',
-                        usageLabel: '自動還款',
-                        cashChange: -autoRepayAmount,
-                        balance: newState.cash,
-                        flowType: '融資'
-                    };
-                    newState.history = [...newState.history, autoRepayTx];
-                }
-            }
-
             if (data.name.includes('達成事業成就')) {
                 newState.happiness = newState.happiness.map(h => h.id === 'h_career' ? { ...h, checked: true } : h);
                 if (prev.selectedEnterprise) {
@@ -1037,12 +1025,7 @@ export const useGameLogic = () => {
             return newState;
         });
 
-        showAlert(
-            autoRepayAmount > 0
-                ? `${finalSuccessMessage}，並自動償還 ${formatMoney(autoRepayAmount)}`
-                : finalSuccessMessage,
-            'success'
-        );
+        showAlert(finalSuccessMessage, 'success');
         return true;
     };
 
@@ -1052,7 +1035,6 @@ export const useGameLogic = () => {
     };
 
     const executePayday = (flow: number) => {
-        let autoRepayAmount = 0;
         setGameState(prev => {
             const newState = { ...prev, cash: prev.cash + flow };
             const newTx: Transaction = {
@@ -1067,34 +1049,11 @@ export const useGameLogic = () => {
                 flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
-            if (flow > 0) {
-                const autoRepayResult = applyAutoLiabilityRepayment(newState);
-                autoRepayAmount = autoRepayResult.repaidAmount;
-                if (autoRepayAmount > 0) {
-                    autoRepayResult.nextState.history = [
-                        ...autoRepayResult.nextState.history,
-                        {
-                            id: generateId(),
-                            timestamp: Date.now(),
-                            name: '自動償還負債',
-                            amount: autoRepayAmount,
-                            sourceLabel: '支出',
-                            usageLabel: '自動還款',
-                            cashChange: -autoRepayAmount,
-                            balance: autoRepayResult.nextState.cash,
-                            flowType: '融資'
-                        }
-                    ];
-                }
-                return autoRepayResult.nextState;
-            }
             return newState;
         });
         showAlert(
             flow >= 0
-                ? autoRepayAmount > 0
-                    ? `已領取月結餘，並自動償還 ${formatMoney(autoRepayAmount)}`
-                    : '已領取月結餘'
+                ? '已領取月結餘'
                 : '已支付月結餘',
             'success'
         );
@@ -1111,7 +1070,6 @@ export const useGameLogic = () => {
     };
 
     const executeMedicalClaim = (claimAmount: number) => {
-        let autoRepayAmount = 0;
         setGameState(prev => {
             const newState = { ...prev, cash: prev.cash + claimAmount };
             const newTx: Transaction = {
@@ -1126,32 +1084,9 @@ export const useGameLogic = () => {
                 flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
-            const autoRepayResult = applyAutoLiabilityRepayment(newState);
-            autoRepayAmount = autoRepayResult.repaidAmount;
-            if (autoRepayAmount > 0) {
-                autoRepayResult.nextState.history = [
-                    ...autoRepayResult.nextState.history,
-                    {
-                        id: generateId(),
-                        timestamp: Date.now(),
-                        name: '自動償還負債',
-                        amount: autoRepayAmount,
-                        sourceLabel: '支出',
-                        usageLabel: '自動還款',
-                        cashChange: -autoRepayAmount,
-                        balance: autoRepayResult.nextState.cash,
-                        flowType: '融資'
-                    }
-                ];
-            }
-            return autoRepayResult.nextState;
+            return newState;
         });
-        showAlert(
-            autoRepayAmount > 0
-                ? `申請成功！獲得理賠 ${formatMoney(claimAmount)}，並自動償還 ${formatMoney(autoRepayAmount)}`
-                : `申請成功！獲得理賠 ${formatMoney(claimAmount)}`,
-            'success'
-        );
+        showAlert(`申請成功！獲得理賠 ${formatMoney(claimAmount)}`, 'success');
     };
 
     const confirmAircraftClaim = () => {
@@ -1167,7 +1102,6 @@ export const useGameLogic = () => {
     };
 
     const executeAircraftClaim = (claimAmount: number) => {
-        let autoRepayAmount = 0;
         setGameState(prev => {
             const newState = { ...prev, cash: prev.cash + claimAmount };
             const newTx: Transaction = {
@@ -1182,32 +1116,9 @@ export const useGameLogic = () => {
                 flowType: '生活'
             };
             newState.history = [...newState.history, newTx];
-            const autoRepayResult = applyAutoLiabilityRepayment(newState);
-            autoRepayAmount = autoRepayResult.repaidAmount;
-            if (autoRepayAmount > 0) {
-                autoRepayResult.nextState.history = [
-                    ...autoRepayResult.nextState.history,
-                    {
-                        id: generateId(),
-                        timestamp: Date.now(),
-                        name: '自動償還負債',
-                        amount: autoRepayAmount,
-                        sourceLabel: '支出',
-                        usageLabel: '自動還款',
-                        cashChange: -autoRepayAmount,
-                        balance: autoRepayResult.nextState.cash,
-                        flowType: '融資'
-                    }
-                ];
-            }
-            return autoRepayResult.nextState;
+            return newState;
         });
-        showAlert(
-            autoRepayAmount > 0
-                ? `申請成功！獲得理賠 ${formatMoney(claimAmount)}，並自動償還 ${formatMoney(autoRepayAmount)}`
-                : `申請成功！獲得理賠 ${formatMoney(claimAmount)}`,
-            'success'
-        );
+        showAlert(`申請成功！獲得理賠 ${formatMoney(claimAmount)}`, 'success');
     };
 
     const handleToggleHappiness = (id: string, checked?: boolean) => {

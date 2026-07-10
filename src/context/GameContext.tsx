@@ -242,7 +242,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             profession: gameState.currentRankTitle || gameState.profession?.title || 'Unknown',
             finalScore: scoreResult.totalScore,
             happinessScore: gameState.happinessTotal,
-            isWin: summary.passiveIncome > summary.totalExpenses,
+            isWin: gameState.happinessTotal >= 100,
             financialSummary: summary,
             gameStateSnapshot: {
                 assets: gameState.assets,
@@ -267,7 +267,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         saveToPlayerSessionsRef.current = saveToPlayerSessions;
     }, [saveToPlayerSessions]);
 
-    // 遊戲開始後立刻存一次，之後每兩分鐘自動存檔草稿到 player_sessions
+    // 遊戲開始後立刻存一次，之後每 60 秒自動存檔草稿到 player_sessions
     useEffect(() => {
         if (!gameState.isSetup || !user) return;
 

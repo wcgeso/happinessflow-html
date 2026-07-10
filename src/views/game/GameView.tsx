@@ -570,6 +570,7 @@ export const GameView: React.FC<{
     // 沒有未回覆完的共享事件、且畫面上沒有任何流程視窗擋著。
     const canEndTurn = !!(
         isBoardTurn &&
+        boardState?.hasRolledThisTurn &&
         !boardState?.movement?.isActive &&
         !boardState?.currentEvent &&
         !(boardState?.pendingEvents && boardState.pendingEvents.length > 0) &&

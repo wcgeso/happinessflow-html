@@ -559,7 +559,6 @@ const buildBoardMovementLegResolution = (roomData: Room, playerUid: string) => {
         const repairFee = repairRoll * 2000;
         if (hasCarAsset(playerState)) {
             detailMessages.push(`踩到維修廠，保養費 ${repairFee}，並暫停一回合`);
-            nextSkipTurns[playerUid] = Math.max(nextSkipTurns[playerUid] || 0, landedSquare.pauseTurns || 1);
         } else {
             detailMessages.push('踩到維修廠，但目前沒有汽車');
         }
@@ -578,7 +577,8 @@ const buildBoardMovementLegResolution = (roomData: Room, playerUid: string) => {
                 rollTotal: movement.rollTotal,
                 repairRoll,
                 repairFee: hasCar ? repairFee : 0,
-                repairHasCar: hasCar
+                repairHasCar: hasCar,
+                repairSkipTurns: hasCar ? (landedSquare.pauseTurns || 1) : undefined
             }
         });
     } else if (landedSquare.type === 'school') {
@@ -1392,6 +1392,22 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
             }
 
+            const repairSkipTurns = currentBoardState.currentEvent?.repairSkipTurns;
+            if (expectedType === 'repair' && repairSkipTurns && currentBoardState.currentEvent?.playerUid) {
+                const repairPlayerUid = currentBoardState.currentEvent.playerUid;
+                const baseBoardState = roomForAdvance.boardState || currentBoardState;
+                roomForAdvance = {
+                    ...roomForAdvance,
+                    boardState: {
+                        ...baseBoardState,
+                        skipTurns: {
+                            ...baseBoardState.skipTurns,
+                            [repairPlayerUid]: Math.max(baseBoardState.skipTurns?.[repairPlayerUid] || 0, repairSkipTurns)
+                        }
+                    }
+                };
+            }
+
             const nextState = buildBoardEventAdvanceState(roomForAdvance);
             if (!nextState) return;
 
@@ -1459,6 +1475,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
         }
 
+        if (!boardState.hasRolledThisTurn) {
+            alert('請先擲骰後才能結束回合。');
+            return;
+        }
+
         if (boardState.currentEvent || (boardState.pendingEvents && boardState.pendingEvents.length > 0)) {
             alert('請先完成目前的棋盤事件，才能結束回合。');
             return;
@@ -1480,6 +1501,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Transaction 內重新檢查，避免競態下重複結束回合或跳過尚未完成的事件。
             if (currentBoardState.currentTurnUid !== user.uid) return;
             if (currentBoardState.movement) return;
+            if (!currentBoardState.hasRolledThisTurn) return;
             if (currentBoardState.currentEvent || (currentBoardState.pendingEvents && currentBoardState.pendingEvents.length > 0)) return;
             if (hasIncompleteSharedPrompts(currentBoardState)) return;
 

@@ -22,6 +22,7 @@ export interface Liability {
   name: string;
   totalOwed: number;
   monthlyPayment: number;
+  linkedAssetId?: string;
   // Keep legacy '飛行器貸款' for old saves; new data should use '汽車貸款'.
   type: '信用貸款' | '強制負債' | '飛行器貸款' | '汽車貸款' | '企業貸款' | '不動產貸款';
 }
@@ -194,6 +195,7 @@ export interface BoardEventLog {
   repairFee?: number;
   repairHasCar?: boolean;
   hospitalSkipTurns?: number;
+  repairSkipTurns?: number;
 }
 
 export interface BoardQueuedEvent {

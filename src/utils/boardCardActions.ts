@@ -178,11 +178,16 @@ const resolveOpportunityExpenseCategory = (cardId: string) => {
 };
 
 const findRelatedLiability = (asset: Asset, liabilities: Liability[]) => {
+  const byAssetId = liabilities.find(liability => liability.linkedAssetId === asset.id);
+  if (byAssetId) return byAssetId;
+
   const symbol = extractAssetSymbol(asset.name);
   return liabilities.find(liability =>
-    (asset.type === '不動產' && liability.type === '不動產貸款' && symbol && liability.name.includes(symbol)) ||
-    (asset.type === '企業' && liability.type === '企業貸款' && symbol && liability.name.includes(symbol)) ||
-    ((asset.type === '汽車' || asset.type === '飛行器') && (liability.type === '汽車貸款' || liability.type === '飛行器貸款'))
+    !liability.linkedAssetId && (
+      (asset.type === '不動產' && liability.type === '不動產貸款' && symbol && liability.name.includes(symbol)) ||
+      (asset.type === '企業' && liability.type === '企業貸款' && symbol && liability.name.includes(symbol)) ||
+      ((asset.type === '汽車' || asset.type === '飛行器') && (liability.type === '汽車貸款' || liability.type === '飛行器貸款'))
+    )
   );
 };
 
