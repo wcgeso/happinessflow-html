@@ -970,33 +970,36 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                           const isMoving = movement?.isActive && movement.playerUid === player.uid;
                           const isCurrentTurn = currentTurnUid === player.uid;
                           return (
-                            <motion.div
-                              key={player.uid}
-                              layoutId={`player-token-${player.uid}`}
-                              initial={{ scale: 0.5, opacity: 0 }}
-                              animate={{
-                                scale: isMoving ? 1.3 : isCurrentTurn ? 1.15 : 1,
-                                opacity: 1,
-                                y: isMoving ? -16 : 0
-                              }}
-                              transition={{
-                                type: "spring",
-                                stiffness: 400,
-                                damping: 28,
-                                mass: 0.8
-                              }}
-                              style={{
-                                zIndex: isMoving ? 100 : isCurrentTurn ? 40 : 30 - idx
-                              }}
-                              className={[
-                                'flex items-center justify-center overflow-hidden rounded-full border-2 bg-[linear-gradient(180deg,#8f6b48,#6f5237)] shadow-[0_12px_24px_-8px_rgba(86,58,32,0.9)]',
-                                isMoving ? 'h-16 w-16 border-[#ffefd6] ring-4 ring-[#ffefd6]/50' : 'h-14 w-14 border-[#fff8ee]',
-                                isCurrentTurn && !isMoving ? 'ring-2 ring-[#d8a66a]/70' : ''
-                              ].join(' ')}
-                              title={player.name}
-                            >
-                              {renderPlayerToken(player, isMoving)}
-                            </motion.div>
+                            <div key={player.uid} className="relative" style={{ zIndex: isMoving ? 100 : isCurrentTurn ? 40 : 30 - idx }}>
+                              {isMoving && (
+                                <div className="pointer-events-none absolute -top-8 left-1/2 z-[110] -translate-x-1/2 whitespace-nowrap rounded-full border border-[#ffefd6] bg-[#4f3c29] px-2.5 py-1 text-[11px] font-black text-[#ffefd6] shadow-[0_8px_16px_-6px_rgba(0,0,0,0.6)]">
+                                  剩餘 {getRemainingMovementSteps(room, player.uid, animationNow)} 步
+                                </div>
+                              )}
+                              <motion.div
+                                layoutId={`player-token-${player.uid}`}
+                                initial={{ scale: 0.5, opacity: 0 }}
+                                animate={{
+                                  scale: isMoving ? 1.3 : isCurrentTurn ? 1.15 : 1,
+                                  opacity: 1,
+                                  y: isMoving ? -16 : 0
+                                }}
+                                transition={{
+                                  type: "spring",
+                                  stiffness: 400,
+                                  damping: 28,
+                                  mass: 0.8
+                                }}
+                                className={[
+                                  'flex items-center justify-center overflow-hidden rounded-full border-2 bg-[linear-gradient(180deg,#8f6b48,#6f5237)] shadow-[0_12px_24px_-8px_rgba(86,58,32,0.9)]',
+                                  isMoving ? 'h-16 w-16 border-[#ffefd6] ring-4 ring-[#ffefd6]/50' : 'h-14 w-14 border-[#fff8ee]',
+                                  isCurrentTurn && !isMoving ? 'ring-2 ring-[#d8a66a]/70' : ''
+                                ].join(' ')}
+                                title={player.name}
+                              >
+                                {renderPlayerToken(player, isMoving)}
+                              </motion.div>
+                            </div>
                           );
                         })}
                       </div>
