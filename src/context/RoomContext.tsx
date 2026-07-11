@@ -22,6 +22,7 @@ import { useAuth } from './AuthContext';
 import { BoardCardLogEntry, BoardCardResult, BoardDeckState, BoardEventLog, BoardQueuedEvent, BoardState, FamilyMilestoneJoinPrompt, GameState, SharedCardPrompt } from '../types';
 import { cleanObject, safeAsync } from '../utils/utils';
 import { STOCK_SYMBOLS } from '../constants';
+import { flowLog } from '../utils/flowLog';
 import { BOARD_SQUARES, createInitialDeckState, getSquareByIndex } from '../constants/board';
 import {
     buildHappinessCardMetaFromSchema,
