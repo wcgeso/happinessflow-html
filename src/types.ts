@@ -233,6 +233,8 @@ export interface BoardMovementState {
 }
 
 export interface BoardState {
+  revision?: number;
+  processedCommandIds?: string[];
   currentTurnUid: string | null;
   turnOrder: string[];
   playerPositions: Record<string, number>;
@@ -242,6 +244,7 @@ export interface BoardState {
     dice: number[];
     total: number;
     timestamp: number;
+    detail?: string;
   } | null;
   currentCard: BoardCardResult | null;
   currentCardReveal?: BoardCardRevealState | null;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
 import { useGameLogic } from '../../hooks/useGameLogic';
@@ -39,6 +39,9 @@ export const GameView: React.FC<{
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
     const { room, leaveRoom, rollBoardDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, drawPostExamHappinessCard, drawBoardFollowupCard, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, abandonRealEstateCard, buyRealEstateFromMarket } = useRoom();
+    const boardCommandIds = useRef<Record<string, string>>({});
+    const getBoardCommandId = (key: string) => boardCommandIds.current[key] ||= crypto.randomUUID();
+    const completeBoardCommand = (key: string) => { delete boardCommandIds.current[key]; };
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -344,9 +347,14 @@ export const GameView: React.FC<{
         setPromotionType(null);
 
         if (shouldDrawExamHappiness) {
-            void drawPostExamHappinessCard(lastDiceSuccess);
+            const eventId = boardState?.currentEvent?.id || 'unknown';
+            const key = `exam-happiness:${eventId}`;
+            void drawPostExamHappinessCard(lastDiceSuccess, getBoardCommandId(key), boardState?.revision || 0)
+                .then(() => completeBoardCommand(key))
+                .catch((err: any) => showAlert(err?.message || '考後幸福卡同步失敗，請再試一次', 'error'));
         } else if (currentPromotionType === 'normal' && boardState?.currentEvent?.type === 'school') {
-            void advanceBoardEventQueue('school');
+            const key = `advance:${boardState.currentEvent.id}:school`;
+            void advanceBoardEventQueue('school', getBoardCommandId(key)).then(() => completeBoardCommand(key));
         }
     };
 
@@ -471,7 +479,9 @@ export const GameView: React.FC<{
         }
         setIsRollingBoardDice(true);
         try {
-            const result = await rollBoardDice();
+            const key = 'roll';
+            const result = await rollBoardDice(getBoardCommandId(key));
+            completeBoardCommand(key);
             return result;
         } catch (err: any) {
             showAlert(err.message || '擲骰失敗', 'error');
@@ -515,9 +525,11 @@ export const GameView: React.FC<{
         setIsApplyingBoardMarket(true);
         applyLocalBoardMarketPrices(activeBoardCardAction.prices, activeBoardCardAction.code);
 
-        applyBoardMarketPrices(activeBoardCardAction.prices, activeBoardCardAction.code, activeBoardCardAction.isBubble)
+        const commandKey = `market:${activeBoardCardKey}`;
+        applyBoardMarketPrices(activeBoardCardAction.prices, activeBoardCardAction.code, activeBoardCardAction.isBubble, getBoardCommandId(commandKey))
             .then(() => {
                 if (isCancelled) return;
+                completeBoardCommand(commandKey);
                 setAppliedBoardMarketKeys(prev => prev.includes(activeBoardCardKey) ? prev : [...prev, activeBoardCardKey]);
                 showAlert('已同步股市行情到房間', 'success');
             })
@@ -584,7 +596,17 @@ export const GameView: React.FC<{
 
         if (eventId && card?.cardId) {
             try {
-                await dismissBoardCard(eventId, card.cardId);
+                flowLog({
+                    name: 'player.card.dismiss.requested',
+                    roomId: room?.id || 'unknown',
+                    sessionId: room?.sessionId || room?.id || 'unknown',
+                    eventId,
+                    result: 'requested',
+                    timestamp: Date.now()
+                });
+                const commandKey = `dismiss:${eventId}:${card.cardId}`;
+                await dismissBoardCard(eventId, card.cardId, getBoardCommandId(commandKey));
+                completeBoardCommand(commandKey);
             } catch (err: any) {
                 showAlert(err?.message || '卡片結案失敗，請再試一次', 'error');
             }
@@ -606,7 +628,21 @@ export const GameView: React.FC<{
     const handleBoardCardReveal = () => {
         setIsBoardCardRevealed(true);
         if (boardState?.currentEvent?.id && activeBoardCard?.cardId) {
-            revealBoardCard(boardState.currentEvent.id, activeBoardCard.cardId);
+            flowLog({
+                name: 'player.card.reveal.requested',
+                roomId: room?.id || 'unknown',
+                sessionId: room?.sessionId || room?.id || 'unknown',
+                eventId: boardState.currentEvent.id,
+                result: 'requested',
+                timestamp: Date.now()
+            });
+            const commandKey = `reveal:${boardState.currentEvent.id}:${activeBoardCard.cardId}`;
+            revealBoardCard(boardState.currentEvent.id, activeBoardCard.cardId, getBoardCommandId(commandKey))
+                .then(() => completeBoardCommand(commandKey))
+                .catch((err: any) => {
+                    setIsBoardCardRevealed(false);
+                    showAlert(err?.message || '卡片揭露失敗，請再試一次', 'error');
+                });
         }
     };
 
@@ -651,16 +687,20 @@ export const GameView: React.FC<{
 
         const applied = handleTransactionSubmit(txData);
         if (!applied) return false;
+        let expectedBoardRevision = boardState?.revision || 0;
 
         if (boardFinancialAction?.afterApply?.affectsAllPlayersExpense) {
             const effect = boardFinancialAction.afterApply.affectsAllPlayersExpense;
+            const commandKey = `expense:${activeBoardCardKey}`;
             await applyBoardExpenseToAllPlayers({
                 amount: effect.amount,
                 category: effect.category,
                 isIncrease: effect.isIncrease,
                 summary: boardFinancialAction.txData.name,
                 detail: `全體玩家${effect.isIncrease ? '增加' : '減少'}${formatMoney(effect.amount)} 的${effect.category === 'basicLiving' ? '餐飲、服飾、居住類' : effect.category === 'transportEdu' ? '交通、教育、娛樂類' : '其他、醫療、育兒類'}月支出`
-            });
+            }, getBoardCommandId(commandKey));
+            completeBoardCommand(commandKey);
+            expectedBoardRevision += 1;
             setGameState(prev => {
                 const currentVal = prev.expenses[effect.category] || 0;
                 return {
@@ -675,7 +715,10 @@ export const GameView: React.FC<{
 
         if (boardFinancialAction?.afterApply?.moveToSquare) {
             const move = boardFinancialAction.afterApply.moveToSquare;
-            const nextIndex = await moveCurrentPlayerToSquare(move);
+            const commandKey = `move:${activeBoardCardKey}:${move.squareType}`;
+            const nextIndex = await moveCurrentPlayerToSquare(move, getBoardCommandId(commandKey));
+            completeBoardCommand(commandKey);
+            expectedBoardRevision += 1;
             if (nextIndex !== null) {
                 setGameState(prev => ({
                     ...prev,
@@ -687,11 +730,15 @@ export const GameView: React.FC<{
         }
 
         if (boardFinancialAction?.afterApply?.drawCard) {
+            const commandKey = `followup:${activeBoardCardKey}:${boardFinancialAction.afterApply.drawCard}`;
             await drawBoardFollowupCard(
                 boardFinancialAction.afterApply.drawCard,
                 `${boardFinancialAction.txData.name} 後續抽卡`,
-                `卡片效果觸發，再抽一張${boardFinancialAction.afterApply.drawCard === 'happiness' ? '幸福卡' : '新聞卡'}`
+                `卡片效果觸發，再抽一張${boardFinancialAction.afterApply.drawCard === 'happiness' ? '幸福卡' : '新聞卡'}`,
+                getBoardCommandId(commandKey),
+                expectedBoardRevision
             );
+            completeBoardCommand(commandKey);
         }
 
         setPendingHandledBoardCard(handledCardKey ? { key: handledCardKey, card: handledCard } : null);
@@ -717,7 +764,10 @@ export const GameView: React.FC<{
             await markBoardCardHandled(pendingHandledBoardCard.key, pendingHandledBoardCard.card);
         }
         if (pendingBoardStepAdvance) {
-            await advanceBoardEventQueue(pendingBoardStepAdvance);
+            const eventId = boardState?.currentEvent?.id || 'unknown';
+            const commandKey = `advance:${eventId}:${pendingBoardStepAdvance}`;
+            await advanceBoardEventQueue(pendingBoardStepAdvance, getBoardCommandId(commandKey));
+            completeBoardCommand(commandKey);
         }
         setPendingHandledBoardCard(null);
         setPendingBoardStepAdvance(null);
@@ -1510,7 +1560,9 @@ export const GameView: React.FC<{
                         setShouldResumeBankFollowup(false);
                         setShowPaydayModal(false);
                         setPaydayStep('confirm');
-                        void advanceBoardEventQueue('bank');
+                        const eventId = boardState?.currentEvent?.id || 'unknown';
+                        const key = `advance:${eventId}:bank`;
+                        void advanceBoardEventQueue('bank', getBoardCommandId(key)).then(() => completeBoardCommand(key));
                     }}
                     onClose={() => {
                         if (paydayStep === 'confirm') {
@@ -1523,7 +1575,9 @@ export const GameView: React.FC<{
                         setShouldResumeBankFollowup(false);
                         setShowPaydayModal(false);
                         setPaydayStep('confirm');
-                        void advanceBoardEventQueue('bank');
+                        const eventId = boardState?.currentEvent?.id || 'unknown';
+                        const key = `advance:${eventId}:bank`;
+                        void advanceBoardEventQueue('bank', getBoardCommandId(key)).then(() => completeBoardCommand(key));
                     }}
                     disabled={room?.status === 'finished'}
                 />
