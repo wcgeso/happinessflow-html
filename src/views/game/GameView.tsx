@@ -450,6 +450,7 @@ export const GameView: React.FC<{
         if (!isBoardTurn) return '現在不是你的回合';
         if (isRollingBoardDice) return '骰子仍在同步中';
         if (activeRoomMovement) return '棋偶仍在移動中';
+        if (room.boardState?.currentEvent || (room.boardState?.pendingEvents?.length || 0) > 0) return '請先完成目前事件';
         if (isGameFinished) return '本局已結算';
         if (showPaydayModal) return '請先完成銀行流程';
         if (showPromotionModal) return '請先完成學校流程';

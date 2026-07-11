@@ -24,6 +24,7 @@ import { BOARD_SQUARES, createInitialDeckState, getSquareByIndex } from '../cons
 import { HAPPINESS_CARDS, NEWS_CARDS, OPPORTUNITY_CARDS } from '../constants/cards';
 import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from '../utils/familyMilestones';
 import { buildMovementEffects, describeMovementEffects } from '../game/board/movementEffects';
+import { activateBoardQueueEntry, commitTurnIfQueueEmpty, completeCurrentEvent } from '../game/board/turnQueue';
 
 interface RoomMember {
     uid: string;
@@ -317,26 +318,6 @@ const createInitialBoardState = (members: RoomMember[], playerStates?: Record<st
     };
 };
 
-const activateBoardQueueEntry = (entry?: BoardQueuedEvent | null) => ({
-    currentEvent: entry?.event || null,
-    currentCard: entry?.card || null,
-    currentCardReveal: entry?.card ? {
-        eventId: entry.event.id,
-        cardId: entry.card.cardId,
-        isRevealed: false
-    } : null
-});
-
-const shiftBoardQueue = (boardState: BoardState) => {
-    const queue = [...(boardState.pendingEvents || [])];
-    const nextEntry = queue.shift() || null;
-
-    return {
-        ...activateBoardQueueEntry(nextEntry),
-        pendingEvents: queue
-    };
-};
-
 const appendBoardCardLog = (
     boardState: BoardState,
     card: BoardCardResult | null,
@@ -357,27 +338,6 @@ const appendBoardCardLog = (
     };
 
     return [nextEntry, ...(boardState.cardLog || [])].slice(0, BOARD_CARD_LOG_LIMIT);
-};
-
-const getNextTurnUid = (boardState: BoardState) => {
-    if (!boardState.turnOrder.length) return null;
-    if (!boardState.currentTurnUid) return boardState.turnOrder[0];
-
-    let index = boardState.turnOrder.indexOf(boardState.currentTurnUid);
-    const skipTurns = { ...boardState.skipTurns };
-
-    for (let offset = 1; offset <= boardState.turnOrder.length; offset += 1) {
-        const nextUid = boardState.turnOrder[(index + offset) % boardState.turnOrder.length];
-        const remainingSkips = skipTurns[nextUid] || 0;
-        if (remainingSkips > 0) {
-            skipTurns[nextUid] = remainingSkips - 1;
-            index = boardState.turnOrder.indexOf(nextUid);
-            continue;
-        }
-        return { nextUid, skipTurns };
-    }
-
-    return { nextUid: boardState.currentTurnUid, skipTurns };
 };
 
 const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
@@ -499,11 +459,6 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
         detailMessages.push('請確認本回合月結餘');
     }
 
-    const nextTurn = getNextTurnUid({
-        ...boardState,
-        currentTurnUid: playerUid,
-        skipTurns: nextSkipTurns
-    });
     const event: BoardEventLog = {
         id: `${playerUid}_${eventTimestamp}`,
         playerUid,
@@ -531,33 +486,25 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
         nextPlayerStates[playerUid] = updatedPlayerState;
     }
 
-    const nextTurnUid = nextTurn?.nextUid || playerUid;
-    const nextTurnPlayerState = nextPlayerStates[nextTurnUid];
-    if (nextTurnUid !== playerUid && nextTurnPlayerState?.bankServiceWindowActive) {
-        nextPlayerStates[nextTurnUid] = cleanObject({
-            ...nextTurnPlayerState,
-            bankServiceWindowActive: false,
-            bankServiceGrantedAtEventId: undefined
-        }) as GameState;
-    }
+    const resolvedBoardState = commitTurnIfQueueEmpty({
+        ...boardState,
+        playerPositions: {
+            ...boardState.playerPositions,
+            [playerUid]: nextPosition
+        },
+        skipTurns: nextSkipTurns,
+        currentTurnUid: playerUid,
+        lastRoll: boardState.lastRoll,
+        ...activateBoardQueueEntry(currentQueueEntry),
+        pendingEvents: remainingQueue,
+        movement: null,
+        deckState,
+        cardLog: appendBoardCardLog(boardState, currentQueueEntry?.card || null, currentQueueEntry?.event || null),
+        updatedAt: eventTimestamp
+    });
 
     return cleanObject({
-        boardState: {
-            ...boardState,
-            playerPositions: {
-                ...boardState.playerPositions,
-                [playerUid]: nextPosition
-            },
-            skipTurns: nextTurn?.skipTurns || nextSkipTurns,
-            currentTurnUid: nextTurn?.nextUid || playerUid,
-            lastRoll: boardState.lastRoll,
-            ...activateBoardQueueEntry(currentQueueEntry),
-            pendingEvents: remainingQueue,
-            movement: null,
-            deckState,
-            cardLog: appendBoardCardLog(boardState, currentQueueEntry?.card || null, currentQueueEntry?.event || null),
-            updatedAt: eventTimestamp
-        },
+        boardState: resolvedBoardState,
         ...(Object.keys(nextPlayerStates).length > 0 ? { playerStates: nextPlayerStates } : {})
     });
 };
