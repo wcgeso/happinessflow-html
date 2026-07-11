@@ -19,6 +19,7 @@ import { db } from '../../services/firebase';
 import { useAuth } from './AuthContext';
 import { BoardCardLogEntry, BoardCardResult, BoardDeckState, BoardEventLog, BoardQueuedEvent, BoardState, GameState } from '../types';
 import { cleanObject, safeAsync } from '../utils/utils';
+import { flowLog } from '../utils/flowLog';
 import { BOARD_SQUARES, createInitialDeckState, getSquareByIndex } from '../constants/board';
 import { HAPPINESS_CARDS, NEWS_CARDS, OPPORTUNITY_CARDS } from '../constants/cards';
 import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from '../utils/familyMilestones';

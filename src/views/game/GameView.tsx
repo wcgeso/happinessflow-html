@@ -30,6 +30,7 @@ import { BoardCardResult, TransactionData } from '../../types';
 import { BoardAssetSaleCandidate, BoardFinancialAction, buildBoardAssetSaleFinancialAction, isForcedBoardCard, resolveBoardCardAction } from '../../utils/boardCardActions';
 import { NEWS_CARD_MAP } from '../../constants/cards';
 import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
+import { flowLog } from '../../utils/flowLog';
 
 export const GameView: React.FC<{ 
     onFinishGame: (meta: any) => void;
