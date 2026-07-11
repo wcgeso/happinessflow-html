@@ -211,6 +211,19 @@ export interface BoardCardRevealState {
   revealedBy?: string;
 }
 
+export interface BoardMovementEffect {
+  type: 'repair_fee';
+  squareIndex: number;
+  dice: number;
+  amount: number;
+}
+
+export interface SettlementPlayerInput {
+  uid: string;
+  totalScore: number;
+}
+
+export type SettlementResult = 'applied' | 'already_applied';
 export interface BoardMovementState {
   playerUid: string;
   startPosition: number;

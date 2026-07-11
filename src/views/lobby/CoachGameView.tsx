@@ -34,8 +34,10 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../services/firebase';
-import { setDoc, serverTimestamp, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { setDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { STOCK_DATA, BUBBLE_BURST_CODES, STOCK_NAMES } from '../../constants';
+import { flowLog } from '../../utils/flowLog';
+import { settleGame } from '../../game/settlement/settleGame';
 
 export const CoachGameView: React.FC = () => {
     const { room, playerStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, updateRoomTimer, approveRequest, rejectRequest } = useRoom();
@@ -337,6 +339,14 @@ export const CoachGameView: React.FC = () => {
         if (!room || !user || !players.length) return;
         if (room.isPractice) return; // 練習模式不儲存（以房間本身的欄位為準）
 
+        flowLog({
+            name: 'coach.settlement.save.requested',
+            roomId: room.id,
+            sessionId: room.sessionId || room.id,
+            result: isFinal ? 'final-requested' : 'requested',
+            timestamp: Date.now()
+        });
+
         if (!isSilent) console.log(`[存檔] 執行紀錄存檔中... (是否為結算: ${isFinal})`);
 
         try {
@@ -398,7 +408,7 @@ export const CoachGameView: React.FC = () => {
                 isFinal,
                 updatedAt: serverTimestamp()
             };
-            await safeAsync(setDoc(doc(db, 'score_records', 'S1', 'records', recordId), scoreData));
+            await setDoc(doc(db, 'score_records', 'S1', 'records', recordId), scoreData, { merge: true });
 
             // 2. 儲存執行師帶領紀錄 (coach_records)
             const coachRecord = {
@@ -420,24 +430,22 @@ export const CoachGameView: React.FC = () => {
                 })),
                 updatedAt: serverTimestamp()
             };
-            await safeAsync(setDoc(doc(db, 'coach_records', recordId), coachRecord));
+            await setDoc(doc(db, 'coach_records', recordId), coachRecord);
 
-            // 3. 更新每位玩家的累計積分 (experience) - 僅在最終結算時，且同一場只能加一次
-            const scoreIncrementKey = `score_incremented_${recordId}`;
-            if (isFinal && !localStorage.getItem(scoreIncrementKey)) {
-                localStorage.setItem(scoreIncrementKey, 'true');
-                await Promise.all(playersData.map(async (player) => {
-                    if (!player.uid) return;
-                    const userRef = doc(db, 'users', player.uid);
-                    try {
-                        await safeAsync(updateDoc(userRef, {
-                            experience: increment(player.totalScore),
-                            rankScore: increment(player.totalScore)
-                        }));
-                    } catch (e) {
-                        console.error(`Failed to update experience for user ${player.uid}`, e);
-                    }
-                }));
+            if (isFinal) {
+                const result = await settleGame({
+                    roomId: room.id,
+                    settlementId: recordId,
+                    coachUid: user.uid,
+                    players: playersData.map(player => ({ uid: player.uid, totalScore: player.totalScore }))
+                });
+                flowLog({
+                    name: 'coach.settlement.applied',
+                    roomId: room.id,
+                    sessionId: recordId,
+                    result,
+                    timestamp: Date.now()
+                });
             }
 
             if (!isSilent) {
@@ -455,6 +463,14 @@ export const CoachGameView: React.FC = () => {
 
             if (!isSilent) console.log(`[存檔] 存檔成功 (ID: ${recordId})`);
         } catch (error) {
+            flowLog({
+                name: 'coach.settlement.save.failed',
+                roomId: room.id,
+                sessionId: room.sessionId || room.id,
+                result: 'failed',
+                errorCode: 'coach-settlement-save-failed',
+                timestamp: Date.now()
+            });
             console.error('儲存紀錄失敗:', error);
             if (isFinal && !isSilent) {
                 setUploadStatus('error');
