@@ -35,6 +35,8 @@ import {
 import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from '../utils/familyMilestones';
 import { resolveBoardCardAction, hasIncompleteSharedPrompts } from '../utils/boardCardActions';
 import { buildMovementEffects, describeMovementEffects } from '../game/board/movementEffects';
+import { runRoomBoardMutation } from '../game/board/runBoardMutation';
+import { applyBoardCommand } from '../game/board/boardRevision';
 
 interface RoomMember {
     uid: string;
@@ -71,6 +73,7 @@ export interface Room {
     hostId: string;
     status: 'waiting' | 'playing' | 'finished';
     members: RoomMember[];
+    memberUids?: string[];
     createdAt: any;
     maxPlayers: number;
     duration?: number; // 遊戲時長 (分鐘)
@@ -245,6 +248,8 @@ const createInitialBoardState = (members: RoomMember[], hostId: string, playerSt
         playerPositions: positions,
         skipTurns,
         hasRolledThisTurn: false,
+        revision: 0,
+        processedCommandIds: [],
         lastRoll: null,
         currentCard: null,
         currentCardReveal: null,
@@ -838,13 +843,29 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const movementDeadline = movement.startedAt + getBoardMovementSettleMs(movement);
 
                     if (Date.now() > movementDeadline + BOARD_MOVE_STALE_BUFFER_MS) {
-                        const staleResolution = buildBoardMovementLegResolution(data, movement.playerUid);
-                        if (staleResolution) {
-                            console.warn('偵測到過期的棋盤移動狀態，自動補完收尾:', data.id, movement.playerUid);
-                            safeAsync(updateDoc(doc(db, 'rooms', targetRoomId), staleResolution)).catch(err => {
-                                console.error('自動補完棋盤移動失敗:', err);
-                            });
-                        }
+                        const settleCommandId = `movement:${movement.playerUid}:${movement.startedAt}:settle`;
+                        console.warn('偵測到過期的棋盤移動狀態，自動補完收尾:', data.id, movement.playerUid);
+                        runRoomBoardMutation({
+                            db,
+                            roomId: targetRoomId,
+                            commandId: settleCommandId,
+                            onDuplicate: () => undefined,
+                            mutate: (latestRoom, latestBoard) => {
+                                const latestMovement = latestBoard.movement;
+                                if (!latestMovement?.isActive || latestMovement.playerUid !== movement.playerUid || latestMovement.startedAt !== movement.startedAt) {
+                                    throw new Error('棋盤移動已更新');
+                                }
+                                const resolution = buildBoardMovementLegResolution(latestRoom as Room, movement.playerUid);
+                                if (!resolution?.boardState) throw new Error('棋盤移動無法結算');
+                                return {
+                                    boardState: resolution.boardState,
+                                    roomPatch: resolution.playerStates ? { playerStates: resolution.playerStates } : undefined,
+                                    result: undefined
+                                };
+                            }
+                        }).catch(err => {
+                            console.error('自動補完棋盤移動失敗:', err);
+                        });
                     }
                 }
 
@@ -949,6 +970,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     photoPosition: user.photoPosition,
                     photoScale: user.photoScale
                 }],
+                memberUids: [user.uid],
                 createdAt: serverTimestamp(),
                 maxPlayers: settings?.maxPlayers || 6,
                 duration: settings?.duration || 60,
@@ -1048,7 +1070,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
 
             await safeAsync(updateDoc(roomRef, {
-                members: arrayUnion(cleanedMember)
+                members: arrayUnion(cleanedMember),
+                memberUids: arrayUnion(user.uid)
             }));
 
             // 存入 localStorage 並手動更新 room ID 觸發監聽器
@@ -1075,7 +1098,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (memberToRemove) {
                 await safeAsync(updateDoc(roomRef, {
-                    members: arrayRemove(memberToRemove)
+                    members: arrayRemove(memberToRemove),
+                    memberUids: arrayRemove(user.uid)
                 }));
             }
         } catch (err: any) {
@@ -1108,7 +1132,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     pendingRequests: {}, // 初始化審核請求
                     startedAt: Date.now(), // 新增開始時間戳，用來觸發玩家重設狀態
                     sessionId: `${room.id}_${Date.now()}`, // 每場遊戲產生新的唯一 sessionId，避免覆蓋上一場紀錄
-                    boardState: nextBoardState
+                    boardState: nextBoardState,
+                    memberUids: currentRoom.members.map(member => member.uid)
                 });
             }));
         } catch (err: any) {
@@ -1144,6 +1169,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let nextPosition = startPosition;
         const passedMessages: string[] = [];
 
+        const movementEffects = buildMovementEffects(path, hasCarAsset(playerState), rollBoardDie);
+        const repairEffects = new Map(movementEffects.map(effect => [effect.squareIndex, effect]));
         for (let step = 0; step < path.length; step += 1) {
             nextPosition = path[step];
             const square = getSquareByIndex(nextPosition);
@@ -1153,9 +1180,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (square.type === 'school') {
                 passedMessages.push(`經過${square.label}，可前往升等考試`);
             }
-            if (square.type === 'repair' && hasCarAsset(playerState)) {
-                const feeRoll = Math.floor(Math.random() * 6) + 1;
-                passedMessages.push(`經過維修廠，汽車保養費 ${feeRoll * 2000}，請自行登錄`);
+            if (square.type === 'repair' && repairEffects.has(nextPosition)) {
+                passedMessages.push(...describeMovementEffects([repairEffects.get(nextPosition)!]));
             }
         }
 
@@ -1175,7 +1201,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             stepDurationMs: BOARD_MOVE_STEP_DURATION_MS,
             introDelayMs: BOARD_MOVE_INTRO_DELAY_MS + BOARD_DICE_ROLL_ANIMATION_MS,
             landingDelayMs: BOARD_MOVE_LANDING_DELAY_MS,
-            isActive: true
+            isActive: true,
+            effects: movementEffects
         };
         const settleDelayMs = getBoardMovementSettleMs(movement);
 
@@ -1201,7 +1228,64 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 bankServiceGrantedAtEventId: undefined
             });
         }
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), cleanObject(updates)));
+        const rollCommandId = `roll:${user.uid}:${boardState.revision || 0}`;
+        await runRoomBoardMutation({
+            db,
+            roomId: room.id,
+            commandId: rollCommandId,
+            expectedRevision: boardState.revision || 0,
+            onDuplicate: latestRoom => ({
+                position: latestRoom.boardState?.movement?.path.at(-1) ?? latestRoom.boardState?.playerPositions[user.uid] ?? startPosition,
+                detail: (latestRoom.boardState?.lastRoll as any)?.detail || '',
+                skipTurns: latestRoom.playerStates?.[user.uid]?.skipTurns || 0,
+                total: latestRoom.boardState?.lastRoll?.total || total
+            }),
+            mutate: (latestRoom, latestBoard) => {
+                if (latestBoard.movement?.isActive) throw new Error('目前角色仍在移動中');
+                if (latestBoard.currentTurnUid !== user.uid) throw new Error('還沒輪到你');
+                if (latestBoard.hasRolledThisTurn || latestBoard.currentEvent || (latestBoard.pendingEvents?.length || 0) > 0) {
+                    throw new Error('請先完成目前回合');
+                }
+                const latestPlayerState = latestRoom.playerStates?.[user.uid];
+                const latestStart = latestBoard.playerPositions[user.uid] || 0;
+                const latestPath = Array.from({ length: total }, (_, step) => (latestStart + step + 1) % BOARD_SQUARES.length);
+                const latestMovement = {
+                    ...movement,
+                    startPosition: latestStart,
+                    path: latestPath.length ? latestPath.slice(0, firstLegPath.length) : firstLegPath,
+                    remainingPath: latestPath.slice(firstLegPath.length).length ? latestPath.slice(firstLegPath.length) : undefined,
+                    effects: movementEffects
+                };
+                const roomPatch: Record<string, unknown> = {};
+                if (latestPlayerState?.bankServiceWindowActive) {
+                    roomPatch[`playerStates.${user.uid}`] = cleanObject({
+                        ...latestPlayerState,
+                        bankServiceWindowActive: false,
+                        bankServiceGrantedAtEventId: undefined
+                    });
+                }
+                return {
+                    boardState: {
+                        ...latestBoard,
+                        currentTurnUid: user.uid,
+                        hasRolledThisTurn: true,
+                        lastRoll: { uid: user.uid, dice, total, timestamp: rollTimestamp, detail: passedMessages.join('\n') },
+                        currentCard: null,
+                        currentCardReveal: null,
+                        currentEvent: null,
+                        movement: latestMovement,
+                        updatedAt: rollTimestamp
+                    },
+                    roomPatch: Object.keys(roomPatch).length ? roomPatch : undefined,
+                    result: {
+                        position: latestMovement.path.at(-1) ?? latestStart,
+                        detail: passedMessages.join('\n'),
+                        skipTurns: latestPlayerState?.skipTurns || 0,
+                        total
+                    }
+                };
+            }
+        });
 
         void (async () => {
             await wait(settleDelayMs);
@@ -1220,10 +1304,26 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return;
                 }
 
-                const resolution = buildBoardMovementLegResolution(latestRoom, user.uid);
-                if (!resolution) return;
-
-                await safeAsync(updateDoc(doc(db, 'rooms', room.id), resolution));
+                const settleCommandId = `movement:${user.uid}:${rollTimestamp}:settle`;
+                await runRoomBoardMutation({
+                    db,
+                    roomId: room.id,
+                    commandId: settleCommandId,
+                    onDuplicate: () => undefined,
+                    mutate: (currentRoom, currentBoard) => {
+                        const currentMovement = currentBoard.movement;
+                        if (!currentMovement?.isActive || currentMovement.playerUid !== user.uid || currentMovement.startedAt !== rollTimestamp) {
+                            throw new Error('棋盤移動已更新');
+                        }
+                        const resolution = buildBoardMovementLegResolution(currentRoom as Room, user.uid);
+                        if (!resolution?.boardState) throw new Error('棋盤移動無法結算');
+                        return {
+                            boardState: resolution.boardState,
+                            roomPatch: resolution.playerStates ? { playerStates: resolution.playerStates } : undefined,
+                            result: undefined
+                        };
+                    }
+                });
             } catch (err) {
                 console.error('棋盤移動結算失敗:', err);
             }
@@ -1339,16 +1439,27 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!isCurrentCard) return;
 
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
-            'boardState.currentCardReveal': {
-                eventId,
-                cardId,
-                isRevealed: true,
-                revealedAt: Date.now(),
-                revealedBy: user.uid
-            },
-            'boardState.updatedAt': Date.now()
-        }));
+        const commandId = `reveal:${eventId}:${cardId}`;
+        await runRoomBoardMutation({
+            db,
+            roomId: room.id,
+            commandId,
+            onDuplicate: () => undefined,
+            mutate: (latestRoom, latestBoard) => {
+                if (latestBoard.currentEvent?.id !== eventId || latestBoard.currentCard?.cardId !== cardId) {
+                    throw new Error('棋盤卡片已更新');
+                }
+                const timestamp = Date.now();
+                return {
+                    boardState: {
+                        ...latestBoard,
+                        currentCardReveal: { eventId, cardId, isRevealed: true, revealedAt: timestamp, revealedBy: user.uid },
+                        updatedAt: timestamp
+                    },
+                    result: undefined
+                };
+            }
+        });
     });
 
     const advanceBoardEventQueue = async (expectedType?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup') => executeWithLock(async () => {
@@ -1366,6 +1477,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 若這次推進事件後又接續了下一段分段移動動畫，記下來，交易成功後再排程
         // 等待動畫結束、觸發下一段的正式結算（比照 rollBoardDice 的做法）。
         let resumedMovement: { playerUid: string; startedAt: number; settleDelayMs: number } | null = null;
+        const commandId = `advance:${boardState.currentEvent?.id || 'none'}:${expectedType || 'event'}`;
 
         // Use runTransaction to prevent race conditions during deep state updates
         await safeAsync(runTransaction(db, async (transaction) => {
@@ -1375,6 +1487,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const currentRoom = roomDoc.data() as Room;
             const currentBoardState = currentRoom.boardState;
             if (!currentBoardState) return;
+            if (currentBoardState.processedCommandIds?.includes(commandId)) return;
 
             // Check again in transaction
             if (expectedType && currentBoardState.currentEvent?.type !== expectedType) return;
@@ -1430,15 +1543,16 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
             }
 
+            const committedBoard = applyBoardCommand({
+                ...(nextState.boardState || currentBoardState),
+                cardLog: nextState.boardState?.currentCard
+                    ? appendBoardCardLog(currentBoardState, nextState.boardState.currentCard, nextState.boardState.currentEvent)
+                    : currentBoardState.cardLog || [],
+                updatedAt: Date.now()
+            }, commandId).boardState;
             transaction.update(roomRef, cleanObject({
                 ...nextState,
-                boardState: {
-                    ...(nextState.boardState || currentBoardState),
-                    cardLog: nextState.boardState?.currentCard
-                        ? appendBoardCardLog(currentBoardState, nextState.boardState.currentCard, nextState.boardState.currentEvent)
-                        : currentBoardState.cardLog || [],
-                    updatedAt: Date.now()
-                },
+                boardState: committedBoard,
                 ...(nextState.playerStates ? { playerStates: nextState.playerStates } : {})
             }));
         }));
@@ -1461,10 +1575,26 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         return;
                     }
 
-                    const legResolution = buildBoardMovementLegResolution(latestRoom, playerUid);
-                    if (!legResolution) return;
-
-                    await safeAsync(updateDoc(doc(db, 'rooms', room.id), legResolution));
+                    const settleCommandId = `movement:${playerUid}:${startedAt}:settle`;
+                    await runRoomBoardMutation({
+                        db,
+                        roomId: room.id,
+                        commandId: settleCommandId,
+                        onDuplicate: () => undefined,
+                        mutate: (currentRoom, currentBoard) => {
+                            const currentMovement = currentBoard.movement;
+                            if (!currentMovement?.isActive || currentMovement.playerUid !== playerUid || currentMovement.startedAt !== startedAt) {
+                                throw new Error('棋盤移動已更新');
+                            }
+                            const legResolution = buildBoardMovementLegResolution(currentRoom as Room, playerUid);
+                            if (!legResolution?.boardState) throw new Error('棋盤移動無法結算');
+                            return {
+                                boardState: legResolution.boardState,
+                                roomPatch: legResolution.playerStates ? { playerStates: legResolution.playerStates } : undefined,
+                                result: undefined
+                            };
+                        }
+                    });
                 } catch (err) {
                     console.error('分段棋盤移動結算失敗:', err);
                 }
@@ -1499,6 +1629,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             alert('還有玩家尚未完成共享事件回覆，請等待所有人完成後再結束回合。');
             return;
         }
+        const commandId = `turn-end:${user.uid}:${boardState.revision || 0}`;
 
         await safeAsync(runTransaction(db, async (transaction) => {
             const roomRef = doc(db, 'rooms', room.id);
@@ -1507,6 +1638,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const currentRoom = roomDoc.data() as Room;
             const currentBoardState = currentRoom.boardState;
             if (!currentBoardState) return;
+            if (currentBoardState.processedCommandIds?.includes(commandId)) return;
 
             // Transaction 內重新檢查，避免競態下重複結束回合或跳過尚未完成的事件。
             if (currentBoardState.currentTurnUid !== user.uid) return;
@@ -1530,14 +1662,15 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }) as GameState;
             }
 
+            const nextBoard = applyBoardCommand({
+                ...currentBoardState,
+                currentTurnUid: nextTurnUid,
+                hasRolledThisTurn: false,
+                skipTurns: nextTurn?.skipTurns || currentBoardState.skipTurns,
+                updatedAt: Date.now()
+            }, commandId).boardState;
             transaction.update(roomRef, cleanObject({
-                boardState: {
-                    ...currentBoardState,
-                    currentTurnUid: nextTurnUid,
-                    hasRolledThisTurn: false,
-                    skipTurns: nextTurn?.skipTurns || currentBoardState.skipTurns,
-                    updatedAt: Date.now()
-                },
+                boardState: nextBoard,
                 ...(Object.keys(nextPlayerStates).length > 0 ? { playerStates: nextPlayerStates } : {})
             }));
         }));
@@ -1554,6 +1687,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isCurrentCard) return;
 
         if (hasIncompleteSharedPrompts(boardState)) return;
+        const commandId = `dismiss:${eventId}:${cardId}`;
 
         // Use runTransaction to prevent race conditions against concurrent
         // submitFamilyMilestoneJoinResponse / submitSharedCardPromptResponse writes.
@@ -1564,6 +1698,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const currentRoom = roomDoc.data() as Room;
             const currentBoardState = currentRoom.boardState;
             if (!currentBoardState) return;
+            if (currentBoardState.processedCommandIds?.includes(commandId)) return;
 
             const isStillCurrentCard =
                 currentBoardState.currentEvent?.id === eventId &&
@@ -1573,15 +1708,16 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const nextState = buildBoardEventAdvanceState(currentRoom);
             if (!nextState) return;
 
+            const committedBoard = applyBoardCommand({
+                ...(nextState.boardState || currentBoardState),
+                cardLog: nextState.boardState?.currentCard
+                    ? appendBoardCardLog(currentBoardState, nextState.boardState.currentCard, nextState.boardState.currentEvent)
+                    : currentBoardState.cardLog || [],
+                updatedAt: Date.now()
+            }, commandId).boardState;
             transaction.update(roomRef, cleanObject({
                 ...nextState,
-                boardState: {
-                    ...(nextState.boardState || currentBoardState),
-                    cardLog: nextState.boardState?.currentCard
-                        ? appendBoardCardLog(currentBoardState, nextState.boardState.currentCard, nextState.boardState.currentEvent)
-                        : currentBoardState.cardLog || [],
-                    updatedAt: Date.now()
-                },
+                boardState: committedBoard,
                 ...(nextState.playerStates ? { playerStates: nextState.playerStates } : {})
             }));
         }));
@@ -1589,6 +1725,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const drawPostExamHappinessCard = async (success: boolean) => {
         if (!room?.id || !room.isBoardGame || !user) return;
+        const commandId = `draw-post:${room.boardState?.currentEvent?.id || 'none'}:${success ? 'success' : 'failure'}`;
 
         // H1：牌堆抽卡（deckState 的 shift/push）必須以交易當下的最新狀態為準，
         // 直接拿本地 room 快照整包覆寫，若和其他並發寫入（例如另一個棋盤事件
@@ -1601,6 +1738,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const currentRoom = roomDoc.data() as Room;
             const currentBoardState = currentRoom.boardState;
             if (!currentBoardState) return;
+            if (currentBoardState.processedCommandIds?.includes(commandId)) return;
 
             const drawResult = drawBoardCard(currentBoardState.deckState, 'happiness', currentRoom.playerStates?.[user.uid]);
             if (!drawResult) return;
@@ -1620,27 +1758,27 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 rollTotal: currentBoardState.lastRoll?.total || 0
             };
 
-            transaction.update(roomRef, cleanObject({
-                boardState: {
-                    ...currentBoardState,
-                    deckState: drawResult.deckState,
-                    currentCard: drawResult.card,
-                    currentCardReveal: {
-                        eventId,
-                        cardId: drawResult.card.cardId,
-                        isRevealed: false
-                    },
-                    currentEvent: event,
-                    pendingEvents: currentBoardState.pendingEvents || [],
-                    cardLog: appendBoardCardLog(currentBoardState, drawResult.card, event),
-                    updatedAt: timestamp
-                }
-            }));
+            const nextBoard = applyBoardCommand({
+                ...currentBoardState,
+                deckState: drawResult.deckState,
+                currentCard: drawResult.card,
+                currentCardReveal: {
+                    eventId,
+                    cardId: drawResult.card.cardId,
+                    isRevealed: false
+                },
+                currentEvent: event,
+                pendingEvents: currentBoardState.pendingEvents || [],
+                cardLog: appendBoardCardLog(currentBoardState, drawResult.card, event),
+                updatedAt: timestamp
+            }, commandId).boardState;
+            transaction.update(roomRef, cleanObject({ boardState: nextBoard }));
         }));
     };
 
     const drawBoardFollowupCard = async (deck: 'happiness' | 'news', summary: string, detail?: string) => {
         if (!room?.id || !room.isBoardGame || !user) return;
+        const commandId = `draw-followup:${room.boardState?.currentEvent?.id || 'none'}:${deck}`;
 
         // H1：同 drawPostExamHappinessCard，改用交易避免用過期的本地 deckState
         // 快照覆寫掉並發寫入的 boardState，或抽到已經被抽走的卡片。
@@ -1651,6 +1789,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const currentRoom = roomDoc.data() as Room;
             const currentBoardState = currentRoom.boardState;
             if (!currentBoardState) return;
+            if (currentBoardState.processedCommandIds?.includes(commandId)) return;
 
             const drawResult = drawBoardCard(currentBoardState.deckState, deck, currentRoom.playerStates?.[user.uid]);
             if (!drawResult) return;
@@ -1670,22 +1809,21 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 rollTotal: currentBoardState.lastRoll?.total || 0
             };
 
-            transaction.update(roomRef, cleanObject({
-                boardState: {
-                    ...currentBoardState,
-                    deckState: drawResult.deckState,
-                    currentCard: drawResult.card,
-                    currentCardReveal: {
-                        eventId,
-                        cardId: drawResult.card.cardId,
-                        isRevealed: false
-                    },
-                    currentEvent: event,
-                    pendingEvents: currentBoardState.pendingEvents || [],
-                    cardLog: appendBoardCardLog(currentBoardState, drawResult.card, event),
-                    updatedAt: timestamp
-                }
-            }));
+            const nextBoard = applyBoardCommand({
+                ...currentBoardState,
+                deckState: drawResult.deckState,
+                currentCard: drawResult.card,
+                currentCardReveal: {
+                    eventId,
+                    cardId: drawResult.card.cardId,
+                    isRevealed: false
+                },
+                currentEvent: event,
+                pendingEvents: currentBoardState.pendingEvents || [],
+                cardLog: appendBoardCardLog(currentBoardState, drawResult.card, event),
+                updatedAt: timestamp
+            }, commandId).boardState;
+            transaction.update(roomRef, cleanObject({ boardState: nextBoard }));
         }));
     };
 
@@ -1728,10 +1866,21 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: Date.now()
         };
 
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
-            'boardState.familyMilestoneJoinPrompt': prompt,
-            'boardState.updatedAt': Date.now()
-        }));
+        await runRoomBoardMutation({
+            db,
+            roomId: room.id,
+            commandId: `prompt:family:${promptId}`,
+            onDuplicate: () => undefined,
+            mutate: (latestRoom, latestBoard) => {
+                if (latestBoard.currentEvent?.id !== eventId || latestBoard.currentCard?.cardId !== cardId || latestBoard.currentEvent?.playerUid !== user.uid) {
+                    throw new Error('家庭共享事件已更新');
+                }
+                return {
+                    boardState: { ...latestBoard, familyMilestoneJoinPrompt: prompt, updatedAt: Date.now() },
+                    result: undefined
+                };
+            }
+        });
     };
 
     const openSharedCardPrompt = async (eventId: string, cardId: string): Promise<'opened' | 'no_target' | false> => {
@@ -1804,14 +1953,26 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             createdAt: Date.now()
         };
 
-        const result = await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
-            'boardState.sharedCardPrompt': prompt,
-            'boardState.updatedAt': Date.now()
-        }), null, err => {
+        try {
+            await runRoomBoardMutation({
+                db,
+                roomId: room.id,
+                commandId: `prompt:shared:${promptId}`,
+                onDuplicate: () => undefined,
+                mutate: (latestRoom, latestBoard) => {
+                    if (latestBoard.currentEvent?.id !== eventId || latestBoard.currentCard?.cardId !== cardId || latestBoard.currentEvent?.playerUid !== user.uid) {
+                        throw new Error('共享卡片事件已更新');
+                    }
+                    return {
+                        boardState: { ...latestBoard, sharedCardPrompt: prompt, updatedAt: Date.now() },
+                        result: undefined
+                    };
+                }
+            });
+        } catch (err: any) {
             setError(err?.message || '共享卡片提示建立失敗');
-        });
-
-        if (result === null) return false;
+            return false;
+        }
 
         setRoom(prev => {
             if (!prev?.boardState) return prev;
@@ -1944,10 +2105,21 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!room?.id || !room.boardState?.sharedCardPrompt) return;
         if (room.boardState.sharedCardPrompt.id !== promptId) return;
 
-        await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
-            'boardState.sharedCardPrompt': deleteField(),
-            'boardState.updatedAt': Date.now()
-        }));
+        await runRoomBoardMutation({
+            db,
+            roomId: room.id,
+            commandId: `prompt:shared:clear:${promptId}`,
+            onDuplicate: () => undefined,
+            mutate: (latestRoom, latestBoard) => {
+                if (latestBoard.currentTurnUid !== user?.uid || latestBoard.sharedCardPrompt?.id !== promptId) {
+                    throw new Error('共享卡片提示已更新');
+                }
+                return {
+                    boardState: { ...latestBoard, sharedCardPrompt: null, updatedAt: Date.now() },
+                    result: undefined
+                };
+            }
+        });
     };
 
     const setPendingStartupUpgradeAction = async (payload: { cardId: string; symbol: string }): Promise<boolean> => {
@@ -2023,46 +2195,52 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 相減，用本地 room.playerStates 快照整包覆寫，若跟另一筆並發的共享
         // 支出效果（例如同時觸發的另一張新聞卡）交錯，會有一方的增減結果被
         // 覆寫掉、憑空消失。
-        await safeAsync(runTransaction(db, async (transaction) => {
-            const roomRef = doc(db, 'rooms', room.id);
-            const roomDoc = await transaction.get(roomRef);
-            if (!roomDoc.exists()) return;
-            const currentRoom = roomDoc.data() as Room;
-            if (!currentRoom.playerStates) return;
+        const commandId = `shared-expense:${room.boardState?.currentEvent?.id || 'none'}:${payload.category}:${payload.amount}:${payload.isIncrease ? 'increase' : 'decrease'}`;
+        await runRoomBoardMutation({
+            db,
+            roomId: room.id,
+            commandId,
+            onDuplicate: () => undefined,
+            mutate: (currentRoom, currentBoard) => {
+                if (currentBoard.currentEvent?.playerUid !== user.uid) throw new Error('共享支出不是目前事件');
+                if (!currentRoom.playerStates) throw new Error('玩家狀態尚未準備完成');
 
-            const syncedAt = Date.now();
-            const nextPlayerStates = Object.fromEntries(
-                Object.entries(currentRoom.playerStates).map(([uid, state]) => {
-                    if (uid === user.uid) {
+                const syncedAt = Date.now();
+                const nextPlayerStates = Object.fromEntries(
+                    Object.entries(currentRoom.playerStates).map(([uid, state]) => {
+                        if (uid === user.uid) {
+                            return [uid, cleanObject({
+                                ...state,
+                                pendingCardAction: payload.detail || payload.summary,
+                                lastBoardEvent: payload.summary
+                            })];
+                        }
+
+                        const currentVal = state.expenses?.[payload.category] || 0;
+                        const nextVal = payload.isIncrease
+                            ? currentVal + payload.amount
+                            : Math.max(0, currentVal - payload.amount);
+
                         return [uid, cleanObject({
                             ...state,
+                            expenses: {
+                                ...state.expenses,
+                                [payload.category]: nextVal
+                            },
                             pendingCardAction: payload.detail || payload.summary,
-                            lastBoardEvent: payload.summary
+                            lastBoardEvent: payload.summary,
+                            lastSharedExpenseSyncedAt: syncedAt
                         })];
-                    }
+                    })
+                );
 
-                    const currentVal = state.expenses?.[payload.category] || 0;
-                    const nextVal = payload.isIncrease
-                        ? currentVal + payload.amount
-                        : Math.max(0, currentVal - payload.amount);
-
-                    return [uid, cleanObject({
-                        ...state,
-                        expenses: {
-                            ...state.expenses,
-                            [payload.category]: nextVal
-                        },
-                        pendingCardAction: payload.detail || payload.summary,
-                        lastBoardEvent: payload.summary,
-                        lastSharedExpenseSyncedAt: syncedAt
-                    })];
-                })
-            );
-
-            transaction.update(roomRef, cleanObject({
-                playerStates: nextPlayerStates
-            }));
-        }));
+                return {
+                    boardState: { ...currentBoard, updatedAt: syncedAt },
+                    roomPatch: { playerStates: nextPlayerStates },
+                    result: undefined
+                };
+            }
+        });
     };
 
     const moveCurrentPlayerToSquare = async (payload: {
@@ -2079,53 +2257,53 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 快照蓋掉他們剛寫入的新資料。改用交易讀最新狀態算出正確的
         // currentPosition/nextIndex，並只用點記法（dotted path）寫入這位玩家
         // 自己的欄位，不會動到其他玩家的資料。
-        let nextIndex: number | undefined;
-        await safeAsync(runTransaction(db, async (transaction) => {
-            const roomRef = doc(db, 'rooms', room.id);
-            const roomDoc = await transaction.get(roomRef);
-            if (!roomDoc.exists()) return;
-            const currentRoom = roomDoc.data() as Room;
-            const currentBoardState = currentRoom.boardState;
-            if (!currentBoardState) return;
+        const commandId = `move:${user.uid}:${payload.squareType}:${room.boardState?.currentEvent?.id || room.boardState?.revision || 0}`;
+        return runRoomBoardMutation({
+            db,
+            roomId: room.id,
+            commandId,
+            onDuplicate: latestRoom => latestRoom.boardState?.playerPositions[user.uid] ?? null,
+            mutate: (currentRoom, currentBoardState) => {
+                if (currentBoardState.currentTurnUid !== user.uid) throw new Error('還沒輪到你');
+                const currentPosition = currentBoardState.playerPositions?.[user.uid] || 0;
+                // 找「順時針方向最近」的目標格，不是陣列裡第一個同類型格——
+                // 原本的寫法 (index - currentPosition + N) % N > 0 對任何
+                // index !== currentPosition 恆為真，等於沒有真正比較距離。
+                const nextSquare = BOARD_SQUARES
+                    .filter(square => square.type === payload.squareType && square.index !== currentPosition)
+                    .reduce<typeof BOARD_SQUARES[number] | null>((closest, square) => {
+                        const distance = (square.index - currentPosition + boardLength) % boardLength;
+                        if (!closest) return square;
+                        const closestDistance = (closest.index - currentPosition + boardLength) % boardLength;
+                        return distance < closestDistance ? square : closest;
+                    }, null);
+                if (!nextSquare) throw new Error('找不到目標棋盤格');
 
-            const currentPosition = currentBoardState.playerPositions?.[user.uid] || 0;
-            // 找「順時針方向最近」的目標格，不是陣列裡第一個同類型格——
-            // 原本的寫法 (index - currentPosition + N) % N > 0 對任何
-            // index !== currentPosition 恆為真，等於沒有真正比較距離，
-            // 導致玩家常被送到陣列順序較前面、但實際上在棋盤上是「往回走」的格子。
-            const nextSquare = BOARD_SQUARES
-                .filter(square => square.type === payload.squareType && square.index !== currentPosition)
-                .reduce<typeof BOARD_SQUARES[number] | null>((closest, square) => {
-                    const distance = (square.index - currentPosition + boardLength) % boardLength;
-                    if (!closest) return square;
-                    const closestDistance = (closest.index - currentPosition + boardLength) % boardLength;
-                    return distance < closestDistance ? square : closest;
-                }, null);
-
-            if (!nextSquare) return;
-            nextIndex = nextSquare.index;
-
-            const playerState = currentRoom.playerStates?.[user.uid];
-            const nextSkipTurns = Math.max(playerState?.skipTurns || 0, payload.skipTurns || 0);
-            const timestamp = Date.now();
-
-            transaction.update(roomRef, cleanObject({
-                [`boardState.playerPositions.${user.uid}`]: nextIndex,
-                [`boardState.skipTurns.${user.uid}`]: nextSkipTurns,
-                'boardState.updatedAt': timestamp,
-                [`playerStates.${user.uid}`]: cleanObject({
-                    ...playerState,
-                    boardPosition: nextIndex,
-                    skipTurns: nextSkipTurns,
-                    lastBoardEvent: payload.detail || `移動到${payload.squareType}`,
-                    pendingCardAction: payload.detail,
-                    bankServiceWindowActive: false,
-                    bankServiceGrantedAtEventId: undefined
-                })
-            }));
-        }));
-
-        return nextIndex ?? null;
+                const playerState = currentRoom.playerStates?.[user.uid];
+                const nextSkipTurns = Math.max(playerState?.skipTurns || 0, payload.skipTurns || 0);
+                const timestamp = Date.now();
+                return {
+                    boardState: {
+                        ...currentBoardState,
+                        playerPositions: { ...currentBoardState.playerPositions, [user.uid]: nextSquare.index },
+                        skipTurns: { ...currentBoardState.skipTurns, [user.uid]: nextSkipTurns },
+                        updatedAt: timestamp
+                    },
+                    roomPatch: {
+                        [`playerStates.${user.uid}`]: cleanObject({
+                            ...playerState,
+                            boardPosition: nextSquare.index,
+                            skipTurns: nextSkipTurns,
+                            lastBoardEvent: payload.detail || `移動到${payload.squareType}`,
+                            pendingCardAction: payload.detail,
+                            bankServiceWindowActive: false,
+                            bankServiceGrantedAtEventId: undefined
+                        })
+                    },
+                    result: nextSquare.index
+                };
+            }
+        });
     };
 
     const applyBoardMarketPrices = async (updates: Record<string, number>, code: string, isBubble: boolean = false) => {
@@ -2140,30 +2318,48 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isCurrentTurnPlayer && !isCurrentBoardEventPlayer) return;
 
         try {
-            const roomRef = doc(db, 'rooms', room.id);
-            const currentPrices = room.marketPrices || {};
-            const nextPrices = normalizeMarketPrices(updates, currentPrices);
-            const nextMarketState = {
-                marketUpdates: {
-                    updates: nextPrices,
-                    code,
-                    isBubble,
-                    timestamp: Date.now()
-                },
-                previousMarketPrices: currentPrices,
-                marketPrices: nextPrices
-            };
+            const commandId = `market:${code}:${room.boardState?.currentEvent?.id || room.boardState?.revision || 0}`;
+            const nextMarketState = await runRoomBoardMutation<Pick<Room, 'marketUpdates' | 'previousMarketPrices' | 'marketPrices'>, Room>({
+                db,
+                roomId: room.id,
+                commandId,
+                onDuplicate: latestRoom => ({
+                    marketUpdates: latestRoom.marketUpdates,
+                    previousMarketPrices: latestRoom.previousMarketPrices,
+                    marketPrices: latestRoom.marketPrices
+                }),
+                mutate: (latestRoom, latestBoard) => {
+                    const isLatestTurnPlayer = latestBoard.currentTurnUid === user.uid;
+                    const isLatestEventPlayer = latestBoard.currentEvent?.playerUid === user.uid && !!latestBoard.currentCard;
+                    if (!isLatestTurnPlayer && !isLatestEventPlayer) throw new Error('還沒輪到你');
 
-            const result = await safeAsync(updateDoc(roomRef, nextMarketState), null, (err) => {
-                setError(err?.message || '股市行情同步失敗');
+                    const currentPrices = latestRoom.marketPrices || {};
+                    const nextPrices = normalizeMarketPrices(updates, currentPrices);
+                    const marketState = {
+                        marketUpdates: {
+                            updates: nextPrices,
+                            code,
+                            isBubble,
+                            timestamp: Date.now()
+                        },
+                        previousMarketPrices: currentPrices,
+                        marketPrices: nextPrices
+                    };
+                    return {
+                        boardState: { ...latestBoard, updatedAt: Date.now() },
+                        roomPatch: marketState,
+                        result: marketState
+                    };
+                }
             });
 
-            if (result === null) {
-                throw new Error('股市行情同步失敗');
-            }
-
             setRoom(prev => prev && prev.id === room.id
-                ? { ...prev, ...nextMarketState }
+                ? {
+                    ...prev,
+                    marketUpdates: nextMarketState.marketUpdates,
+                    previousMarketPrices: nextMarketState.previousMarketPrices,
+                    marketPrices: nextMarketState.marketPrices
+                }
                 : prev
             );
         } catch (err: any) {

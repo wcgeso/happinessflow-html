@@ -285,6 +285,8 @@ export interface SharedCardPrompt {
 export interface BoardState {
   currentTurnUid: string | null;
   turnOrder: string[];
+  revision?: number;
+  processedCommandIds?: string[];
   playerPositions: Record<string, number>;
   skipTurns: Record<string, number>;
   // 這一回合（currentTurnUid 這位玩家）是否已經擲過骰子。每次結束回合換人

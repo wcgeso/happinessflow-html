@@ -6,7 +6,9 @@ service cloud.firestore {
     // 1. GM 超級權限
     // 只要是 GM 帳號，直接開放所有文件的讀寫權限
     match /{document=**} {
-      allow read, write: if request.auth != null && request.auth.token.email == 'gm0221@happinessflow.com';
+      allow read, write: if request.auth != null &&
+        request.auth.token.keys().hasAny(['email']) &&
+        request.auth.token.email == 'gm0221@happinessflow.com';
     }
     
     // 2. 使用者資料規則
@@ -27,9 +29,138 @@ service cloud.firestore {
     
     // 3. 房間系統規則
     match /rooms/{roomId} {
-      allow read, create: if request.auth != null;
-      allow delete: if request.auth != null && resource.data.hostId == request.auth.uid;
-      allow update: if request.auth != null;
+      function signedIn() {
+        return request.auth != null;
+      }
+
+      function hasMemberList(data) {
+        return data.memberUids is list;
+      }
+
+      function isHost(data) {
+        return signedIn() && data.hostId == request.auth.uid;
+      }
+
+      function isMember(data) {
+        return signedIn() && (
+          (hasMemberList(data) && request.auth.uid in data.memberUids) ||
+          (('playerStates' in data) && data.playerStates is map && request.auth.uid in data.playerStates)
+        );
+      }
+
+      function immutableIdentity() {
+        return request.resource.data.id == resource.data.id &&
+          request.resource.data.hostId == resource.data.hostId;
+      }
+
+      function changedOnly(fields) {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+      }
+
+      function joinsSelf() {
+        return resource.data.status == 'waiting' &&
+          changedOnly(['members', 'memberUids']) &&
+          !(request.auth.uid in resource.data.memberUids) &&
+          request.resource.data.memberUids == resource.data.memberUids.concat([request.auth.uid]) &&
+          request.resource.data.members.size() == resource.data.members.size() + 1 &&
+          request.resource.data.members[request.resource.data.members.size() - 1].uid == request.auth.uid;
+      }
+
+      function leavesSelf() {
+        return isMember(resource.data) &&
+          changedOnly(['members', 'memberUids']) &&
+          request.resource.data.memberUids == resource.data.memberUids.removeAll([request.auth.uid]) &&
+          request.resource.data.members.size() == resource.data.members.size() - 1;
+      }
+
+      function updatesOwnPlayerState() {
+        return isMember(resource.data) &&
+          changedOnly(['playerStates']) &&
+          request.resource.data.playerStates.diff(resource.data.playerStates).affectedKeys().hasOnly([request.auth.uid]);
+      }
+
+      function isActiveBoardEventPlayer() {
+        return resource.data.boardState.currentEvent is map &&
+          resource.data.boardState.currentEvent.playerUid == request.auth.uid &&
+          request.resource.data.boardState.currentEvent is map &&
+          request.resource.data.boardState.currentEvent.id == resource.data.boardState.currentEvent.id;
+      }
+
+      function validBoardCommand() {
+        return isMember(resource.data) &&
+          resource.data.boardState.currentTurnUid == request.auth.uid &&
+          changedOnly(['boardState', 'playerStates', 'marketPrices', 'previousMarketPrices', 'marketUpdates']) &&
+          request.resource.data.boardState.revision == resource.data.boardState.revision + 1 &&
+          request.resource.data.boardState.processedCommandIds is list &&
+          request.resource.data.boardState.processedCommandIds.size() <= 100 &&
+          request.resource.data.boardState.processedCommandIds != resource.data.boardState.processedCommandIds &&
+          (!resource.data.diff(request.resource.data).affectedKeys().hasAny(['playerStates']) ||
+            request.resource.data.playerStates.diff(resource.data.playerStates).affectedKeys()
+              .hasOnly([request.auth.uid, request.resource.data.boardState.currentTurnUid]) ||
+            (isActiveBoardEventPlayer() &&
+              request.resource.data.playerStates.diff(resource.data.playerStates).affectedKeys()
+                .hasOnly(resource.data.memberUids)));
+      }
+
+      function updatesBoardNoticeOnly() {
+        return isMember(resource.data) &&
+          resource.data.boardState.currentTurnUid == request.auth.uid &&
+          changedOnly(['boardState']) &&
+          request.resource.data.boardState.diff(resource.data.boardState).affectedKeys()
+            .hasOnly(['realEstateMarket', 'updatedAt']);
+      }
+
+      function updatesOwnBoardPromptResponse() {
+        return isMember(resource.data) &&
+          changedOnly(['boardState', 'playerStates']) &&
+          request.resource.data.boardState.diff(resource.data.boardState).affectedKeys()
+            .hasOnly(['familyMilestoneJoinPrompt', 'sharedCardPrompt', 'updatedAt']) &&
+          (
+            (('familyMilestoneJoinPrompt' in resource.data.boardState) &&
+              resource.data.boardState.familyMilestoneJoinPrompt is map &&
+              request.resource.data.boardState.familyMilestoneJoinPrompt is map &&
+              request.resource.data.boardState.familyMilestoneJoinPrompt.responses.diff(
+                resource.data.boardState.familyMilestoneJoinPrompt.responses
+              ).affectedKeys().hasOnly([request.auth.uid])) ||
+            (('sharedCardPrompt' in resource.data.boardState) &&
+              resource.data.boardState.sharedCardPrompt is map &&
+              request.resource.data.boardState.sharedCardPrompt is map &&
+              request.resource.data.boardState.sharedCardPrompt.responses.diff(
+                resource.data.boardState.sharedCardPrompt.responses
+              ).affectedKeys().hasOnly([request.auth.uid]))
+          ) &&
+          (!resource.data.diff(request.resource.data).affectedKeys().hasAny(['playerStates']) ||
+            request.resource.data.playerStates.diff(resource.data.playerStates).affectedKeys()
+              .hasOnly([request.auth.uid]));
+      }
+
+      allow create: if signedIn() &&
+        request.resource.data.id == roomId &&
+        request.resource.data.hostId == request.auth.uid &&
+        request.resource.data.memberUids == [request.auth.uid] &&
+        (!('playerStates' in request.resource.data) || request.resource.data.playerStates.size() == 0);
+
+      // Transitional note: members still read the legacy Room document. Full private
+      // projection separation requires the subcollection migration before this becomes
+      // host/public-only.
+      allow read: if signedIn() && (
+        isHost(resource.data) ||
+        isMember(resource.data) ||
+        (resource.data.status == 'waiting' &&
+          (!('playerStates' in resource.data) || resource.data.playerStates.size() == 0))
+      );
+
+      allow update: if signedIn() && immutableIdentity() && (
+        isHost(resource.data) ||
+        joinsSelf() ||
+        leavesSelf() ||
+        updatesOwnPlayerState() ||
+        validBoardCommand() ||
+        updatesBoardNoticeOnly() ||
+        updatesOwnBoardPromptResponse()
+      );
+
+      allow delete: if isHost(resource.data);
     }
     
     // 4. 遊戲記錄規則
