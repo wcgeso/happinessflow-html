@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Trash2, Search, ChevronRight, AlertTriangle, Database, Users, Calendar, Hash, Plus, FileText } from 'lucide-react';
 import { db } from '../../../services/firebase';
-import { collection, getDocs, deleteDoc, doc, setDoc, updateDoc, increment, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { safeAsync } from '../../utils/utils';
 import { CoachRecord, GameState } from '../../types';
 import { cn, calculateFinancialSummary } from '../../utils/gameUtils';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
+import { settleGame } from '../../game/settlement/settleGame';
 
 const PROFESSION_TITLES = [
   '築巢師系列', '店員系列', '會計師系列', '釀蜜師系列', '教師系列',
@@ -298,23 +299,15 @@ const AddRecordModal: React.FC<AddRecordModalProps> = ({ onClose, onSaved }) => 
         })),
         playerUids: players.filter(p => p.uid).map(p => p.uid),
       };
-      await safeAsync(setDoc(doc(db, 'score_records', 'S1', 'records', recordId), scoreData));
-
-      // Update experience for players with matched UID
-      await Promise.all(
-        players
-          .filter(p => p.uid && Number(p.score) > 0)
-          .map(async p => {
-            try {
-              await updateDoc(doc(db, 'users', p.uid), {
-                experience: increment(Number(p.score)),
-                rankScore: increment(Number(p.score)),
-              });
-            } catch (e) {
-              console.error(`積分更新失敗 (${p.name}):`, e);
-            }
-          })
-      );
+      await setDoc(doc(db, 'score_records', 'S1', 'records', recordId), scoreData, { merge: true });
+      await settleGame({
+        roomId: roomCode.trim(),
+        settlementId: recordId,
+        coachUid: selectedCoachId,
+        players: players
+          .filter(player => player.uid)
+          .map(player => ({ uid: player.uid, totalScore: Number(player.score) || 0 }))
+      });
 
       onSaved({ id: recordId, ...coachRecord } as CoachRecord);
     } catch (err) {

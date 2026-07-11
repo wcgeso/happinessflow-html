@@ -7,8 +7,8 @@ import { calculateFinancialSummary, calculateScoreResult } from '../../utils/gam
 import { Trophy, X, List, LogOut, Upload, CheckCircle2, AlertCircle, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../services/firebase';
-import { doc, setDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
-import { safeAsync } from '../../utils/utils';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { settleGame } from '../../game/settlement/settleGame';
 
 interface ScoreViewProps {
     playerName: string;
@@ -159,7 +159,7 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
         const attemptUpload = async (): Promise<boolean> => {
             try {
                 // 將資料儲存至 score_records/S1/records 集合中
-                await safeAsync(setDoc(doc(db, 'score_records', 'S1', 'records', recordId), scoreData));
+                await setDoc(doc(db, 'score_records', 'S1', 'records', recordId), scoreData, { merge: true });
 
                 // 2. 儲存執行師帶領紀錄 (coach_records)
                 const coachRecord = {
@@ -181,25 +181,14 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                     })),
                     updatedAt: serverTimestamp()
                 };
-                await safeAsync(setDoc(doc(db, 'coach_records', recordId), coachRecord));
+                await setDoc(doc(db, 'coach_records', recordId), coachRecord);
 
-                // 3. 更新每位玩家的累計積分 (experience) - 同一場只能加一次
-                const scoreIncrementKey = `score_incremented_${recordId}`;
-                if (!localStorage.getItem(scoreIncrementKey)) {
-                    localStorage.setItem(scoreIncrementKey, 'true');
-                    await Promise.all(playersData.map(async (player) => {
-                        if (!player.uid) return;
-                        const userRef = doc(db, 'users', player.uid);
-                        try {
-                            await safeAsync(updateDoc(userRef, {
-                                experience: increment(player.totalScore),
-                                rankScore: increment(player.totalScore)
-                            }));
-                        } catch (e) {
-                            console.error(`Failed to update experience for user ${player.uid}`, e);
-                        }
-                    }));
-                }
+                await settleGame({
+                    roomId: room.id,
+                    settlementId: recordId,
+                    coachUid: user.uid,
+                    players: playersData.map(player => ({ uid: player.uid, totalScore: player.totalScore }))
+                });
 
                 return true;
             } catch (err) {

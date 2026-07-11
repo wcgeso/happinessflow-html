@@ -211,6 +211,13 @@ export interface BoardMovementEffect {
   amount: number;
 }
 
+export interface SettlementPlayerInput {
+  uid: string;
+  totalScore: number;
+}
+
+export type SettlementResult = 'applied' | 'already_applied';
+
 export interface BoardMovementState {
   playerUid: string;
   startPosition: number;
