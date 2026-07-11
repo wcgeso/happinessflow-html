@@ -237,6 +237,7 @@ export interface BoardMovementState {
   introDelayMs: number;
   landingDelayMs: number;
   isActive: boolean;
+  effects?: BoardMovementEffect[];
 }
 
 export interface FamilyMilestoneJoinResponse {

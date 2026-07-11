@@ -34,6 +34,7 @@ import {
 } from '../constants/cards';
 import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from '../utils/familyMilestones';
 import { resolveBoardCardAction, hasIncompleteSharedPrompts } from '../utils/boardCardActions';
+import { buildMovementEffects, describeMovementEffects } from '../game/board/movementEffects';
 
 interface RoomMember {
     uid: string;
@@ -204,6 +205,7 @@ const normalizeMarketPrices = (
 ) => Object.fromEntries(
     STOCK_SYMBOLS.map(symbol => [symbol, updates[symbol] ?? currentPrices[symbol] ?? 0])
 ) as Record<string, number>;
+const rollBoardDie = () => Math.floor(Math.random() * 6) + 1;
 
 const BOARD_MOVE_INTRO_DELAY_MS = 600;
 const BOARD_MOVE_STEP_DURATION_MS = 380;
@@ -413,6 +415,12 @@ const buildBoardMovementLegResolution = (roomData: Room, playerUid: string) => {
     if (!boardState || !movement || movement.playerUid !== playerUid) return null;
 
     const playerState = roomData.playerStates?.[playerUid];
+    const movementEffects = movement.effects || buildMovementEffects(
+        movement.path,
+        hasCarAsset(playerState),
+        rollBoardDie
+    );
+    const repairEffects = new Map(movementEffects.map(effect => [effect.squareIndex, effect]));
     const nextPosition = movement.path[movement.path.length - 1] ?? movement.startPosition;
     const playerName = roomData.members.find(member => member.uid === playerUid)?.name || '玩家';
     const eventTimestamp = Date.now();
@@ -454,8 +462,9 @@ const buildBoardMovementLegResolution = (roomData: Room, playerUid: string) => {
         } else {
             // 依 docs/gdd/REPAIR_SYSTEM.md：經過維修廠與停留維修廠都必須先擲一次正式事件骰點，
             // 保養費必須走正式財務檢核，不得只顯示文字讓玩家自行登錄。
-            const repairRoll = Math.floor(Math.random() * 6) + 1;
-            const repairFee = repairRoll * 2000;
+            const repairEffect = repairEffects.get(nextPosition);
+            const repairRoll = repairEffect?.dice || rollBoardDie();
+            const repairFee = repairEffect?.amount || repairRoll * 2000;
             event = {
                 id: `${playerUid}_${eventTimestamp}_repair`,
                 playerUid,
@@ -471,7 +480,6 @@ const buildBoardMovementLegResolution = (roomData: Room, playerUid: string) => {
                 repairHasCar: true
             };
         }
-
         const updatedPlayerState = playerState ? cleanObject({
             ...playerState,
             boardPosition: nextPosition,
@@ -555,9 +563,10 @@ const buildBoardMovementLegResolution = (roomData: Room, playerUid: string) => {
             }
         });
     } else if (landedSquare.type === 'repair') {
-        const repairRoll = Math.floor(Math.random() * 6) + 1;
         const hasCar = hasCarAsset(playerState);
-        const repairFee = repairRoll * 2000;
+        const repairEffect = repairEffects.get(nextPosition);
+        const repairRoll = repairEffect?.dice || rollBoardDie();
+        const repairFee = repairEffect?.amount || repairRoll * 2000;
         if (hasCarAsset(playerState)) {
             detailMessages.push(`踩到維修廠，保養費 ${repairFee}，並暫停一回合`);
         } else {
