@@ -22,10 +22,10 @@
 - `npm run test:rules`: 7 passed.
 - `vite build --outDir /tmp/happinessflow-p0 --emptyOutDir`: passed.
 - `tsc --noEmit -p tsconfig.json`: 26 pre-existing errors remain in banking/GameState/UI files; no errors in the P0 files.
+- `RoomContext.test.ts`: adds a three-player board-start regression (coach excluded; all three players appear in turn order).
 
 ## Follow-up gates
 
-- Run a real three-player Firebase session and confirm Coach reaches `3/3`, first H009 completes, and turn ownership advances.
+- Run a real three-player Firebase session and confirm Coach reaches `3/3`, first H009 completes, and turn ownership advances. Local Firebase emulator and Vite were started successfully; browser automation is not installed in this workspace, so no UI session was fabricated.
 - Migrate the legacy Room document to separate public display and private player projections; current Rules still allow members to read the legacy document for compatibility.
 - Resolve the remaining 26 TypeScript errors before making typecheck a release gate.
-

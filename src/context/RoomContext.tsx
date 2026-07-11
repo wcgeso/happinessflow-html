@@ -232,7 +232,7 @@ const getBoardMovementSettleMs = (movement: {
     landingDelayMs: number;
 }) => movement.introDelayMs + movement.path.length * movement.stepDurationMs + movement.landingDelayMs;
 
-const createInitialBoardState = (members: RoomMember[], hostId: string, playerStates?: Record<string, GameState>): BoardState => {
+export const createInitialBoardState = (members: RoomMember[], hostId: string, playerStates?: Record<string, GameState>): BoardState => {
     // 棋盤上該顯示誰，判斷依據是「是不是這個房間的主持人」，而不是帳號的
     // 全域角色（role）。執行師帳號也可能以參與者身分加入別人開的房間，
     // 這種情況下他就是玩家，理應出現在棋盤上；只有真正主持這場遊戲的人
