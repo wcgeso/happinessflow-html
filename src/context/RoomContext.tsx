@@ -23,6 +23,7 @@ import { flowLog } from '../utils/flowLog';
 import { BOARD_SQUARES, createInitialDeckState, getSquareByIndex } from '../constants/board';
 import { HAPPINESS_CARDS, NEWS_CARDS, OPPORTUNITY_CARDS } from '../constants/cards';
 import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from '../utils/familyMilestones';
+import { buildMovementEffects, describeMovementEffects } from '../game/board/movementEffects';
 
 interface RoomMember {
     uid: string;
@@ -272,6 +273,8 @@ const hasCarAsset = (state?: GameState | null) => {
     return !!state?.assets?.some(asset => asset.type === '汽車' || asset.type === '飛行器');
 };
 
+const rollBoardDie = () => Math.floor(Math.random() * 6) + 1;
+
 const BOARD_MOVE_INTRO_DELAY_MS = 600;
 const BOARD_MOVE_STEP_DURATION_MS = 380;
 const BOARD_MOVE_LANDING_DELAY_MS = 600;
@@ -383,6 +386,12 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
     if (!boardState || !movement || movement.playerUid !== playerUid) return null;
 
     const playerState = roomData.playerStates?.[playerUid];
+    const movementEffects = movement.effects || buildMovementEffects(
+        movement.path,
+        hasCarAsset(playerState),
+        rollBoardDie
+    );
+    const repairEffects = new Map(movementEffects.map(effect => [effect.squareIndex, effect]));
     const nextPosition = movement.path[movement.path.length - 1] ?? movement.startPosition;
     const detailMessages: string[] = [];
     const nextSkipTurns = { ...boardState.skipTurns };
@@ -411,9 +420,8 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
             }
             detailMessages.push(`經過${square.label}，可前往升等考試`);
         }
-        if (square.type === 'repair' && hasCarAsset(playerState)) {
-            const feeRoll = Math.floor(Math.random() * 6) + 1;
-            detailMessages.push(`經過維修廠，汽車保養費 ${feeRoll * 2000}，請自行登錄`);
+        if (square.type === 'repair' && repairEffects.has(movement.path[step])) {
+            detailMessages.push(...describeMovementEffects([repairEffects.get(movement.path[step])!]));
         }
     }
 
@@ -477,9 +485,9 @@ const buildBoardMovementResolution = (roomData: Room, playerUid: string) => {
             }
         });
     } else if (landedSquare.type === 'repair') {
-        const repairRoll = Math.floor(Math.random() * 6) + 1;
+        const repairEffect = repairEffects.get(nextPosition);
         if (hasCarAsset(playerState)) {
-            detailMessages.push(`踩到維修廠，保養費 ${repairRoll * 2000}，並暫停一回合`);
+            detailMessages.push(`踩到維修廠，保養費 ${repairEffect?.amount ?? 0}，並暫停一回合`);
             nextSkipTurns[playerUid] = Math.max(nextSkipTurns[playerUid] || 0, landedSquare.pauseTurns || 1);
         } else {
             detailMessages.push('踩到維修廠，但目前沒有汽車');

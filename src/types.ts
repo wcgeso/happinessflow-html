@@ -204,6 +204,13 @@ export interface BoardCardRevealState {
   revealedBy?: string;
 }
 
+export interface BoardMovementEffect {
+  type: 'repair_fee';
+  squareIndex: number;
+  dice: number;
+  amount: number;
+}
+
 export interface BoardMovementState {
   playerUid: string;
   startPosition: number;
@@ -215,6 +222,7 @@ export interface BoardMovementState {
   introDelayMs: number;
   landingDelayMs: number;
   isActive: boolean;
+  effects?: BoardMovementEffect[];
 }
 
 export interface BoardState {
