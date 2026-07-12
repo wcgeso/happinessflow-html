@@ -10,7 +10,8 @@
     "test": "vitest",
     "seed:emulator": "node scripts/e2e/seedAccounts.mjs",
     "e2e": "node scripts/e2e/run.mjs",
-    "e2e:ui": "node scripts/e2e/run.mjs --ui"
+    "e2e:ui": "node scripts/e2e/run.mjs --ui",
+    "test:rules": "firebase emulators:exec --only firestore \"vitest run src/test/roomPermissions.test.ts\""
   },
   "dependencies": {
     "@google/genai": "^1.33.0",
@@ -31,6 +32,7 @@
     "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "firebase-admin": "^14.1.0",

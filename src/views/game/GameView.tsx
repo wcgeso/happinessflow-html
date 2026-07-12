@@ -31,6 +31,7 @@ import { BoardCardResult, FamilyMilestoneJoinPrompt, SharedCardPrompt, Transacti
 import { BoardAssetSaleCandidate, BoardFinancialAction, BoardInvestmentAction, buildBoardAssetSaleFinancialAction, hasIncompleteSharedPrompts, isForcedBoardCard, resolveBoardCardAction } from '../../utils/boardCardActions';
 import { HAPPINESS_CARD_MAP, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP } from '../../constants/cards';
 import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
+import { flowLog } from '../../utils/flowLog';
 
 export const marketPricesMatch = (current: Record<string, number> | undefined, target: Record<string, number> | undefined) => {
     if (!current || !target) return false;

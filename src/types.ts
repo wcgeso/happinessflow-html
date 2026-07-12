@@ -211,6 +211,19 @@ export interface BoardCardRevealState {
   revealedBy?: string;
 }
 
+export interface BoardMovementEffect {
+  type: 'repair_fee';
+  squareIndex: number;
+  dice: number;
+  amount: number;
+}
+
+export interface SettlementPlayerInput {
+  uid: string;
+  totalScore: number;
+}
+
+export type SettlementResult = 'applied' | 'already_applied';
 export interface BoardMovementState {
   playerUid: string;
   startPosition: number;
@@ -224,6 +237,7 @@ export interface BoardMovementState {
   introDelayMs: number;
   landingDelayMs: number;
   isActive: boolean;
+  effects?: BoardMovementEffect[];
 }
 
 export interface FamilyMilestoneJoinResponse {
@@ -271,6 +285,8 @@ export interface SharedCardPrompt {
 export interface BoardState {
   currentTurnUid: string | null;
   turnOrder: string[];
+  revision?: number;
+  processedCommandIds?: string[];
   playerPositions: Record<string, number>;
   skipTurns: Record<string, number>;
   // 這一回合（currentTurnUid 這位玩家）是否已經擲過骰子。每次結束回合換人

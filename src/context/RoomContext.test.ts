@@ -3,6 +3,7 @@ import type { GameState } from '../types';
 import {
   hasEligibleCashDividend,
   hasEligibleStockDividend,
+  createInitialBoardState,
   withPendingStartupUpgradeAction,
   withoutPendingStartupUpgradeAction
 } from './RoomContext';
@@ -62,5 +63,23 @@ describe('startup upgrade pending state helpers', () => {
 
     const cleared = withoutPendingStartupUpgradeAction(withPending);
     expect(cleared.pendingStartupUpgradeAction).toBeUndefined();
+  });
+});
+
+describe('board room initialization', () => {
+  it('puts all three players in turn order and keeps the coach out of it', () => {
+    const members = [
+      { uid: 'coach', name: 'Coach', role: 'coach', joinedAt: 1 },
+      { uid: 'p1', name: 'P1', role: 'player', joinedAt: 1 },
+      { uid: 'p2', name: 'P2', role: 'player', joinedAt: 1 },
+      { uid: 'p3', name: 'P3', role: 'player', joinedAt: 1 }
+    ] as const;
+
+    const board = createInitialBoardState([...members], 'coach');
+
+    expect(board.turnOrder).toEqual(['p1', 'p2', 'p3']);
+    expect(board.currentTurnUid).toBe('p1');
+    expect(board.playerPositions).toEqual({ p1: 0, p2: 0, p3: 0 });
+    expect(board.revision).toBe(0);
   });
 });
