@@ -3161,6 +3161,7 @@ export const GameView: React.FC<{
                     enterprise={gameState.selectedEnterprise}
                     dream={gameState.selectedDream}
                     cash={gameState.cash}
+                    happiness={gameState.happiness}
                     onTransaction={handleTransaction}
                     onClose={() => setShowTargetDreamModal(false)}
                 />
