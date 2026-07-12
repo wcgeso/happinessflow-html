@@ -1,67 +1,54 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { X, Target, Star, ArrowRight } from 'lucide-react';
-import { Enterprise, Dream, TransactionData } from '../../types';
+import { Enterprise, Dream, HappinessItem, TransactionData } from '../../types';
 
 interface PurchaseModalProps {
   type: 'enterprise' | 'dream';
   item: Enterprise | Dream | null;
   cash: number;
+  happiness: HappinessItem[];
   onTransaction: (data: TransactionData) => void;
   onClose: () => void;
 }
 
-export const TargetAndDreamModal: React.FC<PurchaseModalProps> = ({ type, item, cash, onTransaction, onClose }) => {
+export const TargetAndDreamModal: React.FC<PurchaseModalProps> = ({ type, item, cash, happiness, onTransaction, onClose }) => {
   if (!item) return null;
 
   const isEnterprise = type === 'enterprise';
   const Icon = isEnterprise ? Target : Star;
   const title = isEnterprise ? '購買目標企業' : '實現心儀夢想';
   const colorClass = isEnterprise ? 'indigo' : 'fuchsia';
-  
-  const cost = isEnterprise ? (item as Enterprise).downPayment : (item as Dream).cost;
+
+  const cost = item.cost;
   const canAfford = cash >= cost;
+  const alreadyAchieved = happiness.find(h => h.id === (isEnterprise ? 'h_career' : 'h_dream'))?.checked;
 
   const handlePurchase = () => {
-    if (!canAfford) return;
-    
+    if (!canAfford || alreadyAchieved) return;
+
     if (isEnterprise) {
       const ent = item as Enterprise;
       onTransaction({
-        name: `買進企業: ${ent.name}`,
-        amount: ent.downPayment,
-        cashChange: -ent.downPayment,
+        name: `達成事業成就：${ent.name}`,
+        amount: ent.cost,
+        cashChange: -ent.cost,
         source: 'cash',
-        usage: 'buy_asset',
-        assetChange: {
-          action: 'add',
-          asset: {
-            id: `ent_${Date.now()}`,
-            name: ent.name,
-            type: '企業',
-            value: ent.cost,
-            monthlyCashflow: ent.monthlyCashflow,
-            downPayment: ent.downPayment
-          }
+        usage: 'asset',
+        assetDetails: {
+          type: '企業',
+          cashflow: ent.income,
+          downPayment: ent.cost,
+          symbol: ent.name
         }
       });
     } else {
       const dream = item as Dream;
       onTransaction({
-        name: `實現夢想: ${dream.name}`,
+        name: `實現人生夢想：${dream.name}`,
         amount: dream.cost,
         cashChange: -dream.cost,
         source: 'cash',
-        usage: 'buy_asset',
-        assetChange: {
-          action: 'add',
-          asset: {
-            id: `dream_${Date.now()}`,
-            name: dream.name,
-            type: '夢想',
-            value: dream.cost,
-            monthlyCashflow: 0
-          }
-        }
+        usage: 'expense'
       });
     }
     onClose();
@@ -104,11 +91,17 @@ export const TargetAndDreamModal: React.FC<PurchaseModalProps> = ({ type, item, 
           {isEnterprise && (
             <div className="bg-indigo-950/30 border border-indigo-500/20 rounded-2xl p-4 flex justify-between items-center">
               <span className="text-sm font-bold text-indigo-300">每月可創造現金流</span>
-              <span className="text-lg font-black text-emerald-400">+${(item as Enterprise).monthlyCashflow.toLocaleString()}</span>
+              <span className="text-lg font-black text-emerald-400">+${(item as Enterprise).income.toLocaleString()}</span>
             </div>
           )}
 
-          {!canAfford && (
+          {alreadyAchieved && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm font-bold text-center">
+              {isEnterprise ? '您已達成此事業成就，不可重複買入' : '您已實現此人生夢想，不可重複實現'}
+            </div>
+          )}
+
+          {!alreadyAchieved && !canAfford && (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm font-bold text-center">
               現金不足，無法購買！
             </div>
@@ -116,9 +109,9 @@ export const TargetAndDreamModal: React.FC<PurchaseModalProps> = ({ type, item, 
 
           <button
             onClick={handlePurchase}
-            disabled={!canAfford}
+            disabled={!canAfford || alreadyAchieved}
             className={`w-full py-4 rounded-2xl font-black tracking-widest text-[16px] transition-all flex items-center justify-center gap-2 ${
-              !canAfford
+              !canAfford || alreadyAchieved
                 ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                 : isEnterprise ? 'bg-indigo-600 text-white hover:bg-indigo-500 hover:shadow-[0_0_20px_rgba(99,102,241,0.4)]' : 'bg-fuchsia-600 text-white hover:bg-fuchsia-500 hover:shadow-[0_0_20px_rgba(217,70,239,0.4)]'
             }`}

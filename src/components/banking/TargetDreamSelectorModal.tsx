@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Target, Star, X } from 'lucide-react';
-import { Dream, Enterprise, TransactionData } from '../../types';
+import { Dream, Enterprise, HappinessItem, TransactionData } from '../../types';
 import { TargetAndDreamModal } from './TargetAndDreamModals';
 
 interface TargetDreamSelectorModalProps {
   enterprise: Enterprise | null;
   dream: Dream | null;
   cash: number;
+  happiness: HappinessItem[];
   onTransaction: (data: TransactionData) => void;
   onClose: () => void;
 }
@@ -15,6 +16,7 @@ export const TargetDreamSelectorModal: React.FC<TargetDreamSelectorModalProps> =
   enterprise,
   dream,
   cash,
+  happiness,
   onTransaction,
   onClose
 }) => {
@@ -26,6 +28,7 @@ export const TargetDreamSelectorModal: React.FC<TargetDreamSelectorModalProps> =
         type={selectedType}
         item={selectedType === 'enterprise' ? enterprise : dream}
         cash={cash}
+        happiness={happiness}
         onTransaction={(data) => {
           onTransaction(data);
           onClose(); // Close both after transaction

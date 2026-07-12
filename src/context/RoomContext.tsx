@@ -308,6 +308,10 @@ const buildBoardEventAdvanceState = (roomData: Room) => {
     if (pendingMovement && !pendingMovement.isActive && pendingMovement.path.length > 0) {
         const movingPlayerState = roomData.playerStates?.[pendingMovement.playerUid];
         const { legPath, remainingPath } = splitMovementLeg(pendingMovement.path, movingPlayerState);
+        // 接續分段移動時，這一段的起點是玩家「剛停下來」的格子（上一段結算時
+        // 已寫入 playerPositions），不是整趟擲骰最初始的位置，否則前端動畫會
+        // 在 introDelayMs 期間瞬間跳回最初始起點，再跳回目前格繼續走。
+        const resumeStartPosition = boardState.playerPositions?.[pendingMovement.playerUid] ?? pendingMovement.startPosition;
 
         return cleanObject({
             boardState: {
@@ -318,6 +322,7 @@ const buildBoardEventAdvanceState = (roomData: Room) => {
                 pendingEvents: [],
                 movement: {
                     ...pendingMovement,
+                    startPosition: resumeStartPosition,
                     path: legPath,
                     remainingPath: remainingPath.length > 0 ? remainingPath : undefined,
                     startedAt: Date.now(),
@@ -663,6 +668,38 @@ const buildBoardMovementLegResolution = (roomData: Room, playerUid: string) => {
     });
 };
 
+// 分段移動結算的共用交易寫入：用 runTransaction 在同一個交易內讀最新快照、算出
+// 結算結果、再寫回去，避免「getDoc 讀舊快照 → 算完 → updateDoc 整包覆寫」這種
+// 非交易模式下，跟其他玩家（或同一玩家的備援補完路徑）並發寫入時互相蓋掉彼此的
+// boardState/playerStates，導致抽卡玩家的畫面被清空的 lost-update 問題。
+const settleBoardMovementLeg = async (
+    roomId: string,
+    playerUid: string,
+    startedAt: number,
+    logLabel: string
+) => {
+    await safeAsync(runTransaction(db, async (transaction) => {
+        const roomRef = doc(db, 'rooms', roomId);
+        const roomDoc = await transaction.get(roomRef);
+        if (!roomDoc.exists()) return;
+
+        const latestRoom = roomDoc.data() as Room;
+        const latestMovement = latestRoom.boardState?.movement;
+        if (
+            !latestMovement?.isActive ||
+            latestMovement.playerUid !== playerUid ||
+            latestMovement.startedAt !== startedAt
+        ) {
+            return;
+        }
+
+        const resolution = buildBoardMovementLegResolution(latestRoom, playerUid);
+        if (!resolution) return;
+
+        transaction.update(roomRef, resolution);
+    }), null, err => console.error(`${logLabel}:`, err));
+};
+
 interface RoomContextValue {
     room: Room | null;
     isLoadingRoom: boolean;
@@ -828,13 +865,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const movementDeadline = movement.startedAt + getBoardMovementSettleMs(movement);
 
                     if (Date.now() > movementDeadline + BOARD_MOVE_STALE_BUFFER_MS) {
-                        const staleResolution = buildBoardMovementLegResolution(data, movement.playerUid);
-                        if (staleResolution) {
-                            console.warn('偵測到過期的棋盤移動狀態，自動補完收尾:', data.id, movement.playerUid);
-                            safeAsync(updateDoc(doc(db, 'rooms', targetRoomId), staleResolution)).catch(err => {
-                                console.error('自動補完棋盤移動失敗:', err);
-                            });
-                        }
+                        console.warn('偵測到過期的棋盤移動狀態，自動補完收尾:', data.id, movement.playerUid);
+                        void settleBoardMovementLeg(targetRoomId, movement.playerUid, movement.startedAt, '自動補完棋盤移動失敗');
                     }
                 }
 
@@ -1195,28 +1227,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         void (async () => {
             await wait(settleDelayMs);
-
-            try {
-                const latestSnap = await safeAsync(getDoc(doc(db, 'rooms', room.id)));
-                if (!latestSnap?.exists()) return;
-
-                const latestRoom = latestSnap.data() as Room;
-                const latestMovement = latestRoom.boardState?.movement;
-                if (
-                    !latestMovement?.isActive ||
-                    latestMovement.playerUid !== user.uid ||
-                    latestMovement.startedAt !== rollTimestamp
-                ) {
-                    return;
-                }
-
-                const resolution = buildBoardMovementLegResolution(latestRoom, user.uid);
-                if (!resolution) return;
-
-                await safeAsync(updateDoc(doc(db, 'rooms', room.id), resolution));
-            } catch (err) {
-                console.error('棋盤移動結算失敗:', err);
-            }
+            await settleBoardMovementLeg(room.id, user.uid, rollTimestamp, '棋盤移動結算失敗');
         })();
 
         return {
@@ -1437,27 +1448,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const { playerUid, startedAt, settleDelayMs } = resumedMovement;
             void (async () => {
                 await wait(settleDelayMs);
-                try {
-                    const latestSnap = await safeAsync(getDoc(doc(db, 'rooms', room.id)));
-                    if (!latestSnap?.exists()) return;
-
-                    const latestRoom = latestSnap.data() as Room;
-                    const latestMovement = latestRoom.boardState?.movement;
-                    if (
-                        !latestMovement?.isActive ||
-                        latestMovement.playerUid !== playerUid ||
-                        latestMovement.startedAt !== startedAt
-                    ) {
-                        return;
-                    }
-
-                    const legResolution = buildBoardMovementLegResolution(latestRoom, playerUid);
-                    if (!legResolution) return;
-
-                    await safeAsync(updateDoc(doc(db, 'rooms', room.id), legResolution));
-                } catch (err) {
-                    console.error('分段棋盤移動結算失敗:', err);
-                }
+                await settleBoardMovementLeg(room.id, playerUid, startedAt, '分段棋盤移動結算失敗');
             })();
         }
     });
