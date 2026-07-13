@@ -7,10 +7,13 @@ import SafeImage from '../../components/common/SafeImage';
 import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
 import { STOCK_NAMES } from '../../constants';
 import { BOARD_SQUARES } from '../../constants/board';
-import { normalizeCardCopy } from '../../constants/cards';
+import { NEWS_CARD_MAP, normalizeCardCopy } from '../../constants/cards';
 import { Room } from '../../context/RoomContext';
 import { BoardCardLogEntry, BoardCardResult, BoardSquare } from '../../types';
-import { hydrateBoardCardResult } from '../../utils/boardCardDisplay';
+import { getCardNarrative, hydrateBoardCardResult } from '../../utils/boardCardDisplay';
+import { SettlementView } from '../../components/game/SettlementView';
+import { buildSettlementPlayers } from '../../utils/settlement';
+import { toCardPresentationModel } from '../../utils/cardPresentation';
 
 const TILE_SIZE = 126;
 const TILE_GAP = 16;
@@ -386,12 +389,12 @@ const ImpactSummaryBar: React.FC<{ impacts: ParsedImpactLine[] }> = ({ impacts }
         return (
           <div
             key={impact.key}
-            className={`flex items-center gap-2 rounded-[16px] border-2 px-3 py-2.5 ${style.bg}`}
+            className={`flex items-center gap-2 rounded-[16px] border-2 px-3 py-2.5 ${impact.label === '月支出調整' ? 'col-span-full' : ''} ${style.bg}`}
           >
             <span className={style.text}>{style.icon}</span>
             <div className="min-w-0">
               <div className="truncate text-[10px] font-black uppercase tracking-wider text-[#9c7c58]">{impact.label}</div>
-              <div className={`truncate text-[clamp(1.1rem,2.4vw,1.5rem)] font-black leading-tight ${style.text}`}>{impact.value}</div>
+              <div className={`break-words text-[clamp(1.1rem,2.4vw,1.5rem)] font-black leading-tight ${style.text}`}>{impact.value}</div>
             </div>
           </div>
         );
@@ -435,8 +438,10 @@ const CardStage: React.FC<{
 }> = ({ card, isRevealed, drawerName, statusLabel }) => {
   if (!card) return null;
 
-  const theme = SQUARE_THEME[DECK_TO_SQUARE_TYPE[card.deck]];
-  const normalizedDescription = normalizeCardCopy(card.description);
+  const presentation = toCardPresentationModel(card);
+
+  const theme = SQUARE_THEME[DECK_TO_SQUARE_TYPE[presentation.deck]];
+  const normalizedDescription = getCardNarrative(normalizeCardCopy(presentation.description), presentation.effectLines);
   const flavorText = (() => {
     const starIndex = normalizedDescription.indexOf('*');
     return starIndex === -1 ? normalizedDescription : normalizedDescription.substring(0, starIndex).trim();
@@ -445,12 +450,24 @@ const CardStage: React.FC<{
     const starIndex = normalizedDescription.indexOf('*');
     return starIndex === -1 ? '' : normalizedDescription.substring(starIndex).replace(/\*/g, '').trim();
   })();
-  const normalizedEffectLines = (card.effectLines || []).map(line => normalizeCardCopy(line));
-  const familyMilestoneStatus = card.familyMilestoneStatus;
+  const normalizedEffectLines = presentation.effectLines.map(line => normalizeCardCopy(line));
+  const familyMilestoneStatus = presentation.familyMilestoneStatus;
   const isFamilyMilestoneCard =
-    card.deck === 'happiness' &&
-    card.subtitle === '家庭重要歷程' &&
+    presentation.deck === 'happiness' &&
+    presentation.subtitle === '家庭重要歷程' &&
     !!familyMilestoneStatus?.stages?.length;
+  const realEstateCard = presentation.deck === 'news' ? NEWS_CARD_MAP[presentation.cardId] : null;
+  const realEstateMetrics = realEstateCard?.type === 'real_estate'
+    ? [
+        { label: '房屋總價', value: realEstateCard.totalPrice.toLocaleString(), className: 'col-span-2' },
+        { label: '頭期款', value: realEstateCard.downPayment.toLocaleString(), className: '' },
+        { label: '房屋貸款', value: realEstateCard.loanAmount.toLocaleString(), className: '' },
+        { label: '貸款月利息', value: realEstateCard.monthlyPayment.toLocaleString(), className: '' },
+        { label: '租金收入', value: realEstateCard.rent.toLocaleString(), className: '' },
+        { label: '幸福點（自用）', value: `+${realEstateCard.happinessBonus}`, className: '' },
+        { label: '月淨收益', value: `${realEstateCard.netRentIncome > 0 ? '+' : ''}${realEstateCard.netRentIncome.toLocaleString()}`, className: '' }
+      ]
+    : null;
   const { impacts, rest: remainingEffectLines } = parseImpactLines(normalizedEffectLines);
   const stockSymbolCount = STOCK_SYMBOL_COLUMNS.flat().length;
   const stockPriceLineCount = remainingEffectLines.filter(line =>
@@ -490,7 +507,12 @@ const CardStage: React.FC<{
         >
           <div className="absolute inset-[12px] rounded-[20px] border border-white/60" />
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #5b4127 1px, transparent 1px)', backgroundSize: '14px 14px' }} />
-          <div className="relative z-10 flex h-full items-center justify-center" />
+          <div className="relative z-10 flex h-full flex-col items-center justify-center gap-4 text-white drop-shadow-[0_3px_8px_rgba(70,45,22,0.45)]">
+            <div className="rounded-3xl border border-white/40 bg-white/15 p-5">
+              {getCardIcon(card.deck, 46)}
+            </div>
+            <div className="text-3xl font-black tracking-[0.28em]">{theme.label}</div>
+          </div>
         </div>
 
         <div
@@ -508,12 +530,22 @@ const CardStage: React.FC<{
               <span className="shrink-0 text-[10px] font-bold tracking-widest text-[#c2a374]">{card.cardId}</span>
             </div>
             <div className={`mt-3 break-words font-black leading-[1.05] ${isFamilyMilestoneCard ? 'text-[clamp(2.5rem,5.8vw,4.4rem)]' : 'text-[clamp(2rem,7vw,3rem)]'}`}>{card.title}</div>
-            {!isFamilyMilestoneCard && <ImpactSummaryBar impacts={impacts} />}
+            {!isFamilyMilestoneCard && !realEstateMetrics && <ImpactSummaryBar impacts={impacts} />}
             <div className={`mt-4 min-h-0 flex-1 pr-1 ${isFamilyMilestoneCard ? 'overflow-hidden' : 'overflow-y-auto no-scrollbar'}`}>
               {flavorText && !isFamilyMilestoneCard && (
                 <p className="whitespace-pre-wrap break-words border-l-2 border-[#e5cfac] pl-3 text-xs italic leading-relaxed text-[#a4896c] sm:text-sm">
                   {flavorText}
                 </p>
+              )}
+              {realEstateMetrics && (
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {realEstateMetrics.map(metric => (
+                    <div key={metric.label} className={`rounded-[16px] border border-[#ead6b9] bg-[#fffdf8] px-4 py-3 ${metric.className}`}>
+                      <div className="text-[10px] font-black tracking-[0.14em] text-[#a4835b]">{metric.label}</div>
+                      <div className="mt-1 break-words text-[clamp(1.25rem,3.2vw,1.75rem)] font-black leading-tight text-[#5f4933]">{metric.value}</div>
+                    </div>
+                  ))}
+                </div>
               )}
               {combinedRuleText && !isFamilyMilestoneCard && (
                 <div className="mt-4 rounded-[18px] border border-[#e5cfac] bg-[#fff6e6] px-4 py-4 text-sm font-bold leading-relaxed text-[#6f5336] whitespace-pre-wrap break-words">
@@ -569,7 +601,7 @@ const CardStage: React.FC<{
                     </div>
                   </div>
                 </div>
-              ) : (isStockCard ? !!remainingEffectLines.length : !!labeledEffectLines.length) && (
+              ) : !realEstateMetrics && (isStockCard ? !!remainingEffectLines.length : !!labeledEffectLines.length) && (
                 isStockCard ? (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {STOCK_SYMBOL_COLUMNS.map((column, columnIndex) => (
@@ -777,6 +809,14 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
 
   if (!room) {
     return <div className="flex h-screen items-center justify-center bg-[#efe2ce] text-[#5a4430]">找不到房間 {roomCode}</div>;
+  }
+
+  if (room.status === 'finished') {
+    return (
+      <div className="flex min-h-screen items-center justify-center overflow-y-auto bg-slate-950 p-4 text-white">
+        <SettlementView players={buildSettlementPlayers(room)} showPrivateRecap={false} />
+      </div>
+    );
   }
 
   const boardState = room.boardState;

@@ -85,6 +85,13 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     }
   }, [autoOpenCreateRoom]);
 
+  // 房間被執行師關閉後，避免空的房間彈窗遮住大廳。
+  useEffect(() => {
+    if (!room && showRoomView) {
+      setShowRoomView(false);
+    }
+  }, [room, showRoomView]);
+
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);

@@ -11,6 +11,11 @@ export interface Asset {
   houseType?: string;
   conversionCount?: number; // New: tracking real estate conversion (max 1)
   quantity?: number;
+  // Legacy brokerage fields still present in saved game data.
+  symbol?: string;
+  shares?: number;
+  buyPrice?: number;
+  value?: number;
   isInsured?: boolean;
   isUpgraded?: boolean; // New: for enterprise upgrade
   lastPurchasePrice?: number; // New: To track latest purchase price instead of average cost
@@ -195,6 +200,7 @@ export interface BoardEventLog {
   repairFee?: number;
   repairHasCar?: boolean;
   hospitalSkipTurns?: number;
+  hospitalFeeCoveredByInsurance?: boolean;
   repairSkipTurns?: number;
 }
 
@@ -272,7 +278,7 @@ export interface SharedCardPromptResponse {
 
 export interface SharedCardPrompt {
   id: string;
-  kind: 'asset_sale' | 'cash_dividend' | 'stock_dividend' | 'investment' | 'startup_loan';
+  kind: 'asset_sale' | 'cash_dividend' | 'stock_dividend' | 'investment' | 'startup_loan' | 'expense_adjustment';
   sourceEventId: string;
   sourceCardId: string;
   sourcePlayerUid: string;
@@ -280,6 +286,17 @@ export interface SharedCardPrompt {
   targetPlayerUids: string[];
   responses: Record<string, SharedCardPromptResponse>;
   createdAt: number;
+}
+
+export interface SharedExpenseEffect {
+  id: string;
+  sourcePlayerUid: string;
+  amount: number;
+  category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild';
+  isIncrease: boolean;
+  summary: string;
+  detail?: string;
+  timestamp: number;
 }
 
 export interface BoardState {
@@ -305,10 +322,44 @@ export interface BoardState {
   movement?: BoardMovementState | null;
   familyMilestoneJoinPrompt?: FamilyMilestoneJoinPrompt | null;
   sharedCardPrompt?: SharedCardPrompt | null;
+  sharedExpenseEffect?: SharedExpenseEffect | null;
   deckState: BoardDeckState;
   realEstateMarket?: string[];
   cardLog?: BoardCardLogEntry[];
   updatedAt: number;
+}
+
+export interface BoardBlocker {
+  code: string;
+  message: string;
+}
+
+export interface BoardActionAvailability {
+  canRoll: boolean;
+  canEndTurn: boolean;
+  rollBlocker: BoardBlocker | null;
+  endTurnBlocker: BoardBlocker | null;
+}
+
+export interface ExperienceState {
+  phase: 'waiting' | 'playing' | 'finished' | 'idle';
+  currentTurnUid: string | null;
+  currentTurnName: string | null;
+  turnPosition: number | null;
+  participantCount: number;
+  isMyTurn: boolean;
+  pendingSkipTurns: number;
+  eventSummary: string | null;
+  actionAvailability: BoardActionAvailability;
+}
+
+export type PresenceStatus = 'online' | 'offline';
+
+export interface PresenceState {
+  uid: string;
+  status: PresenceStatus;
+  sessionId: string;
+  lastSeenAt?: number | { toMillis: () => number };
 }
 
 export interface GameState {
@@ -337,6 +388,7 @@ export interface GameState {
   lastPublishedCode: string;
   lastMarketUpdateTimestamp?: number;
   lastSharedExpenseSyncedAt?: number;
+  lastSharedExpenseEventId?: string;
   // 標記這份 gameState 是為了「哪一場」棋盤遊戲（room.startedAt）而重設/建立的。
   // 用來擋掉跨場遊戲的殘留本地狀態被誤同步進新房間（見稽核報告 C2）：只有
   // stamp 對得上目前房間 startedAt 的 gameState，才會被同步寫回 Firestore。
@@ -363,6 +415,19 @@ export interface GameState {
     cardId: string;
     symbol: string;
   };
+}
+
+export interface PublicPlayerState {
+  uid: string;
+  playerName?: string;
+  isSetup: boolean;
+  selectionStep?: GameState['selectionStep'];
+  happinessTotal: number;
+  boardPosition?: number;
+  skipTurns?: number;
+  lastBoardEvent?: string;
+  pendingCardAction?: string;
+  currentRankTitle?: string;
 }
 
 export interface FinancialSummary {

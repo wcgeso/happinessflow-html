@@ -1,5 +1,5 @@
 import { REAL_ESTATE_TYPES } from '../constants';
-import { NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP, HAPPINESS_CARD_MAP } from '../constants/cards';
+import { getHappinessMonthlyExpenseCategory, getMonthlyExpenseCategoryLabel, getOpportunityMonthlyExpenseCategory, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP, HAPPINESS_CARD_MAP } from '../constants/cards';
 import { AccountEntry, Asset, BatchSellItem, BoardState, GameState, Liability, TransactionData } from '../types';
 import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from './familyMilestones';
 import { getBusinessAssetLabel, getRealEstateAssetLabel } from './assetLabels';
@@ -147,12 +147,6 @@ const FORCED_OPPORTUNITY_TYPES = new Set([
   'penalty'
 ]);
 
-const expenseCategoryLabel = (category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild') => {
-  if (category === 'basicLiving') return '餐飲、服飾、居住類';
-  if (category === 'transportEdu') return '交通、教育、娛樂類';
-  return '其他、醫療、育兒類';
-};
-
 const extractAssetSymbol = (name: string) => name.match(/[A-Z]\d+/)?.[0];
 const stockSymbolFromAssetName = (name: string) => extractAssetSymbol(name) || name.replace('股票 ', '').trim();
 const formatAmount = (value: number) => Math.abs(value).toLocaleString();
@@ -164,20 +158,7 @@ const hasInsuredVehicle = (assets: Asset[]) => assets.some(
   asset => (asset.type === '汽車' || asset.type === '飛行器') && asset.isInsured
 );
 
-const resolveHappinessExpenseCategory = (cardId: string) => {
-  if (['H028', 'H039', 'H040', 'H041', 'H042'].includes(cardId)) return 'otherMedicalChild' as const;
-  if (['H030', 'H034', 'H038'].includes(cardId)) return 'basicLiving' as const;
-  if (['H031', 'H032', 'H033', 'H035', 'H036', 'H037'].includes(cardId)) return 'transportEdu' as const;
-  return 'otherMedicalChild' as const;
-};
-
-const resolveOpportunityExpenseCategory = (cardId: string) => {
-  if (cardId === 'C047') return 'transportEdu' as const;
-  if (cardId === 'C055') return 'otherMedicalChild' as const;
-  return 'basicLiving' as const;
-};
-
-const findRelatedLiability = (asset: Asset, liabilities: Liability[]) => {
+const findRelatedLiability = (asset: Asset, liabilities: Liability[] = []) => {
   const byAssetId = liabilities.find(liability => liability.linkedAssetId === asset.id);
   if (byAssetId) return byAssetId;
 
@@ -356,17 +337,17 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
         monthlyExpenseChange: effectiveMonthlyExpenseIncrease || null,
         expenseCategory: familyStage?.progressId?.startsWith('child')
           ? 'otherMedicalChild'
-          : resolveHappinessExpenseCategory(happinessCard.id),
+          : getHappinessMonthlyExpenseCategory(happinessCard.id),
         progressId: familyStage?.progressId,
         happinessItemId: familyStage?.happinessId,
         sourceCardId: happinessCard.id
       },
       impacts: [
         ...(effectiveCashCost ? [`現金 -${effectiveCashCost.toLocaleString()}`] : []),
-        ...(effectiveMonthlyExpenseIncrease ? [`${expenseCategoryLabel(
+        ...(effectiveMonthlyExpenseIncrease ? [`${getMonthlyExpenseCategoryLabel(
           familyStage?.progressId?.startsWith('child')
             ? 'otherMedicalChild'
-            : resolveHappinessExpenseCategory(happinessCard.id)
+            : getHappinessMonthlyExpenseCategory(happinessCard.id)
         )}月支出 +${effectiveMonthlyExpenseIncrease.toLocaleString()}`] : []),
         `幸福點數 +${effectiveHappinessPoints} 點`
       ]
@@ -379,10 +360,10 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
     if (effectiveMonthlyExpenseIncrease) {
       expectedEntries.push({
         category: 'Expenses',
-        name: expenseCategoryLabel(
+        name: getMonthlyExpenseCategoryLabel(
           familyStage?.progressId?.startsWith('child')
             ? 'otherMedicalChild'
-            : resolveHappinessExpenseCategory(happinessCard.id)
+            : getHappinessMonthlyExpenseCategory(happinessCard.id)
         ),
         direction: 'Increase'
       });
@@ -515,9 +496,12 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
       }
     }
 
-    if (opportunityCard.affectsAllPlayers) {
+    if (
+      opportunityCard.affectsAllPlayers &&
+      !['purchase_1room', 'purchase_any_house', 'purchase_store', 'purchase_startup', 'enterprise_acquisition'].includes(opportunityCard.type)
+    ) {
       if (opportunityCard.monthlyExpenseChange) {
-        const category = resolveOpportunityExpenseCategory(opportunityCard.id);
+        const category = getOpportunityMonthlyExpenseCategory(opportunityCard.id);
         const isIncrease = opportunityCard.monthlyExpenseChange > 0;
         return {
           kind: 'financial',
@@ -534,13 +518,13 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
               isIncrease
             },
             impacts: [
-              `${expenseCategoryLabel(category)}月支出 ${isIncrease ? '+' : '-'}${Math.abs(opportunityCard.monthlyExpenseChange).toLocaleString()}`,
+              `${getMonthlyExpenseCategoryLabel(category)}月支出 ${isIncrease ? '+' : '-'}${Math.abs(opportunityCard.monthlyExpenseChange).toLocaleString()}`,
               ...(opportunityCard.drawCard ? [`抽取一張${opportunityCard.drawCard === 'happiness' ? '幸福卡' : '新聞卡'}`] : [])
             ]
           },
           expectedEntries: [{
             category: 'Expenses',
-            name: expenseCategoryLabel(category),
+            name: getMonthlyExpenseCategoryLabel(category),
             direction: isIncrease ? 'Increase' : 'Decrease'
           }],
           afterApply: {
@@ -691,12 +675,12 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
 
         items = candidates.map(asset => {
           const percent = opportunityCard.purchasePercent || 0;
-          const price = Math.floor(asset.cost * (percent / 100));
+          const price = Math.floor(asset.cost * ((100 + percent) / 100));
           return buildAssetSaleCandidate(
             asset,
             price,
             gameState.liabilities,
-            `依房屋總價 ${percent}% 收購，售價 ${formatAmount(price)}`
+            `依房屋總價加價 ${percent}% 收購，售價 ${formatAmount(price)}`
           );
         });
         emptyNote = '你目前沒有符合條件的住宅可出售。';
@@ -738,12 +722,13 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
         const multiple = opportunityCard.acquisitionMultiple || 0;
         const candidates = gameState.assets.filter(asset => asset.type === '企業');
         items = candidates.map(asset => {
-          const price = Math.floor(asset.cashflow * multiple);
+          const monthlyCashflow = Number(asset.cashflow) || 0;
+          const price = Math.floor(monthlyCashflow * multiple);
           return buildAssetSaleCandidate(
             asset,
             price,
             gameState.liabilities,
-            `企業月收益 ${asset.cashflow.toLocaleString()} × ${multiple} 倍，收購價 ${formatAmount(price)}`
+            `企業月收益 ${monthlyCashflow.toLocaleString()} × ${multiple} 倍，收購價 ${formatAmount(price)}`
           );
         });
         emptyNote = '你目前沒有可出售的企業資產。';
@@ -773,11 +758,11 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
 
       let expensePayload;
       if (opportunityCard.monthlyExpenseChange) {
-        const category = resolveOpportunityExpenseCategory(opportunityCard.id);
+        const category = getOpportunityMonthlyExpenseCategory(opportunityCard.id);
         const isIncrease = opportunityCard.monthlyExpenseChange > 0;
         expectedEntries.push({
           category: 'Expenses',
-          name: expenseCategoryLabel(category),
+          name: getMonthlyExpenseCategoryLabel(category),
           direction: isIncrease ? 'Increase' : 'Decrease'
         });
         expensePayload = {
@@ -800,7 +785,7 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
             expensePayload,
             impacts: [
               ...(cashDelta !== 0 ? [`現金 ${cashDelta > 0 ? '+' : '-'}${Math.abs(cashDelta).toLocaleString()}`] : []),
-              ...(opportunityCard.monthlyExpenseChange ? [`${expensePayload ? expenseCategoryLabel(expensePayload.category) : ''}月支出 ${opportunityCard.monthlyExpenseChange > 0 ? '+' : '-'}${Math.abs(opportunityCard.monthlyExpenseChange).toLocaleString()}`] : []),
+              ...(opportunityCard.monthlyExpenseChange ? [`${expensePayload ? getMonthlyExpenseCategoryLabel(expensePayload.category) : ''}月支出 ${opportunityCard.monthlyExpenseChange > 0 ? '+' : '-'}${Math.abs(opportunityCard.monthlyExpenseChange).toLocaleString()}`] : []),
               ...(opportunityCard.happinessLoss ? [`幸福點數 -${opportunityCard.happinessLoss} 點`] : []),
               ...(opportunityCard.drawCard ? [`抽取一張${opportunityCard.drawCard === 'happiness' ? '幸福卡' : '新聞卡'}`] : [])
             ]
@@ -838,7 +823,7 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
     }
 
     if (opportunityCard.monthlyExpenseChange && !(opportunityCard.cashLoss || opportunityCard.cashGain)) {
-      const category = resolveOpportunityExpenseCategory(opportunityCard.id);
+      const category = getOpportunityMonthlyExpenseCategory(opportunityCard.id);
       const isIncrease = opportunityCard.monthlyExpenseChange > 0;
       const financialAction: BoardFinancialAction = {
         kind: 'financial',
@@ -855,14 +840,14 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
             isIncrease
           },
           impacts: [
-            `${expenseCategoryLabel(category)}月支出 ${isIncrease ? '+' : '-'}${Math.abs(opportunityCard.monthlyExpenseChange).toLocaleString()}`,
+            `${getMonthlyExpenseCategoryLabel(category)}月支出 ${isIncrease ? '+' : '-'}${Math.abs(opportunityCard.monthlyExpenseChange).toLocaleString()}`,
             ...(opportunityCard.happinessLoss ? [`幸福點數 -${opportunityCard.happinessLoss} 點`] : []),
             ...(opportunityCard.drawCard ? [`抽取一張${opportunityCard.drawCard === 'happiness' ? '幸福卡' : '新聞卡'}`] : [])
           ]
         },
         expectedEntries: [{
           category: 'Expenses',
-          name: expenseCategoryLabel(category),
+          name: getMonthlyExpenseCategoryLabel(category),
           direction: isIncrease ? 'Increase' : 'Decrease'
         }],
         ...(opportunityCard.drawCard ? {

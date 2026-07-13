@@ -74,6 +74,27 @@ export interface OpportunityCard {
   requiresStorySharing?: boolean;
 }
 
+export type MonthlyExpenseCategory = 'basicLiving' | 'transportEdu' | 'otherMedicalChild';
+
+export const getMonthlyExpenseCategoryLabel = (category: MonthlyExpenseCategory) => {
+  if (category === 'basicLiving') return '餐飲、服飾、居住類';
+  if (category === 'transportEdu') return '交通、教育、娛樂類';
+  return '其他、醫療、育兒類';
+};
+
+export const getHappinessMonthlyExpenseCategory = (cardId: string): MonthlyExpenseCategory => {
+  if (['H028', 'H039', 'H040', 'H041', 'H042'].includes(cardId)) return 'otherMedicalChild';
+  if (['H030', 'H034', 'H038'].includes(cardId)) return 'basicLiving';
+  if (['H031', 'H032', 'H033', 'H035', 'H036', 'H037'].includes(cardId)) return 'transportEdu';
+  return 'otherMedicalChild';
+};
+
+export const getOpportunityMonthlyExpenseCategory = (cardId: string): MonthlyExpenseCategory => {
+  if (cardId === 'C047') return 'transportEdu';
+  if (cardId === 'C055') return 'otherMedicalChild';
+  return 'basicLiving';
+};
+
 export interface StockSymbolPrices {
   [key: string]: number;
   A10: number;
@@ -249,7 +270,8 @@ export const OPPORTUNITY_CARDS: OpportunityCard[] = opportunityRawCards.map(card
   insurancePays: asNullableNumber(card.insurance?.payoutAmount ?? card.amount?.insurancePays),
   affectsAllPlayers: !!(card.multiplayer?.affectsAllPlayers || card.effects?.affectsAllPlayers),
   drawCard: card.followUp?.drawCard || card.effects?.drawCard || undefined,
-  requiresStorySharing: hasRequirement(card, 'requires_story_sharing')
+  requiresStorySharing: Array.isArray(card.conditions?.requirements) &&
+    card.conditions.requirements.some((requirement: unknown) => String(requirement).includes('sharing'))
 }));
 
 export const NEWS_CARDS: NewsCard[] = newsRawCards.map(card => {
@@ -383,7 +405,10 @@ export const buildHappinessCardMetaFromSchema = (cardId: string, playerState?: G
   pushUniqueLine(effectLines, `幸福 +${card.happinessPoints}`);
   if (card.cashCost) pushUniqueLine(effectLines, `一次性支出 ${formatAmount(card.cashCost)}`);
   if (card.monthlyExpenseIncrease) {
-    pushUniqueLine(effectLines, `月支出 ${card.monthlyExpenseIncrease > 0 ? '+' : ''}${formatAmount(card.monthlyExpenseIncrease)}`);
+    const category = isFamilyMilestone && stage?.progressId?.startsWith('child')
+      ? 'otherMedicalChild'
+      : getHappinessMonthlyExpenseCategory(card.id);
+    pushUniqueLine(effectLines, `月支出（${getMonthlyExpenseCategoryLabel(category)}） ${card.monthlyExpenseIncrease > 0 ? '+' : ''}${formatAmount(card.monthlyExpenseIncrease)}`);
   }
   if (card.childrenIncrease) pushUniqueLine(effectLines, `孩子數 +${card.childrenIncrease}`);
   if (card.otherPlayersCanJoin) pushUniqueLine(effectLines, `其他玩家可擲骰加入（至少 ${card.joinDiceMin || 0} 點）`);
@@ -413,7 +438,7 @@ export const buildOpportunityCardMetaFromSchema = (cardId: string) => {
   if (card.cashLoss) pushUniqueLine(effectLines, `現金 -${formatAmount(card.cashLoss)}`);
   if (card.cashGain) pushUniqueLine(effectLines, `現金 +${formatAmount(card.cashGain)}`);
   if (card.monthlyExpenseChange !== undefined) {
-    pushUniqueLine(effectLines, `月支出 ${card.monthlyExpenseChange > 0 ? '+' : ''}${formatAmount(card.monthlyExpenseChange)}`);
+    pushUniqueLine(effectLines, `月支出（${getMonthlyExpenseCategoryLabel(getOpportunityMonthlyExpenseCategory(card.id))}） ${card.monthlyExpenseChange > 0 ? '+' : ''}${formatAmount(card.monthlyExpenseChange)}`);
   }
   if (card.happinessLoss) pushUniqueLine(effectLines, `幸福 -${card.happinessLoss}`);
   if (card.goToSquare === 'hospital') pushUniqueLine(effectLines, '移動至醫院');
@@ -441,7 +466,7 @@ export const buildNewsCardMetaFromSchema = (cardId: string) => {
   if (!card || !rawCard) return null;
 
   const effectLines: string[] = [];
-  if (!hasDescriptionRuleSection(rawCard)) {
+  if (!hasDescriptionRuleSection(rawCard) && card.type !== 'real_estate') {
     pushUniqueLine(effectLines, rawEffectsSummary(rawCard));
   }
 

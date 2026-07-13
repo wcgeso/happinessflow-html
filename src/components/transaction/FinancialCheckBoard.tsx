@@ -9,14 +9,15 @@ interface QuadrantProps {
     items: string[];
     userEntries: AccountEntry[];
     onToggle: (item: string, direction: ChangeDirection) => void;
+    isHighlighted: boolean;
 }
 
-const Quadrant: React.FC<QuadrantProps> = ({ title, color, icon, items, userEntries, onToggle }) => {
+const Quadrant: React.FC<QuadrantProps> = ({ title, color, icon, items, userEntries, onToggle, isHighlighted }) => {
     const [internalSelected, setInternalSelected] = useState<string>('');
     const selectedItem = items.includes(internalSelected) ? internalSelected : (items[0] || '');
 
     return (
-        <section className={`rounded-[28px] border p-4 ${color} shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]`}>
+        <section className={`rounded-[28px] border p-4 ${color} ${isHighlighted ? 'ring-2 ring-amber-300/90 shadow-[0_0_24px_rgba(252,211,77,0.28)]' : 'shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'}`}>
             <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-3">
                 <div className="flex items-center gap-2 text-slate-100">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-950/70">
@@ -24,6 +25,7 @@ const Quadrant: React.FC<QuadrantProps> = ({ title, color, icon, items, userEntr
                     </div>
                     <div className="min-w-0">
                         <div className="text-base font-black">{title}</div>
+                        {isHighlighted && <div className="mt-1 text-[10px] font-black text-amber-200">請重新檢查此分類</div>}
                     </div>
                 </div>
             </div>
@@ -101,6 +103,7 @@ interface FinancialCheckBoardProps {
     possibleItemsExpenses: string[];
     userEntries: AccountEntry[];
     onToggle: (category: AccountCategory, direction: ChangeDirection, name: string) => void;
+    highlightedCategories?: AccountCategory[];
 }
 
 export const FinancialCheckBoard: React.FC<FinancialCheckBoardProps> = ({
@@ -109,7 +112,8 @@ export const FinancialCheckBoard: React.FC<FinancialCheckBoardProps> = ({
     possibleItemsLiabilities,
     possibleItemsExpenses,
     userEntries,
-    onToggle
+    onToggle,
+    highlightedCategories = []
 }) => {
     return (
         <div className="grid grid-cols-2 gap-3">
@@ -120,6 +124,7 @@ export const FinancialCheckBoard: React.FC<FinancialCheckBoardProps> = ({
                 items={possibleItemsAssets}
                 userEntries={userEntries.filter(e => e.category === 'Assets')}
                 onToggle={(i, d) => onToggle('Assets', d, i)}
+                isHighlighted={highlightedCategories.includes('Assets')}
             />
 
             <Quadrant
@@ -129,6 +134,7 @@ export const FinancialCheckBoard: React.FC<FinancialCheckBoardProps> = ({
                 items={possibleItemsLiabilities}
                 userEntries={userEntries.filter(e => e.category === 'Liabilities')}
                 onToggle={(i, d) => onToggle('Liabilities', d, i)}
+                isHighlighted={highlightedCategories.includes('Liabilities')}
             />
 
             <Quadrant
@@ -138,6 +144,7 @@ export const FinancialCheckBoard: React.FC<FinancialCheckBoardProps> = ({
                 items={possibleItemsIncome}
                 userEntries={userEntries.filter(e => e.category === 'Income')}
                 onToggle={(i, d) => onToggle('Income', d, i)}
+                isHighlighted={highlightedCategories.includes('Income')}
             />
 
             <Quadrant
@@ -147,6 +154,7 @@ export const FinancialCheckBoard: React.FC<FinancialCheckBoardProps> = ({
                 items={possibleItemsExpenses}
                 userEntries={userEntries.filter(e => e.category === 'Expenses')}
                 onToggle={(i, d) => onToggle('Expenses', d, i)}
+                isHighlighted={highlightedCategories.includes('Expenses')}
             />
         </div>
     );

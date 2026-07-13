@@ -57,7 +57,7 @@ export const useGameLogic = () => {
 
         return {
             sourceLabel: data.source === 'income' ? '收入' : data.source === 'loan' ? '借貸' : data.usage === 'asset' ? '資產交易' : '支出',
-            usageLabel: data.usage === 'asset' ? '買入資產' : data.usage === 'liability' ? '償還負債' : '一般支出'
+            usageLabel: data.usage === 'asset' ? '買入資產' : '一般支出'
         };
     };
 

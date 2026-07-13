@@ -1,3 +1,5 @@
+import { trackGameEvent } from './telemetry';
+
 export interface FlowLogEvent {
     name: string;
     roomId: string;
@@ -34,4 +36,10 @@ export const flowLog = (event: FlowLogEvent): void => {
     );
 
     console.info('[HappinessFlow]', payload);
+    void trackGameEvent('flow_event', {
+        event_name: event.name,
+        phase: event.phase,
+        result: event.result,
+        error_code: event.errorCode
+    });
 };

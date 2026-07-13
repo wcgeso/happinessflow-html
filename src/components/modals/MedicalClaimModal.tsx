@@ -7,6 +7,7 @@ interface MedicalClaimModalProps {
     onClose: () => void;
     onConfirm: (type: 'medical' | 'aircraft') => void;
     insuranceCount: number;
+    canClaimMedical: boolean;
     hasInsuredAircraft: boolean;
     formatMoney: (amount: number) => string;
     disabled?: boolean;
@@ -17,6 +18,7 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
     onClose,
     onConfirm,
     insuranceCount,
+    canClaimMedical,
     hasInsuredAircraft,
     formatMoney,
     disabled = false
@@ -25,7 +27,7 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
 
     if (!isOpen) return null;
 
-    const medicalClaimAmount = insuranceCount * 50000;
+    const medicalClaimAmount = canClaimMedical ? insuranceCount * 50000 : 0;
     const aircraftClaimAmount = hasInsuredAircraft ? 400000 : 0;
     const currentClaimAmount = claimType === 'medical' ? medicalClaimAmount : aircraftClaimAmount;
 
@@ -57,10 +59,15 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
 
                 <div className="space-y-3 mb-8">
                     {claimType === 'medical' ? (
-                        <div className="flex justify-between text-slate-400 bg-slate-800/50 p-2 rounded">
-                            <span>持有醫療保險張數:</span>
-                            <span className="text-white font-bold">{insuranceCount} 張</span>
-                        </div>
+                        <>
+                            <div className="flex justify-between text-slate-400 bg-slate-800/50 p-2 rounded">
+                                <span>持有醫療保險張數:</span>
+                                <span className="text-white font-bold">{insuranceCount} 張</span>
+                            </div>
+                            {!canClaimMedical && insuranceCount > 0 && (
+                                <div className="text-sm font-bold text-amber-400">目前沒有可理賠的醫療事件</div>
+                            )}
+                        </>
                     ) : (
                         <div className="flex justify-between text-slate-400 bg-slate-800/50 p-2 rounded">
                             <span>汽車保險狀態:</span>
@@ -82,7 +89,7 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
                     <Button 
                         className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold" 
                         onClick={() => onConfirm(claimType)}
-                        disabled={disabled || (claimType === 'medical' ? insuranceCount <= 0 : !hasInsuredAircraft)}
+                        disabled={disabled || (claimType === 'medical' ? !canClaimMedical : !hasInsuredAircraft)}
                     >
                         {disabled ? '遊戲已結算' : '確認申請'}
                     </Button>

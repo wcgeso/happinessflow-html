@@ -41,11 +41,25 @@ service cloud.firestore {
         return signedIn() && data.hostId == request.auth.uid;
       }
 
+      function isCoach() {
+        return signedIn() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm'];
+      }
+
       function isMember(data) {
         return signedIn() && (
           (hasMemberList(data) && request.auth.uid in data.memberUids) ||
           (('playerStates' in data) && data.playerStates is map && request.auth.uid in data.playerStates)
         );
+      }
+
+      function canReadRoom(data) {
+        return isHost(data) || isCoach() ||
+          (data.status == 'waiting' &&
+            (!('playerStates' in data) || data.playerStates.size() == 0)) ||
+          (isMember(data) &&
+            (!('playerStates' in data) || data.playerStates.size() == 0));
       }
 
       function immutableIdentity() {
@@ -79,6 +93,57 @@ service cloud.firestore {
           request.resource.data.playerStates.diff(resource.data.playerStates).affectedKeys().hasOnly([request.auth.uid]);
       }
 
+      function updatesOwnPublicPlayerState() {
+        return isMember(resource.data) &&
+          changedOnly(['publicPlayerStates']) &&
+          request.resource.data.publicPlayerStates.diff(resource.data.publicPlayerStates).affectedKeys().hasOnly([request.auth.uid]);
+      }
+
+      function submitsOwnRequest() {
+        return isMember(resource.data) &&
+          changedOnly(['pendingRequests']) &&
+          request.resource.data.pendingRequests.diff(resource.data.pendingRequests).affectedKeys().hasOnly([request.auth.uid]) &&
+          request.resource.data.pendingRequests[request.auth.uid] is map &&
+          request.resource.data.pendingRequests[request.auth.uid].uid == request.auth.uid &&
+          request.resource.data.pendingRequests[request.auth.uid].status == 'pending';
+      }
+
+      function clearsOwnRequest() {
+        return isMember(resource.data) &&
+          changedOnly(['pendingRequests']) &&
+          request.resource.data.pendingRequests.diff(resource.data.pendingRequests).affectedKeys().hasOnly([request.auth.uid]) &&
+          !(request.auth.uid in request.resource.data.pendingRequests);
+      }
+
+      function updatesOnlyOwnPublicProjection() {
+        return !resource.data.diff(request.resource.data).affectedKeys().hasAny(['publicPlayerStates']) ||
+          request.resource.data.publicPlayerStates.diff(resource.data.publicPlayerStates).affectedKeys().hasOnly([request.auth.uid]);
+      }
+
+      function validPromptResponseMutation() {
+        return (
+          ('familyMilestoneJoinPrompt' in resource.data.boardState) &&
+          resource.data.boardState.familyMilestoneJoinPrompt is map &&
+          (
+            !('familyMilestoneJoinPrompt' in request.resource.data.boardState) ||
+            (request.resource.data.boardState.familyMilestoneJoinPrompt is map &&
+              request.resource.data.boardState.familyMilestoneJoinPrompt.responses.diff(
+                resource.data.boardState.familyMilestoneJoinPrompt.responses
+              ).affectedKeys().hasOnly([request.auth.uid]))
+          )
+        ) || (
+          ('sharedCardPrompt' in resource.data.boardState) &&
+          resource.data.boardState.sharedCardPrompt is map &&
+          (
+            !('sharedCardPrompt' in request.resource.data.boardState) ||
+            (request.resource.data.boardState.sharedCardPrompt is map &&
+              request.resource.data.boardState.sharedCardPrompt.responses.diff(
+                resource.data.boardState.sharedCardPrompt.responses
+              ).affectedKeys().hasOnly([request.auth.uid]))
+          )
+        );
+      }
+
       function isActiveBoardEventPlayer() {
         return resource.data.boardState.currentEvent is map &&
           resource.data.boardState.currentEvent.playerUid == request.auth.uid &&
@@ -88,18 +153,25 @@ service cloud.firestore {
 
       function validBoardCommand() {
         return isMember(resource.data) &&
-          resource.data.boardState.currentTurnUid == request.auth.uid &&
-          changedOnly(['boardState', 'playerStates', 'marketPrices', 'previousMarketPrices', 'marketUpdates']) &&
+          (
+            (resource.data.boardState.currentTurnUid == request.auth.uid &&
+              (!('familyMilestoneJoinPrompt' in resource.data.boardState) || resource.data.boardState.familyMilestoneJoinPrompt == null) &&
+              (!('sharedCardPrompt' in resource.data.boardState) || resource.data.boardState.sharedCardPrompt == null)) ||
+            (('familyMilestoneJoinPrompt' in resource.data.boardState) &&
+              resource.data.boardState.familyMilestoneJoinPrompt is map &&
+              request.auth.uid in resource.data.boardState.familyMilestoneJoinPrompt.targetPlayerUids &&
+              validPromptResponseMutation()) ||
+            (('sharedCardPrompt' in resource.data.boardState) &&
+              resource.data.boardState.sharedCardPrompt is map &&
+              request.auth.uid in resource.data.boardState.sharedCardPrompt.targetPlayerUids &&
+              validPromptResponseMutation())
+          ) &&
+          changedOnly(['boardState', 'publicPlayerStates', 'marketPrices', 'previousMarketPrices', 'marketUpdates']) &&
           request.resource.data.boardState.revision == resource.data.boardState.revision + 1 &&
           request.resource.data.boardState.processedCommandIds is list &&
           request.resource.data.boardState.processedCommandIds.size() <= 100 &&
           request.resource.data.boardState.processedCommandIds != resource.data.boardState.processedCommandIds &&
-          (!resource.data.diff(request.resource.data).affectedKeys().hasAny(['playerStates']) ||
-            request.resource.data.playerStates.diff(resource.data.playerStates).affectedKeys()
-              .hasOnly([request.auth.uid, request.resource.data.boardState.currentTurnUid]) ||
-            (isActiveBoardEventPlayer() &&
-              request.resource.data.playerStates.diff(resource.data.playerStates).affectedKeys()
-                .hasOnly(resource.data.memberUids)));
+          updatesOnlyOwnPublicProjection();
       }
 
       function updatesBoardNoticeOnly() {
@@ -112,9 +184,10 @@ service cloud.firestore {
 
       function updatesOwnBoardPromptResponse() {
         return isMember(resource.data) &&
-          changedOnly(['boardState', 'playerStates']) &&
-          request.resource.data.boardState.diff(resource.data.boardState).affectedKeys()
-            .hasOnly(['familyMilestoneJoinPrompt', 'sharedCardPrompt', 'updatedAt']) &&
+          changedOnly(['boardState', 'publicPlayerStates']) &&
+          request.resource.data.boardState.revision == resource.data.boardState.revision + 1 &&
+          request.resource.data.boardState.processedCommandIds is list &&
+          request.resource.data.boardState.processedCommandIds != resource.data.boardState.processedCommandIds &&
           (
             (('familyMilestoneJoinPrompt' in resource.data.boardState) &&
               resource.data.boardState.familyMilestoneJoinPrompt is map &&
@@ -129,9 +202,26 @@ service cloud.firestore {
                 resource.data.boardState.sharedCardPrompt.responses
               ).affectedKeys().hasOnly([request.auth.uid]))
           ) &&
-          (!resource.data.diff(request.resource.data).affectedKeys().hasAny(['playerStates']) ||
-            request.resource.data.playerStates.diff(resource.data.playerStates).affectedKeys()
-              .hasOnly([request.auth.uid]));
+          updatesOnlyOwnPublicProjection();
+      }
+
+      function skipsDisconnectedTurn() {
+        return isCoach() &&
+          changedOnly(['boardState']) &&
+          request.resource.data.boardState.currentTurnUid != resource.data.boardState.currentTurnUid &&
+          request.resource.data.boardState.currentTurnUid in resource.data.boardState.turnOrder &&
+          request.resource.data.boardState.hasRolledThisTurn == false &&
+          (!('currentEvent' in resource.data.boardState) || resource.data.boardState.currentEvent == null) &&
+          (!('pendingEvents' in resource.data.boardState) || resource.data.boardState.pendingEvents.size() == 0) &&
+          (!('movement' in resource.data.boardState) || resource.data.boardState.movement == null) &&
+          (!('familyMilestoneJoinPrompt' in resource.data.boardState) || resource.data.boardState.familyMilestoneJoinPrompt == null) &&
+          (!('sharedCardPrompt' in resource.data.boardState) || resource.data.boardState.sharedCardPrompt == null) &&
+          request.resource.data.boardState.diff(resource.data.boardState).affectedKeys()
+            .hasOnly(['currentTurnUid', 'hasRolledThisTurn', 'skipTurns', 'revision', 'processedCommandIds', 'updatedAt']) &&
+          request.resource.data.boardState.revision == resource.data.boardState.revision + 1 &&
+          request.resource.data.boardState.processedCommandIds is list &&
+          request.resource.data.boardState.processedCommandIds.size() <= 100 &&
+          request.resource.data.boardState.processedCommandIds != resource.data.boardState.processedCommandIds;
       }
 
       allow create: if signedIn() &&
@@ -143,24 +233,113 @@ service cloud.firestore {
       // Transitional note: members still read the legacy Room document. Full private
       // projection separation requires the subcollection migration before this becomes
       // host/public-only.
-      allow read: if signedIn() && (
-        isHost(resource.data) ||
-        isMember(resource.data) ||
-        (resource.data.status == 'waiting' &&
-          (!('playerStates' in resource.data) || resource.data.playerStates.size() == 0))
-      );
+      // 允許已登入使用者確認房號不存在；不存在的文件不會暴露任何資料。
+      allow read: if signedIn() &&
+        (!exists(/databases/$(database)/documents/rooms/$(roomId)) || canReadRoom(resource.data));
 
       allow update: if signedIn() && immutableIdentity() && (
         isHost(resource.data) ||
         joinsSelf() ||
         leavesSelf() ||
         updatesOwnPlayerState() ||
+        updatesOwnPublicPlayerState() ||
+        submitsOwnRequest() ||
+        clearsOwnRequest() ||
         validBoardCommand() ||
+        skipsDisconnectedTurn() ||
         updatesBoardNoticeOnly() ||
         updatesOwnBoardPromptResponse()
       );
 
       allow delete: if isHost(resource.data);
+
+      match /players/{playerUid} {
+        function roomData() {
+          return get(/databases/$(database)/documents/rooms/$(roomId)).data;
+        }
+
+        function isRoomMember() {
+          return signedIn() &&
+            roomData().memberUids is list &&
+            request.auth.uid in roomData().memberUids;
+        }
+
+        function isRoomCoach() {
+          return signedIn() && (roomData().hostId == request.auth.uid || isCoach());
+        }
+
+        function canReadOwnWaitingState() {
+          return signedIn() && request.auth.uid == playerUid &&
+            (isRoomMember() || roomData().status == 'waiting');
+        }
+
+        allow read: if isRoomCoach() || canReadOwnWaitingState();
+        allow create, update: if isRoomCoach() || (isRoomMember() && request.auth.uid == playerUid);
+        allow delete: if isRoomCoach();
+      }
+
+      match /presence/{presenceUid} {
+        function roomData() {
+          return get(/databases/$(database)/documents/rooms/$(roomId)).data;
+        }
+
+        function isRoomMember() {
+          return signedIn() && roomData().memberUids is list && request.auth.uid in roomData().memberUids;
+        }
+
+        function isRoomCoach() {
+          return signedIn() && (
+            roomData().hostId == request.auth.uid ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm']
+          );
+        }
+
+        function validPresence() {
+          return request.resource.data.uid == presenceUid &&
+            request.resource.data.status in ['online', 'offline'] &&
+            request.resource.data.sessionId is string &&
+            request.resource.data.lastSeenAt is timestamp;
+        }
+
+        allow read: if isRoomMember();
+        allow create: if isRoomMember() && request.auth.uid == presenceUid && validPresence();
+        allow update: if isRoomMember() && request.auth.uid == presenceUid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'status', 'sessionId', 'lastSeenAt']) &&
+          validPresence();
+        allow delete: if isRoomCoach() || (isRoomMember() && request.auth.uid == presenceUid);
+      }
+
+      match /events/{eventId} {
+        function roomData() {
+          return get(/databases/$(database)/documents/rooms/$(roomId)).data;
+        }
+
+        function isRoomMember() {
+          return signedIn() && roomData().memberUids is list && request.auth.uid in roomData().memberUids;
+        }
+
+        function isRoomCoach() {
+          return signedIn() && (
+            roomData().hostId == request.auth.uid ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm']
+          );
+        }
+
+        function validEvent() {
+          return request.resource.data.keys().hasOnly([
+              'roomId', 'sessionId', 'commandType', 'revision', 'result', 'recordedAt'
+            ]) &&
+            request.resource.data.roomId == roomId &&
+            request.resource.data.sessionId is string &&
+            request.resource.data.commandType is string &&
+            request.resource.data.revision is number &&
+            request.resource.data.result == 'committed';
+        }
+
+        allow read: if isRoomCoach();
+        allow create, update: if isRoomMember() && validEvent();
+        allow delete: if isRoomCoach();
+      }
     }
     
     // 4. 遊戲記錄規則

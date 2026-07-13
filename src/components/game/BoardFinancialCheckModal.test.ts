@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeExpectedEntries } from './BoardFinancialCheckModal';
+import { getFinancialCheckFeedback, normalizeExpectedEntries } from './BoardFinancialCheckModal';
 import type { TransactionData } from '../../types';
 
 describe('normalizeExpectedEntries', () => {
@@ -85,5 +85,31 @@ describe('normalizeExpectedEntries', () => {
       name: '其他、醫療、育兒類',
       direction: 'Increase'
     });
+  });
+});
+
+describe('getFinancialCheckFeedback', () => {
+  const expected = [
+    { category: 'Assets' as const, name: '現金', direction: 'Decrease' as const },
+    { category: 'Expenses' as const, name: '交通、教育、娛樂類', direction: 'Increase' as const }
+  ];
+
+  it('hides exact answers on the first incorrect attempt and highlights categories', () => {
+    const feedback = getFinancialCheckFeedback(expected, [
+      { category: 'Assets', name: '現金', direction: 'Increase' }
+    ], 1);
+
+    expect(feedback.isCorrect).toBe(false);
+    expect(feedback.wrongCount).toBe(3);
+    expect(feedback.affectedCategories).toEqual(['Assets', 'Expenses']);
+    expect(feedback.lines[0]).toContain('目前有 3 處錯誤');
+    expect(feedback.lines.join(' ')).not.toContain('交通、教育、娛樂類');
+  });
+
+  it('reveals the exact expected entries from the second incorrect attempt', () => {
+    const feedback = getFinancialCheckFeedback(expected, [], 2);
+
+    expect(feedback.lines).toContain('資產：現金（減少）');
+    expect(feedback.lines).toContain('支出：交通、教育、娛樂類（增加）');
   });
 });

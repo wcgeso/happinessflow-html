@@ -1,6 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --app-height: 100%;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: 0px;
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
 
 /* Safe Area Utilities */
 .pb-safe {
@@ -34,16 +44,62 @@
 html, body {
   height: 100%;
   width: 100%;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
   overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   background-color: #0f172a; /* Match index.html */
+}
+
+#root {
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
 }
 
 body {
   @apply bg-slate-950 text-white;
+  font-family: 'Inter', sans-serif;
   -webkit-overflow-scrolling: touch;
   touch-action: manipulation;
+}
+
+input,
+select,
+textarea {
+  font-size: 16px !important;
+}
+
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html[data-motion='reduced'] *,
+html[data-motion='reduced'] *::before,
+html[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
 }
 
 /* 自定義滾動條樣式 */

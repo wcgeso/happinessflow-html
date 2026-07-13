@@ -63,7 +63,6 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, initi
                 onNext={handleProfessionSelect}
                 onBack={onBackToLobby}
                 sessionMeta={sessionMeta}
-                shape="circle"
                 renderItem={(p: Profession, isSelected: boolean) => (
                     <>
                         <div className={`shrink-0 w-24 h-24 rounded-full flex items-center justify-center border-4 transition-colors duration-150 ${isSelected ? 'bg-amber-500/10 border-amber-500 text-amber-500 shadow-lg' : 'bg-slate-800 border-slate-600 text-slate-500'}`}>
@@ -72,6 +71,32 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, initi
                         <div className="space-y-1">
                             <div className="text-sm text-white font-black tracking-widest">{p.initialRank}</div>
                             <div className="text-[10px] text-slate-400 uppercase tracking-[0.2em]">{p.title}</div>
+                        </div>
+                        <div className="w-full rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 text-sm">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <div className="text-[11px] text-slate-500">起薪</div>
+                                    <div className="mt-1 font-mono font-black text-emerald-400">{formatMoney(p.salary)}</div>
+                                </div>
+                                <div>
+                                    <div className="text-[11px] text-slate-500">起始存款</div>
+                                    <div className="mt-1 font-mono font-black text-cyan-300">{formatMoney(p.savings)}</div>
+                                </div>
+                            </div>
+                            <div className="mt-3 border-t border-slate-700 pt-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] text-slate-500">月支出合計</span>
+                                    <span className="font-mono font-black text-rose-300">
+                                        {formatMoney(Object.values(p.expenses).reduce((total, amount) => total + (amount || 0), 0))}
+                                    </span>
+                                </div>
+                                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-400">
+                                    <span>稅金 {formatMoney(p.expenses.tax)}</span>
+                                    <span>基本生活 {formatMoney(p.expenses.basicLiving)}</span>
+                                    <span>交通教育 {formatMoney(p.expenses.transportEdu)}</span>
+                                    <span>其他醫療育兒 {formatMoney(p.expenses.otherMedicalChild)}</span>
+                                </div>
+                            </div>
                         </div>
                     </>
                 )}

@@ -32,6 +32,8 @@ import { BoardAssetSaleCandidate, BoardFinancialAction, BoardInvestmentAction, b
 import { HAPPINESS_CARD_MAP, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP } from '../../constants/cards';
 import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
 import { flowLog } from '../../utils/flowLog';
+import { getBoardActionAvailability } from '../../utils/experienceState';
+import { audioManager } from '../../utils/audio';
 
 export const marketPricesMatch = (current: Record<string, number> | undefined, target: Record<string, number> | undefined) => {
     if (!current || !target) return false;
@@ -49,7 +51,7 @@ export const GameView: React.FC<{
     const FAMILY_JOIN_ROLL_TICK_MS = 90;
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, leaveRoom, rollBoardDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, submitSharedCardPromptResponse, clearSharedCardPrompt, setPendingStartupUpgradeAction, clearPendingStartupUpgradeAction, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, abandonRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
+    const { room, leaveRoom, rollBoardDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, submitSharedCardPromptResponse, setPendingStartupUpgradeAction, clearPendingStartupUpgradeAction, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, abandonRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -179,7 +181,6 @@ export const GameView: React.FC<{
         note?: string;
         startupUpgradeCardId?: string;
     } | null>(null);
-    const [handledSharedPromptIds, setHandledSharedPromptIds] = useState<string[]>([]);
     const [processedStoryRequestIds, setProcessedStoryRequestIds] = useState<string[]>([]);
     const [isSubmittingClaim, setIsSubmittingClaim] = useState(false);
     const [handledClaimKeys, setHandledClaimKeys] = useState<string[]>([]);
@@ -191,10 +192,20 @@ export const GameView: React.FC<{
 
     useEffect(() => {
         const hasSeenTutorial = localStorage.getItem('happiness_flow_tutorial_seen');
-        if (!hasSeenTutorial) {
+        if (!hasSeenTutorial && !room?.isBoardGame) {
             setShowTutorial(true);
         }
-    }, []);
+    }, [room?.isBoardGame]);
+
+    useEffect(() => {
+        if (!room?.isBoardGame || !room.boardState || !user?.uid) return;
+        if (room.boardState.hasRolledThisTurn) return;
+
+        const storageKey = `happiness_flow_board_tutorial_seen_v1_${user.uid}`;
+        if (!localStorage.getItem(storageKey)) {
+            setShowTutorial(true);
+        }
+    }, [room?.boardState?.hasRolledThisTurn, room?.isBoardGame, user?.uid]);
 
     // 監控幸福值是否達標
     useEffect(() => {
@@ -205,7 +216,11 @@ export const GameView: React.FC<{
     }, [gameState.happinessTotal, gameState.hasShownWinAnimation, setGameState]);
 
     const handleCloseTutorial = () => {
-        localStorage.setItem('happiness_flow_tutorial_seen', 'true');
+        if (room?.isBoardGame && user?.uid) {
+            localStorage.setItem(`happiness_flow_board_tutorial_seen_v1_${user.uid}`, 'true');
+        } else {
+            localStorage.setItem('happiness_flow_tutorial_seen', 'true');
+        }
         setShowTutorial(false);
     };
 
@@ -379,6 +394,10 @@ export const GameView: React.FC<{
     };
 
     const boardState = room?.boardState || null;
+    const observedSkipTurnsRef = useRef<Record<string, number>>({});
+    const previousCashRef = useRef<number | null>(null);
+    const previousHappinessRef = useRef<number | null>(null);
+    const previousTurnUidRef = useRef<string | null>(null);
     const currentPlayerRoomState = user?.uid ? room?.playerStates?.[user.uid] : null;
     const pendingStartupUpgradeAction = currentPlayerRoomState?.pendingStartupUpgradeAction || gameState.pendingStartupUpgradeAction || null;
     const familyJoinPrompt = boardState?.familyMilestoneJoinPrompt || null;
@@ -389,6 +408,61 @@ export const GameView: React.FC<{
     const canUseBankProducts = !room?.isBoardGame || !!currentPlayerRoomState?.bankServiceWindowActive;
     const hasCar = gameState.assets.some(asset => asset.type === '汽車' || asset.type === '飛行器');
     const activeBoardCard = boardState?.currentEvent?.playerUid === user?.uid ? boardState?.currentCard || null : null;
+
+    useEffect(() => {
+        const unlock = () => { void audioManager.unlock(); };
+        document.addEventListener('pointerdown', unlock, { once: true, passive: true });
+        document.addEventListener('keydown', unlock, { once: true });
+        return () => {
+            document.removeEventListener('pointerdown', unlock);
+            document.removeEventListener('keydown', unlock);
+        };
+    }, []);
+
+    useEffect(() => {
+        const currentCash = gameState.cash;
+        if (previousCashRef.current === null) {
+            previousCashRef.current = currentCash;
+            return;
+        }
+        if (currentCash !== previousCashRef.current) {
+            const cue = currentCash > previousCashRef.current ? 'cash-in' : 'cash-out';
+            void audioManager.unlock().then(() => audioManager.play(cue));
+            previousCashRef.current = currentCash;
+        }
+    }, [gameState.cash]);
+
+    useEffect(() => {
+        const currentHappiness = gameState.happinessTotal;
+        if (previousHappinessRef.current === null) {
+            previousHappinessRef.current = currentHappiness;
+            return;
+        }
+        if (currentHappiness !== previousHappinessRef.current) {
+            void audioManager.unlock().then(() => audioManager.play('happiness'));
+            previousHappinessRef.current = currentHappiness;
+        }
+    }, [gameState.happinessTotal]);
+
+    useEffect(() => {
+        const currentTurnUid = boardState?.currentTurnUid || null;
+        if (previousTurnUidRef.current && currentTurnUid === user?.uid && currentTurnUid !== previousTurnUidRef.current) {
+            void audioManager.unlock().then(() => audioManager.playOnce('turn', `turn:${boardState?.currentEvent?.id || 'room'}:${currentTurnUid}`));
+        }
+        previousTurnUidRef.current = currentTurnUid;
+    }, [boardState?.currentEvent?.id, boardState?.currentTurnUid, user?.uid]);
+
+    useEffect(() => {
+        if (!room?.isBoardGame || !user?.uid) return;
+
+        const skipTurns = boardState?.skipTurns?.[user.uid] || 0;
+        const previousSkipTurns = observedSkipTurnsRef.current[user.uid] ?? skipTurns;
+        observedSkipTurnsRef.current[user.uid] = skipTurns;
+
+        if (skipTurns > previousSkipTurns) {
+            showAlert(`你將暫停 ${skipTurns} 回合，下一次輪到你時會自動跳過。`, 'info');
+        }
+    }, [boardState?.skipTurns, room?.isBoardGame, showAlert, user?.uid]);
     const activeBankPromptKey = currentPlayerRoomState?.bankServiceWindowActive && currentPlayerRoomState?.bankServiceGrantedAtEventId
         ? `${currentPlayerRoomState.bankServiceGrantedAtEventId}_bank`
         : null;
@@ -437,11 +511,25 @@ export const GameView: React.FC<{
             submittedFamilyJoinPromptIds.includes(activeFamilyJoinPrompt.id)
         )
     );
+    const pendingFamilyJoinAction = currentPlayerRoomState?.pendingFamilyMilestoneJoinAction || null;
+    const pendingFamilyJoinActionDefinition = pendingFamilyJoinAction
+        ? resolveBoardCardAction(pendingFamilyJoinAction.cardId, gameState)
+        : null;
+    const pendingFamilyJoinAcceptOption = pendingFamilyJoinActionDefinition?.kind === 'choice'
+        ? pendingFamilyJoinActionDefinition.options.find(option => option.id === 'accept') || null
+        : null;
     const shouldShowFamilyJoinModal = !!(
         activeFamilyJoinPrompt &&
         isFamilyJoinTarget &&
         visibleFamilyJoinPromptId === activeFamilyJoinPrompt.id &&
         !dismissedFamilyJoinPromptIds.includes(activeFamilyJoinPrompt.id)
+    );
+    const shouldShowFamilyJoinActionModal = !!(
+        pendingFamilyJoinAction &&
+        activeFamilyJoinActionKey &&
+        !handledFamilyJoinActionKeys.includes(activeFamilyJoinActionKey) &&
+        !boardFinancialAction &&
+        !shouldShowFamilyJoinModal
     );
     const isSharedCardTarget = !!(
         activeSharedCardPrompt &&
@@ -460,7 +548,8 @@ export const GameView: React.FC<{
         activeSharedCardPrompt &&
         isSharedCardTarget &&
         visibleSharedCardPromptId === activeSharedCardPrompt.id &&
-        !dismissedSharedCardPromptIds.includes(activeSharedCardPrompt.id)
+        !dismissedSharedCardPromptIds.includes(activeSharedCardPrompt.id) &&
+        !hasRespondedToSharedCardPrompt
     );
     const displayBoardCard = useMemo(
         () => hydrateBoardCardResult(activeBoardCard, gameState),
@@ -569,17 +658,6 @@ export const GameView: React.FC<{
     // 回合不再自動結束，玩家自己按「結束回合」才換下一位（比照大富翁）。
     // 條件：輪到自己、沒有正在移動、沒有排隊中/進行中的棋盤事件、
     // 沒有未回覆完的共享事件、且畫面上沒有任何流程視窗擋著。
-    const canEndTurn = !!(
-        isBoardTurn &&
-        boardState?.hasRolledThisTurn &&
-        !boardState?.movement?.isActive &&
-        !boardState?.currentEvent &&
-        !(boardState?.pendingEvents && boardState.pendingEvents.length > 0) &&
-        !hasIncompleteSharedBoardPrompt &&
-        !isProcessingEvent &&
-        !isRollingBoardDice
-    );
-    const activeRoomMovement = boardState?.movement?.isActive ? boardState.movement : null;
     const storyShareRequest = useMemo(() => {
         if (!room?.pendingRequests || !user?.uid || !activeBoardCardKey || !activeBoardCard) return null;
         return Object.values(room.pendingRequests).find(request =>
@@ -606,31 +684,39 @@ export const GameView: React.FC<{
         ? Math.max(0, -(gameState.cash + pendingForcedBoardPayment.cashChange))
         : 0;
 
-    const getBoardRollBlockReason = () => {
-        if (!room) return '房間尚未同步完成';
-        if (!isBoardTurn) return '現在不是你的回合';
-        if (isRollingBoardDice) return '骰子仍在同步中';
-        if (boardState?.hasRolledThisTurn) return '這回合已經擲過骰子了，請按「結束回合」換下一位';
-        if (activeRoomMovement) return '棋偶仍在移動中';
-        if (isGameFinished) return '本局已結算';
-        if (showPaydayModal) return '請先完成銀行流程';
-        if (showPromotionModal) return '請先完成學校流程';
-        if (showDiceModal) return '請先完成擲骰結果';
-        if (isBoardCardDrawerOpen || (!!activeBoardCardKey && !isActiveBoardCardHandled)) return '請先完成目前卡片';
-        if (boardFinancialAction) return '請先完成財務檢核';
-        if (isNonBoardOverlayOpen) return '請先關閉目前視窗';
-        if (isActiveBankPromptPending) return '請先完成銀行流程';
-        if (isActiveSchoolPromptPending) return '請先完成學校流程';
-        return null;
-    };
+    const boardActionAvailability = getBoardActionAvailability({
+        roomStatus: room?.status,
+        isBoardGame: room?.isBoardGame,
+        currentUid: user?.uid,
+        boardState,
+        isRollingDice: isRollingBoardDice,
+        isProcessingEvent,
+        rollBlocker: isGameFinished
+            ? { code: 'game_finished', message: '本局已結算' }
+            : showPaydayModal || isActiveBankPromptPending
+                ? { code: 'bank_pending', message: '請先完成銀行流程' }
+                : showPromotionModal || isActiveSchoolPromptPending
+                    ? { code: 'school_pending', message: '請先完成學校流程' }
+                    : showDiceModal
+                        ? { code: 'dice_pending', message: '請先完成擲骰結果' }
+                        : isBoardCardDrawerOpen || (!!activeBoardCardKey && !isActiveBoardCardHandled)
+                            ? { code: 'card_pending', message: '請先完成目前卡片' }
+                            : boardFinancialAction
+                                ? { code: 'financial_pending', message: '請先完成財務檢核' }
+                                : isNonBoardOverlayOpen
+                                    ? { code: 'overlay_open', message: '請先關閉目前視窗' }
+                                    : null,
+    });
+    const canEndTurn = boardActionAvailability.canEndTurn;
 
     const handleBoardDiceRoll = async (diceCount?: 1 | 2) => {
-        const blockReason = getBoardRollBlockReason();
+        const blockReason = boardActionAvailability.rollBlocker?.message;
         if (blockReason || isProcessingEvent) {
             showAlert(blockReason || '請先完成目前事件', 'info');
             return null;
         }
         setIsRollingBoardDice(true);
+        void audioManager.unlock().then(() => audioManager.play('dice'));
         try {
             const result = await rollBoardDice(diceCount);
             return result;
@@ -643,7 +729,7 @@ export const GameView: React.FC<{
 
     const handleEndTurn = async () => {
         if (!canEndTurn) {
-            showAlert('請先完成目前的棋盤事件，才能結束回合。', 'info');
+            showAlert(boardActionAvailability.endTurnBlocker?.message || '請先完成目前的棋盤事件，才能結束回合。', 'info');
             return;
         }
         try {
@@ -767,6 +853,8 @@ export const GameView: React.FC<{
             return;
         }
 
+        if (boardFinancialAction || pendingSharedCardCompletion) return;
+
         if (!isSharedCardTarget || dismissedSharedCardPromptIds.includes(sharedCardPrompt.id)) {
             return;
         }
@@ -787,8 +875,10 @@ export const GameView: React.FC<{
         setIsSubmittingFamilyJoin(false);
     }, [
         dismissedSharedCardPromptIds,
+        boardFinancialAction,
         hasRespondedToSharedCardPrompt,
         isSharedCardTarget,
+        pendingSharedCardCompletion,
         sharedCardPrompt,
         sharedCardPrompt?.id,
         sharedCardPromptSnapshot,
@@ -923,30 +1013,6 @@ export const GameView: React.FC<{
     ]);
 
     useEffect(() => {
-        if (!activeSharedCardPrompt?.id) return;
-        if (handledSharedPromptIds.includes(activeSharedCardPrompt.id)) return;
-        const allResponded = activeSharedCardPrompt.targetPlayerUids.every(uid => !!activeSharedCardPrompt.responses?.[uid]);
-        if (!allResponded) return;
-        if (boardState?.currentEvent?.playerUid !== user?.uid || boardState?.currentCard?.cardId !== activeSharedCardPrompt.sourceCardId) return;
-
-        setHandledSharedPromptIds(prev => [...prev, activeSharedCardPrompt.id]);
-        (async () => {
-            await clearSharedCardPrompt(activeSharedCardPrompt.id);
-            await markBoardCardHandled();
-        })().catch((err: any) => {
-            showAlert(err?.message || '共享卡片事件結案失敗', 'error');
-        });
-    }, [
-        activeSharedCardPrompt,
-        boardState?.currentCard?.cardId,
-        boardState?.currentEvent?.playerUid,
-        clearSharedCardPrompt,
-        handledSharedPromptIds,
-        showAlert,
-        user?.uid
-    ]);
-
-    useEffect(() => {
         if (!activeBoardCardKey || !activeBoardCardAction || activeBoardCardAction.kind !== 'market') return;
         // 依 docs/gdd/CARD_SYSTEM.md 揭示規則：市場行情相關卡片也必須在揭示後才可正式生效，
         // 未翻牌前不得把行情寫入房間共享狀態（room.marketPrices 對全房間玩家可見）。
@@ -1010,8 +1076,13 @@ export const GameView: React.FC<{
         setLastDiceSuccess(false);
         setHospitalRollValue(null);
         hideAlert();
+        if (boardState?.currentEvent?.hospitalFeeCoveredByInsurance) {
+            showAlert('醫療保險已抵免本次醫藥費，仍暫停一回合。', 'success');
+            void advanceBoardEventQueue('hospital');
+            return;
+        }
         setShowHospitalRollModal(true);
-    }, [activeHospitalPromptKey, lastHospitalPromptKey, canOpenNextBoardStep, hideAlert]);
+    }, [activeHospitalPromptKey, lastHospitalPromptKey, canOpenNextBoardStep, boardState?.currentEvent?.hospitalFeeCoveredByInsurance, hideAlert, showAlert, advanceBoardEventQueue]);
 
     useEffect(() => {
         if (!activeRepairPromptKey || activeRepairPromptKey === lastRepairPromptKey) return;
@@ -1096,38 +1167,49 @@ export const GameView: React.FC<{
     const handleBoardCardReveal = () => {
         setIsBoardCardRevealed(true);
         if (boardState?.currentEvent?.id && activeBoardCard?.cardId) {
+            void audioManager.unlock()
+                .then(() => audioManager.playOnce('card', `card:${boardState.currentEvent.id}:${activeBoardCard.cardId}`))
+                .catch(() => undefined);
+        }
+        if (boardState?.currentEvent?.id && activeBoardCard?.cardId) {
             const eventId = boardState.currentEvent.id;
             const cardId = activeBoardCard.cardId;
 
             void (async () => {
-                await revealBoardCard(eventId, cardId);
+                try {
+                    await revealBoardCard(eventId, cardId);
 
-                if (HAPPINESS_CARD_MAP[cardId]?.category === '家庭重要歷程') {
-                    void openFamilyMilestoneJoinPrompt(eventId, cardId);
+                    if (HAPPINESS_CARD_MAP[cardId]?.category === '家庭重要歷程') {
+                        await openFamilyMilestoneJoinPrompt(eventId, cardId);
+                    }
+
+                    const requiresSharedPrompt =
+                        (activeBoardCard.deck === 'opportunity' && activeBoardCardAction?.kind === 'asset_sale') ||
+                        (activeBoardCard.deck === 'opportunity' && activeBoardCardAction?.kind === 'financial' && !!activeBoardCardAction.afterApply?.affectsAllPlayersExpense) ||
+                        (activeBoardCard.deck === 'news' && ['cash_dividend', 'stock_dividend', 'large_enterprise', 'small_business'].includes((NEWS_CARD_MAP[cardId] as any)?.type || ''));
+
+                    if (!requiresSharedPrompt) {
+                        return;
+                    }
+
+                    const opened = await openSharedCardPrompt(eventId, cardId);
+                    if (opened === 'opened') {
+                        setIsBoardCardDrawerOpen(false);
+                        return;
+                    }
+
+                    if (opened === 'no_target') {
+                        // 沒有任何玩家（含抽卡者）符合這張卡的資格，視為本次無效果，直接結案。
+                        setIsBoardCardDrawerOpen(false);
+                        await markBoardCardHandled();
+                        return;
+                    }
+
+                    showAlert('共享卡片事件建立失敗，請重新翻開或再試一次', 'error');
+                } catch (err: any) {
+                    console.error('翻開棋盤卡片失敗:', err);
+                    showAlert(err?.message || '卡片同步失敗，請重新整理後再試一次', 'error');
                 }
-
-                const requiresSharedPrompt =
-                    (activeBoardCard.deck === 'opportunity' && activeBoardCardAction?.kind === 'asset_sale') ||
-                    (activeBoardCard.deck === 'news' && ['cash_dividend', 'stock_dividend', 'large_enterprise', 'small_business'].includes((NEWS_CARD_MAP[cardId] as any)?.type || ''));
-
-                if (!requiresSharedPrompt) {
-                    return;
-                }
-
-                const opened = await openSharedCardPrompt(eventId, cardId);
-                if (opened === 'opened') {
-                    setIsBoardCardDrawerOpen(false);
-                    return;
-                }
-
-                if (opened === 'no_target') {
-                    // 沒有任何玩家（含抽卡者）符合這張卡的資格，視為本次無效果，直接結案。
-                    setIsBoardCardDrawerOpen(false);
-                    void markBoardCardHandled();
-                    return;
-                }
-
-                showAlert('共享卡片事件建立失敗，請重新翻開或再試一次', 'error');
             })();
         }
     };
@@ -1594,19 +1676,6 @@ export const GameView: React.FC<{
         }
         setSubmittedSharedCardPromptIds(prev => prev.includes(payload.promptId) ? prev : [...prev, payload.promptId]);
         closeSharedCardPromptModal(payload.promptId);
-
-        // 來源玩家（抽卡者）自己回覆完共享卡片後，必須讓自己的卡片事件跟著結案，
-        // 否則卡片會永遠卡在「未處理」，導致骰子被「請先完成目前卡片」擋住。
-        // dismissBoardCard 內建的 hasIncompleteSharedPrompts guard 仍會等其他玩家
-        // 全部回覆完才真正推進事件佇列，這裡呼叫不會提前結束事件。
-        if (
-            activeSharedCardPrompt?.id === payload.promptId &&
-            activeSharedCardPrompt.sourcePlayerUid === user?.uid &&
-            activeBoardCardKey &&
-            !isActiveBoardCardHandled
-        ) {
-            void markBoardCardHandled();
-        }
     };
 
     const handleSharedCardDecline = async () => {
@@ -1615,6 +1684,20 @@ export const GameView: React.FC<{
             promptId: activeSharedCardPrompt.id,
             status: 'declined',
             note: '玩家選擇不參與'
+        });
+    };
+
+    const handleSharedExpenseConfirm = () => {
+        if (!activeSharedCardPrompt || activeSharedCardPrompt.kind !== 'expense_adjustment' || hasRespondedToSharedCardPrompt) return;
+        if (sharedCardLocalAction?.kind !== 'financial' || !sharedCardLocalAction.afterApply?.affectsAllPlayersExpense) return;
+
+        setVisibleSharedCardPromptId(null);
+        setBoardFinancialAction({ ...sharedCardLocalAction, afterApply: undefined });
+        setIsBoardFinancialCompleted(false);
+        setPendingSharedCardCompletion({
+            promptId: activeSharedCardPrompt.id,
+            status: 'completed',
+            note: '共享月支出調整已完成'
         });
     };
 
@@ -1704,7 +1787,7 @@ export const GameView: React.FC<{
             showAlert('請先選擇要出售的資產，或直接放棄', 'error');
             return;
         }
-        setVisibleSharedCardPromptId(null);
+        closeSharedCardPromptModal(activeSharedCardPrompt.id);
         setBoardFinancialAction(action);
         setPendingSharedCardCompletion({
             promptId: activeSharedCardPrompt.id,
@@ -1911,10 +1994,39 @@ export const GameView: React.FC<{
         }
     };
 
+    const handleFamilyJoinActionChoice = async (accepted: boolean) => {
+        if (!pendingFamilyJoinAction || !activeFamilyJoinActionKey || !pendingFamilyJoinActionDefinition) return;
+
+        if (pendingFamilyJoinActionDefinition.kind !== 'choice') {
+            if (!accepted) {
+                await clearPendingFamilyMilestoneJoinAction(pendingFamilyJoinAction.promptId);
+                setHandledFamilyJoinActionKeys(prev => prev.includes(activeFamilyJoinActionKey) ? prev : [...prev, activeFamilyJoinActionKey]);
+            }
+            return;
+        }
+
+        const selectedOption = pendingFamilyJoinActionDefinition.options.find(option => option.id === (accepted ? 'accept' : 'reject'));
+        if (!selectedOption) return;
+
+        if (selectedOption.action.kind === 'financial') {
+            setBoardFinancialAction(selectedOption.action);
+            setIsBoardFinancialCompleted(false);
+            return;
+        }
+
+        if (selectedOption.action.kind === 'happiness') {
+            await applyJoinDirectHappiness(selectedOption.action, pendingFamilyJoinAction.promptId, activeFamilyJoinActionKey);
+            return;
+        }
+
+        await clearPendingFamilyMilestoneJoinAction(pendingFamilyJoinAction.promptId);
+        setHandledFamilyJoinActionKeys(prev => prev.includes(activeFamilyJoinActionKey) ? prev : [...prev, activeFamilyJoinActionKey]);
+    };
+
     useEffect(() => {
         if (!currentPlayerRoomState?.pendingFamilyMilestoneJoinAction || !activeFamilyJoinActionKey) return;
         if (handledFamilyJoinActionKeys.includes(activeFamilyJoinActionKey)) return;
-        if (!canOpenNextBoardStep || !!boardFinancialAction || shouldShowFamilyJoinModal) return;
+        if (!canOpenNextBoardStep || !!boardFinancialAction || shouldShowFamilyJoinModal || shouldShowFamilyJoinActionModal) return;
 
         const { promptId, cardId } = currentPlayerRoomState.pendingFamilyMilestoneJoinAction;
         const joinAction = resolveBoardCardAction(cardId, gameState);
@@ -1963,17 +2075,13 @@ export const GameView: React.FC<{
         pendingHandledBoardCard,
         pendingBoardStepAdvance,
         pendingSharedCardCompletion,
+        shouldShowFamilyJoinActionModal,
         shouldShowFamilyJoinModal,
         showAlert
     ]);
 
-    // 注意：這兩個重試 effect 不再依賴 pendingHandledBoardCard（本機暫存的重試
-    // 旗標）——那個旗標只在「本次網頁工作階段內曾經失敗過一次」才會被設起來，
-    // 一旦中途重新整理過網頁就會遺失，導致其他玩家後來才回覆完時完全沒有人會
-    // 再嘗試結案，卡片與骰子/結束回合永久卡住（實際發生過：N055、N056）。
-    // 改成單純看 Firestore 上持久化的狀態：這張卡是不是自己抽到的、還沒結案、
-    // 而共享/家庭提示現在是不是已經全員回覆完，只要條件成立就直接嘗試結案，
-    // 不管本機有沒有暫存過重試旗標。
+    // 家庭歷程的邀請名單不包含抽卡者；只有抽卡者已完成自己的處理、先進入等待結案時，
+    // 才能在其他玩家全部回覆後自動結案。
     useEffect(() => {
         if (!room?.isBoardGame || !boardState || !user?.uid || !activeFamilyJoinPrompt || !activeBoardCard) return;
         if (boardState.currentEvent?.playerUid !== user.uid) return;
@@ -1981,6 +2089,7 @@ export const GameView: React.FC<{
         if (HAPPINESS_CARD_MAP[activeBoardCard.cardId]?.category !== '家庭重要歷程') return;
         const hasAllResponses = activeFamilyJoinPrompt.targetPlayerUids.every(uid => !!activeFamilyJoinPrompt.responses?.[uid]);
         if (!hasAllResponses) return;
+        if (!pendingHandledBoardCard) return;
         if (isActiveBoardCardHandled) return;
 
         void finalizeBoardFinancialFlow();
@@ -1990,6 +2099,7 @@ export const GameView: React.FC<{
         activeFamilyJoinPrompt,
         finalizeBoardFinancialFlow,
         isActiveBoardCardHandled,
+        pendingHandledBoardCard,
         room?.isBoardGame,
         boardState,
         user?.uid
@@ -2079,7 +2189,7 @@ export const GameView: React.FC<{
                 <button
                     type="button"
                     onClick={() => setShowBoardCardLog(true)}
-                    className="fixed right-4 top-[calc(env(safe-area-inset-top,0px)+112px)] z-50 flex items-center gap-2 rounded-full border border-amber-300/30 bg-slate-900/95 px-4 py-2.5 text-xs font-black text-amber-100 shadow-xl backdrop-blur-md"
+                    className="fixed right-4 top-[calc(env(safe-area-inset-top,0px)+162px)] z-50 flex items-center gap-2 rounded-full border border-amber-300/30 bg-slate-900/95 px-4 py-2.5 text-xs font-black text-amber-100 shadow-xl backdrop-blur-md"
                 >
                     <ScrollText size={16} />
                     抽卡日誌
@@ -2149,6 +2259,50 @@ export const GameView: React.FC<{
                 </div>
             )}
 
+            {shouldShowFamilyJoinActionModal && pendingFamilyJoinAction && pendingFamilyJoinAcceptOption && (
+                <div className="fixed inset-0 z-[10042] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-[32px] border border-amber-200/30 bg-[#fff8ee] p-6 text-[#6a4b2f] shadow-2xl">
+                        <div className="space-y-3">
+                            <div className="inline-flex rounded-full border border-[#d9b98b] bg-[#fff2de] px-4 py-1 text-sm font-black tracking-[0.2em] text-[#9a6f43]">
+                                家庭重要歷程
+                            </div>
+                            <h3 className="text-3xl font-black leading-tight">要參加這項家庭歷程嗎？</h3>
+                            <p className="text-base font-bold leading-relaxed text-[#7a5a3d]">
+                                你已擲骰達標，可以選擇是否完成自己的家庭歷程。選擇參加後，才會進入財務檢核。
+                            </p>
+                        </div>
+
+                        <div className="mt-6 rounded-[24px] border border-[#ead0ab] bg-white/80 p-4">
+                            <div className="text-lg font-black text-[#5e432c]">{pendingFamilyJoinAcceptOption.action.kind === 'financial' ? pendingFamilyJoinAcceptOption.action.txData.name : '家庭歷程獎勵'}</div>
+                            {pendingFamilyJoinAcceptOption.action.kind === 'financial' && (
+                                <div className="mt-2 space-y-1 text-sm font-bold text-[#8b6a48]">
+                                    {(pendingFamilyJoinAcceptOption.action.txData.impacts || []).map(impact => (
+                                        <div key={impact}>{impact}</div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-6 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => { void handleFamilyJoinActionChoice(false); }}
+                                className="flex-1 rounded-2xl border border-[#d9b98b] bg-white px-4 py-3 text-base font-black text-[#8b6a48] transition hover:bg-[#fff4e7]"
+                            >
+                                不參加
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { void handleFamilyJoinActionChoice(true); }}
+                                className="flex-1 rounded-2xl bg-[#f59e0b] px-4 py-3 text-base font-black text-white transition hover:bg-[#f2a81f]"
+                            >
+                                參加
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {shouldShowSharedCardPromptModal && activeSharedCardPrompt && (
                 <div className="fixed inset-0 z-[10041] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
                     <div className="w-full max-w-lg rounded-[32px] border border-cyan-200/20 bg-slate-950 p-6 text-white shadow-2xl">
@@ -2162,6 +2316,7 @@ export const GameView: React.FC<{
                                 {activeSharedCardPrompt.kind === 'stock_dividend' && '股票股息結算'}
                                 {activeSharedCardPrompt.kind === 'investment' && '大型企業投資'}
                                 {activeSharedCardPrompt.kind === 'startup_loan' && '創業貸款選擇'}
+                                {activeSharedCardPrompt.kind === 'expense_adjustment' && '全體月支出調整'}
                             </h3>
                             <p className="text-sm leading-relaxed text-slate-300">
                                 {activeSharedCardPrompt.sourcePlayerName} 抽到 {activeSharedCardPrompt.sourceCardId}。
@@ -2276,15 +2431,29 @@ export const GameView: React.FC<{
                             </div>
                         )}
 
+                        {activeSharedCardPrompt.kind === 'expense_adjustment' && sharedCardLocalAction?.kind === 'financial' && (
+                            <div className="mt-6 rounded-3xl border border-amber-400/30 bg-amber-500/10 p-5">
+                                <div className="text-xs font-black tracking-[0.2em] text-amber-200">你的月支出調整</div>
+                                <div className="mt-3 space-y-2 text-sm font-bold leading-relaxed text-amber-50">
+                                    {sharedCardLocalAction.txData.impacts.map(impact => (
+                                        <div key={impact}>{impact}</div>
+                                    ))}
+                                </div>
+                                <div className="mt-3 text-xs leading-relaxed text-amber-100/70">請完成財務檢核，這項調整會套用到你的財務報表。</div>
+                            </div>
+                        )}
+
                         <div className="mt-6 flex gap-3">
-                            <button
-                                type="button"
-                                onClick={handleSharedCardDecline}
-                                disabled={hasRespondedToSharedCardPrompt}
-                                className="flex-1 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-base font-black text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                                {hasRespondedToSharedCardPrompt ? '已回覆' : '放棄'}
-                            </button>
+                            {activeSharedCardPrompt.kind !== 'expense_adjustment' && (
+                                <button
+                                    type="button"
+                                    onClick={handleSharedCardDecline}
+                                    disabled={hasRespondedToSharedCardPrompt}
+                                    className="flex-1 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-base font-black text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {hasRespondedToSharedCardPrompt ? '已回覆' : '放棄'}
+                                </button>
+                            )}
                             {activeSharedCardPrompt.kind === 'asset_sale' && (
                                 <button
                                     type="button"
@@ -2323,6 +2492,16 @@ export const GameView: React.FC<{
                                     className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     接受貸款
+                                </button>
+                            )}
+                            {activeSharedCardPrompt.kind === 'expense_adjustment' && (
+                                <button
+                                    type="button"
+                                    onClick={handleSharedExpenseConfirm}
+                                    disabled={hasRespondedToSharedCardPrompt}
+                                    className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    進入財務檢核
                                 </button>
                             )}
                         </div>
@@ -2368,7 +2547,7 @@ export const GameView: React.FC<{
                 <HappinessWinAnimation onComplete={() => setShowWinAnimation(false)} />
             )}
 
-            <main className="fixed inset-0 overflow-y-auto no-scrollbar pt-[calc(110px+env(safe-area-inset-top,0px))] pb-[calc(200px+env(safe-area-inset-bottom,0px))] sm:pb-[calc(230px+env(safe-area-inset-bottom,0px))] touch-pan-y">
+            <main className="fixed inset-0 overflow-y-auto no-scrollbar pt-[calc(160px+env(safe-area-inset-top,0px))] pb-[calc(200px+env(safe-area-inset-bottom,0px))] sm:pb-[calc(230px+env(safe-area-inset-bottom,0px))] touch-pan-y">
                 <div className="max-w-4xl mx-auto w-full px-4 md:px-6 space-y-6">
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <FinancialStatement
@@ -2403,6 +2582,9 @@ export const GameView: React.FC<{
                 }}
                 onEndTurn={handleEndTurn}
                 canEndTurn={canEndTurn}
+                rollBlockReason={boardActionAvailability.rollBlocker?.message}
+                endTurnBlockReason={boardActionAvailability.endTurnBlocker?.message}
+                hasRolledBoardDice={!!boardState?.hasRolledThisTurn}
                 isBoardTurn={isBoardTurn}
                 isRollingBoardDice={isRollingBoardDice}
                 hasCar={hasCar}
@@ -2793,19 +2975,24 @@ export const GameView: React.FC<{
 
             {/* Modals */}
             {showRealEstateMarketModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300 sm:p-4">
-                    <div className="bg-slate-900 sm:border border-slate-700 w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-lg sm:rounded-[32px] p-6 space-y-6 shadow-2xl flex flex-col pt-safe">
-                        <div className="flex items-center justify-between shrink-0">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="flex w-full max-w-3xl max-h-[90vh] flex-col overflow-hidden rounded-[32px] border border-slate-700 bg-slate-900 shadow-2xl">
+                        <div className="flex items-center justify-between shrink-0 border-b border-slate-800 p-4 sm:p-5">
                             <h2 className="text-2xl font-black text-white">房市公告板</h2>
                             <button
                                 onClick={() => setShowRealEstateMarketModal(false)}
-                                className="text-slate-400 hover:text-white"
+                                className="rounded-xl px-3 py-2 text-sm font-black text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
                             >
                                 關閉
                             </button>
                         </div>
+
+                        <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-3 sm:px-6">
+                            <span className="text-sm font-black tracking-wider text-slate-400">持有現金</span>
+                            <span className="text-xl font-black text-emerald-400">{formatMoney(gameState.cash)}</span>
+                        </div>
                         
-                        <div className="flex-1 overflow-y-auto space-y-4 pb-safe pr-2 -mr-2">
+                        <div className="flex-1 overflow-y-auto space-y-4 p-4 sm:p-6">
                             {(!boardState?.realEstateMarket || boardState.realEstateMarket.length === 0) ? (
                                 <div className="text-center py-10 text-slate-500 font-medium">
                                     目前市場上沒有釋出的房屋
@@ -3088,7 +3275,8 @@ export const GameView: React.FC<{
             {showMedicalClaimModal && (
                 <MedicalClaimModal
                     isOpen={showMedicalClaimModal}
-                    insuranceCount={canClaimMedical ? gameState.medicalInsuranceCount : 0}
+                    insuranceCount={gameState.medicalInsuranceCount}
+                    canClaimMedical={canClaimMedical}
                     hasInsuredAircraft={canClaimVehicle}
                     formatMoney={formatMoney}
                     onConfirm={onModalMedicalConfirm}
@@ -3172,6 +3360,7 @@ export const GameView: React.FC<{
                 isOpen={showTutorial}
                 onClose={handleCloseTutorial}
                 showSkip={true}
+                mode={room?.isBoardGame ? 'board' : 'general'}
             />
 
         </div>

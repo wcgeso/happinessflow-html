@@ -150,7 +150,7 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
       financialCheckEntries: [
         { category: 'Assets', name: '現金', direction: 'Decrease' },
         { category: 'Liabilities', name: liabilityLabel, direction: 'Decrease' },
-        ...(interestLabel ? [{ category: 'Expenses', name: interestLabel, direction: 'Decrease' as const }] : [])
+        ...(interestLabel ? [{ category: 'Expenses' as const, name: interestLabel, direction: 'Decrease' as const }] : [])
       ]
     });
     setAmount(0);

@@ -85,6 +85,41 @@ describe('resolveBoardCardAction', () => {
     expect(action.txData.cashChange).toBe(-100000);
   });
 
+  it('C014 offers every qualifying residence at a 60% premium', () => {
+    const action = resolveBoardCardAction('C014', createGameState({
+      assets: [{
+        id: 'house-1',
+        name: 'N001 單間小套房',
+        cost: 10000000,
+        downPayment: 3000000,
+        cashflow: 30000,
+        type: '不動產'
+      }]
+    }));
+
+    expect(action.kind).toBe('asset_sale');
+    if (action.kind !== 'asset_sale') return;
+    expect(action.items[0]?.price).toBe(16000000);
+  });
+
+  it('C034 tolerates legacy enterprise assets without cashflow', () => {
+    const action = resolveBoardCardAction('C034', createGameState({
+      liabilities: undefined as unknown as GameState['liabilities'],
+      assets: [{
+        id: 'business-legacy',
+        name: '舊企業資產',
+        cost: 1000000,
+        downPayment: 1000000,
+        cashflow: undefined as unknown as number,
+        type: '企業'
+      }]
+    }));
+
+    expect(action.kind).toBe('asset_sale');
+    if (action.kind !== 'asset_sale') return;
+    expect(action.items[0]?.price).toBe(0);
+  });
+
   it('C039: no vehicle means no payment flow', () => {
     const action = resolveBoardCardAction('C039', createGameState());
     expect(action.kind).toBe('choice');
@@ -128,6 +163,22 @@ describe('resolveBoardCardAction', () => {
     expect(action.afterApply?.affectsAllPlayersExpense).toEqual({
       amount: 1000,
       category: 'basicLiving',
+      isIncrease: true
+    });
+  });
+
+  it('C047 maps inflation to the transport expense category', () => {
+    const action = resolveBoardCardAction('C047', createGameState());
+    expect(action.kind).toBe('financial');
+    if (action.kind !== 'financial') return;
+    expect(action.txData.expensePayload).toEqual({
+      category: 'transportEdu',
+      amount: 2000,
+      isIncrease: true
+    });
+    expect(action.afterApply?.affectsAllPlayersExpense).toEqual({
+      amount: 2000,
+      category: 'transportEdu',
       isIncrease: true
     });
   });
@@ -243,6 +294,13 @@ describe('resolveBoardCardAction', () => {
     expect(acceptOption?.action.kind).toBe('effect');
     if (!acceptOption || acceptOption.action.kind !== 'effect') return;
     expect(acceptOption.action.afterApply?.drawCard).toBe('news');
+  });
+
+  it('H009 requires story approval before awarding happiness', () => {
+    const action = resolveBoardCardAction('H009', createGameState());
+    expect(action.kind).toBe('happiness');
+    if (action.kind !== 'happiness') return;
+    expect(action.points).toBe(2);
   });
 
   it('C051 and C053 are forced board cards', () => {

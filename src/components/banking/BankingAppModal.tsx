@@ -108,7 +108,7 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
     if (data.usage === 'asset' && data.stockList?.length) {
       return [
         { category: 'Assets', name: '現金', direction: 'Decrease' },
-        ...data.stockList.map(item => ({ category: 'Assets', name: getStockAssetLabel(item.symbol), direction: 'Increase' as const }))
+        ...data.stockList.map(item => ({ category: 'Assets' as const, name: getStockAssetLabel(item.symbol), direction: 'Increase' as const }))
       ];
     }
 
@@ -122,7 +122,7 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
     if (data.usage === 'cash' && data.stockList?.length) {
       return [
         { category: 'Assets', name: '現金', direction: 'Increase' },
-        ...data.stockList.map(item => ({ category: 'Assets', name: getStockAssetLabel(item.symbol), direction: 'Decrease' as const }))
+        ...data.stockList.map(item => ({ category: 'Assets' as const, name: getStockAssetLabel(item.symbol), direction: 'Decrease' as const }))
       ];
     }
 
@@ -285,6 +285,11 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
           </button>
         </div>
 
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-3 sm:px-6">
+          <span className="text-sm font-black tracking-wider text-slate-400">持有現金</span>
+          <span className="text-xl font-black text-emerald-400">${cash.toLocaleString()}</span>
+        </div>
+
         {/* Content Area - Row layout for desktop, Col for mobile */}
         <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
           
@@ -314,10 +319,6 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
               })}
             </div>
             
-            <div className="hidden sm:block mt-8 p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50">
-              <div className="text-[11px] font-bold text-slate-500 mb-1">可用餘額</div>
-              <div className="text-lg font-black text-emerald-400">${cash.toLocaleString()}</div>
-            </div>
           </div>
 
           {/* Main Content */}

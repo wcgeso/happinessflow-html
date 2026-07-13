@@ -30,17 +30,20 @@ import {
     Home,
     Heart,
     Settings,
-    Rocket
+    Rocket,
+    Activity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../services/firebase';
-import { setDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { setDoc, serverTimestamp, doc, getDoc, getDocs, collection, updateDoc } from 'firebase/firestore';
 import { STOCK_DATA, BUBBLE_BURST_CODES, STOCK_NAMES } from '../../constants';
 import { flowLog } from '../../utils/flowLog';
 import { settleGame } from '../../game/settlement/settleGame';
+import { canSkipDisconnectedPlayer, isPresenceOnline } from '../../utils/presence';
+import { hasIncompleteSharedPrompts } from '../../utils/boardCardActions';
 
 export const CoachGameView: React.FC = () => {
-    const { room, playerStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, updateRoomTimer, approveRequest, rejectRequest } = useRoom();
+    const { room, playerStates, presenceStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, updateRoomTimer, approveRequest, rejectRequest, skipDisconnectedTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
     const { user } = useAuth();
 
     console.log('CoachGameView 渲染 - 房間:', room?.id, '狀態:', room?.status, '待審核數:', room?.pendingRequests ? Object.keys(room.pendingRequests).length : 0);
@@ -92,6 +95,7 @@ export const CoachGameView: React.FC = () => {
     const [timeLeft, setTimeLeft] = useState(room?.gameTimeLeft || 60 * 60);
     const [isPaused, setIsPaused] = useState(room?.isTimerPaused ?? true);
     const [isTimerPanelOpen, setIsTimerPanelOpen] = useState(false);
+    const [isEventPanelOpen, setIsEventPanelOpen] = useState(false);
 
     // 當房間數據更新時，同步本地計時器狀態
     useEffect(() => {
@@ -119,6 +123,10 @@ export const CoachGameView: React.FC = () => {
         
         return requests[0];
     }, [room?.pendingRequests]);
+
+    const pendingRequests = useMemo(() => Object.values(room?.pendingRequests || {})
+        .filter(request => request.status === 'pending')
+        .sort((a, b) => a.timestamp - b.timestamp), [room?.pendingRequests]);
 
     // 倒數計時邏輯：deps 只依賴 isPaused，不依賴 timeLeft——原本把 timeLeft
     // 放進依賴陣列，但 timeLeft 本身每秒都會被這個 effect 自己的
@@ -290,6 +298,31 @@ export const CoachGameView: React.FC = () => {
         });
     }, [room?.members, room?.hostId, playerStates]);
 
+    const eventPanelState = useMemo(() => {
+        const boardState = room?.boardState;
+        const currentPlayer = boardState?.currentTurnUid
+            ? players.find(player => player.uid === boardState.currentTurnUid)
+            : null;
+        const sharedPrompt = boardState?.sharedCardPrompt;
+        const sharedDone = sharedPrompt
+            ? sharedPrompt.targetPlayerUids.filter(uid => !!sharedPrompt.responses?.[uid]).length
+            : 0;
+
+        return {
+            currentPlayerName: currentPlayer?.name || '尚未指定',
+            currentPlayerOnline: boardState?.currentTurnUid ? isPresenceOnline(presenceStates[boardState.currentTurnUid]) : null,
+            eventSummary: boardState?.currentEvent?.summary || null,
+            eventAgeSeconds: boardState?.currentEvent
+                ? Math.max(0, Math.floor((Date.now() - boardState.currentEvent.timestamp) / 1000))
+                : null,
+            queuedEvents: boardState?.pendingEvents?.length || 0,
+            sharedDone,
+            sharedTotal: sharedPrompt?.targetPlayerUids.length || 0,
+            pendingRequestCount: pendingRequests.length,
+            movementActive: !!boardState?.movement?.isActive,
+        };
+    }, [pendingRequests.length, players, presenceStates, room?.boardState]);
+
     const selectedPlayer = useMemo(() => {
         return players.find(p => p.uid === selectedPlayerUid);
     }, [players, selectedPlayerUid]);
@@ -297,8 +330,11 @@ export const CoachGameView: React.FC = () => {
     const allPlayersReady = useMemo(() => {
         const activePlayers = players.filter(p => !p.isLeft);
         if (activePlayers.length === 0) return false;
-        return activePlayers.every(p => playerStates[p.uid]?.isSetup);
-    }, [players, playerStates]);
+        return activePlayers.every(p => room?.publicPlayerStates?.[p.uid]?.isSetup ?? playerStates[p.uid]?.isSetup);
+    }, [players, playerStates, room?.publicPlayerStates]);
+
+    const isPlayerSetup = (uid: string) =>
+        room?.publicPlayerStates?.[uid]?.isSetup ?? playerStates[uid]?.isSetup;
 
     const [showPublishSuccess, setShowPublishSuccess] = useState(false);
     const [showSaveSuccess, setShowSaveSuccess] = useState(false);
@@ -351,10 +387,10 @@ export const CoachGameView: React.FC = () => {
 
         try {
             // 直接從 Firestore 讀取最新玩家狀態，不依賴記憶體
-            const roomSnap = await getDoc(doc(db, 'rooms', room.id));
-            const freshStates: Record<string, any> = roomSnap.exists()
-                ? (roomSnap.data()?.playerStates || {})
-                : {};
+            const playerSnapshots = await getDocs(collection(db, 'rooms', room.id, 'players'));
+            const freshStates: Record<string, any> = Object.fromEntries(
+                playerSnapshots.docs.map(snapshot => [snapshot.id, snapshot.data()])
+            );
 
             // 整理所有玩家的積分數據
             const playersData = players.map(player => {
@@ -546,6 +582,14 @@ export const CoachGameView: React.FC = () => {
 
     const selectedPlayerState = selectedPlayerUid ? playerStates[selectedPlayerUid] : null;
 
+    const handleSkipDisconnectedTurn = async (playerUid: string) => {
+        try {
+            await skipDisconnectedTurn(playerUid);
+        } catch (error: any) {
+            window.alert(error?.message || '目前不能跳過這位玩家的回合');
+        }
+    };
+
     const sortedPlayers = useMemo(() => {
         return players
             .map(p => ({
@@ -587,15 +631,7 @@ export const CoachGameView: React.FC = () => {
     const handleRefresh = async () => {
         setIsRefreshing(true);
         try {
-            // 手動觸發一次房間數據獲取
-            if (room?.id) {
-                const roomDoc = await safeAsync(getDoc(doc(db, 'rooms', room.id)));
-                if (roomDoc && roomDoc.exists()) {
-                    // 這裡其實不需要手動 setRoom，因為 onSnapshot 會處理
-                    // 但主動 getDoc 可以確保連線正常並觸發快取更新
-                    console.log('手動重新整理房間數據成功');
-                }
-            }
+            await resyncRoom();
             // 模擬延遲讓使用者有感
             await new Promise(resolve => setTimeout(resolve, 600));
         } catch (error) {
@@ -855,6 +891,19 @@ export const CoachGameView: React.FC = () => {
                         </div>
                     </div>
 
+                    {room?.isBoardGame && (
+                        <button
+                            onClick={() => setIsEventPanelOpen(open => !open)}
+                            className={cn(
+                                "flex items-center gap-2 rounded-xl border px-2 py-2 text-[11px] font-black transition-colors md:px-3 md:text-xs",
+                                isEventPanelOpen ? "border-cyan-400/60 bg-cyan-400/15 text-cyan-200" : "border-slate-700 bg-slate-800/60 text-slate-300 hover:border-cyan-400/50"
+                            )}
+                        >
+                            <Activity size={15} />
+                            流程 {eventPanelState.pendingRequestCount > 0 ? `(${eventPanelState.pendingRequestCount})` : ''}
+                        </button>
+                    )}
+
                     <button
                         onClick={handleExit}
                         className="p-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl transition-all border border-rose-500/20"
@@ -862,6 +911,47 @@ export const CoachGameView: React.FC = () => {
                         <LogOut size={20} />
                     </button>
                 </div>
+
+                {room?.isBoardGame && isEventPanelOpen && (
+                    <div className="absolute right-6 top-full z-[80] mt-3 w-[min(92vw,360px)] rounded-2xl border border-slate-700 bg-slate-900/95 p-4 shadow-2xl backdrop-blur-xl">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <div className="flex items-center gap-2 text-sm font-black text-white">
+                                <Activity size={16} className="text-cyan-300" />
+                                遊戲流程
+                            </div>
+                            <button onClick={() => void handleRefresh()} className="text-[10px] font-black text-cyan-300 hover:text-cyan-100">重新同步</button>
+                        </div>
+                        <div className="mt-3 space-y-2 text-xs">
+                            <div className="flex justify-between gap-4"><span className="text-slate-500">目前回合</span><strong className="text-right text-slate-200">{eventPanelState.currentPlayerName} <span className={eventPanelState.currentPlayerOnline ? 'text-emerald-300' : 'text-rose-300'}>{eventPanelState.currentPlayerOnline ? '在線' : '離線'}</span></strong></div>
+                            <div className="flex justify-between gap-4"><span className="text-slate-500">棋盤事件</span><strong className="text-right text-slate-200">{eventPanelState.eventSummary || '無'}{eventPanelState.eventAgeSeconds !== null ? `（${eventPanelState.eventAgeSeconds} 秒）` : ''}</strong></div>
+                            <div className="flex justify-between gap-4"><span className="text-slate-500">排隊事件</span><strong className="text-slate-200">{eventPanelState.queuedEvents} 筆</strong></div>
+                            <div className="flex justify-between gap-4"><span className="text-slate-500">共享回覆</span><strong className="text-slate-200">{eventPanelState.sharedTotal ? `${eventPanelState.sharedDone}/${eventPanelState.sharedTotal}` : '無'}</strong></div>
+                            <div className="flex justify-between gap-4"><span className="text-slate-500">待審核</span><strong className="text-amber-300">{eventPanelState.pendingRequestCount} 筆</strong></div>
+                        </div>
+                        {pendingRequests.length > 0 && (
+                            <div className="mt-3 space-y-1 border-t border-slate-800 pt-3">
+                                {pendingRequests.slice(0, 3).map(request => (
+                                    <div key={request.id} className="flex items-center justify-between gap-3 text-[10px]">
+                                        <span className="truncate text-slate-300">{request.playerName}</span>
+                                        <span className="shrink-0 text-amber-300">{request.type === 'board_share' ? '卡片分享' : request.type === 'happiness' ? '幸福卡' : request.type}</span>
+                                    </div>
+                                ))}
+                                {pendingRequests.length > 3 && <div className="text-right text-[10px] text-slate-500">還有 {pendingRequests.length - 3} 筆</div>}
+                            </div>
+                        )}
+                        {eventPanelState.movementActive && (
+                            <button
+                                onClick={() => void retryStaleBoardMovement().catch(error => window.alert(error?.message || '目前不能重試移動'))}
+                                className="mt-4 w-full rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs font-black text-cyan-200"
+                            >
+                                重試移動收尾
+                            </button>
+                        )}
+                        {!eventPanelState.eventSummary && !eventPanelState.queuedEvents && !eventPanelState.sharedTotal && !eventPanelState.pendingRequestCount && !eventPanelState.movementActive && (
+                            <div className="mt-3 rounded-xl bg-emerald-500/10 px-3 py-2 text-center text-xs font-bold text-emerald-300">目前沒有阻塞流程</div>
+                        )}
+                    </div>
+                )}
 
                 {/* 懸掛式倒數計時器 (同步玩家畫面風格) */}
                 <div className="absolute left-1/2 -translate-x-1/2 top-full flex items-center justify-center z-30">
@@ -1147,6 +1237,27 @@ export const CoachGameView: React.FC = () => {
                                                                     </span>
                                                                 )}
                                                             </div>
+                                                            {!player.isLeft && (
+                                                                <div className="flex items-center gap-2 text-[9px] font-bold">
+                                                                    <span className={presenceStates[player.uid] ? (isPresenceOnline(presenceStates[player.uid]) ? 'text-emerald-400' : 'text-rose-400') : 'text-slate-500'}>
+                                                                        {!presenceStates[player.uid] ? '連線同步中' : isPresenceOnline(presenceStates[player.uid]) ? '在線' : '已離線'}
+                                                                    </span>
+                                                                    {room?.boardState?.currentTurnUid === player.uid &&
+                                                                        canSkipDisconnectedPlayer(presenceStates[player.uid]) &&
+                                                                        !room.boardState.movement?.isActive &&
+                                                                        !room.boardState.currentEvent &&
+                                                                        !room.boardState.pendingEvents?.length &&
+                                                                        !hasIncompleteSharedPrompts(room.boardState) && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => void handleSkipDisconnectedTurn(player.uid)}
+                                                                            className="rounded-md bg-rose-500/15 px-1.5 py-0.5 text-rose-300 hover:bg-rose-500/25"
+                                                                        >
+                                                                            跳過回合
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-1.5">
@@ -1198,7 +1309,7 @@ export const CoachGameView: React.FC = () => {
                 </AnimatePresence>
             </div>
 
-            {(!allPlayersReady || room?.status === 'waiting') ? (
+            {room?.status === 'waiting' ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-950 relative overflow-hidden">
                     {/* 背景裝飾 */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/5 rounded-full blur-[100px] animate-pulse" />
@@ -1224,7 +1335,7 @@ export const CoachGameView: React.FC = () => {
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-xs font-black text-slate-500 uppercase tracking-widest">當前準備進度</span>
                                 <span className="text-xs font-black text-amber-500">
-                                    {players.filter(p => !p.isLeft && playerStates[p.uid]?.isSetup).length} / {players.filter(p => !p.isLeft).length}
+                                    {players.filter(p => !p.isLeft && isPlayerSetup(p.uid)).length} / {players.filter(p => !p.isLeft).length}
                                 </span>
                             </div>
 
@@ -1237,7 +1348,7 @@ export const CoachGameView: React.FC = () => {
                                             </div>
                                             <span className="text-sm font-bold text-slate-300">{player.name}</span>
                                         </div>
-                                        {playerStates[player.uid]?.isSetup ? (
+                                        {isPlayerSetup(player.uid) ? (
                                             <div className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-black uppercase">
                                                 <CheckCircle2 size={12} />
                                                 <span>已進入遊戲</span>

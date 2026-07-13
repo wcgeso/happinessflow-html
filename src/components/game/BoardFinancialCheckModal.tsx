@@ -15,7 +15,7 @@ interface BoardFinancialCheckModalProps {
 
 const DEFAULT_ITEMS = {
   Assets: ['現金', '定存', '汽車', '企業', '現金（企業貸款）'],
-  Liabilities: ['信用貸款', '強制負債', '不動產貸款', '企業貸款', '汽車貸款'],
+  Liabilities: ['信用貸款', '不動產貸款', '企業貸款', '汽車貸款'],
   Income: ['租金收入', '企業收益', '定存利息'],
   Expenses: ['信貸利息', '不動產貸款利息', '企業貸款利息', '汽車貸款利息', '保險支出', '餐飲、服飾、居住類', '交通、教育、娛樂類', '其他、醫療、育兒類']
 };
@@ -74,19 +74,24 @@ export const normalizeExpectedEntries = (entries: AccountEntry[], txData: Transa
   const normalized = [...entries];
 
   if (txData.expensePayload) {
-    normalizeExpenseEntry(
-      normalized,
-      txData.expensePayload.category,
-      txData.expensePayload.isIncrease ? 'Increase' : 'Decrease'
-    );
+    if (txData.expensePayload.category !== 'tax') {
+      normalizeExpenseEntry(
+        normalized,
+        txData.expensePayload.category,
+        txData.expensePayload.isIncrease ? 'Increase' : 'Decrease'
+      );
+    }
   }
 
   if (txData.happinessEventPayload?.monthlyExpenseChange && txData.happinessEventPayload.expenseCategory) {
-    normalizeExpenseEntry(
-      normalized,
-      txData.happinessEventPayload.expenseCategory,
-      'Increase'
-    );
+    const category = txData.happinessEventPayload.expenseCategory;
+    if (category === 'basicLiving' || category === 'transportEdu' || category === 'otherMedicalChild') {
+      normalizeExpenseEntry(
+        normalized,
+        category,
+        'Increase'
+      );
+    }
   }
 
   const symbol = txData.assetDetails?.symbol || txData.name.match(/N\d{3}/)?.[0];
@@ -122,6 +127,47 @@ export const normalizeExpectedEntries = (entries: AccountEntry[], txData: Transa
   return normalized;
 };
 
+export const getFinancialCheckFeedback = (
+  expectedEntries: AccountEntry[],
+  userEntries: AccountEntry[],
+  attempt: number
+) => {
+  const entryKey = (entry: AccountEntry) => `${entry.category}:${entry.name}:${entry.direction}`;
+  const expectedKeys = new Set(expectedEntries.map(entryKey));
+  const userKeys = new Set(userEntries.map(entryKey));
+  const missingEntries = expectedEntries.filter(entry => !userKeys.has(entryKey(entry)));
+  const unexpectedEntries = userEntries.filter(entry => !expectedKeys.has(entryKey(entry)));
+  const affectedCategories = Array.from(new Set(
+    [...missingEntries, ...unexpectedEntries].map(entry => entry.category)
+  ));
+  const wrongCount = missingEntries.length + unexpectedEntries.length;
+
+  if (wrongCount === 0) {
+    return { isCorrect: true, wrongCount: 0, affectedCategories, lines: [] as string[] };
+  }
+
+  if (attempt <= 1) {
+    return {
+      isCorrect: false,
+      wrongCount,
+      affectedCategories,
+      lines: [
+        `目前有 ${wrongCount} 處錯誤，請重新檢查。`,
+        `需要檢查的分類：${affectedCategories.map(category => CATEGORY_LABEL[category]).join('、')}`
+      ]
+    };
+  }
+
+  return {
+    isCorrect: false,
+    wrongCount,
+    affectedCategories,
+    lines: expectedEntries.length > 0
+      ? expectedEntries.map(entry => `${CATEGORY_LABEL[entry.category]}：${entry.name}（${ENTRY_LABEL[entry.direction]}）`)
+      : ['方向或項目仍有錯誤，請再檢查各欄位的增減變化。']
+  };
+};
+
 export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> = ({
   title,
   txData,
@@ -135,6 +181,8 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
   const [isApplied, setIsApplied] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [errorPopup, setErrorPopup] = useState<{ title: string; lines: string[] } | null>(null);
+  const [verificationAttempts, setVerificationAttempts] = useState(0);
+  const [highlightedCategories, setHighlightedCategories] = useState<AccountCategory[]>([]);
   const normalizedExpectedEntries = useMemo(
     () => normalizeExpectedEntries(expectedEntries, txData),
     [expectedEntries, txData]
@@ -146,6 +194,8 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
     setIsApplied(false);
     setIsApplying(false);
     setErrorPopup(null);
+    setVerificationAttempts(0);
+    setHighlightedCategories([]);
   }, [title, txData, expectedEntries]);
 
   useEffect(() => {
@@ -184,28 +234,21 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
   };
 
   const handleVerify = () => {
-    const isCorrect =
-      normalizedExpectedEntries.length === userEntries.length &&
-      normalizedExpectedEntries.every(expected =>
-        userEntries.some(entry =>
-          entry.category === expected.category &&
-          entry.name === expected.name &&
-          entry.direction === expected.direction
-        )
-      );
+    const attempt = verificationAttempts + 1;
+    setVerificationAttempts(attempt);
+    const feedback = getFinancialCheckFeedback(normalizedExpectedEntries, userEntries, attempt);
 
-    if (!isCorrect) {
-      const expectedAnswer = normalizedExpectedEntries.map(entry => `${CATEGORY_LABEL[entry.category]}：${entry.name}（${ENTRY_LABEL[entry.direction]}）`);
+    if (!feedback.isCorrect) {
       setErrorPopup({
-        title: '財務檢核答案錯誤',
-        lines: expectedAnswer.length > 0
-          ? expectedAnswer
-          : ['方向或項目仍有錯誤，請再檢查各欄位的增減變化。']
+        title: attempt <= 1 ? '財務檢核需要再確認' : '財務檢核答案錯誤',
+        lines: feedback.lines
       });
+      setHighlightedCategories(feedback.affectedCategories);
       return;
     }
 
     setErrorPopup(null);
+    setHighlightedCategories([]);
     setIsVerified(true);
     void handleApply();
   };
@@ -269,6 +312,7 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
                 possibleItemsExpenses={possibleItems.expenses}
                 userEntries={userEntries}
                 onToggle={toggleEntry}
+                highlightedCategories={highlightedCategories}
               />
 
               {isApplying && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X, ChevronRight, ChevronLeft, Target, MousePointer2,
   BarChart3, Heart, Lightbulb, Wallet, HelpCircle,
@@ -406,22 +406,55 @@ const tutorialSteps: TutorialStep[] = [
   }
 ];
 
+const boardTutorialSteps: TutorialStep[] = [
+  {
+    title: '棋盤模式：先看目前回合',
+    icon: <Target className="text-cyan-400" />,
+    category: 'basic',
+    content: '畫面上方會固定顯示目前輪到哪位玩家。只有目前回合玩家可以擲骰，其他玩家先等待，不需要重複操作。執行師可以從監控頁看到目前回合與等待原因。'
+  },
+  {
+    title: '擲骰後，完成格子事件',
+    icon: <MousePointer2 className="text-emerald-400" />,
+    category: 'transaction',
+    content: '擲骰後先完成移動，再處理停留格子的事件。可能會出現醫院、修車、學習或卡片等後續操作；有保險時依規則處理理賠，但仍要完成該格要求的暫停回合。'
+  },
+  {
+    title: '共享卡片要等所有人完成選擇',
+    icon: <Heart className="text-pink-400" />,
+    category: 'audit',
+    content: '抽到共享卡片時，符合條件的玩家會收到自己的選擇。每位玩家可以接受或放棄；共享彈窗完成前，不要直接進入下一回合。需要說明做法或分享內容的卡片，還要等執行師審核後才能進入財務檢核。'
+  },
+  {
+    title: '完成檢核後再結束回合',
+    icon: <CheckCircle2 className="text-yellow-400" />,
+    category: 'advanced',
+    content: '所有必要事件、共享選擇與財務檢核完成後，擲骰按鈕會切換成「結束回合」。點擊後才會換下一位玩家；若畫面顯示等待或阻塞原因，先依提示完成處理，不要重新整理遊戲。'
+  }
+];
+
 interface TutorialModalProps {
   isOpen: boolean;
   onClose: () => void;
   showSkip?: boolean;
+  mode?: 'general' | 'board';
 }
 
-export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, showSkip = true }) => {
+export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, showSkip = true, mode = 'general' }) => {
   const [currentStep, setCurrentStep] = useState(0);
+  const steps = mode === 'board' ? boardTutorialSteps : tutorialSteps;
+
+  useEffect(() => {
+    setCurrentStep(0);
+  }, [isOpen, mode]);
 
   if (!isOpen) return null;
 
-  const step = tutorialSteps[currentStep];
-  const progress = ((currentStep + 1) / tutorialSteps.length) * 100;
+  const step = steps[currentStep];
+  const progress = ((currentStep + 1) / steps.length) * 100;
 
   const nextStep = () => {
-    if (currentStep < tutorialSteps.length - 1) {
+    if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
       onClose();
@@ -463,7 +496,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
                     step.category === 'transaction' ? '交易操作' :
                       step.category === 'audit' ? '財務檢核' : '進階概念'}
                 </span>
-                <span className="text-slate-500 text-xs font-mono">STEP {currentStep + 1}/{tutorialSteps.length}</span>
+                <span className="text-slate-500 text-xs font-mono">STEP {currentStep + 1}/{steps.length}</span>
               </div>
             </div>
           </div>
@@ -510,7 +543,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
           </Button>
 
           <div className="flex gap-2">
-            {showSkip && currentStep < tutorialSteps.length - 1 && (
+            {showSkip && currentStep < steps.length - 1 && (
               <Button
                 variant="secondary"
                 onClick={onClose}
@@ -519,7 +552,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
                 跳過
               </Button>
             )}
-            {currentStep < tutorialSteps.length - 1 ? (
+            {currentStep < steps.length - 1 ? (
               <Button
                 variant="success"
                 onClick={nextStep}

@@ -379,7 +379,7 @@ const MainRouting = ({
         // 如果房間數據還沒加載完整（例如只有 ID 的初始狀態），先跳過路由判斷
         // 避免因為 playerStates 還沒讀取到而誤觸狀態重設
         if (!room || !room.hostId) {
-            const roomViews = ['selection', 'game', 'score', 'coach_monitor'];
+            const roomViews = ['selection', 'game', 'score', 'coach_monitor', 'room_waiting'];
             if (room && room.id && roomViews.includes(currentView)) {
                 console.log('房間數據加載中，暫緩路由');
                 return;
@@ -455,9 +455,11 @@ const MainRouting = ({
 
             if (isHost) {
                 // 檢查是否所有玩家都已完成設定 (isSetup 為 true)
-                const allPlayersSetup = room.playerStates && 
-                    Object.values(room.playerStates).length > 0 &&
-                    Object.values(room.playerStates).every((ps: any) => ps.isSetup);
+                const playerUids = room.members
+                    .filter(member => member.uid !== room.hostId)
+                    .map(member => member.uid);
+                const allPlayersSetup = playerUids.length > 0 &&
+                    playerUids.every(uid => room.publicPlayerStates?.[uid]?.isSetup ?? room.playerStates?.[uid]?.isSetup);
 
                 if (allPlayersSetup) {
                     if (currentView !== 'coach_monitor') {
@@ -521,7 +523,20 @@ const MainRouting = ({
                 setCurrentView('score');
             }
         }
-    }, [user?.uid, room?.status, currentView, sessionMeta]);
+    }, [
+        user?.uid,
+        user?.role,
+        room?.status,
+        room?.hostId,
+        room?.startedAt,
+        room?.playerStates,
+        room?.publicPlayerStates,
+        currentView,
+        sessionMeta,
+        gameState.isSetup,
+        gameState.selectionStep,
+        lastProcessedStartTime
+    ]);
 
     const handleSelectionStepChange = useCallback((step: 'profession' | 'enterprise' | 'dream') => {
         setGameState(prev => {
@@ -579,6 +594,7 @@ const MainRouting = ({
                             professionAbilityCount: 0,
                         },
                         completedHappinessEvents: [],
+                        boardGameStartedAt: room?.startedAt,
                         playerName: sessionMeta?.playerName || user.name,
                         reportName: sessionMeta?.reportName || '我的財報'
                     });

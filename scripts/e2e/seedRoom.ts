@@ -151,11 +151,26 @@ export const seedRoom = async (options: SeedRoomOptions = {}) => {
     maxPlayers: 3,
     isBoardGame: true,
     isPractice: false,
-    playerStates,
+    publicPlayerStates: Object.fromEntries(Object.entries(playerStates).map(([uid, state]) => [uid, {
+      uid,
+      playerName: state.playerName,
+      isSetup: state.isSetup,
+      selectionStep: state.selectionStep,
+      happinessTotal: state.happinessTotal,
+      currentRankTitle: state.currentRankTitle,
+      boardPosition: state.boardPosition,
+      skipTurns: state.skipTurns,
+      lastBoardEvent: state.lastBoardEvent,
+      pendingCardAction: state.pendingCardAction
+    }])),
     startedAt: Date.now(),
     pendingRequests: {},
     boardState,
   });
+
+  await Promise.all(Object.entries(playerStates).map(([uid, state]) =>
+    db.collection('rooms').doc(roomCode).collection('players').doc(uid).set(state)
+  ));
 
   return { roomCode, coach, players, accounts };
 };

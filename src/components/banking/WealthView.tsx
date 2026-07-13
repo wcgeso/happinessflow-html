@@ -142,11 +142,11 @@ export const WealthView: React.FC<WealthViewProps> = ({
       ],
       financialCheckEntries: [
         { category: 'Assets', name: '汽車', direction: 'Increase' },
-        ...(cashPortion > 0 ? [{ category: 'Assets', name: '現金', direction: 'Decrease' as const }] : []),
+        ...(cashPortion > 0 ? [{ category: 'Assets' as const, name: '現金', direction: 'Decrease' as const }] : []),
         ...(loanPortion > 0
           ? [
-              { category: 'Liabilities', name: '汽車貸款', direction: 'Increase' as const },
-              { category: 'Expenses', name: '汽車貸款利息', direction: 'Increase' as const }
+              { category: 'Liabilities' as const, name: '汽車貸款', direction: 'Increase' as const },
+              { category: 'Expenses' as const, name: '汽車貸款利息', direction: 'Increase' as const }
             ]
           : [])
       ]

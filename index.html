@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="google-site-verification" content="UXo5A9a5SPYNQ1E5LIU0p7pONjBFr2Ud7JSvfpZuhPU" />
   <meta name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover" />
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="幸福流" />
@@ -25,91 +25,6 @@
       window.addEventListener('resize', setAppHeight);
     })();
   </script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-    :root {
-      --app-height: 100%;
-      --safe-top: env(safe-area-inset-top, 0px);
-      --safe-bottom: 0px;
-      --safe-left: env(safe-area-inset-left, 0px);
-      --safe-right: env(safe-area-inset-right, 0px);
-    }
-
-    /* Safe Area Utility Classes */
-    .pt-safe { padding-top: env(safe-area-inset-top, 0px) !important; }
-    .pb-safe { padding-bottom: 0px !important; }
-    .pl-safe { padding-left: env(safe-area-inset-left, 0px) !important; }
-    .pr-safe { padding-right: env(safe-area-inset-right, 0px) !important; }
-    .mt-safe { margin-top: env(safe-area-inset-top, 0px) !important; }
-    .mb-safe { margin-bottom: 0px !important; }
-    .top-safe { top: env(safe-area-inset-top, 0px) !important; }
-    .bottom-safe { bottom: 0px !important; }
-
-    html,
-    body {
-      height: 100vh;
-      min-height: 100vh;
-      background-color: #020617;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-      -webkit-text-size-adjust: 100%;
-      -moz-text-size-adjust: 100%;
-      text-size-adjust: 100%;
-      touch-action: manipulation;
-      overflow: hidden;
-    }
-
-    #root {
-      height: 100vh;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      position: relative;
-    }
-
-    body {
-      font-family: 'Inter', sans-serif;
-    }
-
-    /* Custom scrollbar for webkit */
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: #1e293b;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #475569;
-      border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #64748b;
-    }
-
-    .no-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-
-    .no-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-
-    /* Prevent zoom on input focus for iOS */
-    input,
-    select,
-    textarea {
-      font-size: 16px !important;
-    }
-  </style>
 </head>
 
 <body class="bg-slate-950 text-white">

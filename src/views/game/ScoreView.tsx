@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../services/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { settleGame } from '../../game/settlement/settleGame';
+import { SettlementView } from '../../components/game/SettlementView';
+import { buildSettlementPlayers } from '../../utils/settlement';
 
 interface ScoreViewProps {
     playerName: string;
@@ -19,8 +21,13 @@ interface ScoreViewProps {
 }
 
 export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onClose, isInline, showAchievements = false }) => {
-    const { scoreResult: localScoreResult, setGameState } = useGame();
+    const { scoreResult: localScoreResult, setGameState, gameState } = useGame();
     const { leaveRoom, room, playerStates } = useRoom();
+    const settlementPlayers = React.useMemo(
+        () => buildSettlementPlayers(room, playerStates),
+        [room, playerStates]
+    );
+    const privateSettlementState = playerUid ? playerStates[playerUid] : gameState;
 
     // 成就通知狀態
     const [achievementQueue, setAchievementQueue] = React.useState<any[]>([]);
@@ -271,6 +278,12 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
     if (isInline) {
         return (
             <div className="w-full h-full flex flex-col overflow-hidden no-scrollbar bg-slate-900/50">
+                <SettlementView
+                    players={settlementPlayers}
+                    privateState={privateSettlementState}
+                    showPrivateRecap={!!privateSettlementState}
+                    compact
+                />
                 <div className="shrink-0 p-6 bg-slate-800/40 border-b border-slate-500/30 text-center">
                     <Trophy size={40} className="mx-auto text-yellow-400 mb-2" />
                     <h2 className="text-2xl font-black text-white">遊戲結算</h2>
@@ -402,6 +415,13 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                         <p className="text-amber-400 font-mono text-xs mt-1">玩家: {playerName}</p>
                         <p className="text-slate-500 text-[10px] mt-2 italic">※ 遊戲紀錄將由執行師統一確認存檔</p>
                     </div>
+
+                    <SettlementView
+                        players={settlementPlayers}
+                        privateState={privateSettlementState}
+                        showPrivateRecap={!!privateSettlementState}
+                        compact
+                    />
 
                     <div className="flex-1 overflow-y-auto p-6 scrollbar-none no-scrollbar">
                         <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">

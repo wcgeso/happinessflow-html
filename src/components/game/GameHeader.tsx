@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X } from 'lucide-react';
+import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X, Dices } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getProfessionIcon } from '../common/IconHelpers';
 import { cn, formatMoney } from '../../utils/gameUtils';
@@ -8,6 +8,9 @@ import { useAuth, isGM as checkIsGM } from '../../context/AuthContext';
 import SafeImage from '../common/SafeImage';
 import { IS_DEV_VERSION } from '../../constants/version';
 import { DevSettingsModal } from '../modals/DevSettingsModal';
+import { selectExperienceState } from '../../utils/experienceState';
+import { isPresenceOnline } from '../../utils/presence';
+import { getAudioSettings, setAudioSettings, AUDIO_SETTINGS_EVENT, AudioSettings } from '../../utils/audio';
 
 interface GameHeaderProps {
     gameState: any;
@@ -36,13 +39,23 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
     isDevMode = false
 }) => {
     const { user } = useAuth();
-    const { room, playerStates } = useRoom();
+    const { room, playerStates, presenceStates } = useRoom();
     const [showSettings, setShowSettings] = useState(false);
     const [showRoomInfo, setShowRoomInfo] = useState(false);
     const [showDevSettings, setShowDevSettings] = useState(false);
+    const [audioSettings, setAudioSettingsState] = useState<AudioSettings>(() => getAudioSettings());
     const [timeLeft, setTimeLeft] = useState<string>('--:--');
 
     const isGM = user?.role === 'coach' || checkIsGM(user);
+
+    useEffect(() => {
+        const syncAudioSettings = (event: Event) => {
+            const next = (event as CustomEvent<AudioSettings>).detail;
+            setAudioSettingsState(next || getAudioSettings());
+        };
+        window.addEventListener(AUDIO_SETTINGS_EVENT, syncAudioSettings);
+        return () => window.removeEventListener(AUDIO_SETTINGS_EVENT, syncAudioSettings);
+    }, []);
     
     // 計算財富自由進度 (被動收入 / 總支出)
     const passiveIncome = summary.passiveIncome || 0;
@@ -98,6 +111,29 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
         }))
         .sort((a, b) => b.happiness - a.happiness);
     }, [room, playerStates]);
+
+    const boardTurnInfo = useMemo(() => {
+        const experience = selectExperienceState({
+            roomStatus: room?.status,
+            isBoardGame: room?.isBoardGame,
+            hostId: room?.hostId,
+            members: room?.members,
+            currentUid: user?.uid,
+            boardState: room?.boardState,
+        });
+        if (experience.phase !== 'playing' || !experience.currentTurnUid) return null;
+
+        const currentPresence = experience.currentTurnUid ? presenceStates?.[experience.currentTurnUid] : null;
+        return {
+            name: experience.isMyTurn ? '你' : experience.currentTurnName || '其他玩家',
+            position: experience.turnPosition,
+            participantCount: experience.participantCount,
+            isMyTurn: experience.isMyTurn,
+            pendingSkipTurns: experience.pendingSkipTurns,
+            eventSummary: experience.eventSummary,
+            isOnline: currentPresence ? isPresenceOnline(currentPresence) : null,
+        };
+    }, [room, presenceStates, user?.uid]);
 
     const displayRoomName = useMemo(() => {
         if (room?.name) return room.name;
@@ -243,6 +279,8 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                             <div className="relative mt-auto">
                                 <button
                                     onClick={() => setShowSettings(!showSettings)}
+                                    aria-label={showSettings ? '關閉設定選單' : '開啟設定選單'}
+                                    aria-expanded={showSettings}
                                     className={cn(
                                         "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
                                         showSettings 
@@ -266,6 +304,16 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                                 <span className="text-[10px] text-slate-500 font-bold tracking-widest">房間倒數</span>
                                                 <span className="text-xs font-mono text-white">{timeLeft}</span>
                                             </div>
+                                            <button
+                                                onClick={() => setAudioSettingsState(setAudioSettings({ enabled: !audioSettings.enabled }))}
+                                                aria-pressed={audioSettings.enabled}
+                                                className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-sm font-bold"
+                                            >
+                                                <span>音效</span>
+                                                <span className={audioSettings.enabled ? 'text-emerald-400' : 'text-slate-500'}>
+                                                    {audioSettings.enabled ? '開啟' : '關閉'}
+                                                </span>
+                                            </button>
                                             <button onClick={() => { onFinishGame(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-sm font-bold">
                                                 <Trophy size={16} className="text-amber-500" />
                                                 結算評分
@@ -306,6 +354,50 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                             </div>
                         </div>
                     </div>
+
+                    {boardTurnInfo && (
+                        <div
+                            aria-live="polite"
+                            className={cn(
+                                "mt-2 rounded-2xl border px-3 py-2 shadow-lg backdrop-blur-xl transition-colors",
+                                boardTurnInfo.isMyTurn
+                                    ? "border-emerald-400/60 bg-emerald-950/90 text-emerald-100"
+                                    : "border-slate-700/70 bg-slate-900/90 text-slate-200"
+                            )}
+                        >
+                            <div className="flex items-center gap-2 text-xs sm:text-sm">
+                                <Dices size={16} className={boardTurnInfo.isMyTurn ? "text-emerald-300" : "text-amber-300"} />
+                                <span className="font-bold text-slate-400">目前回合</span>
+                                <strong className="min-w-0 truncate text-white">{boardTurnInfo.name}</strong>
+                                {boardTurnInfo.position && boardTurnInfo.participantCount > 0 && (
+                                    <span className="shrink-0 text-[10px] font-bold text-slate-500">
+                                        第 {boardTurnInfo.position}/{boardTurnInfo.participantCount} 位
+                                    </span>
+                                )}
+                                {boardTurnInfo.isMyTurn && (
+                                    <span className="ml-auto shrink-0 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-black text-emerald-200">
+                                        輪到你
+                                    </span>
+                                )}
+                                <span className={cn(
+                                    "ml-auto shrink-0 text-[10px] font-bold",
+                                    boardTurnInfo.isOnline === null ? "text-slate-400" : boardTurnInfo.isOnline ? "text-emerald-300" : "text-rose-300"
+                                )}>
+                                    {boardTurnInfo.isOnline === null ? '連線同步中' : boardTurnInfo.isOnline ? '在線' : '已離線'}
+                                </span>
+                            </div>
+                            {boardTurnInfo.eventSummary && (
+                                <div className="mt-1 truncate pl-6 text-[10px] text-slate-400" title={boardTurnInfo.eventSummary}>
+                                    事件：{boardTurnInfo.eventSummary}
+                                </div>
+                            )}
+                            {boardTurnInfo.pendingSkipTurns > 0 && (
+                                <div className="mt-1 pl-6 text-[10px] font-black text-amber-200">
+                                    {boardTurnInfo.name} 下回合將暫停 {boardTurnInfo.pendingSkipTurns} 回合
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
