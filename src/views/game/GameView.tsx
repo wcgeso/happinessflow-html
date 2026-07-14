@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
 import { useGameLogic } from '../../hooks/useGameLogic';
-import { AlertCircle, CheckCircle2, Bell, LogOut, ScrollText } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Bell, LogOut } from 'lucide-react';
 import { useRoom } from '../../context/RoomContext';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
 import { HappinessPanel } from '../../components/business/HappinessPanel';
@@ -405,7 +405,12 @@ export const GameView: React.FC<{
     const activeFamilyJoinPrompt = familyJoinPromptSnapshot ?? familyJoinPrompt;
     const activeSharedCardPrompt = sharedCardPromptSnapshot ?? sharedCardPrompt;
     const isBoardTurn = !!(room?.isBoardGame && boardState?.currentTurnUid === user?.uid);
-    const canUseBankProducts = !room?.isBoardGame || !!currentPlayerRoomState?.bankServiceWindowActive;
+    const isActiveBankEvent = !!(
+        room?.isBoardGame &&
+        boardState?.currentEvent?.playerUid === user?.uid &&
+        boardState.currentEvent.type === 'bank'
+    );
+    const canUseBankProducts = !room?.isBoardGame || !!currentPlayerRoomState?.bankServiceWindowActive || isActiveBankEvent;
     const hasCar = gameState.assets.some(asset => asset.type === '汽車' || asset.type === '飛行器');
     const activeBoardCard = boardState?.currentEvent?.playerUid === user?.uid ? boardState?.currentCard || null : null;
 
@@ -463,8 +468,8 @@ export const GameView: React.FC<{
             showAlert(`你將暫停 ${skipTurns} 回合，下一次輪到你時會自動跳過。`, 'info');
         }
     }, [boardState?.skipTurns, room?.isBoardGame, showAlert, user?.uid]);
-    const activeBankPromptKey = currentPlayerRoomState?.bankServiceWindowActive && currentPlayerRoomState?.bankServiceGrantedAtEventId
-        ? `${currentPlayerRoomState.bankServiceGrantedAtEventId}_bank`
+    const activeBankPromptKey = isActiveBankEvent && boardState.currentEvent
+        ? `${boardState.currentEvent.id}_bank`
         : null;
     const isActiveBankPromptPending = !!(activeBankPromptKey && !handledBankPromptKeys.includes(activeBankPromptKey));
 
@@ -489,6 +494,13 @@ export const GameView: React.FC<{
         () => (activeBoardCard ? resolveBoardCardAction(activeBoardCard.cardId, gameState) : null),
         [activeBoardCard?.cardId, gameState]
     );
+
+    useEffect(() => {
+        if (activeBoardCard || !isBoardCardDrawerOpen) return;
+        setIsBoardCardDrawerOpen(false);
+        setPendingHandledBoardCard(null);
+    }, [activeBoardCard, isBoardCardDrawerOpen]);
+
     const hasIncompleteSharedBoardPrompt = useMemo(
         () => hasIncompleteSharedPrompts({ sharedCardPrompt, familyMilestoneJoinPrompt: familyJoinPrompt }),
         [familyJoinPrompt, sharedCardPrompt]
@@ -1133,6 +1145,7 @@ export const GameView: React.FC<{
         if (!cardKey) return false;
         if (hasIncompleteSharedBoardPrompt) {
             setPendingHandledBoardCard({ key: cardKey, card });
+            setIsBoardCardDrawerOpen(false);
             showAlert('還有玩家尚未完成共享事件回覆，請等待所有人完成後再結案。', 'info');
             return false;
         }
@@ -2180,21 +2193,11 @@ export const GameView: React.FC<{
                 onFinishGame={() => setShowScoreView(true)}
                 onShowStockMarket={() => { setTransactionQuickPreset({ initialTab: 'broker' }); setShowTransactionModal(true); }}
                 onShowTutorial={() => setShowTutorial(true)}
+                onShowCardLog={() => setShowBoardCardLog(true)}
                 onLeaveRoom={() => setShowLeaveConfirm(true)}
                 onAddMoney={addMoney}
                 isDevMode={isDevMode}
             />
-
-            {room?.isBoardGame && (
-                <button
-                    type="button"
-                    onClick={() => setShowBoardCardLog(true)}
-                    className="fixed right-4 top-[calc(env(safe-area-inset-top,0px)+162px)] z-50 flex items-center gap-2 rounded-full border border-amber-300/30 bg-slate-900/95 px-4 py-2.5 text-xs font-black text-amber-100 shadow-xl backdrop-blur-md"
-                >
-                    <ScrollText size={16} />
-                    抽卡日誌
-                </button>
-            )}
 
             {showBoardCardLog && (
                 <>
@@ -2547,7 +2550,7 @@ export const GameView: React.FC<{
                 <HappinessWinAnimation onComplete={() => setShowWinAnimation(false)} />
             )}
 
-            <main className="fixed inset-0 overflow-y-auto no-scrollbar pt-[calc(160px+env(safe-area-inset-top,0px))] pb-[calc(200px+env(safe-area-inset-bottom,0px))] sm:pb-[calc(230px+env(safe-area-inset-bottom,0px))] touch-pan-y">
+            <main className="fixed inset-0 overflow-y-auto no-scrollbar pt-[calc(190px+env(safe-area-inset-top,0px))] pb-[calc(200px+env(safe-area-inset-bottom,0px))] sm:pb-[calc(230px+env(safe-area-inset-bottom,0px))] touch-pan-y">
                 <div className="max-w-4xl mx-auto w-full px-4 md:px-6 space-y-6">
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <FinancialStatement

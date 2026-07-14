@@ -309,8 +309,8 @@ const buildBoardEventAdvanceState = (roomData: Room) => {
             boardState: {
                 ...boardState,
                 ...activateBoardQueueEntry(nextEntry),
-                familyMilestoneJoinPrompt: null,
-                sharedCardPrompt: null,
+                familyMilestoneJoinPrompt: undefined,
+                sharedCardPrompt: undefined,
                 sharedExpenseEffect: null,
                 pendingEvents: queue,
                 updatedAt: Date.now()
@@ -330,12 +330,13 @@ const buildBoardEventAdvanceState = (roomData: Room) => {
             boardState: {
                 ...boardState,
                 ...activateBoardQueueEntry(null),
-                familyMilestoneJoinPrompt: null,
-                sharedCardPrompt: null,
+                familyMilestoneJoinPrompt: undefined,
+                sharedCardPrompt: undefined,
                 sharedExpenseEffect: null,
                 pendingEvents: [],
                 movement: {
                     ...pendingMovement,
+                    startPosition: boardState.playerPositions?.[pendingMovement.playerUid] ?? pendingMovement.startPosition,
                     path: legPath,
                     remainingPath: remainingPath.length > 0 ? remainingPath : undefined,
                     startedAt: Date.now(),
@@ -351,8 +352,8 @@ const buildBoardEventAdvanceState = (roomData: Room) => {
         boardState: {
             ...boardState,
             ...activateBoardQueueEntry(null),
-            familyMilestoneJoinPrompt: null,
-            sharedCardPrompt: null,
+            familyMilestoneJoinPrompt: undefined,
+            sharedCardPrompt: undefined,
             sharedExpenseEffect: null,
             pendingEvents: [],
             movement: null,
@@ -2160,13 +2161,43 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     })
                     : undefined;
 
+                if (hasIncompleteSharedPrompts({ ...latestBoard, familyMilestoneJoinPrompt: nextPrompt })) {
+                    return {
+                        boardState: { ...latestBoard, familyMilestoneJoinPrompt: nextPrompt, updatedAt: Date.now() },
+                        roomPatch: nextState ? { playerStates: { [user.uid]: nextState } } : undefined,
+                        result: { completed: false }
+                    };
+                }
+
+                const advancedState = buildBoardEventAdvanceState({
+                    ...latestRoom,
+                    boardState: { ...latestBoard, familyMilestoneJoinPrompt: undefined }
+                } as Room);
+                if (!advancedState) {
+                    return {
+                        boardState: { ...latestBoard, familyMilestoneJoinPrompt: nextPrompt, updatedAt: Date.now() },
+                        roomPatch: nextState ? { playerStates: { [user.uid]: nextState } } : undefined,
+                        result: { completed: false }
+                    };
+                }
+
                 return {
-                    boardState: { ...latestBoard, familyMilestoneJoinPrompt: nextPrompt, updatedAt: Date.now() },
-                    roomPatch: nextState ? { playerStates: { [user.uid]: nextState } } : undefined,
-                    result: undefined
+                    boardState: {
+                        ...(advancedState.boardState || latestBoard),
+                        cardLog: advancedState.boardState?.currentCard
+                            ? appendBoardCardLog(latestBoard, advancedState.boardState.currentCard, advancedState.boardState.currentEvent)
+                            : latestBoard.cardLog || [],
+                        updatedAt: Date.now()
+                    },
+                    roomPatch: {
+                        ...(nextState ? { playerStates: { [user.uid]: nextState } } : {})
+                    },
+                    result: { completed: true }
                 };
             }
-        }));
+        }), undefined, err => {
+            setError(err?.message || '家庭重要歷程回覆失敗');
+        });
     };
 
     const clearPendingFamilyMilestoneJoinAction = async (promptId: string) => {
@@ -2247,7 +2278,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 const nextState = buildBoardEventAdvanceState({
                     ...latestRoom,
-                    boardState: { ...latestBoard, sharedCardPrompt: null }
+                    boardState: { ...latestBoard, sharedCardPrompt: undefined }
                 } as Room);
                 if (!nextState) {
                     return {
@@ -2318,7 +2349,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     throw new Error('共享卡片提示已更新');
                 }
                 return {
-                    boardState: { ...latestBoard, sharedCardPrompt: null, updatedAt: Date.now() },
+                    boardState: { ...latestBoard, sharedCardPrompt: undefined, updatedAt: Date.now() },
                     result: undefined
                 };
             }

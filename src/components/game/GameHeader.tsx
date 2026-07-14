@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X, Dices } from 'lucide-react';
+import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X, Dices, ScrollText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getProfessionIcon } from '../common/IconHelpers';
 import { cn, formatMoney } from '../../utils/gameUtils';
@@ -21,6 +21,7 @@ interface GameHeaderProps {
     onFinishGame: () => void;
     onShowStockMarket: () => void;
     onShowTutorial: () => void;
+    onShowCardLog: () => void;
     onLeaveRoom: () => void;
     onAddMoney?: (amount: number) => void;
     isDevMode?: boolean;
@@ -34,6 +35,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
     onFinishGame,
     onShowStockMarket,
     onShowTutorial,
+    onShowCardLog,
     onLeaveRoom,
     onAddMoney,
     isDevMode = false
@@ -185,9 +187,9 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
      };
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-40 flex flex-col pt-safe pointer-events-none">
+        <header className="fixed top-0 left-0 right-0 z-[80] flex flex-col pt-safe pointer-events-none">
             {/* Top Profile Card HUD */}
-            <div className="relative z-20 px-3 py-3 w-full">
+            <div className="relative z-[200] px-3 py-3 w-full">
                 <div className="max-w-4xl mx-auto pointer-events-auto">
                     
                     {/* 懸浮名片主體 */}
@@ -276,7 +278,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                             </div>
 
                             {/* 設定選單 */}
-                            <div className="relative mt-auto">
+                            <div className="relative z-[201] mt-auto">
                                 <button
                                     onClick={() => setShowSettings(!showSettings)}
                                     aria-label={showSettings ? '關閉設定選單' : '開啟設定選單'}
@@ -298,7 +300,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                             initial={{ opacity: 0, scale: 0.9, y: -10, transformOrigin: 'top right' }}
                                             animate={{ opacity: 1, scale: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                                            className="absolute top-full right-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8)] p-2 flex flex-col gap-1 z-50"
+                                            className="absolute top-full right-0 z-[202] mt-2 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8)] p-2 flex flex-col gap-1"
                                         >
                                             <div className="px-3 py-2 border-b border-slate-800 mb-1 flex justify-between items-center">
                                                 <span className="text-[10px] text-slate-500 font-bold tracking-widest">房間倒數</span>
@@ -359,7 +361,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                         <div
                             aria-live="polite"
                             className={cn(
-                                "mt-2 rounded-2xl border px-3 py-2 shadow-lg backdrop-blur-xl transition-colors",
+                                "relative z-0 mt-2 rounded-2xl border px-3 py-2 shadow-lg backdrop-blur-xl transition-colors",
                                 boardTurnInfo.isMyTurn
                                     ? "border-emerald-400/60 bg-emerald-950/90 text-emerald-100"
                                     : "border-slate-700/70 bg-slate-900/90 text-slate-200"
@@ -374,13 +376,25 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                         第 {boardTurnInfo.position}/{boardTurnInfo.participantCount} 位
                                     </span>
                                 )}
+                                {room?.isBoardGame && (
+                                    <button
+                                        type="button"
+                                        onClick={onShowCardLog}
+                                        aria-label="開啟抽卡日誌"
+                                        className="ml-auto flex shrink-0 items-center gap-1 rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-[10px] font-black text-amber-100 transition hover:bg-amber-500/20"
+                                    >
+                                        <ScrollText size={13} />
+                                        <span className="hidden sm:inline">抽卡日誌</span>
+                                        <span>{room.boardState?.cardLog?.length || 0}</span>
+                                    </button>
+                                )}
                                 {boardTurnInfo.isMyTurn && (
-                                    <span className="ml-auto shrink-0 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-black text-emerald-200">
+                                    <span className="shrink-0 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-black text-emerald-200">
                                         輪到你
                                     </span>
                                 )}
                                 <span className={cn(
-                                    "ml-auto shrink-0 text-[10px] font-bold",
+                                    "shrink-0 text-[10px] font-bold",
                                     boardTurnInfo.isOnline === null ? "text-slate-400" : boardTurnInfo.isOnline ? "text-emerald-300" : "text-rose-300"
                                 )}>
                                     {boardTurnInfo.isOnline === null ? '連線同步中' : boardTurnInfo.isOnline ? '在線' : '已離線'}

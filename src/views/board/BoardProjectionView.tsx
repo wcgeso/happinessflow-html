@@ -11,6 +11,7 @@ import { NEWS_CARD_MAP, normalizeCardCopy } from '../../constants/cards';
 import { Room } from '../../context/RoomContext';
 import { BoardCardLogEntry, BoardCardResult, BoardSquare } from '../../types';
 import { getCardNarrative, hydrateBoardCardResult } from '../../utils/boardCardDisplay';
+import { FAMILY_MILESTONE_STAGES } from '../../utils/familyMilestones';
 import { SettlementView } from '../../components/game/SettlementView';
 import { buildSettlementPlayers } from '../../utils/settlement';
 import { toCardPresentationModel } from '../../utils/cardPresentation';
@@ -454,8 +455,11 @@ const CardStage: React.FC<{
   const familyMilestoneStatus = presentation.familyMilestoneStatus;
   const isFamilyMilestoneCard =
     presentation.deck === 'happiness' &&
-    presentation.subtitle === '家庭重要歷程' &&
-    !!familyMilestoneStatus?.stages?.length;
+    presentation.subtitle === '家庭重要歷程';
+  const familyMilestoneStages = familyMilestoneStatus?.stages?.length
+    ? familyMilestoneStatus.stages
+    : FAMILY_MILESTONE_STAGES;
+  const familyMilestoneIntro = '抽到卡片的玩家可自由決定是否依序完成家庭重要歷程；其他玩家擲骰達 4 點以上即可參與。';
   const realEstateCard = presentation.deck === 'news' ? NEWS_CARD_MAP[presentation.cardId] : null;
   const realEstateMetrics = realEstateCard?.type === 'real_estate'
     ? [
@@ -529,7 +533,9 @@ const CardStage: React.FC<{
               </div>
               <span className="shrink-0 text-[10px] font-bold tracking-widest text-[#c2a374]">{card.cardId}</span>
             </div>
-            <div className={`mt-3 break-words font-black leading-[1.05] ${isFamilyMilestoneCard ? 'text-[clamp(2.5rem,5.8vw,4.4rem)]' : 'text-[clamp(2rem,7vw,3rem)]'}`}>{card.title}</div>
+            <div className={`mt-3 break-words font-black leading-[1.05] ${isFamilyMilestoneCard ? 'text-[clamp(2.5rem,5.8vw,4.4rem)]' : 'text-[clamp(2rem,7vw,3rem)]'}`}>
+              {isFamilyMilestoneCard ? '幸福家庭的重要歷程' : card.title}
+            </div>
             {!isFamilyMilestoneCard && !realEstateMetrics && <ImpactSummaryBar impacts={impacts} />}
             <div className={`mt-4 min-h-0 flex-1 pr-1 ${isFamilyMilestoneCard ? 'overflow-hidden' : 'overflow-y-auto no-scrollbar'}`}>
               {flavorText && !isFamilyMilestoneCard && (
@@ -558,29 +564,27 @@ const CardStage: React.FC<{
                 </div>
               )}
               {isFamilyMilestoneCard ? (
-                <div className="mt-3 space-y-2">
-                  <div className="rounded-[12px] border border-[#e6cfaa] bg-[#fff8ec] px-3 py-1.5 text-[11px] font-bold leading-snug text-[#6f5336] break-words sm:text-[12px]">
-                    主玩家依序推進；其他玩家擲骰 ≥4 可共同參與
-                  </div>
-
+                <div className="mt-3 space-y-3">
+                  <p className="whitespace-pre-wrap break-words rounded-[18px] border border-[#e5cfac] bg-[#fff6e6] px-4 py-3 text-sm font-bold leading-relaxed text-[#6f5336]">
+                    {familyMilestoneIntro}
+                  </p>
                   <div className="rounded-[18px] border border-[#e7d5bb] bg-white/90 p-3">
                     <div className="mb-1.5 flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between">
                       <div className="text-[10px] font-black tracking-[0.22em] text-[#9c7c58]">
-                        家庭重要歷程
+                        各階段花費
                       </div>
                     </div>
 
-                    <div className="mb-1 grid grid-cols-[minmax(0,1.7fr)_minmax(0,0.95fr)_minmax(0,0.55fr)] gap-2 px-1 text-[9px] font-black tracking-[0.1em] text-[#a4835b]">
+                    <div className="mb-1 grid grid-cols-[minmax(0,1.7fr)_minmax(0,0.95fr)] gap-2 px-1 text-[9px] font-black tracking-[0.1em] text-[#a4835b]">
                       <div>階段</div>
                       <div>花費</div>
-                      <div>幸福</div>
                     </div>
                     <div className="overflow-hidden rounded-[16px] border border-[#ead6b9] bg-[#fffdf8]">
-                      {familyMilestoneStatus.stages.map((stage: any, index: number) => {
+                      {familyMilestoneStages.map((stage: any, index: number) => {
                         return (
                           <div
                             key={`${card.cardId}_${stage.cardId}`}
-                            className={`grid grid-cols-[minmax(0,1.7fr)_minmax(0,0.95fr)_minmax(0,0.55fr)] items-center gap-2 px-3 py-2 transition-all ${
+                            className={`grid grid-cols-[minmax(0,1.7fr)_minmax(0,0.95fr)] items-center gap-2 px-3 py-2 transition-all ${
                               index % 2 === 0 ? 'bg-[#fffdf8]' : 'bg-[#fff9f0]'
                             }`}
                           >
@@ -591,9 +595,6 @@ const CardStage: React.FC<{
                             </div>
                             <div className="min-w-0 break-words text-[11px] font-black leading-tight text-[#7a5a37] sm:text-[12px]">
                               {stage.cost}
-                            </div>
-                            <div className="min-w-0 whitespace-nowrap text-[11px] font-black leading-tight text-[#5f4933] sm:text-[12px]">
-                              +{stage.points}
                             </div>
                           </div>
                         );
@@ -913,17 +914,6 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
           <div className="text-[10px] font-black tracking-[0.2em] text-[#9c7c58]">目前回合</div>
           <div className="text-lg font-black text-[#4f3c29]">{currentTurnName}</div>
         </div>
-        {import.meta.env.DEV && (
-          <>
-            <div className="h-8 w-px bg-[#d9bd98]" />
-            <div className="flex flex-col items-center" title="除錯用：房間成員數／turnOrder 人數／畫面顯示棋偶數">
-              <div className="text-[10px] font-black tracking-[0.2em] text-[#c2685c]">DEBUG</div>
-              <div className="text-xs font-black text-[#c2685c]">
-                成員{room.members.length}／輪序{boardState?.turnOrder.length ?? 0}／棋偶{players.length}
-              </div>
-            </div>
-          </>
-        )}
       </div>
 
       <div

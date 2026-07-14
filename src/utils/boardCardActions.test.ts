@@ -102,6 +102,22 @@ describe('resolveBoardCardAction', () => {
     expect(action.items[0]?.price).toBe(16000000);
   });
 
+  it('C011 offers an owned single-room apartment at the fixed purchase price', () => {
+    const action = resolveBoardCardAction('C011', createGameState({
+      assets: [{
+        id: 'house-1',
+        name: 'N029 單間小套房',
+        cost: 1100000,
+        downPayment: 100000,
+        cashflow: 1500,
+        type: '不動產'
+      }]
+    }));
+    expect(action.kind).toBe('asset_sale');
+    if (action.kind !== 'asset_sale') return;
+    expect(action.items[0]?.price).toBe(4500000);
+  });
+
   it('C034 tolerates legacy enterprise assets without cashflow', () => {
     const action = resolveBoardCardAction('C034', createGameState({
       liabilities: undefined as unknown as GameState['liabilities'],

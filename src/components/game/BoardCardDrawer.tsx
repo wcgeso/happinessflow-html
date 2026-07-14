@@ -2,8 +2,6 @@ import React from 'react';
 import { Sparkles, Newspaper, Heart } from 'lucide-react';
 import { BoardCardResult } from '../../types';
 import { isForcedBoardCard } from '../../utils/boardCardActions';
-import { normalizeCardCopy } from '../../constants/cards';
-import { getCardNarrative } from '../../utils/boardCardDisplay';
 import { toCardPresentationModel } from '../../utils/cardPresentation';
 
 interface BoardCardDrawerProps {
@@ -52,7 +50,6 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
     const deckMeta = DECK_META[presentation.deck];
     const effectiveCloseDisabled = closeDisabled || isForcedBoardCard(card.cardId);
     const subtitleLabel = `${presentation.subtitle} ${presentation.cardId}`.trim();
-    const cardNarrative = getCardNarrative(presentation.description, presentation.effectLines);
     const familyMilestoneStatus = presentation.familyMilestoneStatus;
     const isFamilyMilestoneCard =
         presentation.deck === 'happiness' &&
@@ -61,12 +58,6 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
     const currentFamilyStage = isFamilyMilestoneCard && familyMilestoneStatus.currentStageIndex >= 0
         ? familyMilestoneStatus.stages[familyMilestoneStatus.currentStageIndex]
         : null;
-    const shortPrompt = (() => {
-        if (presentation.deck === 'news') return '請看大地圖確認新聞卡內容，再決定接下來的操作。';
-        if (presentation.deck === 'opportunity') return '請看大地圖確認機運卡內容，再決定是否接受或執行。';
-        if (isFamilyMilestoneCard) return '';
-        return '請看大地圖確認幸福卡內容，再決定是否執行。';
-    })();
     return (
         <div className="fixed inset-x-0 bottom-0 z-[10002] flex justify-center">
             <div
@@ -138,49 +129,22 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
                                                     {subtitleLabel}
                                                 </div>
                                             )}
-                                        </div>
-                                        
-                                        {/* Card content is available on the player screen so the map is not a single point of failure. */}
-                                        <div className="mt-auto max-h-[52%] overflow-y-auto pt-4 relative z-10">
-                                            {isFamilyMilestoneCard ? (
-                                                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4">
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">
-                                                            家庭重要歷程
-                                                        </div>
-                                                        <div className="rounded-full border border-cyan-400/30 bg-slate-800/80 px-3 py-1 text-[11px] font-black text-cyan-200">
-                                                            目前進度：第 {familyMilestoneStatus.currentStage} 階段
-                                                        </div>
+                                            {isFamilyMilestoneCard && (
+                                                <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
+                                                    <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-200">
+                                                        當前階段
                                                     </div>
-                                                    <div className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3">
-                                                        <div className="text-[11px] font-black uppercase tracking-[0.16em] text-amber-200">
-                                                            目前階段
-                                                        </div>
-                                                        <div className="mt-2 text-lg font-black leading-tight text-white">
-                                                            {currentFamilyStage ? currentFamilyStage.label : '已完成所有階段'}
-                                                        </div>
+                                                    <div className="mt-1 text-lg font-black leading-tight text-white">
+                                                        {currentFamilyStage ? currentFamilyStage.label : '已完成所有階段'}
                                                     </div>
-                                                </div>
-                                            ) : presentation.deck === 'news' ? (
-                                                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-[12px] font-bold leading-relaxed text-cyan-100">
-                                                    {shortPrompt}
-                                                </div>
-                                            ) : (
-                                                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-[12px] font-bold leading-relaxed text-cyan-100">
-                                                    <div>{cardNarrative || shortPrompt}</div>
-                                                    {!!presentation.effectLines.length && (
-                                                        <div className="mt-3 space-y-1.5 border-t border-cyan-300/15 pt-3 text-cyan-50">
-                                                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300">影響摘要</div>
-                                                            {presentation.effectLines.map((effectLine, index) => (
-                                                                <div key={`${effectLine}-${index}`} className="flex gap-2">
-                                                                    <span className="shrink-0 text-cyan-300">•</span>
-                                                                    <span>{effectLine}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
                                                 </div>
                                             )}
+                                        </div>
+
+                                        <div className="mt-auto pt-4 relative z-10">
+                                            <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-center text-[12px] font-bold leading-relaxed text-cyan-100">
+                                                卡片內容請查看投影幕。
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

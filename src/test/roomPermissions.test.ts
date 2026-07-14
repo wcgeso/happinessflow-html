@@ -259,6 +259,34 @@ rulesDescribe('Firestore room P0 permissions', () => {
     }));
   });
 
+  it('allows the final shared-card response to remove the completed prompt', async () => {
+    await assertSucceeds(setDoc(roomRef('coach'), room()));
+    const promptBoard = {
+      ...boardState('player'),
+      sharedCardPrompt: {
+        id: 'prompt-final',
+        targetPlayerUids: ['player'],
+        responses: {}
+      }
+    };
+    await assertSucceeds(updateDoc(roomRef('coach'), {
+      status: 'playing',
+      boardState: promptBoard,
+      memberUids: ['coach', 'player'],
+      members: [
+        { uid: 'coach', name: 'Coach', role: 'coach' },
+        { uid: 'player', name: 'Player', role: 'player' }
+      ]
+    }));
+    const playerDb = testEnv.authenticatedContext('player').firestore();
+    await assertSucceeds(updateDoc(doc(playerDb, 'rooms/room-p0'), {
+      'boardState.revision': 1,
+      'boardState.processedCommandIds': ['response-final'],
+      'boardState.sharedCardPrompt': deleteField(),
+      'boardState.updatedAt': 2
+    }));
+  });
+
   it('allows H009 approval requests only for the requesting player', async () => {
     await assertSucceeds(setDoc(roomRef('coach'), room()));
     await assertSucceeds(updateDoc(roomRef('coach'), {
