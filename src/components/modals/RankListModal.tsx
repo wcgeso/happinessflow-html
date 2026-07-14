@@ -27,7 +27,7 @@ export const RankListModal: React.FC<RankListModalProps> = ({
     const canPromote = currentRankLevel < (profession.promotions?.length || 0) + 1;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-safe pb-safe bg-black/80 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pt-safe pb-safe bg-black/80 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <Card className="w-full max-w-xs bg-slate-900 border-slate-700 shadow-2xl animate-in fade-in zoom-in-95 p-6 relative">
                 {/* 關閉按鈕 */}
                 <button 

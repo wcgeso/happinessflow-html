@@ -28,7 +28,7 @@ import { HappinessWinAnimation } from '../../components/game/HappinessWinAnimati
 import { hydrateBoardCardResult } from '../../utils/boardCardDisplay';
 import { formatMoney } from '../../utils/gameUtils';
 import { BoardCardResult, FamilyMilestoneJoinPrompt, SharedCardPrompt, TransactionData } from '../../types';
-import { BoardAssetSaleCandidate, BoardFinancialAction, BoardInvestmentAction, buildBoardAssetSaleFinancialAction, hasIncompleteSharedPrompts, isForcedBoardCard, resolveBoardCardAction } from '../../utils/boardCardActions';
+import { BoardAssetSaleCandidate, BoardFinancialAction, BoardInvestmentAction, buildBoardAssetSaleFinancialAction, getSharedOpportunityKind, hasIncompleteSharedPrompts, isForcedBoardCard, resolveBoardCardAction } from '../../utils/boardCardActions';
 import { HAPPINESS_CARD_MAP, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP } from '../../constants/cards';
 import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
 import { flowLog } from '../../utils/flowLog';
@@ -1197,8 +1197,7 @@ export const GameView: React.FC<{
                     }
 
                     const requiresSharedPrompt =
-                        (activeBoardCard.deck === 'opportunity' && activeBoardCardAction?.kind === 'asset_sale') ||
-                        (activeBoardCard.deck === 'opportunity' && activeBoardCardAction?.kind === 'financial' && !!activeBoardCardAction.afterApply?.affectsAllPlayersExpense) ||
+                        (activeBoardCard.deck === 'opportunity' && !!getSharedOpportunityKind(cardId)) ||
                         (activeBoardCard.deck === 'news' && ['cash_dividend', 'stock_dividend', 'large_enterprise', 'small_business'].includes((NEWS_CARD_MAP[cardId] as any)?.type || ''));
 
                     if (!requiresSharedPrompt) {
@@ -3083,7 +3082,7 @@ export const GameView: React.FC<{
             )}
 
             {showTransactionModal && visibleFlowModal === 'transaction' && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <TransactionForm
                         profession={gameState.profession}
                         selectedEnterprise={gameState.selectedEnterprise}

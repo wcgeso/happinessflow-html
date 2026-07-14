@@ -31,16 +31,32 @@ const firebaseConfig = {
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+const firestoreEmulatorUrl = import.meta.env.VITE_FIRESTORE_EMULATOR_URL;
+const firestoreEmulatorEndpoint = firestoreEmulatorUrl ? new URL(firestoreEmulatorUrl) : null;
 export const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: true,
+  ...(firestoreEmulatorEndpoint
+    ? {
+        host: firestoreEmulatorEndpoint.host,
+        ssl: firestoreEmulatorEndpoint.protocol === 'https:',
+      }
+    : {}),
 });
 export const storage = getStorage(app);
 
 // 本地開發：連接 Firebase Emulator（VITE_USE_EMULATOR=true 時啟用）
 if (import.meta.env.VITE_USE_EMULATOR === 'true') {
-  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-  connectFirestoreEmulator(db, 'localhost', 8080);
-  console.log('%c🔧 Firebase Emulator 已啟用（本地開發模式）', 'color: #f59e0b; font-weight: bold');
+  connectAuthEmulator(
+    auth,
+    import.meta.env.VITE_AUTH_EMULATOR_URL || 'http://localhost:9099',
+    { disableWarnings: true }
+  );
+  if (firestoreEmulatorEndpoint) {
+    console.log('%c🔧 Firebase Emulator 已透過遠端隧道啟用', 'color: #f59e0b; font-weight: bold');
+  } else {
+    connectFirestoreEmulator(db, 'localhost', 8080);
+    console.log('%c🔧 Firebase Emulator 已啟用（本地開發模式）', 'color: #f59e0b; font-weight: bold');
+  }
 }
 export const googleProvider = new GoogleAuthProvider();
 export const appleProvider = new OAuthProvider('apple.com');

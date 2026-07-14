@@ -1,6 +1,6 @@
 import { REAL_ESTATE_TYPES } from '../constants';
 import { getHappinessMonthlyExpenseCategory, getMonthlyExpenseCategoryLabel, getOpportunityMonthlyExpenseCategory, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP, HAPPINESS_CARD_MAP } from '../constants/cards';
-import { AccountEntry, Asset, BatchSellItem, BoardState, GameState, Liability, TransactionData } from '../types';
+import { AccountEntry, Asset, BatchSellItem, BoardState, GameState, Liability, SharedCardPrompt, TransactionData } from '../types';
 import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from './familyMilestones';
 import { getBusinessAssetLabel, getRealEstateAssetLabel } from './assetLabels';
 
@@ -147,6 +147,14 @@ const FORCED_OPPORTUNITY_TYPES = new Set([
   'penalty'
 ]);
 
+const SHARED_OPPORTUNITY_PURCHASE_TYPES = new Set([
+  'purchase_1room',
+  'purchase_any_house',
+  'purchase_store',
+  'purchase_startup',
+  'enterprise_acquisition'
+]);
+
 const extractAssetSymbol = (name: string) => name.match(/[A-Z]\d+/)?.[0];
 const stockSymbolFromAssetName = (name: string) => extractAssetSymbol(name) || name.replace('股票 ', '').trim();
 const formatAmount = (value: number) => Math.abs(value).toLocaleString();
@@ -288,6 +296,14 @@ export const isForcedBoardCard = (cardId: string) => {
     }
   }
   return false;
+};
+
+export const getSharedOpportunityKind = (cardId: string): SharedCardPrompt['kind'] | null => {
+  const opportunityCard = OPPORTUNITY_CARD_MAP[cardId];
+  if (!opportunityCard) return null;
+  if (SHARED_OPPORTUNITY_PURCHASE_TYPES.has(opportunityCard.type)) return 'asset_sale';
+  if (opportunityCard.affectsAllPlayers && opportunityCard.monthlyExpenseChange) return 'expense_adjustment';
+  return null;
 };
 
 export const resolveBoardCardAction = (cardId: string, gameState: GameState): BoardCardActionDefinition => {
