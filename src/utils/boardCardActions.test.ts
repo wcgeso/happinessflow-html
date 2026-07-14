@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameState } from '../types';
-import { isForcedBoardCard, resolveBoardCardAction } from './boardCardActions';
+import { getSharedOpportunityKind, isForcedBoardCard, resolveBoardCardAction } from './boardCardActions';
 
 const createGameState = (overrides: Partial<GameState> = {}): GameState => ({
   profession: null,
@@ -116,6 +116,10 @@ describe('resolveBoardCardAction', () => {
     expect(action.kind).toBe('asset_sale');
     if (action.kind !== 'asset_sale') return;
     expect(action.items[0]?.price).toBe(4500000);
+  });
+
+  it('C011 is classified as a shared asset-sale event from card data', () => {
+    expect(getSharedOpportunityKind('C011')).toBe('asset_sale');
   });
 
   it('C034 tolerates legacy enterprise assets without cashflow', () => {

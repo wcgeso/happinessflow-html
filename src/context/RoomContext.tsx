@@ -34,7 +34,7 @@ import {
     OPPORTUNITY_CARDS
 } from '../constants/cards';
 import { getFamilyMilestoneStageByCardId } from '../utils/familyMilestones';
-import { resolveBoardCardAction, hasIncompleteSharedPrompts } from '../utils/boardCardActions';
+import { getSharedOpportunityKind, resolveBoardCardAction, hasIncompleteSharedPrompts } from '../utils/boardCardActions';
 import { buildMovementEffects, describeMovementEffects } from '../game/board/movementEffects';
 import { runRoomBoardMutation } from '../game/board/runBoardMutation';
 import { applyBoardCommand } from '../game/board/boardRevision';
@@ -2033,13 +2033,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isCurrentCard) return false;
 
         let kind: SharedCardPrompt['kind'] | null = null;
-        if (
-            opportunityCard &&
-            ['purchase_1room', 'purchase_any_house', 'purchase_store', 'purchase_startup', 'enterprise_acquisition'].includes(opportunityCard.type)
-        ) {
-            kind = 'asset_sale';
-        } else if (opportunityCard?.affectsAllPlayers && opportunityCard.monthlyExpenseChange) {
-            kind = 'expense_adjustment';
+        if (opportunityCard) {
+            kind = getSharedOpportunityKind(cardId);
         } else if (newsCard?.type === 'cash_dividend') {
             kind = 'cash_dividend';
         } else if (newsCard?.type === 'stock_dividend') {

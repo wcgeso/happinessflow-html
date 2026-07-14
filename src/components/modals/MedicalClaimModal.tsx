@@ -32,7 +32,7 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
     const currentClaimAmount = claimType === 'medical' ? medicalClaimAmount : aircraftClaimAmount;
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 pt-safe pb-safe bg-black/90 backdrop-blur-md">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pt-safe pb-safe bg-black/90 backdrop-blur-md">
             <Card className="w-full max-sm bg-slate-900 border-blue-600 shadow-blue-900/20 shadow-2xl animate-in zoom-in-95 p-6 text-center">
                 <div className="flex bg-slate-800 p-1 rounded-lg mb-6">
                     <button 
