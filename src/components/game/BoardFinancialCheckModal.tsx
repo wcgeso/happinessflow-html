@@ -273,22 +273,22 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-[10020] bg-black/92 text-white animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[10050] bg-[#102f38]/90 text-[#293a38] animate-in fade-in duration-200">
       <div className="h-full">
-        <div className="flex h-full w-full flex-col overflow-hidden bg-[#171f33]">
-          <div className="shrink-0 border-b border-[#3b4760] bg-[#283247] px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-5 sm:pb-4">
+        <div className="flex h-full w-full flex-col overflow-hidden bg-[#f7f0e3]">
+          <div className="shrink-0 border-b border-[#d8c29a] bg-[#fffaf2] px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-5 sm:pb-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-yellow-400/50 bg-[#202a3d] text-yellow-400 sm:h-10 sm:w-10">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#d8c29a] bg-[#f4e6d0] text-[#8c5b2b] sm:h-10 sm:w-10">
                   <HelpCircle size={20} />
                 </div>
-                <h3 className="text-xl font-black tracking-tight text-white sm:text-2xl">
+                <h3 className="text-xl font-black tracking-tight text-[#293a38] sm:text-2xl">
                   財務檢核
                 </h3>
               </div>
               <button
                 onClick={onClose}
-                className="min-h-10 px-1 text-base font-black text-slate-400 transition-colors hover:text-white sm:text-lg"
+                className="min-h-10 rounded-xl px-3 text-base font-black text-[#76573a] transition-colors hover:bg-[#f4e6d0] sm:text-lg"
                 title="取消"
               >
                 取消
@@ -299,8 +299,8 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 no-scrollbar sm:px-5 sm:py-4">
           {!isApplied ? (
             <div className="flex min-h-full flex-col animate-in fade-in duration-300">
-              <div className="mb-2 rounded-2xl border border-[#243665] bg-[#1d2740] px-3 py-2.5 text-center sm:mb-3 sm:py-3">
-                <div className="text-sm font-black tracking-tight text-[#93a4c7] sm:text-base">
+              <div className="mb-2 rounded-2xl border border-[#e5cfac] bg-[#fffaf2] px-3 py-2.5 text-center sm:mb-3 sm:py-3">
+                <div className="text-sm font-black tracking-tight text-[#76573a] sm:text-base">
                   請問此筆交易如何影響財務報表？
                 </div>
               </div>
@@ -316,23 +316,23 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
               />
 
               {isApplying && (
-                <div className="mt-4 rounded-[18px] border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm font-bold text-cyan-100">
+                <div className="mt-4 rounded-[18px] border border-[#7dcbb1] bg-[#e7f5ed] px-4 py-3 text-sm font-bold text-[#286a59]">
                   正在套用交易，請稍候...
                 </div>
               )}
               {isVerified && !isApplying && !isApplied && (
-                <div className="mt-4 rounded-[18px] border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-100">
+                <div className="mt-4 rounded-[18px] border border-[#e3bd78] bg-[#fff2d8] px-4 py-3 text-sm font-bold text-[#8c5b2b]">
                   請先完成周轉，再回來重新確認並套用交易。
                 </div>
               )}
             </div>
           ) : (
             <div className="flex min-h-full flex-col items-center justify-center px-4 text-center">
-              <div className="rounded-full bg-cyan-400/15 p-4 text-cyan-300">
+              <div className="rounded-full bg-[#dff3eb] p-4 text-[#168269]">
                 <PartyPopper size={40} />
               </div>
-              <div className="mt-5 text-2xl font-black text-white">交易完成</div>
-              <div className="mt-3 max-w-md text-sm leading-relaxed text-slate-300">
+              <div className="mt-5 text-2xl font-black text-[#293a38]">交易完成</div>
+              <div className="mt-3 max-w-md text-sm leading-relaxed text-[#765f47]">
                 這筆交易已經完成，財務狀態也已同步更新。
               </div>
               {txData.impacts && txData.impacts.length > 0 && (
@@ -340,37 +340,37 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
                   {txData.impacts.map((impact, index) => (
                     <div
                       key={`${impact}_${index}`}
-                      className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm font-bold text-cyan-100"
+                      className="rounded-2xl border border-[#a8dcc8] bg-[#e7f5ed] px-4 py-3 text-sm font-bold text-[#286a59]"
                     >
                       {impact}
                     </div>
                   ))}
                 </div>
               )}
-              <div className="mt-4 max-w-md text-xs leading-relaxed text-slate-500">
+              <div className="mt-4 max-w-md text-xs leading-relaxed text-[#7a6958]">
                 關閉後會依照事件順序繼續下一個流程。
               </div>
             </div>
           )}
           </div>
 
-          <div className="shrink-0 border-t border-[#313d57] bg-[#171f33] px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:px-5 sm:pt-4">
+          <div className="shrink-0 border-t border-[#d8c29a] bg-[#fffaf2] px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:px-5 sm:pt-4">
           {!isApplied ? (
             <div className="flex gap-2.5">
-              <Button variant="secondary" onClick={onClose} className="min-h-11 flex-1 rounded-xl bg-[#44526b] py-2.5 text-sm font-black text-white hover:bg-[#50607c] sm:text-base" disabled={isApplying}>
+              <Button variant="secondary" onClick={onClose} className="min-h-11 flex-1 rounded-xl border border-[#d8c29a] bg-[#f4e6d0] py-2.5 text-sm font-black text-[#76573a] hover:bg-[#ead7b8] sm:text-base" disabled={isApplying}>
                 上一步
               </Button>
               <Button
                 onClick={handleVerify}
                 disabled={isApplying}
-                className="min-h-11 flex-[1.4] rounded-xl bg-[#21c488] py-2.5 text-sm font-black text-white hover:bg-[#29d394] disabled:opacity-60 sm:text-base"
+                className="min-h-11 flex-[1.4] rounded-xl bg-[#168269] py-2.5 text-sm font-black text-white hover:bg-[#106b58] disabled:opacity-60 sm:text-base"
               >
                 {isApplying ? '處理中...' : '確認檢核答案'}
               </Button>
             </div>
           ) : (
             <div className="flex">
-              <Button onClick={onClose} className="min-h-11 w-full rounded-xl bg-[#21c488] py-2.5 text-base font-black text-white hover:bg-[#29d394]">
+              <Button onClick={onClose} className="min-h-11 w-full rounded-xl bg-[#168269] py-2.5 text-base font-black text-white hover:bg-[#106b58]">
                 返回遊戲
               </Button>
             </div>
@@ -381,10 +381,10 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
 
       {errorPopup && (
         <div className="fixed inset-0 z-[10040] flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-md rounded-[28px] border border-rose-400/30 bg-slate-950 p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-[28px] border border-[#e7a3a8] bg-[#fffaf2] p-6 shadow-2xl">
             <div className="text-center">
-              <div className="text-lg font-black text-rose-300">{errorPopup.title}</div>
-              <div className="mt-3 text-sm font-bold leading-relaxed text-slate-200">
+              <div className="text-lg font-black text-[#b54155]">{errorPopup.title}</div>
+              <div className="mt-3 text-sm font-bold leading-relaxed text-[#765f47]">
                 請依下列正確答案重新檢查：
               </div>
             </div>
@@ -392,9 +392,9 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
               {errorPopup.lines.map((line, index) => (
                 <li
                   key={`${line}_${index}`}
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold leading-relaxed text-white"
+                    className="rounded-2xl border border-[#ead6b9] bg-[#f8eee0] px-4 py-3 text-sm font-bold leading-relaxed text-[#5f4933]"
                 >
-                  <span className="mr-2 text-rose-300">•</span>
+                  <span className="mr-2 text-[#b54155]">•</span>
                   {line}
                 </li>
               ))}
@@ -402,7 +402,7 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
             <button
               type="button"
               onClick={() => setErrorPopup(null)}
-              className="mt-6 w-full rounded-2xl bg-rose-600 px-4 py-3 text-base font-black text-white transition hover:bg-rose-500"
+              className="mt-6 w-full rounded-2xl bg-[#b54155] px-4 py-3 text-base font-black text-white transition hover:bg-[#943446]"
             >
               我知道了
             </button>

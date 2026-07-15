@@ -56,10 +56,10 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTra
                             ) : (
                                 [...history].reverse().map((tx) => {
                                     return (
-                                        <tr key={tx.id} className="hover:bg-slate-700/30 transition-colors">
+                                        <tr key={tx.id} className="transition-colors hover:bg-[#f3e4cc]">
                                             <td className="px-2 py-3">
                                                 <div className="flex flex-col gap-1">
-                                                    <div className="text-[10px] font-bold text-blue-400/80 uppercase tracking-tight break-words">
+                                                    <div className="break-words text-[10px] font-bold uppercase tracking-tight text-[#36798a]">
                                                         {tx.sourceLabel} → {tx.usageLabel}
                                                     </div>
                                                     <div className="text-slate-200 font-bold text-xs leading-relaxed break-words" title={tx.name}>{tx.name}</div>

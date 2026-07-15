@@ -1,4 +1,20 @@
-export type AudioCue = 'dice' | 'card' | 'cash-in' | 'cash-out' | 'turn' | 'happiness' | 'winner';
+export type AudioCue =
+  | 'dice'
+  | 'card'
+  | 'cash-in'
+  | 'cash-out'
+  | 'turn'
+  | 'happiness'
+  | 'winner'
+  | 'move-step'
+  | 'land'
+  | 'bank-land'
+  | 'school-land'
+  | 'hospital-land'
+  | 'repair-land'
+  | 'shared'
+  | 'pause'
+  | 'warning';
 
 export interface AudioSettings {
   enabled: boolean;
@@ -55,6 +71,15 @@ const CUE_PROFILES: Record<AudioCue, { frequencies: number[]; duration: number; 
   turn: { frequencies: [440, 660], duration: 0.16, gap: 0.08, type: 'sine' },
   happiness: { frequencies: [520, 660, 880], duration: 0.1, gap: 0.055, type: 'sine' },
   winner: { frequencies: [440, 660, 880, 1100], duration: 0.14, gap: 0.07, type: 'sine' },
+  'move-step': { frequencies: [190, 250], duration: 0.045, gap: 0.018, type: 'triangle' },
+  land: { frequencies: [300, 390], duration: 0.09, gap: 0.04, type: 'triangle' },
+  'bank-land': { frequencies: [330, 495, 660], duration: 0.1, gap: 0.045, type: 'sine' },
+  'school-land': { frequencies: [523, 659, 784], duration: 0.12, gap: 0.05, type: 'sine' },
+  'hospital-land': { frequencies: [240, 320, 400], duration: 0.13, gap: 0.06, type: 'triangle' },
+  'repair-land': { frequencies: [280, 420, 560], duration: 0.11, gap: 0.05, type: 'triangle' },
+  shared: { frequencies: [392, 494, 587], duration: 0.14, gap: 0.06, type: 'sine' },
+  pause: { frequencies: [300, 220], duration: 0.12, gap: 0.08, type: 'triangle' },
+  warning: { frequencies: [240, 180], duration: 0.16, gap: 0.08, type: 'triangle' },
 };
 
 class NativeAudioManager {
@@ -79,19 +104,69 @@ class NativeAudioManager {
 
   playOnce(cue: AudioCue, eventId: string) {
     if (this.playedEventIds.has(eventId)) return;
+    if (!this.play(cue)) return;
     this.playedEventIds.add(eventId);
     if (this.playedEventIds.size > 200) {
       const oldest = this.playedEventIds.values().next().value;
       if (oldest) this.playedEventIds.delete(oldest);
     }
-    this.play(cue);
+  }
+
+  private playDiceRoll(context: AudioContextWithLegacy, volume: number) {
+    const now = context.currentTime;
+    const impacts = [0, 0.08, 0.17, 0.29, 0.42];
+
+    impacts.forEach((offset, index) => {
+      const duration = 0.055;
+      const start = now + offset;
+      const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
+      const channel = buffer.getChannelData(0);
+
+      for (let sampleIndex = 0; sampleIndex < channel.length; sampleIndex += 1) {
+        const progress = sampleIndex / channel.length;
+        channel[sampleIndex] = (Math.random() * 2 - 1) * Math.pow(1 - progress, 2.2);
+      }
+
+      const source = context.createBufferSource();
+      const filter = context.createBiquadFilter();
+      const gain = context.createGain();
+      source.buffer = buffer;
+      source.playbackRate.setValueAtTime(0.92 + index * 0.025, start);
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1150 + index * 170, start);
+      filter.Q.setValueAtTime(0.9, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume * 0.075), start + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(context.destination);
+      source.start(start);
+      source.stop(start + duration + 0.01);
+    });
+
+    const settle = context.createOscillator();
+    const settleGain = context.createGain();
+    settle.type = 'triangle';
+    settle.frequency.setValueAtTime(175, now + 0.47);
+    settle.frequency.exponentialRampToValueAtTime(125, now + 0.54);
+    settleGain.gain.setValueAtTime(0.0001, now + 0.47);
+    settleGain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume * 0.045), now + 0.48);
+    settleGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.56);
+    settle.connect(settleGain);
+    settleGain.connect(context.destination);
+    settle.start(now + 0.47);
+    settle.stop(now + 0.57);
+
+    return true;
   }
 
   play(cue: AudioCue) {
     const settings = getAudioSettings();
-    if (!settings.enabled || settings.volume <= 0) return;
+    if (!settings.enabled || settings.volume <= 0) return false;
     const context = this.getContext();
-    if (!context || context.state !== 'running') return;
+    if (!context || context.state !== 'running') return false;
+    if (cue === 'dice') return this.playDiceRoll(context, settings.volume);
     const profile = CUE_PROFILES[cue];
     const now = context.currentTime;
     profile.frequencies.forEach((frequency, index) => {
@@ -108,6 +183,7 @@ class NativeAudioManager {
       oscillator.start(start);
       oscillator.stop(start + profile.duration + 0.01);
     });
+    return true;
   }
 
   startBackgroundMusic() {

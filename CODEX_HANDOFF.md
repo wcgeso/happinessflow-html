@@ -357,3 +357,110 @@
 - Projection starts the music on load when allowed, retries on the first pointer or keyboard interaction, and stops/resets when leaving the map.
 - Validation: `npm run typecheck`, `npx vitest run src/utils/audio.test.ts`, `npm run build`, and `git diff --check` passed. Audio metadata confirms a 120-second stereo AAC track.
 - Risk: browser autoplay policy still determines whether sound starts before the first user interaction.
+
+## Projection card editorial redesign
+
+- Replaced the narrow projection card with a 16:9-style horizontal event stage: editorial story panel on the left, structured impact panel on the right, and a fixed status bar.
+- Added three shared WebP collage assets for happiness, news, and opportunity cards. The assets contain no readable text, UI, bees, honeycombs, or insect motifs; total runtime size is about 533KB.
+- Replaced 3D card flipping with a cover-slide reveal and `AnimatePresence mode="wait"`, preventing old and new card content from rendering together and producing text ghosts.
+- Kept real-estate, stock-news, and family-milestone information branches. N045 now fits all seven fixed financial fields above the status bar at 1366×768.
+- Validation: `npm run typecheck`, projection Vitest (11 tests), full three-player projection E2E, `npm run build`, and `git diff --check` passed.
+- Risk: final projector color calibration should still be checked on the target hardware.
+
+## Projection sound effects
+
+- Extended the existing native Web Audio cue set with movement steps, special-square landing, shared prompt, pause-turn, and sync-warning sounds.
+- Projection playback is driven by existing movement, event, card reveal, shared prompt, skipped-turn, and sync-state IDs; Firestore rerenders do not replay the same cue.
+- Projection now unlocks Web Audio together with the existing BGM autoplay retry, so the first user interaction enables both music and effects.
+- Validation: `npm run typecheck`, `npx vitest run src/utils/audio.test.ts`, `npm run build`, and `git diff --check` passed.
+- Risk: final sound balance still needs verification on the actual projection speakers with Coach narration.
+
+## P1 board movement sound effects
+
+- Kept the existing per-step movement cue and added a normal landing cue for movement legs that finish without a special event.
+- Replaced the shared special-square cue with distinct bank, school, hospital, and repair landing cues.
+- Special landing playback uses `currentEvent.id`; movement and normal landing playback use `movement.startedAt` plus the path step, preventing Firestore rerenders from replaying audio.
+- Validation: `npm run typecheck`, `npx vitest run src/utils/audio.test.ts`, `npm run build`, and `git diff --check` passed.
+- Risk: final balance still needs one real projection replay across all four special squares.
+
+## Projection audio autoplay recovery
+
+- Fixed one-shot cues being marked as played before `AudioContext` was actually running; failed playback no longer consumes the event ID.
+- Added a projection audio toggle that explicitly unlocks Web Audio and starts the main-map BGM from a user gesture when browser autoplay blocks initial playback.
+- The toggle follows the existing `hf_audio_settings_v1` preference and updates when the shared audio setting event changes.
+- Validation: `npm run typecheck`, `npx vitest run src/utils/audio.test.ts`, `npm run build`, and `git diff --check` passed.
+- Risk: browser policy still requires the projection operator to click `啟用音效` when autoplay is blocked.
+
+## Projection audio control placement
+
+- Moved the projection audio control into the existing top HUD so it no longer overlays the central event stage.
+- The top-right area now contains only the card-log control; audio state remains visible and clickable in the HUD.
+- Validation: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+## Dice sound polish
+
+- Replaced the electronic square-wave dice cue with five irregular filtered noise impacts and a soft settling tone, matching a warm tabletop dice roll.
+- Kept the existing Web Audio unlock, mute preference, and event timing unchanged; only the `dice` cue rendering changed.
+- Validation: `npm run typecheck`, `npx vitest run src/utils/audio.test.ts`, `npm run build`, and `git diff --check` passed.
+- Risk: final loudness and realism still need a live browser replay through the actual player/projection speakers.
+
+## Player-side visual redesign
+
+- Added the presentation-only `PlayerModalFrame` and applied the warm city palette to player HUD, turn controls, card drawer, financial check, banking, medical, promotion, payday, family/shared event, happiness, and real-estate surfaces.
+- Kept Room, BoardState, Firestore writes, transaction builders, card action resolution, and existing callbacks unchanged. Player card content still directs players to the projection screen instead of showing full descriptions or impact summaries.
+- Improved mobile layout boundaries: modal content scrolls inside the panel, actions stay visible, card log moves below the player action dock on small screens, and reduced-motion disables decorative animation.
+- Validation so far: `npm run typecheck` passed after the shared frame, financial surfaces, banking surface, and event surface changes. Full build and focused tests remain to be run.
+- Risk: final visual verification still needs authenticated player-session screenshots at the four requested viewport sizes.
+
+## Player warm-theme contrast correction
+
+- Fixed scoped warm-theme overrides that could place white text on cream inputs or dark text on green primary buttons.
+- Added one shared `player-card-actions` scope so card choices, investment inputs, and asset-sale details use the same paper, ink, gold, success, and error colors as the card drawer.
+- Darkened small muted and amber labels to meet readable contrast on cream surfaces while leaving projection and login styling untouched.
+- Validation: typecheck, focused player tests, production build, and a signed-in local browser smoke check are required after this correction.
+
+## Player visual consistency pass
+
+- Unified leave-room, forced-payment, and hospital flows with the existing warm player modal frame without changing their callbacks or game-state behavior.
+- Removed remaining purple and neon-blue states from promotion dice, goal purchases, digital-bank products, cash-flow labels, and transaction history.
+- Updated the player lobby to the deep-teal, cream, gold, and semantic accent palette; removed the bee fallback avatar and inconsistent English subtitles.
+- Validation: `npm run typecheck`, `npx vitest run src/views/game/GameView.test.ts`, `npm run build`, `git diff --check`, and a signed-in desktop lobby browser check passed.
+- Risk: event modals still need a live multiplayer replay because the browser check covered the signed-in lobby rather than every board-event state.
+
+## Career and happiness modal color correction
+
+- Replaced the legacy dark career-rank popup with the shared warm player modal frame and clear current, unlocked, and locked rank states.
+- Removed the nested background from the happiness list and aligned all checked, icon, and detail colors to the shared happiness coral palette.
+- Validation: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+## Happiness list surface correction
+
+- Removed the legacy shared dark `Card` background that was overriding the warm happiness list surface.
+- Locked items now stay readable on warm cream cards; only the checkbox and lock badge communicate the locked state instead of dimming the whole row.
+- Child milestones use a fixed indent without scale or opacity changes.
+- Validation: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+## Settings menu opacity correction
+
+- Changed the player settings dropdown to a solid cream surface and removed backdrop transparency so the game HUD cannot show through it.
+- Kept the existing menu actions and updated the developer-settings hover state to the warm palette.
+- Validation: `npm run typecheck` and `npm run build` passed; existing Vite warnings remain unrelated.
+
+## Settings menu stacking correction
+
+- Raised the player HUD stacking context above the current-turn prompt and assigned the settings dropdown its own higher layer.
+- Kept the current-turn prompt visible below the menu while preserving pointer and touch interaction on the menu.
+- Validation: `npm run typecheck` and `git diff --check` passed.
+
+## Player financial tabs and card log
+
+- Renamed the player financial navigation to `財務報表`、`現金流量表`、`交易紀錄`.
+- Added `卡片日誌` as the fourth tab in the player board game view, using the existing `room.boardState.cardLog` data.
+- Added an inline card-log presentation so the player view no longer opens a separate overlay; projection and history views keep their existing behavior.
+- Validation: `npm run typecheck`, `npx vitest run src/components/board/BoardCardLogPanel.test.tsx`, `npm run build`, and `git diff --check` passed.
+- Risk: final visual spacing should still be checked in an authenticated player session on a narrow phone viewport.
+
+## Player financial tabs spacing
+
+- Moved the player financial tabs up by 16px so they sit closer to the current-turn container.
+- Validation: `npm run typecheck` and `git diff --check` passed.

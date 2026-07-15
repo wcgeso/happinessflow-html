@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GameState, FinancialSummary, Asset } from '../../types';
+import { GameState, FinancialSummary, Asset, BoardCardLogEntry } from '../../types';
 import { REAL_ESTATE_PRESETS, REAL_ESTATE_TYPES } from '../../constants';
 import { TrendingUp, Building, ChevronDown, ShieldCheck, ExternalLink, Wallet, Landmark, BarChart3, PieChart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { HistoryTable } from './HistoryTable';
 import { CashFlowLog } from './CashFlowLog';
+import { BoardCardLogPanel } from '../board/BoardCardLogPanel';
 import { HouseConversionModal } from '../modals/HouseConversionModal';
 import { cn } from '../../utils/gameUtils';
 import { useGame } from '../../context/GameContext';
@@ -23,6 +24,8 @@ interface FinancialStatementProps {
   disabled?: boolean;
   showDashboard?: boolean;
   navPosition?: 'fixed' | 'inline';
+  showCardLogTab?: boolean;
+  cardLogEntries?: BoardCardLogEntry[];
 }
 
 const formatMoney = (amount: number, isMasked?: boolean) => {
@@ -93,8 +96,10 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   disabled = false,
   showDashboard = true,
   navPosition = 'fixed',
+  showCardLogTab = false,
+  cardLogEntries = [],
 }) => {
-  const [view, setView] = useState<'financial' | 'cashflow' | 'history'>('financial');
+  const [view, setView] = useState<'financial' | 'cashflow' | 'history' | 'cardLog'>('financial');
   const [isIncomeOpen, setIsIncomeOpen] = useState(defaultShowDetails);
   const [isBalanceOpen, setIsBalanceOpen] = useState(defaultShowDetails);
   const [showFullDetails, setShowFullDetails] = useState(defaultShowDetails);
@@ -168,7 +173,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   const isInlineNav = navPosition === 'inline';
 
   return (
-    <div className={cn("space-y-4 no-scrollbar", !hideNav && !isInlineNav && "pb-[100px]")}>
+    <div className={cn("player-financial-statement space-y-4 no-scrollbar", !hideNav && !isInlineNav && "pb-[100px]")}>
       {!hideNav && (
         <div className="space-y-4">
           {/* Asset Dashboard (Stats Bar) */}
@@ -254,24 +259,25 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
         )}>
           <div className="relative flex items-center rounded-full border border-slate-700/60 bg-slate-900/80 p-1.5 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] backdrop-blur-xl pointer-events-auto">
             {[
-              { id: 'financial', label: '報表' },
-              { id: 'cashflow', label: '金流' },
-              { id: 'history', label: '紀錄' }
+              { id: 'financial' as const, label: '財務報表' },
+              { id: 'cashflow' as const, label: '現金流量表' },
+              { id: 'history' as const, label: '交易紀錄' },
+              ...(showCardLogTab ? [{ id: 'cardLog' as const, label: '卡片日誌' }] : []),
             ].map((v) => {
               const isActive = view === v.id;
               return (
                 <button
                   key={v.id}
-                  onClick={() => setView(v.id as any)}
+                  onClick={() => setView(v.id)}
                   className={cn(
-                    "relative rounded-full px-7 py-3 text-sm font-black tracking-widest transition-colors z-10 touch-manipulation sm:px-8 sm:py-3.5",
-                    isActive ? "text-white" : "text-slate-400 hover:text-slate-200"
+                    "relative rounded-full px-3 py-3 text-[11px] font-black tracking-wide transition-colors z-10 touch-manipulation sm:px-5 sm:py-3.5 sm:text-sm sm:tracking-widest",
+                    isActive ? "text-white" : "text-[#765f47] hover:text-[#293a38]"
                   )}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="pill-active-bg"
-                      className="absolute inset-0 rounded-full bg-emerald-600 shadow-[0_0_15px_rgba(5,150,105,0.6)] -z-10"
+                      className="absolute inset-0 -z-10 rounded-full bg-[#168269] shadow-[0_8px_18px_-12px_rgba(16,47,56,0.65)]"
                       initial={false}
                       transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     />
@@ -665,6 +671,11 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
           />
         </div>
       )}
+      {view === 'cardLog' && showCardLogTab && (
+        <div className="animate-in fade-in zoom-in-95 duration-300">
+          <BoardCardLogPanel entries={cardLogEntries} variant="inline" />
+        </div>
+      )}
 
       {convertingHouse && (
         <HouseConversionModal
@@ -724,7 +735,7 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
                     </span>
                     {isStoreAsset(item) ? (
                       // 店面只能出租，不提供自用／出租轉換
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-500 border border-blue-500/30">
+                      <span className="rounded border border-[#9fc8d5] bg-[#d8e9e5] px-1.5 py-0.5 text-[9px] font-black text-[#36798a]">
                         出租
                       </span>
                     ) : (
@@ -737,8 +748,8 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
                         className={cn(
                           "text-[9px] font-black px-1.5 py-0.5 rounded transition-all",
                           item.isSelfUse
-                            ? "bg-amber-500/20 text-amber-500 border border-amber-500/30 hover:bg-amber-500/30"
-                            : "bg-blue-500/20 text-blue-500 border border-blue-500/30 hover:bg-blue-500/30",
+                            ? "border border-[#d8c29a] bg-[#f4e6d0] text-[#a9643a] hover:bg-[#ead7b8]"
+                            : "border border-[#9fc8d5] bg-[#d8e9e5] text-[#36798a] hover:bg-[#c8dfda]",
                           disabled && "opacity-50 cursor-not-allowed"
                         )}
                       >

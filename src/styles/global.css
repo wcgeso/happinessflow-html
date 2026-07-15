@@ -10,6 +10,12 @@
   --safe-bottom: 0px;
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  --hf-deep-teal: #102f38;
+  --hf-ink: #293a38;
+  --hf-cream: #f7f0e3;
+  --hf-paper: #fffaf2;
+  --hf-gold: #d8c29a;
+  --hf-muted: #7a6958;
 }
 
 /* Safe Area Utilities */
@@ -69,6 +75,19 @@ body {
   font-family: 'Inter', sans-serif;
   -webkit-overflow-scrolling: touch;
   touch-action: manipulation;
+}
+
+.player-ui {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(216, 194, 154, 0.18), transparent 28%),
+    linear-gradient(160deg, #102f38 0%, #173f46 52%, #0d2830 100%);
+  color: var(--hf-ink);
+}
+
+.player-ui .player-surface {
+  background-color: rgba(255, 250, 242, 0.96);
+  border-color: rgba(216, 194, 154, 0.86);
+  color: var(--hf-ink);
 }
 
 input,
@@ -268,4 +287,168 @@ input[type='number']::-webkit-outer-spin-button {
 input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* Player-side surfaces keep the existing transaction markup readable in the warm theme. */
+.player-ui .player-financial-statement [class~="bg-slate-900/60"],
+.player-ui .player-financial-statement [class~="bg-slate-900/40"],
+.player-ui .player-financial-statement [class~="bg-slate-900/50"],
+.player-ui .player-financial-statement [class~="bg-slate-900/80"],
+.player-ui .player-financial-statement [class~="bg-slate-900/20"],
+.player-ui .player-financial-statement [class~="bg-slate-800"],
+.player-ui .player-financial-statement [class~="bg-slate-800/40"],
+.player-ui .player-financial-statement [class~="bg-slate-800/20"],
+.player-ui .player-financial-statement [class~="bg-slate-700/30"] {
+  background-color: rgba(255, 250, 242, 0.92) !important;
+}
+
+.player-ui .player-financial-statement [class~="border-slate-700"],
+.player-ui .player-financial-statement [class~="border-slate-700/60"],
+.player-ui .player-financial-statement [class~="border-slate-700/50"],
+.player-ui .player-financial-statement [class~="border-slate-700/30"],
+.player-ui .player-financial-statement [class~="border-slate-800/50"] {
+  border-color: #ead6b9 !important;
+}
+
+.player-ui .player-financial-statement [class~="text-slate-100"],
+.player-ui .player-financial-statement [class~="text-slate-200"],
+.player-ui .player-financial-statement [class~="text-white"] {
+  color: #293a38 !important;
+}
+
+.player-ui .player-financial-statement [class~="text-slate-300"],
+.player-ui .player-financial-statement [class~="text-slate-400"],
+.player-ui .player-financial-statement [class~="text-slate-500"] {
+  color: #7a6958 !important;
+}
+
+.player-ui .player-financial-statement [class~="text-blue-400"] {
+  color: #36798a !important;
+}
+
+.player-ui .player-financial-statement [class~="text-purple-400"] {
+  color: #a9643a !important;
+}
+
+.player-ui .player-financial-statement [class~="bg-purple-500/10"] {
+  background-color: #f0dfc9 !important;
+}
+
+.player-ui .player-financial-statement button[class~="text-white"] {
+  color: #fff !important;
+}
+
+.player-ui .player-banking-surface [class~="bg-slate-700"],
+.player-ui .player-banking-surface [class~="bg-slate-800"],
+.player-ui .player-banking-surface [class~="bg-slate-900"],
+.player-ui .player-banking-surface [class~="bg-slate-800/40"],
+.player-ui .player-banking-surface [class~="bg-slate-800/60"],
+.player-ui .player-banking-surface [class~="bg-slate-900/40"],
+.player-ui .player-banking-surface [class~="bg-slate-900/50"],
+.player-ui .player-banking-surface [class~="bg-slate-900/70"],
+.player-ui .player-banking-surface [class~="bg-slate-950/60"] {
+  background-color: #f8eee0 !important;
+}
+
+.player-ui .player-banking-surface [class~="bg-slate-900/80"],
+.player-ui .player-banking-surface [class~="bg-slate-950"] {
+  background-color: #f4e6d0 !important;
+}
+
+.player-ui .player-banking-surface [class~="border-slate-700"],
+.player-ui .player-banking-surface [class~="border-slate-700/60"],
+.player-ui .player-banking-surface [class~="border-slate-700/70"],
+.player-ui .player-banking-surface [class~="border-slate-700/80"],
+.player-ui .player-banking-surface [class~="border-slate-800"] {
+  border-color: #d8c29a !important;
+}
+
+.player-ui .player-banking-surface [class~="text-white"] {
+  color: #293a38 !important;
+}
+
+.player-ui .player-banking-surface [class~="text-slate-200"],
+.player-ui .player-banking-surface [class~="text-slate-300"],
+.player-ui .player-banking-surface [class~="text-slate-400"],
+.player-ui .player-banking-surface [class~="text-slate-500"] {
+  color: #765f47 !important;
+}
+
+.player-ui .player-banking-surface [class~="text-indigo-400"] {
+  color: #36798a !important;
+}
+
+.player-ui .player-banking-surface [class~="bg-indigo-600/20"] {
+  background-color: #d8e9e5 !important;
+}
+
+.player-ui .player-banking-surface [class~="border-indigo-500/30"],
+.player-ui .player-banking-surface [class~="border-indigo-500/50"] {
+  border-color: #9fc8d5 !important;
+}
+
+.player-ui .player-banking-surface [class~="text-emerald-300"],
+.player-ui .player-banking-surface [class~="text-emerald-400"] {
+  color: #168269 !important;
+}
+
+.player-ui .player-banking-surface [class~="text-rose-300"],
+.player-ui .player-banking-surface [class~="text-rose-400"] {
+  color: #b54155 !important;
+}
+
+.player-ui .player-banking-surface [class~="text-amber-300"] {
+  color: #8c5b2b !important;
+}
+
+.player-ui .player-banking-surface button[class~="bg-indigo-600"][class~="text-white"],
+.player-ui .player-banking-surface button[class~="bg-emerald-600"][class~="text-white"],
+.player-ui .player-banking-surface button[class~="bg-emerald-500"][class~="text-white"],
+.player-ui .player-banking-surface button[class~="bg-rose-500"][class~="text-white"] {
+  color: #fff !important;
+}
+
+.player-ui .player-card-actions [class~="bg-slate-700"],
+.player-ui .player-card-actions [class~="bg-slate-800"],
+.player-ui .player-card-actions [class~="bg-slate-900/60"],
+.player-ui .player-card-actions [class~="bg-slate-900/80"],
+.player-ui .player-card-actions [class~="bg-slate-950"],
+.player-ui .player-card-actions [class~="bg-slate-950/70"] {
+  background-color: #f8eee0 !important;
+}
+
+.player-ui .player-card-actions [class~="border-slate-600"],
+.player-ui .player-card-actions [class~="border-slate-700"],
+.player-ui .player-card-actions [class~="border-slate-800"] {
+  border-color: #d8c29a !important;
+}
+
+.player-ui .player-card-actions [class~="text-white"] {
+  color: #293a38 !important;
+}
+
+.player-ui .player-card-actions [class~="text-slate-200"],
+.player-ui .player-card-actions [class~="text-slate-300"],
+.player-ui .player-card-actions [class~="text-slate-400"],
+.player-ui .player-card-actions [class~="text-slate-500"] {
+  color: #765f47 !important;
+}
+
+.player-ui .player-card-actions [class~="text-emerald-300"] {
+  color: #168269 !important;
+}
+
+.player-ui .player-card-actions button[class~="bg-emerald-600"][class~="text-white"] {
+  color: #fff !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-ui *,
+  .player-ui *::before,
+  .player-ui *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

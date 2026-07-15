@@ -1,7 +1,6 @@
 import React from 'react';
-import { Heart } from 'lucide-react';
-import { Button } from '../ui/ui';
 import { HappinessPanel } from '../business/HappinessPanel';
+import { PlayerModalFrame } from '../common/PlayerModalFrame';
 
 interface HappinessListModalProps {
     items: any[];
@@ -23,29 +22,23 @@ export const HappinessListModal: React.FC<HappinessListModalProps> = ({
     disabled = false
 }) => {
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-safe pb-safe bg-black/80 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="w-full max-md bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
-                <div className="p-3 bg-slate-800 flex justify-between items-center border-b border-slate-700 shrink-0">
-                    <h3 className="font-bold text-white flex items-center gap-2">
-                        <Heart className="text-pink-400 fill-pink-400" size={18} />
-                        幸福指數清單
-                    </h3>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                    <HappinessPanel
-                        items={items}
-                        total={total}
-                        onToggle={onToggle}
-                        onAddCustomItem={onAdd}
-                        onRemoveCustomItem={onRemove}
-                        disabled={disabled}
-                    />
-                </div>
-                <div className="p-3 bg-slate-800 border-t border-slate-700 text-center shrink-0">
-                    <p className="text-xs text-slate-400 mb-2">達成 100 點即可獲得勝利</p>
-                    <Button variant="secondary" onClick={onClose} className="w-full">關閉</Button>
-                </div>
+        <PlayerModalFrame
+            eyebrow="玩家狀態"
+            title="幸福指數清單"
+            description={`目前 ${total} 點，達成 100 點即可獲得勝利`}
+            accent="happiness"
+            onClose={onClose}
+        >
+            <div className="min-h-[22rem] overflow-hidden rounded-2xl">
+                <HappinessPanel
+                    items={items}
+                    total={total}
+                    onToggle={onToggle}
+                    onAddCustomItem={onAdd}
+                    onRemoveCustomItem={onRemove}
+                    disabled={disabled}
+                />
             </div>
-        </div>
+        </PlayerModalFrame>
     );
 };

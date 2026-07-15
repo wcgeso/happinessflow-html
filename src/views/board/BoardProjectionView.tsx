@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Activity, GraduationCap, Heart, HeartCrack, Landmark, Newspaper, ScrollText, Sparkles, TrendingDown, TrendingUp, Wrench } from 'lucide-react';
+import { Activity, GraduationCap, Heart, HeartCrack, Landmark, Newspaper, ScrollText, Sparkles, TrendingDown, TrendingUp, Volume2, VolumeX, Wrench } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
 import SafeImage from '../../components/common/SafeImage';
@@ -9,7 +9,7 @@ import { STOCK_NAMES } from '../../constants';
 import { BOARD_SQUARES } from '../../constants/board';
 import { NEWS_CARD_MAP, normalizeCardCopy } from '../../constants/cards';
 import { Room } from '../../context/RoomContext';
-import { BoardCardLogEntry, BoardCardResult, BoardSquare, SkippedTurnNotice } from '../../types';
+import { BoardCardLogEntry, BoardCardResult, BoardEventLog, BoardSquare, SkippedTurnNotice } from '../../types';
 import { getCardNarrative, hydrateBoardCardResult } from '../../utils/boardCardDisplay';
 import { FAMILY_MILESTONE_STAGES } from '../../utils/familyMilestones';
 import { SettlementView } from '../../components/game/SettlementView';
@@ -25,13 +25,27 @@ import {
   getProjectionTileCenter,
 } from './boardProjectionLayout';
 import { getProjectionActionState } from './boardProjectionStatus';
-import { AUDIO_SETTINGS_EVENT, audioManager } from '../../utils/audio';
+import { AUDIO_SETTINGS_EVENT, audioManager, getAudioSettings, setAudioSettings } from '../../utils/audio';
+import type { AudioCue } from '../../utils/audio';
 const FIT_ZOOM_FALLBACK = 0.62;
 const VIEWPORT_PADDING_X = 64;
 const VIEWPORT_PADDING_TOP = 80;
 const VIEWPORT_PADDING_BOTTOM = 32;
 const BOARD_MOVEMENT_TICK_MS = 80;
 const SKIPPED_TURN_NOTICE_MS = 2600;
+
+const playProjectionCue = (cue: AudioCue, eventId: string) => {
+  void audioManager.unlock()
+    .then(() => audioManager.playOnce(cue, eventId))
+    .catch(() => undefined);
+};
+
+const SPECIAL_LAND_CUES: Partial<Record<NonNullable<BoardEventLog['type']>, AudioCue>> = {
+  bank: 'bank-land',
+  school: 'school-land',
+  hospital: 'hospital-land',
+  repair: 'repair-land'
+};
 
 const SQUARE_THEME: Record<BoardSquare['type'], {
   bg: string;
@@ -43,6 +57,8 @@ const SQUARE_THEME: Record<BoardSquare['type'], {
   text: string;
   cardBack: string;
   label: string;
+  accent: string;
+  editorialArt: string;
 }> = {
   school: {
     bg: 'bg-[#d8c4a8]',
@@ -53,7 +69,9 @@ const SQUARE_THEME: Record<BoardSquare['type'], {
     icon: 'text-[#7a5b36]',
     text: 'text-[#563c24]',
     cardBack: 'from-[#d8c4a8] via-[#c9ad86] to-[#b99367]',
-    label: '學校'
+    label: '學校',
+    accent: '#B88A43',
+    editorialArt: '/assets/projection-cards/opportunity-editorial.webp'
   },
   hospital: {
     bg: 'bg-[#e7c8bc]',
@@ -64,7 +82,9 @@ const SQUARE_THEME: Record<BoardSquare['type'], {
     icon: 'text-[#92563f]',
     text: 'text-[#6b4131]',
     cardBack: 'from-[#e7c8bc] via-[#d8a693] to-[#c78369]',
-    label: '醫院'
+    label: '醫院',
+    accent: '#C9655A',
+    editorialArt: '/assets/projection-cards/happiness-editorial.webp'
   },
   bank: {
     bg: 'bg-[#d7ddc5]',
@@ -75,7 +95,9 @@ const SQUARE_THEME: Record<BoardSquare['type'], {
     icon: 'text-[#627144]',
     text: 'text-[#48543a]',
     cardBack: 'from-[#d7ddc5] via-[#bfc99d] to-[#96a66e]',
-    label: '銀行'
+    label: '銀行',
+    accent: '#2E6570',
+    editorialArt: '/assets/projection-cards/news-editorial.webp'
   },
   repair: {
     bg: 'bg-[#dec49e]',
@@ -86,7 +108,9 @@ const SQUARE_THEME: Record<BoardSquare['type'], {
     icon: 'text-[#8b6431]',
     text: 'text-[#614522]',
     cardBack: 'from-[#dec49e] via-[#d1a96d] to-[#b88442]',
-    label: '維修廠'
+    label: '維修廠',
+    accent: '#A9643A',
+    editorialArt: '/assets/projection-cards/opportunity-editorial.webp'
   },
   happiness: {
     bg: 'bg-[#ead9b7]',
@@ -97,7 +121,9 @@ const SQUARE_THEME: Record<BoardSquare['type'], {
     icon: 'text-[#8c6832]',
     text: 'text-[#614825]',
     cardBack: 'from-[#f0dcac] via-[#e2bd6b] to-[#c99440]',
-    label: '幸福卡'
+    label: '幸福卡',
+    accent: '#C9655A',
+    editorialArt: '/assets/projection-cards/happiness-editorial.webp'
   },
   news: {
     bg: 'bg-[#d7d8ce]',
@@ -108,7 +134,9 @@ const SQUARE_THEME: Record<BoardSquare['type'], {
     icon: 'text-[#696750]',
     text: 'text-[#4c4a40]',
     cardBack: 'from-[#dbddd2] via-[#bfc2b1] to-[#9c9d87]',
-    label: '新聞卡'
+    label: '新聞卡',
+    accent: '#2E6570',
+    editorialArt: '/assets/projection-cards/news-editorial.webp'
   },
   opportunity: {
     bg: 'bg-[#d7ccbb]',
@@ -119,7 +147,9 @@ const SQUARE_THEME: Record<BoardSquare['type'], {
     icon: 'text-[#765d3b]',
     text: 'text-[#544434]',
     cardBack: 'from-[#dfd1bd] via-[#c8ae86] to-[#a98255]',
-    label: '機運卡'
+    label: '機運卡',
+    accent: '#A9643A',
+    editorialArt: '/assets/projection-cards/opportunity-editorial.webp'
   }
 };
 
@@ -369,11 +399,11 @@ const parseLabelValueLines = (lines: string[]): ParsedLabelValueLine[] => {
 };
 
 const EffectLineChip: React.FC<{ line: ParsedLabelValueLine }> = ({ line }) => (
-  <div className="rounded-[14px] border border-[#ead6b9] bg-[#fffdf8] px-4 py-2.5">
+  <div className="rounded-[14px] border border-[#ead6b9] bg-[#fffdf8] px-4 py-3">
     {line.label && (
-      <div className="text-[10px] font-black tracking-[0.14em] text-[#a4835b]">{line.label}</div>
+      <div className="text-sm font-black tracking-[0.08em] text-[#7a7768]">{line.label}</div>
     )}
-    <div className={`font-black leading-snug text-[#5f4933] whitespace-pre-wrap break-words ${line.label ? 'text-base' : 'text-sm'}`}>
+    <div className={`font-black leading-snug text-[#293a38] whitespace-pre-wrap break-words ${line.label ? 'text-lg' : 'text-base'}`}>
       {line.value}
     </div>
   </div>
@@ -400,8 +430,8 @@ const ImpactSummaryBar: React.FC<{ impacts: ParsedImpactLine[] }> = ({ impacts }
           >
             <span className={style.text}>{style.icon}</span>
             <div className="min-w-0">
-              <div className="truncate text-[10px] font-black uppercase tracking-wider text-[#9c7c58]">{impact.label}</div>
-              <div className={`break-words text-[clamp(1.1rem,2.4vw,1.5rem)] font-black leading-tight ${style.text}`}>{impact.value}</div>
+              <div className="truncate text-sm font-black tracking-[0.08em] text-[#7a7768]">{impact.label}</div>
+              <div className={`break-words text-[clamp(1.25rem,2.4vw,1.7rem)] font-black leading-tight ${style.text}`}>{impact.value}</div>
             </div>
           </div>
         );
@@ -441,8 +471,15 @@ const CardStage: React.FC<{
   card: BoardCardResult | null;
   isRevealed: boolean;
   drawerName?: string;
+  drawerPlayer?: {
+    name: string;
+    photoURL?: string;
+    photoPosition?: string;
+    photoScale?: string;
+  } | null;
   statusLabel?: string;
-}> = ({ card, isRevealed, drawerName, statusLabel }) => {
+}> = ({ card, isRevealed, drawerName, drawerPlayer, statusLabel }) => {
+  const prefersReducedMotion = useReducedMotion();
   if (!card) return null;
 
   const presentation = toCardPresentationModel(card);
@@ -497,129 +534,131 @@ const CardStage: React.FC<{
   const sentenceEffectLines = parsedEffectLines.filter(line => line.label === null).map(line => line.value);
   const combinedRuleText = [ruleText, ...(isStockCard ? [] : sentenceEffectLines)].filter(Boolean).join('\n');
   const stockSummaryCaption = isStockCard ? sentenceEffectLines.filter(Boolean).join(' ') : '';
+  const playerForToken = drawerPlayer || { name: drawerName || '玩家' };
+  const cardTitle = isFamilyMilestoneCard ? '幸福家庭的重要歷程' : card.title;
 
   return (
-    <div className="w-[calc(100vw-32px)] max-w-[560px]" style={{ perspective: '1400px' }}>
-      <div
-        className={`relative w-full transition-transform duration-700 ${
-          isFamilyMilestoneCard
-            ? 'h-[min(78vh,700px)] min-h-[420px]'
-            : 'h-[min(78vh,760px)] min-h-[420px]'
-        }`}
-        style={{
-          transformStyle: 'preserve-3d',
-          transform: isRevealed ? 'rotateY(180deg)' : 'rotateY(0deg)'
-        }}
-      >
+    <div className="w-[min(1120px,calc(100vw-48px))] max-w-full">
+      <div className="relative h-[min(72vh,680px)] min-h-[420px] w-full overflow-hidden rounded-[32px] border-2 border-[#d8c29a] bg-[#f7f0e3] text-[#293a38] shadow-[0_32px_80px_-34px_rgba(0,0,0,0.9)]">
         <div
-          className={`absolute inset-0 overflow-hidden rounded-[28px] border-2 border-white/70 bg-gradient-to-br ${theme.cardBack} shadow-[0_26px_60px_-32px_rgba(91,62,31,0.8)]`}
-          style={{ backfaceVisibility: 'hidden' }}
+          aria-hidden={!isRevealed}
+          data-projection-card-content
+          className="absolute inset-0 flex min-h-0 flex-col bg-[#f7f0e3]"
         >
-          <div className="absolute inset-[12px] rounded-[20px] border border-white/60" />
-          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #5b4127 1px, transparent 1px)', backgroundSize: '14px 14px' }} />
-          <div className="relative z-10 flex h-full flex-col items-center justify-center gap-4 text-white drop-shadow-[0_3px_8px_rgba(70,45,22,0.45)]">
-            <div className="rounded-3xl border border-white/40 bg-white/15 p-5">
-              {getCardIcon(card.deck, 46)}
+          <header className="flex shrink-0 items-center gap-4 border-b border-[#d8c29a] bg-[#fffaf2]/95 px-6 py-4 shadow-[0_12px_24px_-20px_rgba(41,58,56,0.8)] sm:px-9 sm:py-5">
+            <div className="flex shrink-0 items-center gap-2 text-base font-black tracking-[0.14em]" style={{ color: theme.accent }}>
+              {getCardIcon(card.deck, 24)}
+              <span>{card.subtitle && card.subtitle !== theme.label ? `${theme.label}・${card.subtitle}` : theme.label}</span>
             </div>
-            <div className="text-3xl font-black tracking-[0.28em]">{theme.label}</div>
-          </div>
-        </div>
+            <h1 className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[clamp(1.5rem,3.1vw,3rem)] font-black leading-none text-[#293a38]" title={cardTitle}>
+              {cardTitle}
+            </h1>
+            <span className="shrink-0 text-sm font-black tracking-[0.16em] text-[#7a7768]">{card.cardId}</span>
+          </header>
 
-        <div
-          className="absolute inset-0 overflow-hidden rounded-[28px] border border-[#d4b68d] bg-[#fffaf2] text-[#4f3c29] shadow-[0_26px_60px_-32px_rgba(91,62,31,0.8)]"
-          style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-        >
-          <div className={`h-3 bg-gradient-to-r ${theme.cardBack}`} />
-          <div className={`flex h-[calc(100%-12px)] min-h-0 flex-col overflow-hidden ${isFamilyMilestoneCard ? 'p-4 sm:p-5' : 'p-4 sm:p-6'}`}>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-xs font-black tracking-[0.24em] text-[#9c7c58]">
-                {getCardIcon(card.deck, 18)}
-                <span>{card.subtitle && card.subtitle !== theme.label ? `${theme.label}・${card.subtitle}` : theme.label}</span>
-                {drawerName && <span className="text-[#c2a374]">・{drawerName} 抽到</span>}
+          <div className="grid min-h-0 flex-1 grid-cols-[minmax(260px,0.82fr)_minmax(0,1.38fr)]">
+          <section className="relative min-h-0 overflow-hidden border-r border-[#d8c29a]/70 bg-[#0d2931]">
+            <img
+              src={theme.editorialArt}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              className="absolute inset-0 h-full w-full object-cover opacity-60"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#f7f0e3]/90 via-[#0d2931]/55 to-[#06151b]/95" />
+            <div className="relative flex h-full min-h-0 flex-col overflow-y-auto p-6 sm:p-9 no-scrollbar">
+              <div className="flex shrink-0 items-center gap-3 rounded-[18px] border border-[#293a38]/15 bg-[#fffaf2]/92 px-4 py-3 shadow-[0_12px_28px_-18px_rgba(0,0,0,0.8)] backdrop-blur-sm">
+                <div
+                  className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-[#293a38]/80 text-white shadow-lg"
+                  style={{ boxShadow: `0 0 0 3px ${theme.accent}66` }}
+                >
+                  {renderPlayerToken(playerForToken)}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-black tracking-[0.18em] text-[#53625d]">抽卡玩家</div>
+                  <div className="truncate text-xl font-black text-[#293a38]">{drawerName || '玩家'}</div>
+                </div>
+                <span className="ml-auto shrink-0 text-sm font-black tracking-[0.16em] text-[#53625d]">{card.cardId}</span>
               </div>
-              <span className="shrink-0 text-[10px] font-bold tracking-widest text-[#c2a374]">{card.cardId}</span>
+
+              <div className="mt-auto min-h-0 shrink-0 rounded-[24px] border border-white/20 bg-[#081f27]/90 p-5 shadow-[0_20px_44px_-22px_rgba(0,0,0,0.95)] backdrop-blur-sm sm:p-6">
+                <div className="mb-3 flex items-center gap-2 text-lg font-black tracking-[0.16em]" style={{ color: theme.accent }}>
+                  {getCardIcon(card.deck, 24)}
+                  <span>{card.subtitle && card.subtitle !== theme.label ? `${theme.label}・${card.subtitle}` : theme.label}</span>
+                </div>
+                {(isFamilyMilestoneCard ? familyMilestoneIntro : flavorText) && (
+                  <p className="mt-5 break-words border-l-4 pl-4 text-lg font-bold leading-relaxed text-[#fffaf2]/90" style={{ borderColor: theme.accent }}>
+                    {isFamilyMilestoneCard ? familyMilestoneIntro : flavorText}
+                  </p>
+                )}
+                {isStockCard && stockSummaryCaption && (
+                  <p className="mt-4 text-base font-bold italic leading-relaxed text-[#fffaf2]/80">{stockSummaryCaption}</p>
+                )}
+              </div>
             </div>
-            <div className={`mt-3 break-words font-black leading-[1.05] ${isFamilyMilestoneCard ? 'text-[clamp(2.5rem,5.8vw,4.4rem)]' : 'text-[clamp(2rem,7vw,3rem)]'}`}>
-              {isFamilyMilestoneCard ? '幸福家庭的重要歷程' : card.title}
+          </section>
+
+          <section className="flex min-h-0 flex-col p-6 sm:p-9">
+            <div className="flex items-center justify-between gap-3 border-b border-[#d8c29a]/70 pb-4">
+              <div className="text-lg font-black tracking-[0.16em]" style={{ color: theme.accent }}>事件資訊</div>
+              <div className="text-base font-black tracking-[0.12em] text-[#7a7768]">卡片影響摘要</div>
             </div>
-            {!isFamilyMilestoneCard && !realEstateMetrics && <ImpactSummaryBar impacts={impacts} />}
-            <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 no-scrollbar">
-              {flavorText && !isFamilyMilestoneCard && (
-                <p className="whitespace-pre-wrap break-words border-l-2 border-[#e5cfac] pl-3 text-xs italic leading-relaxed text-[#a4896c] sm:text-sm">
-                  {flavorText}
-                </p>
-              )}
+            {!realEstateMetrics && <ImpactSummaryBar impacts={impacts} />}
+
+            <div className="mt-5 min-h-0 flex-1 overflow-y-auto pr-2 no-scrollbar">
               {realEstateMetrics && (
-                <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-1.5">
                   {realEstateMetrics.map(metric => (
-                    <div key={metric.label} className={`rounded-[16px] border border-[#ead6b9] bg-[#fffdf8] px-4 py-3 ${metric.className}`}>
-                      <div className="text-[10px] font-black tracking-[0.14em] text-[#a4835b]">{metric.label}</div>
-                      <div className="mt-1 break-words text-[clamp(1.25rem,3.2vw,1.75rem)] font-black leading-tight text-[#5f4933]">{metric.value}</div>
+                    <div key={metric.label} className={`rounded-[14px] border border-[#d8c29a] bg-white/70 px-3 py-2 ${metric.className}`}>
+                      <div className="text-xs font-black tracking-[0.08em] text-[#7a7768]">{metric.label}</div>
+                      <div className="break-words text-[clamp(1.35rem,2.6vw,1.8rem)] font-black leading-tight text-[#293a38]">{metric.value}</div>
                     </div>
                   ))}
                 </div>
               )}
+
               {combinedRuleText && !isFamilyMilestoneCard && (
-                <div className="mt-4 rounded-[18px] border border-[#e5cfac] bg-[#fff6e6] px-4 py-4 text-sm font-bold leading-relaxed text-[#6f5336] whitespace-pre-wrap break-words">
+                <div className="mt-4 whitespace-pre-wrap break-words rounded-[18px] border border-[#d8c29a] bg-[#fffaf2] px-5 py-4 text-lg font-bold leading-relaxed text-[#53625d]">
                   {combinedRuleText}
                 </div>
               )}
-              {isStockCard && stockSummaryCaption && (
-                <div className="mt-2 text-[11px] font-semibold italic text-[#a4896c]">
-                  {stockSummaryCaption}
-                </div>
-              )}
-              {isFamilyMilestoneCard ? (
-                <div className="mt-3 space-y-3">
-                  <p className="whitespace-pre-wrap break-words rounded-[18px] border border-[#e5cfac] bg-[#fff6e6] px-4 py-3 text-sm font-bold leading-relaxed text-[#6f5336]">
-                    {familyMilestoneIntro}
-                  </p>
-                  <div className="rounded-[18px] border border-[#e7d5bb] bg-white/90 p-3">
-                    <div className="mb-1.5 flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="text-[10px] font-black tracking-[0.22em] text-[#9c7c58]">
-                        各階段花費
-                      </div>
-                    </div>
 
-                    <div className="mb-1 grid grid-cols-[minmax(0,1.7fr)_minmax(0,0.95fr)] gap-2 px-1 text-[9px] font-black tracking-[0.1em] text-[#a4835b]">
-                      <div>階段</div>
-                      <div>花費</div>
-                    </div>
-                    <div className="overflow-hidden rounded-[16px] border border-[#ead6b9] bg-[#fffdf8]">
-                      {familyMilestoneStages.map((stage: any, index: number) => {
-                        return (
-                          <div
-                            key={`${card.cardId}_${stage.cardId}`}
-                            className={`grid grid-cols-[minmax(0,1.7fr)_minmax(0,0.95fr)] items-center gap-2 px-3 py-2 transition-all ${
-                              index % 2 === 0 ? 'bg-[#fffdf8]' : 'bg-[#fff9f0]'
-                            }`}
-                          >
-                            <div className="min-w-0">
-                              <div className="break-words text-[12px] font-black leading-tight text-[#5b4127] sm:text-[13px]">
-                                {stage.label}
-                              </div>
-                            </div>
-                            <div className="min-w-0 break-words text-[11px] font-black leading-tight text-[#7a5a37] sm:text-[12px]">
-                              {stage.cost}
-                            </div>
+              {isFamilyMilestoneCard ? (
+                <div className="rounded-[18px] border border-[#d8c29a] bg-white/70 p-4">
+                  <div className="mb-3 text-lg font-black tracking-[0.12em] text-[#53625d]">各階段影響</div>
+                  <div className="grid grid-cols-[minmax(0,1.55fr)_minmax(72px,0.75fr)_minmax(72px,0.8fr)] gap-3 border-b border-[#d8c29a] px-2 pb-2 text-sm font-black tracking-[0.1em] text-[#7a7768]">
+                    <div>階段</div>
+                    <div>花費</div>
+                    <div>幸福值</div>
+                  </div>
+                  <div className="overflow-hidden rounded-[16px] border border-[#ead6b9] bg-[#fffdf8]">
+                    {familyMilestoneStages.map((stage: any, index: number) => (
+                      <div
+                        key={`${card.cardId}_${stage.cardId}`}
+                        className={`grid grid-cols-[minmax(0,1.55fr)_minmax(72px,0.75fr)_minmax(72px,0.8fr)] items-center gap-3 px-4 py-3 ${stage.completed ? 'bg-[#eef8f0]' : index % 2 === 0 ? 'bg-[#fffdf8]' : 'bg-[#fff9f0]'}`}
+                      >
+                        <div className="min-w-0">
+                          <div className="break-words text-base font-black leading-tight text-[#293a38]">{stage.label}</div>
+                          <div className={`mt-1 text-xs font-black ${stage.completed ? 'text-emerald-700' : stage.index === familyMilestoneStatus?.currentStageIndex ? 'text-amber-700' : 'text-[#9a8a76]'}`}>
+                            {stage.completed ? '已完成' : stage.index === familyMilestoneStatus?.currentStageIndex ? '目前階段' : '尚未開始'}
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                        <div className="break-words text-base font-black leading-tight text-[#7a5a37]">{stage.cost}</div>
+                        <div className="break-words text-base font-black leading-tight text-[#c02673]">+{stage.points}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : !realEstateMetrics && (isStockCard ? !!remainingEffectLines.length : !!labeledEffectLines.length) && (
                 isStockCard ? (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {STOCK_SYMBOL_COLUMNS.map((column, columnIndex) => (
-                      <div key={`${card.cardId}_column_${columnIndex}`} className="rounded-[18px] border border-[#ead6b9] bg-[#fffdf8] p-3">
+                      <div key={`${card.cardId}_column_${columnIndex}`} className="rounded-[18px] border border-[#d8c29a] bg-white/70 p-3">
                         <div className="space-y-2">
                           {column.map(symbol => (
-                            <div key={`${card.cardId}_${symbol}`} className="flex items-center justify-between gap-3 rounded-[12px] border border-[#f0e2ca] bg-white px-3 py-2 text-sm font-black text-[#5f4933]">
-                              <div className="min-w-0 truncate">
-                                {symbol} {STOCK_NAMES[symbol] || '未命名股票'}
-                              </div>
-                              <span className="text-right">{stockEffectMap[symbol] || '-'}</span>
+                            <div key={`${card.cardId}_${symbol}`} className="flex items-center justify-between gap-3 rounded-[12px] border border-[#ead6b9] bg-[#fffdf8] px-4 py-3 text-base font-black text-[#293a38]">
+                              <div className="min-w-0 truncate">{symbol} {STOCK_NAMES[symbol] || '未命名股票'}</div>
+                              <span className="shrink-0 text-right">{stockEffectMap[symbol] || '-'}</span>
                             </div>
                           ))}
                         </div>
@@ -627,19 +666,46 @@ const CardStage: React.FC<{
                     ))}
                   </div>
                 ) : (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {labeledEffectLines.map(line => (
-                      <EffectLineChip key={line.key} line={line} />
-                    ))}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {labeledEffectLines.map(line => <EffectLineChip key={line.key} line={line} />)}
                   </div>
                 )
               )}
             </div>
+
             {statusLabel && (
-              <div className="mt-3 shrink-0 rounded-[14px] border border-[#e5cfac] bg-[#f4e6d0]/70 px-3 py-2 text-center text-xs font-black tracking-[0.06em] text-[#76573a]">
+              <div className="mt-5 shrink-0 rounded-[16px] border border-[#d8c29a] bg-[#eee1c9] px-4 py-3 text-center text-base font-black tracking-[0.06em] text-[#53625d]">
                 {statusLabel}
               </div>
             )}
+          </section>
+          </div>
+        </div>
+
+        <div
+          aria-hidden={isRevealed}
+          data-projection-card-cover
+          className={`absolute inset-0 z-30 overflow-hidden rounded-[32px] border-2 border-white/70 bg-[#293a38] ${isRevealed ? 'pointer-events-none -translate-x-full opacity-0' : 'translate-x-0 opacity-100'} transition-[transform,opacity]`}
+          style={{
+            transitionDuration: prefersReducedMotion ? '0ms' : '320ms',
+            transitionTimingFunction: 'cubic-bezier(0.22, 0.8, 0.2, 1)'
+          }}
+        >
+          <img
+            src={theme.editorialArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-[#293a38]/62" />
+          <div className="absolute inset-5 rounded-[24px] border border-white/35" />
+          <div className="relative flex h-full flex-col items-center justify-center gap-5 px-8 text-center text-[#fffaf2]">
+            <div className="flex h-20 w-20 items-center justify-center rounded-[24px] border border-white/55 bg-white/15 shadow-[0_18px_36px_-18px_rgba(0,0,0,0.8)]">
+              {getCardIcon(card.deck, 44)}
+            </div>
+            <div className="text-5xl font-black tracking-[0.22em] drop-shadow-lg">{theme.label}</div>
+            <div className="text-lg font-bold tracking-[0.16em] text-[#fffaf2]/80">事件封面 · 等待翻牌</div>
           </div>
         </div>
       </div>
@@ -653,6 +719,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const [zoom, setZoom] = useState(FIT_ZOOM_FALLBACK);
   const [animationNow, setAnimationNow] = useState(() => Date.now());
   const [showBoardCardLog, setShowBoardCardLog] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(() => getAudioSettings().enabled);
   const [visibleSkippedTurnNotice, setVisibleSkippedTurnNotice] = useState<SkippedTurnNotice | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const boardFrameRef = useRef<HTMLDivElement | null>(null);
@@ -664,6 +731,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     scrollLeft: number;
     scrollTop: number;
   } | null>(null);
+  const previousMovementRef = useRef<{ isActive?: boolean; startedAt?: number } | null | undefined>(undefined);
 
   const computeFitZoom = React.useCallback(() => {
     const viewport = viewportRef.current;
@@ -693,8 +761,15 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   }, [roomCode]);
 
   useEffect(() => {
-    const startMusic = () => { void audioManager.startBackgroundMusic(); };
-    const syncMusic = () => audioManager.syncBackgroundMusic();
+    const startMusic = () => {
+      void audioManager.unlock().catch(() => undefined);
+      void audioManager.startBackgroundMusic();
+    };
+    const syncMusic = (event: Event) => {
+      audioManager.syncBackgroundMusic();
+      const enabled = (event as CustomEvent<{ enabled?: unknown }>).detail?.enabled;
+      setAudioEnabled(typeof enabled === 'boolean' ? enabled : getAudioSettings().enabled);
+    };
 
     startMusic();
     window.addEventListener('pointerdown', startMusic);
@@ -850,6 +925,53 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   }, [room]);
 
   useEffect(() => {
+    if (!movement?.isActive || movingPathIndex < 0) return;
+    playProjectionCue('move-step', `movement:${movement.startedAt}:${movingPathIndex}`);
+  }, [movement?.isActive, movement?.startedAt, movingPathIndex]);
+
+  useEffect(() => {
+    const event = room?.boardState?.currentEvent;
+    const cue = event?.type ? SPECIAL_LAND_CUES[event.type] : undefined;
+    if (!event || !cue) return;
+    playProjectionCue(cue, `special-land:${event.id}`);
+  }, [room?.boardState?.currentEvent?.id, room?.boardState?.currentEvent?.type]);
+
+  useEffect(() => {
+    const currentMovement = room?.boardState?.movement || null;
+    const previousMovement = previousMovementRef.current;
+    const eventType = room?.boardState?.currentEvent?.type;
+
+    if (previousMovement?.isActive && !currentMovement?.isActive && !SPECIAL_LAND_CUES[eventType || '']) {
+      playProjectionCue('land', `landing:${previousMovement.startedAt}`);
+    }
+
+    previousMovementRef.current = currentMovement;
+  }, [room?.boardState?.currentEvent?.type, room?.boardState?.movement?.isActive, room?.boardState?.movement?.startedAt]);
+
+  useEffect(() => {
+    const reveal = room?.boardState?.currentCardReveal;
+    if (!reveal?.isRevealed) return;
+    playProjectionCue('card', `projection-card:${reveal.eventId}:${reveal.cardId}`);
+  }, [room?.boardState?.currentCardReveal?.eventId, room?.boardState?.currentCardReveal?.cardId, room?.boardState?.currentCardReveal?.isRevealed]);
+
+  useEffect(() => {
+    const prompt = room?.boardState?.sharedCardPrompt || room?.boardState?.familyMilestoneJoinPrompt;
+    if (!prompt?.id) return;
+    playProjectionCue('shared', `shared-prompt:${prompt.id}`);
+  }, [room?.boardState?.sharedCardPrompt?.id, room?.boardState?.familyMilestoneJoinPrompt?.id]);
+
+  useEffect(() => {
+    const timestamp = room?.boardState?.skippedTurnNotice?.timestamp;
+    if (!timestamp) return;
+    playProjectionCue('pause', `pause-turn:${timestamp}`);
+  }, [room?.boardState?.skippedTurnNotice?.timestamp]);
+
+  useEffect(() => {
+    if (syncState !== 'error') return;
+    playProjectionCue('warning', 'projection-sync-warning');
+  }, [syncState]);
+
+  useEffect(() => {
     const viewport = viewportRef.current;
     const boardFrame = boardFrameRef.current;
     if (!viewport || !boardFrame || focusPosition === null) return;
@@ -996,6 +1118,22 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     setZoomAroundPoint(zoom < 1 ? 1 : computeFitZoom(), event.clientX, event.clientY);
   };
 
+  const handleAudioToggle = () => {
+    const next = setAudioSettings({ enabled: !audioEnabled });
+    setAudioEnabled(next.enabled);
+    if (!next.enabled) {
+      audioManager.syncBackgroundMusic();
+      return;
+    }
+
+    void audioManager.unlock()
+      .then(() => {
+        audioManager.play('turn');
+        return audioManager.startBackgroundMusic();
+      })
+      .catch(() => undefined);
+  };
+
   return (
     <div
       ref={viewportRef}
@@ -1055,6 +1193,16 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         <div className="rounded-full border border-[#f0cf86]/30 bg-white/5 px-3 py-1.5 text-sm font-black text-[#f4d993]">{turnPositionLabel}</div>
         <div className="h-8 w-px bg-[#f0cf86]/25" />
         <div className="min-w-0 flex-1 truncate text-lg font-black">{actionState.label}</div>
+        <button
+          type="button"
+          onClick={handleAudioToggle}
+          aria-label={audioEnabled ? '關閉投影幕音效' : '啟用投影幕音效'}
+          aria-pressed={audioEnabled}
+          className="flex shrink-0 items-center gap-2 rounded-full border border-[#f0cf86]/55 bg-[#173943]/95 px-3 py-2 text-xs font-black text-[#fff8e9] shadow-[0_12px_24px_-18px_rgba(0,0,0,0.8)]"
+        >
+          {audioEnabled ? <Volume2 size={15} className="text-[#e8c37a]" /> : <VolumeX size={15} className="text-[#bfa879]" />}
+          <span>{audioEnabled ? '音效' : '啟用音效'}</span>
+        </button>
         <div className="shrink-0 text-right text-[10px] font-black tracking-[0.14em] text-[#bfa879]">
           <div>{roomName}</div>
           <div>房號 {room.id}</div>
@@ -1304,7 +1452,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         </div>
       </div>
 
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {currentCard && (
           <motion.div
             data-projection-card
@@ -1314,34 +1462,21 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
-            className="pointer-events-none fixed inset-0 z-[10020] flex items-center justify-center bg-[#091b21]/45 p-4 sm:p-8"
+            className="pointer-events-none fixed inset-0 z-[10020] flex items-center justify-center bg-[#091b21]/70 p-4 sm:p-8"
           >
             <motion.div
               initial={prefersReducedMotion ? false : { y: 24, scale: 0.97 }}
               animate={{ y: 0, scale: 1 }}
               exit={prefersReducedMotion ? undefined : { y: 14, scale: 0.985 }}
               transition={{ duration: prefersReducedMotion ? 0 : 0.3, ease: 'easeOut' }}
-              className="flex max-h-full flex-col items-center"
+              className="flex max-h-full w-full items-center justify-center"
             >
-              <div
-                className="mb-3 flex items-center gap-3 rounded-full border border-white/50 bg-[#102f38]/96 py-2 pl-2 pr-5 text-white shadow-[0_12px_30px_-18px_rgba(0,0,0,0.9)]"
-                style={{
-                  boxShadow: `0 0 28px ${currentCard.deck === 'happiness' ? 'rgba(234,176,78,0.42)' : currentCard.deck === 'news' ? 'rgba(143,163,148,0.42)' : 'rgba(197,153,98,0.42)'}`,
-                }}
-              >
-                <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-white/90 bg-[#b88a43]">
-                  {currentDrawerPlayer ? renderPlayerToken(currentDrawerPlayer) : <div className="flex h-full items-center justify-center font-black">{currentDrawerName.slice(0, 1)}</div>}
-                </div>
-                <div>
-                  <div className="text-[10px] font-black tracking-[0.18em] text-[#e8c37a]">抽卡玩家</div>
-                  <div className="text-base font-black">{currentDrawerName}</div>
-                </div>
-              </div>
               <div className="flex min-h-0 items-center justify-center">
                 <CardStage
                   card={currentCard}
                   isRevealed={isCardRevealed}
                   drawerName={currentDrawerName}
+                  drawerPlayer={currentDrawerPlayer}
                   statusLabel={cardStatusLabel}
                 />
               </div>

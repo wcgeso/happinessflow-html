@@ -6,7 +6,7 @@ import { BoardCardLogEntry } from '../../types';
 interface BoardCardLogPanelProps {
   entries: BoardCardLogEntry[];
   onClose?: () => void;
-  variant?: 'default' | 'projection';
+  variant?: 'default' | 'projection' | 'inline';
 }
 
 const getDeckLabel = (deck: BoardCardLogEntry['deck']) => {
@@ -102,7 +102,9 @@ export const BoardCardLogPanel: React.FC<BoardCardLogPanelProps> = ({ entries, o
   }
 
   return (
-    <div className="fixed inset-x-4 top-24 z-[10030] mx-auto w-auto max-w-[420px] rounded-[28px] border border-[#d9bd98] bg-[linear-gradient(180deg,rgba(255,251,244,0.98),rgba(243,230,206,0.97))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_24px_50px_-32px_rgba(92,64,33,0.6)] md:inset-x-auto md:right-5 md:w-[360px]">
+    <div className={variant === 'inline'
+      ? "w-full rounded-[24px] border border-[#d9bd98] bg-[linear-gradient(180deg,rgba(255,251,244,0.98),rgba(243,230,206,0.97))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_24px_50px_-32px_rgba(92,64,33,0.6)] sm:p-5"
+      : "fixed inset-x-3 bottom-[calc(6.8rem+env(safe-area-inset-bottom,0px))] top-auto z-[10030] mx-auto w-auto max-w-[420px] rounded-[28px] border border-[#d9bd98] bg-[linear-gradient(180deg,rgba(255,251,244,0.98),rgba(243,230,206,0.97))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_24px_50px_-32px_rgba(92,64,33,0.6)] md:bottom-5 md:top-24 md:inset-x-auto md:right-5 md:w-[360px]"}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-[10px] font-black tracking-[0.28em] text-[#9c7c58]">CARD LOG</div>
@@ -121,7 +123,9 @@ export const BoardCardLogPanel: React.FC<BoardCardLogPanelProps> = ({ entries, o
         )}
       </div>
 
-      <div className="mt-4 max-h-[65vh] space-y-3 overflow-y-auto pr-1">
+      <div className={variant === 'inline'
+        ? "mt-4 max-h-[65vh] space-y-3 overflow-y-auto pr-1"
+        : "mt-4 max-h-[calc(100dvh-15rem)] space-y-3 overflow-y-auto pr-1 md:max-h-[65vh]"}>
         {entries.length > 0 ? entries.map((entry) => (
           <div key={entry.id} className="rounded-[20px] border border-[#e5cfac] bg-[#fffaf2] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
             <div className="flex items-start justify-between gap-3">

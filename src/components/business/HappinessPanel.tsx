@@ -1,8 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { HappinessItem } from '../../types';
-import { Card, Button, Input } from '../ui/ui';
-import { Heart, Plus, Trash2, Lock, Info, CornerDownRight } from 'lucide-react';
+import { Heart, Trash2, Lock, CornerDownRight } from 'lucide-react';
 
 interface HappinessPanelProps {
   items: HappinessItem[];
@@ -54,19 +53,18 @@ export const HappinessPanel: React.FC<HappinessPanelProps> = ({
   };
 
   return (
-    <>
-      <Card className="h-full bg-slate-900 border-slate-700 flex flex-col overflow-hidden relative">
+      <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#d8c29a] bg-[#fffaf2] text-[#293a38] shadow-[0_18px_40px_-30px_rgba(92,64,33,0.7)]">
         {/* Header */}
-        <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center shrink-0">
-          <h3 className="font-bold text-pink-400 flex items-center gap-2">
-            <Heart className="fill-pink-400 text-pink-400" size={20} />
+        <div className="bg-[#f4e6d0] p-4 border-b border-[#d8c29a] flex justify-between items-center shrink-0">
+          <h3 className="flex items-center gap-2 font-bold text-[#bd4f73]">
+            <Heart className="fill-[#d94f83] text-[#d94f83]" size={20} />
             幸福指數
           </h3>
-          <span className="text-2xl font-black text-white">{total}</span>
+          <span className="text-2xl font-black text-[#293a38]">{total}</span>
         </div>
 
         {/* List - Scrollable Area */}
-        <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800">
+        <div className="flex-1 overflow-y-auto bg-[#fbf7ef] p-3 scrollbar-thin scrollbar-thumb-[#d8c29a] scrollbar-track-[#f4e6d0]">
           {items.map(item => (
             <div
               key={item.id}
@@ -77,37 +75,48 @@ export const HappinessPanel: React.FC<HappinessPanelProps> = ({
               onTouchEnd={handleTouchEnd}
               onClick={() => !item.readOnly && !disabled && onToggle(item.id)}
               className={`
-              flex items-center gap-3 p-3 mb-2 rounded-lg border transition-all relative group select-none
+              group relative mb-2 flex min-h-14 select-none items-center gap-3 rounded-xl border px-3 py-3 transition-colors
               ${item.checked
-                  ? 'bg-pink-900/20 border-pink-600/50 text-pink-100'
-                  : 'bg-slate-800 border-slate-700 text-slate-400'}
-              ${!item.readOnly && !disabled ? 'cursor-pointer hover:bg-slate-800/80' : 'cursor-default opacity-80'}
-              ${item.parentId ? 'ml-6 border-l-2 border-l-slate-600 pl-3 scale-95' : ''}
+                  ? 'border-[#e8a9bf] bg-[#f9e3ea] text-[#8d315d]'
+                  : item.readOnly
+                    ? 'border-[#dfcfb7] bg-[#f7f0e5] text-[#6f6253]'
+                    : 'border-[#ead6b9] bg-[#fffaf2] text-[#765f47]'}
+              ${!item.readOnly && !disabled ? 'cursor-pointer hover:border-[#d8c29a] hover:bg-[#f8eee0]' : 'cursor-default'}
+              ${item.parentId ? 'ml-5 w-[calc(100%-1.25rem)] border-l-2 border-l-[#d8c29a]' : ''}
             `}
             >
               {/* Indentation Indicator */}
               {item.parentId && (
-                <div className="absolute -left-3 top-1/2 -translate-y-1/2 text-slate-600">
+                  <div className="absolute -left-3 top-1/2 -translate-y-1/2 text-[#b89a72]">
                   <CornerDownRight size={12} />
                 </div>
               )}
 
               <div className={`
-              w-5 h-5 rounded border flex items-center justify-center shrink-0
-              ${item.checked ? 'bg-pink-500 border-pink-500' : 'border-slate-600'}
-              ${item.readOnly ? 'opacity-50' : ''}
+              flex h-5 w-5 shrink-0 items-center justify-center rounded-md border
+                  ${item.checked
+                    ? 'border-[#d94f83] bg-[#d94f83]'
+                    : item.readOnly
+                      ? 'border-[#cdbb9f] bg-[#efe5d5]'
+                      : 'border-[#d8c29a] bg-[#fffaf2]'}
             `}>
                 {item.checked && <span className="text-white text-xs font-bold">✓</span>}
               </div>
 
               <div className="flex-1 text-sm font-medium flex flex-col">
                 <span className={item.parentId ? "text-xs" : ""}>{item.label}</span>
-                {item.code && <span className="text-[10px] text-slate-500 font-mono">{item.code}</span>}
+                {item.code && <span className="text-[10px] text-[#7a6958] font-mono">{item.code}</span>}
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="text-xs font-bold opacity-80">+{item.points}</div>
-                {item.readOnly && <Lock size={12} className="text-slate-600" />}
+              <div className="flex shrink-0 items-center gap-2">
+                <div className={`rounded-full px-2 py-1 text-xs font-black ${item.checked ? 'bg-[#fffaf2] text-[#bd4f73]' : 'bg-[#efe5d5] text-[#765f47]'}`}>
+                  +{item.points}
+                </div>
+                {item.readOnly && (
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#efe5d5] text-[#9a8166]" title="由遊戲進度自動解鎖">
+                    <Lock size={12} />
+                  </div>
+                )}
               </div>
 
               {/* Remove Custom Item Button */}
@@ -117,7 +126,7 @@ export const HappinessPanel: React.FC<HappinessPanelProps> = ({
                     e.stopPropagation();
                     onRemoveCustomItem(item.id);
                   }}
-                  className="ml-2 p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-900/20 rounded z-10"
+                  className="ml-2 p-1.5 text-[#7a6958] hover:text-[#b54155] hover:bg-[#fff0f0] rounded z-10"
                   title="刪除項目"
                 >
                   <Trash2 size={14} />
@@ -126,18 +135,17 @@ export const HappinessPanel: React.FC<HappinessPanelProps> = ({
 
               {/* Detail Overlay/Tooltip (Long Press) */}
               {showDetailId === item.id && item.description && (
-                <div className="absolute inset-0 z-20 bg-slate-900/95 flex items-center justify-center p-2 rounded-lg text-center animate-in fade-in zoom-in-95" onClick={(e) => { e.stopPropagation(); setShowDetailId(null); }}>
+                <div className="absolute inset-0 z-20 bg-[#fffaf2]/95 flex items-center justify-center p-2 rounded-lg text-center animate-in fade-in zoom-in-95" onClick={(e) => { e.stopPropagation(); setShowDetailId(null); }}>
                   <div>
-                    <div className="text-xs text-pink-400 font-bold mb-1">{item.code} 詳細資訊</div>
-                    <div className="text-sm text-white">{item.description}</div>
-                    <div className="text-[10px] text-slate-500 mt-2">(點擊關閉)</div>
+                    <div className="mb-1 text-xs font-bold text-[#bd4f73]">{item.code} 詳細資訊</div>
+                    <div className="text-sm text-[#293a38]">{item.description}</div>
+                    <div className="text-[10px] text-[#7a6958] mt-2">(點擊關閉)</div>
                   </div>
                 </div>
               )}
             </div>
           ))}
         </div>
-      </Card>
-    </>
+      </div>
   );
 };

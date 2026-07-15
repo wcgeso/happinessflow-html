@@ -430,8 +430,8 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
     }
 
     return (
-      <div className="w-full h-full bg-gradient-to-b from-amber-300 to-amber-600 flex items-center justify-center text-2xl shadow-inner select-none group-hover:scale-110 transition-transform">
-        🐝
+      <div className="flex h-full w-full select-none items-center justify-center bg-[#f4e6d0] text-[#2e6570] transition-transform group-hover:scale-110">
+        <UserCircle size={30} aria-hidden="true" />
       </div>
     );
   }, [user]);
@@ -478,7 +478,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
   if (showRoomView || (room && room.status === 'waiting')) {
     return (
-      <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none touch-none pt-safe pb-safe">
+      <div className="relative flex flex-1 touch-none select-none flex-col overflow-hidden bg-[#102f38] pb-safe pt-safe">
         <RoomView
           onBack={() => {
             setShowRoomView(false);
@@ -507,28 +507,28 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   }
 
   return (
-    <div className="flex-1 bg-slate-950 flex flex-col relative overflow-hidden select-none pb-safe md:overflow-auto">
+    <div className="relative flex flex-1 select-none flex-col overflow-hidden bg-[#102f38] pb-safe md:overflow-auto">
       {/* Background with safe area support */}
-      <div className="fixed inset-0 bg-slate-950 z-0"></div>
+      <div className="fixed inset-0 z-0 bg-[#102f38]"></div>
       
       {/* Background Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500 rounded-full blur-[120px]" />
+        <div className="absolute left-[-10%] top-[-10%] h-[40%] w-[40%] rounded-full bg-[#d6a94e] blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] h-[40%] w-[40%] rounded-full bg-[#5da58e] blur-[120px]" />
       </div>
 
       {/* Header Bar - Fixed height with safe area support */}
-      <div className="relative z-50 px-6 pt-safe pb-2 h-auto min-h-[4rem] md:min-h-[5rem] flex justify-between items-center border-b border-slate-800/50 backdrop-blur-sm bg-slate-950/50 shrink-0">
+      <div className="relative z-50 flex h-auto min-h-[4rem] shrink-0 items-center justify-between border-b border-[#d8c29a]/25 bg-[#102f38]/90 px-6 pb-2 pt-safe backdrop-blur-sm md:min-h-[5rem]">
         <div className="flex items-center gap-4">
           <div
-            className={`w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center cursor-pointer hover:shadow-[0_0_15px_rgba(234,179,8,0.3)] transition-all group overflow-hidden ${getAvatarBorderStyle(user)}`}
+            className={`group flex h-12 w-12 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-[#f4e6d0] transition hover:ring-2 hover:ring-[#d8c29a] ${getAvatarBorderStyle(user)}`}
             onClick={() => setShowProfileModal(true)}
           >
             {userAvatar}
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-black text-white leading-tight">{user?.name || '幸福拓荒者'}</h2>
+              <h2 className="text-base font-black leading-tight text-[#fffaf2]">{user?.name || '幸福拓荒者'}</h2>
             </div>
             <div className="flex items-center gap-2 mt-1">
               <SafeImage
@@ -545,7 +545,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={handleViewAchievements}
-            className="relative flex items-center gap-1.5 px-3 py-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 rounded-lg transition-all text-[10px] font-bold border border-amber-500/30 hover:border-amber-500/50"
+            className="relative flex items-center gap-1.5 rounded-lg border border-[#d8c29a]/50 px-3 py-1.5 text-[10px] font-bold text-[#f0c85c] transition hover:bg-[#fffaf2]/10"
           >
             <Award size={14} />
             <span>成就</span>
@@ -556,7 +556,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           <div className="w-[1px] h-4 bg-slate-800 mx-1"></div>
           <button
             onClick={onLogout}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-slate-500 hover:text-white hover:bg-red-500/10 rounded-lg transition-all text-[10px] font-bold relative z-[60]"
+            className="relative z-[60] flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-[#b9aa98] transition hover:bg-[#b54155]/20 hover:text-[#fffaf2]"
           >
             <LogOut size={14} />
             <span>登出</span>
@@ -569,13 +569,13 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           <div className="flex-1 flex flex-col justify-center gap-6 lg:gap-8 md:justify-start md:pb-8">
             {/* Logo Section - Common to both modes */}
             <div className="text-center relative top-4">
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight mb-2">
+              <h1 className="mb-2 bg-gradient-to-b from-[#fffaf2] via-[#f4e6d0] to-[#d6a94e] bg-clip-text text-5xl font-black tracking-tight text-transparent md:text-6xl lg:text-7xl">
                 {viewMode === 'gm' ? 'GM 控制台' : viewMode === 'coach' ? '執行師' : '幸福流'}
               </h1>
               <div className="flex items-center justify-center gap-2 mb-3">
                 <div className="h-[1px] w-5 bg-gradient-to-r from-transparent to-amber-500/40"></div>
                 <span className="text-amber-500/80 font-bold tracking-[0.25em] text-[10px] md:text-xs uppercase">
-                  {viewMode === 'gm' ? 'Game Management' : 'Happiness Flow'}
+                  {viewMode === 'gm' ? '遊戲管理' : '幸福理財桌遊'}
                 </span>
               <div className="h-[1px] w-5 bg-gradient-to-l from-transparent to-amber-500/40"></div>
             </div>
@@ -585,16 +585,16 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* GM Quick Stats */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-6 bg-slate-900/50 border border-slate-800/50 rounded-3xl backdrop-blur-sm">
-                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">系統狀態</div>
-                  <div className="text-2xl font-black text-emerald-500 flex items-center gap-2">
+                <div className="rounded-3xl border border-[#d8c29a] bg-[#fffaf2] p-6">
+                  <div className="mb-1 text-[10px] font-black tracking-widest text-[#765f47]">系統狀態</div>
+                  <div className="flex items-center gap-2 text-2xl font-black text-[#168269]">
                     運作正常
                     <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                   </div>
                 </div>
-                <div className="p-6 bg-slate-900/50 border border-slate-800/50 rounded-3xl backdrop-blur-sm">
-                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">系統總人數</div>
-                  <div className="text-2xl font-black text-white">{systemStats.totalUsers}</div>
+                <div className="rounded-3xl border border-[#d8c29a] bg-[#fffaf2] p-6">
+                  <div className="mb-1 text-[10px] font-black tracking-widest text-[#765f47]">系統總人數</div>
+                  <div className="text-2xl font-black text-[#293a38]">{systemStats.totalUsers}</div>
                 </div>
               </div>
 
@@ -630,13 +630,13 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               {/* Stats Grid */}
               <div className="grid grid-cols-4 gap-2 md:gap-4">
                 {[
-                  { label: '平均幸福指數', value: userStats.happinessRate, color: 'text-pink-400', icon: Award },
-                  { label: '賽季總積分', value: userStats.totalScore, color: 'text-yellow-400', icon: Award },
-                  { label: '勝率', value: `${userStats.winRate}%`, color: 'text-emerald-400', icon: History },
-                  { label: '遊玩局數', value: userStats.totalGames, color: 'text-blue-400', icon: Play },
+                  { label: '平均幸福指數', value: userStats.happinessRate, color: 'text-[#bd4f73]', icon: Award },
+                  { label: '賽季總積分', value: userStats.totalScore, color: 'text-[#8c5b2b]', icon: Award },
+                  { label: '勝率', value: `${userStats.winRate}%`, color: 'text-[#168269]', icon: History },
+                  { label: '遊玩局數', value: userStats.totalGames, color: 'text-[#36798a]', icon: Play },
                 ].map((stat, i) => (
-                  <div key={i} className="group relative p-2 md:p-4 bg-slate-900/50 border border-slate-800/50 rounded-2xl backdrop-blur-sm hover:bg-slate-800/50 hover:border-slate-700/50 transition-all flex flex-col items-center text-center">
-                    <div className="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 md:mb-2">{stat.label}</div>
+                  <div key={i} className="group relative flex flex-col items-center rounded-2xl border border-[#d8c29a] bg-[#fffaf2]/95 p-2 text-center transition hover:bg-white md:p-4">
+                    <div className="mb-1 text-[9px] font-black tracking-wider text-[#765f47] md:mb-2 md:text-[10px]">{stat.label}</div>
                     <div className={`text-lg md:text-3xl font-black ${stat.color} mb-1`}>{stat.value}</div>
                     <div className="absolute top-1 right-1 md:top-2 md:right-2 opacity-10 group-hover:opacity-20 transition-opacity">
                       <stat.icon size={10} className="md:w-[14px] md:h-[14px]" />
@@ -671,7 +671,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                       <div className="flex flex-col text-left relative z-10">
                         <div className="flex items-center gap-2 mb-1">
                           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <span className="text-[10px] font-black text-emerald-100/60 uppercase tracking-[0.2em]">Session in progress</span>
+                          <span className="text-[10px] font-black tracking-[0.2em] text-emerald-100/70">遊戲進行中</span>
                         </div>
                         <span className="text-3xl md:text-4xl font-black text-white mb-1 tracking-tight">繼續遊戲</span>
                         <span className="text-emerald-100/60 text-xs md:text-sm font-medium max-w-[240px] leading-relaxed">
@@ -692,11 +692,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                     {/* Background Glow */}
                     <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 rounded-[32px] blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-                    <div className="relative bg-slate-900/60 p-4 rounded-3xl border border-white/5 backdrop-blur-xl">
+                    <div className="relative rounded-3xl border border-[#d8c29a] bg-[#fffaf2] p-4 shadow-[0_18px_42px_-28px_rgba(16,47,56,0.8)]">
                       <div className="flex items-center gap-2 mb-2 px-1">
                         <div className="w-1.5 h-4 bg-amber-500 rounded-full" />
-                        <h3 className="text-sm font-black text-white uppercase tracking-widest">加入房間</h3>
-                        <span className="text-[10px] font-bold text-slate-500 ml-auto uppercase tracking-tighter">Enter Room Code</span>
+                        <h3 className="text-sm font-black tracking-widest text-[#293a38]">加入房間</h3>
+                        <span className="ml-auto text-[10px] font-bold text-[#7a6958]">輸入六位數房號</span>
                       </div>
 
                       <div className="flex gap-3 h-14">
@@ -706,7 +706,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                             value={roomCodeInput}
                             onChange={(e) => setRoomCodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             placeholder="請輸入 6 位數房間碼"
-                            className="w-full h-full bg-slate-950/80 border-2 border-slate-800 rounded-2xl px-6 text-xl font-black tracking-[0.3em] text-white placeholder:text-slate-800 placeholder:tracking-normal placeholder:text-[10px] focus:border-amber-500/50 focus:bg-slate-900 transition-all outline-none shadow-inner"
+                            className="h-full w-full rounded-2xl border-2 border-[#d8c29a] bg-[#f8eee0] px-6 text-xl font-black tracking-[0.3em] text-[#293a38] outline-none transition placeholder:text-[10px] placeholder:tracking-normal placeholder:text-[#a79682] focus:border-[#a9643a] focus:bg-[#fffaf2]"
                           />
                           {isJoiningRoom && (
                             <div className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -718,11 +718,11 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                         <button
                           onClick={handleJoinRoom}
                           disabled={roomCodeInput.length !== 6 || isJoiningRoom}
-                          className="flex-1 h-full bg-gradient-to-br from-amber-400 to-amber-600 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 text-black font-black text-sm rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-amber-500/10 flex items-center justify-center gap-2 group/btn relative overflow-hidden"
+                          className="group/btn relative flex h-full flex-1 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-br from-[#d6a94e] to-[#a9643a] text-sm font-black text-white shadow-lg transition active:scale-[0.98] disabled:from-[#e3d7c5] disabled:to-[#e3d7c5] disabled:text-[#9a8a76]"
                         >
                           <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300" />
                           <span className="relative z-10">進入</span>
-                          <Play size={18} className="relative z-10 fill-black group-hover/btn:translate-x-1 transition-transform" />
+                          <Play size={18} className="relative z-10 fill-white transition-transform group-hover/btn:translate-x-1" />
                         </button>
                       </div>
 
@@ -741,77 +741,73 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 <div className="grid grid-cols-2 gap-3 md:gap-4">
                   <button
                     onClick={() => onViewHistory()}
-                    className="group relative p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl hover:bg-slate-800/60 hover:border-emerald-500/30 transition-all duration-300 flex items-center gap-4 overflow-hidden"
+                    className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-[#d8c29a] bg-[#fffaf2] p-4 transition hover:-translate-y-0.5 hover:bg-white"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="w-12 h-12 shrink-0 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform duration-500">
-                      <History size={22} className="text-emerald-500" />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#b9d9d0] bg-[#e0f0e5] transition-transform group-hover:scale-105">
+                      <History size={22} className="text-[#168269]" />
                     </div>
                     <div className="flex flex-col text-left">
-                      <span className="text-base font-black text-white tracking-wide">歷史紀錄</span>
-                      <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">HISTORY</span>
+                      <span className="text-base font-black tracking-wide text-[#293a38]">歷史紀錄</span>
+                      <span className="text-[10px] font-medium text-[#7a6958]">查看過往遊戲</span>
                     </div>
                   </button>
 
                   <button
                     onClick={() => setShowLeaderboardModal(true)}
-                    className="group relative p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl hover:bg-slate-800/60 hover:border-amber-500/30 transition-all duration-300 flex items-center gap-4 overflow-hidden"
+                    className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-[#d8c29a] bg-[#fffaf2] p-4 transition hover:-translate-y-0.5 hover:bg-white"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="w-12 h-12 shrink-0 bg-amber-500/10 rounded-xl flex items-center justify-center border border-amber-500/20 group-hover:scale-110 transition-transform duration-500">
-                      <Trophy size={22} className="text-amber-500" />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#d8c29a] bg-[#f4e6d0] transition-transform group-hover:scale-105">
+                      <Trophy size={22} className="text-[#a9643a]" />
                     </div>
                     <div className="flex flex-col text-left">
-                      <span className="text-base font-black text-white tracking-wide">排行榜</span>
-                      <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Ranking</span>
+                      <span className="text-base font-black tracking-wide text-[#293a38]">排行榜</span>
+                      <span className="text-[10px] font-medium text-[#7a6958]">查看玩家排名</span>
                     </div>
                   </button>
 
                   <button
                     onClick={() => setShowTutorialModal(true)}
-                    className="group relative p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all duration-300 flex items-center gap-4 overflow-hidden"
+                    className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-[#d8c29a] bg-[#fffaf2] p-4 transition hover:-translate-y-0.5 hover:bg-white"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="w-12 h-12 shrink-0 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 group-hover:scale-110 transition-transform duration-500">
-                      <BookOpen size={22} className="text-indigo-500" />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#9fc8d5] bg-[#d8e9e5] transition-transform group-hover:scale-105">
+                      <BookOpen size={22} className="text-[#36798a]" />
                     </div>
                     <div className="flex flex-col text-left">
-                      <span className="text-base font-black text-white tracking-wide">遊戲教學</span>
-                      <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Tutorial</span>
+                      <span className="text-base font-black tracking-wide text-[#293a38]">遊戲教學</span>
+                      <span className="text-[10px] font-medium text-[#7a6958]">查看遊戲說明</span>
                     </div>
                   </button>
 
                   <button
                     onClick={() => setShowFriendsModal(true)}
-                    className="group relative p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl hover:bg-slate-800/60 hover:border-purple-500/30 transition-all duration-300 flex items-center gap-4 overflow-hidden"
+                    className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-[#d8c29a] bg-[#fffaf2] p-4 transition hover:-translate-y-0.5 hover:bg-white"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="w-12 h-12 shrink-0 bg-purple-500/10 rounded-xl flex items-center justify-center border border-purple-500/20 group-hover:scale-110 transition-transform duration-500">
-                      <Users size={22} className="text-purple-500" />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#e3aaa3] bg-[#f5d9d0] transition-transform group-hover:scale-105">
+                      <Users size={22} className="text-[#b6544b]" />
                     </div>
                     <div className="flex flex-col text-left">
-                      <span className="text-base font-black text-white tracking-wide">好友</span>
-                      <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Friends</span>
+                      <span className="text-base font-black tracking-wide text-[#293a38]">好友</span>
+                      <span className="text-[10px] font-medium text-[#7a6958]">查看好友名單</span>
                     </div>
                   </button>
 
                   <button
                     onClick={handleOpenLetter}
-                    className="col-span-2 group relative p-4 bg-slate-900/40 border border-slate-800/50 rounded-2xl hover:bg-slate-800/60 hover:border-white/20 transition-all duration-300 flex items-center justify-between overflow-hidden"
+                    className="group relative col-span-2 flex items-center justify-between overflow-hidden rounded-2xl border border-[#d8c29a] bg-[#fffaf2] p-4 transition hover:-translate-y-0.5 hover:bg-white"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 shrink-0 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform duration-500">
-                        <Mail size={22} className="text-slate-300" />
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#d8c29a] bg-[#f4e6d0] transition-transform group-hover:scale-105">
+                        <Mail size={22} className="text-[#a9643a]" />
                       </div>
                       <div className="flex flex-col text-left">
-                        <span className="text-base font-black text-white tracking-wide">致玩家的一封信</span>
-                        <span className="text-slate-500 text-[10px] font-medium uppercase tracking-wider">Letter to players</span>
+                        <span className="text-base font-black tracking-wide text-[#293a38]">致玩家的一封信</span>
+                        <span className="text-[10px] font-medium text-[#7a6958]">閱讀製作團隊留言</span>
                       </div>
                     </div>
                     {!isLetterRead && (
                       <div className="flex items-center gap-2 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
                         <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
-                        <span className="text-[10px] font-black text-amber-500 uppercase">New</span>
+                        <span className="text-[10px] font-black text-amber-500">新內容</span>
                       </div>
                     )}
                   </button>

@@ -249,23 +249,23 @@ export const GameActions: React.FC<GameActionsProps> = ({
 
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none pb-safe">
+        <div className="fixed bottom-0 left-0 right-0 z-[90] pointer-events-none pb-safe">
             {/* Dock 容器 */}
-            <div className="mx-auto w-fit pointer-events-auto">
-                <div className="flex items-end gap-1.5 sm:gap-3 px-3 sm:px-6 pb-6 pt-8">
+            <div className="pointer-events-none mx-auto w-full max-w-xl px-2">
+                <div className="flex items-end justify-center gap-1.5 px-2 pb-[calc(0.8rem+env(safe-area-inset-bottom,0px))] pt-4 sm:gap-3 sm:px-5 sm:pb-5 sm:pt-5">
                     {/* 左側：房市公告板 */}
                     {onShowRealEstateMarket && (
                         <button
                             onClick={onShowRealEstateMarket}
                             disabled={disabled}
                             aria-label="開啟房市公告板"
-                            className={`group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                            className={`pointer-events-auto group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
                             title={disabled ? "遊戲已結算" : "房市公告板"}
                         >
-                            <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-amber-400 rounded-[14px] sm:rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(245,158,11,0.2)] group-active:scale-95 border border-slate-700">
+                            <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] rounded-[14px] border border-[#d8c29a] bg-[#f4e6d0] text-[#a9643a] shadow-[0_8px_16px_-10px_rgba(16,47,56,0.45)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-active:scale-95 sm:rounded-[18px]">
                                 <Building size={20} strokeWidth={2} className="sm:hidden" /><Building size={24} strokeWidth={2} className="hidden sm:block" />
                             </div>
-                            <span className="text-[10px] font-black text-slate-400 tracking-wider transition-colors group-enabled:group-hover:text-amber-400">房市</span>
+                            <span className="text-[10px] font-black text-[#fffaf2] tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] transition-colors group-enabled:group-hover:text-[#f0c85c]">房市</span>
                         </button>
                     )}
 
@@ -274,17 +274,17 @@ export const GameActions: React.FC<GameActionsProps> = ({
                         onClick={onShowTargetDream}
                         disabled={disabled}
                         aria-label="開啟目標與夢想"
-                        className={`group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                        className={`pointer-events-auto group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
                         title={disabled ? "遊戲已結算" : "購買目標與夢想"}
                     >
-                        <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-fuchsia-400 rounded-[14px] sm:rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(217,70,239,0.2)] group-active:scale-95 border border-slate-700">
+                        <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] rounded-[14px] border border-[#d8c29a] bg-[#f4e6d0] text-[#a9643a] shadow-[0_8px_16px_-10px_rgba(16,47,56,0.45)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-active:scale-95 sm:rounded-[18px]">
                             <Target size={20} strokeWidth={2} className="sm:hidden" /><Target size={24} strokeWidth={2} className="hidden sm:block" />
                         </div>
-                        <span className="text-[10px] font-black text-slate-400 tracking-wider transition-colors group-enabled:group-hover:text-fuchsia-400">目標</span>
+                        <span className="text-[10px] font-black text-[#fffaf2] tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] transition-colors group-enabled:group-hover:text-[#f0c85c]">目標</span>
                     </button>
 
                     {/* 中央主按鈕：擲骰子 / 數位銀行 */}
-                    <div className="px-2 pb-1 relative" style={{ perspective: '1000px' }}>
+                    <div className="pointer-events-auto px-2 pb-1 relative" style={{ perspective: '1000px' }}>
                         {onRollBoardDice ? (
                             shouldShowEndTurn ? (
                             <button
@@ -294,10 +294,10 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                 className={`group relative flex flex-col items-center gap-2 ${(disabled || !canEndTurn) ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
                                 title={!isBoardTurn ? '尚未輪到你' : (canEndTurn ? '結束回合，換下一位玩家' : '請先完成目前的棋盤事件')}
                             >
-                                <div className="flex h-[52px] w-[52px] items-center justify-center rounded-[14px] border-2 border-amber-300/60 bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-[0_12px_24px_-8px_rgba(245,158,11,0.6),inset_0_2px_4px_rgba(255,255,255,0.4)] transition-all duration-300 group-enabled:hover:-translate-y-1 group-enabled:hover:scale-105 group-active:scale-95 sm:h-[64px] sm:w-[64px] sm:rounded-[18px]">
+                                <div className="flex h-[52px] w-[52px] items-center justify-center rounded-[14px] border-2 border-[#d8c29a] bg-gradient-to-br from-[#d6a94e] to-[#a9643a] text-white shadow-[0_12px_24px_-10px_rgba(169,100,58,0.55)] transition-all duration-300 group-enabled:hover:-translate-y-1 group-enabled:hover:scale-105 group-active:scale-95 sm:h-[64px] sm:w-[64px] sm:rounded-[18px]">
                                     <CheckCircle2 size={26} strokeWidth={2.5} className="sm:hidden" /><CheckCircle2 size={32} strokeWidth={2.5} className="hidden sm:block" />
                                 </div>
-                                <span className="text-[11px] font-black uppercase tracking-widest text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.8)]">結束回合</span>
+                                <span className="text-[11px] font-black uppercase tracking-widest text-[#f0c85c] drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">結束回合</span>
                             </button>
                             ) : (
                             <div className="relative flex flex-col items-center gap-2">
@@ -305,7 +305,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                 {/* 發光底圖 */}
                                 {isActive && !isAnimating && (
                                     <motion.div
-                                        className="absolute inset-0 bg-cyan-500 rounded-full blur-2xl opacity-30 z-0"
+                                        className="absolute inset-0 rounded-full bg-[#5da58e] blur-2xl opacity-30 z-0"
                                         animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.5, 0.2] }}
                                         transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
                                     />
@@ -367,17 +367,17 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                                     if (!isActive) return;
                                                     setSelectedDiceCount(prev => prev === 2 ? 1 : 2);
                                                 }}
-                                                className="absolute -top-3 -right-3 w-7 h-7 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-sm"
+                                                className="absolute -top-3 -right-3 w-7 h-7 rounded-full border-2 border-[#293a38] bg-[#f0c85c] flex items-center justify-center shadow-sm"
                                                 style={{ transform: `translateZ(${tagTz})` }}
                                                 title={isActive ? '點一下切換單骰 / 雙骰' : '持有汽車時可切換單骰 / 雙骰'}
                                             >
-                                                <span className="text-[10px] font-black text-amber-900 leading-none tracking-tighter">x{selectedDiceCount}</span>
+                                                <span className="text-[10px] font-black text-[#604721] leading-none tracking-tighter">x{selectedDiceCount}</span>
                                             </div>
                                         )}
                                     </div>
                                 </motion.button>
-                                <span className={`text-[11px] font-black uppercase tracking-widest transition-colors ${
-                                    isActive ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]' : 'text-slate-500'
+                                <span className={`text-[11px] font-black uppercase tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] transition-colors ${
+                                    isActive ? 'text-[#fffaf2]' : 'text-[#b9aa98]'
                                 }`}>
                                     {isRollingBoardDice ? '同步中' : (isBoardTurn ? `點擊拋擲${hasCar ? ` (${selectedDiceCount}顆)` : ''}` : '擲骰子')}
                                 </span>
@@ -391,16 +391,16 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                 className={`group relative flex flex-col items-center gap-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
                                 title={disabled ? "遊戲已結算" : "數位銀行"}
                             >
-                                <div className="relative w-[72px] h-[72px] bg-gradient-to-br from-emerald-400 to-emerald-600 text-white rounded-[24px] shadow-[0_12px_24px_-8px_rgba(16,185,129,0.6),inset_0_2px_4px_rgba(255,255,255,0.4)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-active:scale-95 border-2 border-white/40">
+                                <div className="relative w-[72px] h-[72px] rounded-[24px] border-2 border-[#d8c29a] bg-gradient-to-br from-[#5da58e] to-[#2e6570] text-white shadow-[0_12px_24px_-8px_rgba(46,101,112,0.55)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-active:scale-95">
                                     <Landmark size={36} strokeWidth={2} className="drop-shadow-md" />
                                 </div>
-                                <span className="text-[11px] font-black text-emerald-400 uppercase tracking-widest drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]">數位銀行</span>
+                                <span className="text-[11px] font-black text-[#fffaf2] uppercase tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">數位銀行</span>
                             </button>
                         )}
                         {onRollBoardDice && visibleBlockReason && !isAnimating && (
                             <div
                                 role="status"
-                                className="absolute bottom-[-1.4rem] left-1/2 w-[220px] -translate-x-1/2 text-center text-[10px] font-bold leading-tight text-amber-200/90"
+                                className="absolute bottom-[-1.4rem] left-1/2 w-[220px] -translate-x-1/2 text-center text-[10px] font-bold leading-tight text-[#f0c85c] drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]"
                             >
                                 {visibleBlockReason}
                             </div>
@@ -413,13 +413,13 @@ export const GameActions: React.FC<GameActionsProps> = ({
                             onClick={onShowTransaction}
                             disabled={disabled}
                             aria-label="開啟數位銀行"
-                            className={`group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                            className={`pointer-events-auto group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
                             title={disabled ? "遊戲已結算" : "數位銀行"}
                         >
-                            <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-emerald-400 rounded-[14px] sm:rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] group-active:scale-95 border border-slate-700">
+                            <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] rounded-[14px] border border-[#d8c29a] bg-[#e0f0e5] text-[#2e6570] shadow-[0_8px_16px_-10px_rgba(16,47,56,0.45)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-active:scale-95 sm:rounded-[18px]">
                                 <Landmark size={20} strokeWidth={2} className="sm:hidden" /><Landmark size={24} strokeWidth={2} className="hidden sm:block" />
                             </div>
-                            <span className="text-[10px] font-black text-slate-400 tracking-wider transition-colors group-enabled:group-hover:text-emerald-400">銀行</span>
+                            <span className="text-[10px] font-black text-[#fffaf2] tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] transition-colors group-enabled:group-hover:text-[#b9d9d0]">銀行</span>
                         </button>
                     )}
 
@@ -428,13 +428,13 @@ export const GameActions: React.FC<GameActionsProps> = ({
                         onClick={onShowMedical}
                         disabled={disabled}
                         aria-label="開啟醫療理賠"
-                        className={`group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                        className={`pointer-events-auto group relative flex flex-col items-center gap-1 sm:gap-1.5 px-1 sm:px-2 ${disabled ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
                         title={disabled ? "遊戲已結算" : "醫療理賠"}
                     >
-                        <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] bg-gradient-to-br from-slate-800 to-slate-900 text-rose-400 rounded-[14px] sm:rounded-[18px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_8px_16px_-6px_rgba(0,0,0,0.5)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-enabled:hover:shadow-[0_0_20px_rgba(244,63,94,0.2)] group-active:scale-95 border border-slate-700">
+                        <div className="w-[44px] h-[44px] sm:w-[52px] sm:h-[52px] rounded-[14px] border border-[#d8c29a] bg-[#f5d9d0] text-[#b6544b] shadow-[0_8px_16px_-10px_rgba(16,47,56,0.45)] flex items-center justify-center transition-all duration-300 group-enabled:hover:scale-105 group-enabled:hover:-translate-y-1 group-active:scale-95 sm:rounded-[18px]">
                             <CirclePlus size={20} strokeWidth={2} className="sm:hidden" /><CirclePlus size={24} strokeWidth={2} className="hidden sm:block" />
                         </div>
-                        <span className="text-[10px] font-black text-slate-400 tracking-wider transition-colors group-enabled:group-hover:text-rose-400">醫療</span>
+                        <span className="text-[10px] font-black text-[#fffaf2] tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] transition-colors group-enabled:group-hover:text-[#f5d9d0]">醫療</span>
                     </button>
 
                 </div>

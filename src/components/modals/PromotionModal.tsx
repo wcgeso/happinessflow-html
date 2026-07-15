@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { GraduationCap, BookOpen, BrainCircuit, CheckCircle2, ChevronRight, X } from 'lucide-react';
-import { Button, Card } from '../ui/ui';
+import React from 'react';
+import { GraduationCap, BookOpen, BrainCircuit, CheckCircle2, ChevronRight } from 'lucide-react';
+import { PlayerModalFrame } from '../common/PlayerModalFrame';
 import { cn } from '../../utils/gameUtils';
 
 interface PromotionModalProps {
@@ -23,66 +23,51 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 pt-safe pb-safe bg-slate-950/95 backdrop-blur-md animate-in fade-in duration-300">
-            {/* 裝飾背景 */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-purple-600/5 rounded-full blur-[100px]" />
-            </div>
-
-            <Card className="max-w-md w-full bg-slate-900 border-slate-800 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="p-8 space-y-8 relative">
-                    {/* Close Button */}
-                    <button 
-                        onClick={onClose}
-                        className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/5 text-slate-500 hover:text-white transition-all z-20"
+        <PlayerModalFrame
+            eyebrow="職業成長"
+            title="升等考試報名"
+            description="提升職業等級，獲取更多工作收入加成。"
+            accent="opportunity"
+            onClose={onClose}
+            footer={(
+                <div className="flex flex-col gap-3">
+                    <button
+                        type="button"
+                        onClick={() => onConfirm('normal')}
+                        disabled={disabled}
+                        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#d6a94e] to-[#a9643a] py-3.5 text-lg font-black text-white shadow-[0_12px_24px_-14px_rgba(169,100,58,0.8)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                        <X size={24} />
+                        <span>{disabled ? '遊戲已結算' : '確認報名'}</span>
+                        {!disabled && <ChevronRight size={20} />}
                     </button>
-
-                    <div className="text-center space-y-3">
-                        <div className="w-20 h-20 bg-gradient-to-br from-purple-500/20 to-indigo-500/20 rounded-3xl flex items-center justify-center mx-auto text-purple-400 border border-purple-500/30 rotate-12 transition-transform hover:rotate-0 duration-500">
+                    <button type="button" onClick={onClose} className="min-h-11 w-full rounded-2xl border border-[#d8c29a] bg-[#f4e6d0] py-3 text-sm font-black text-[#7a6958] transition hover:bg-[#ead7b8]">
+                        關閉
+                    </button>
+                </div>
+            )}
+        >
+                    <div className="mb-6 text-center">
+                        <div className="mx-auto flex h-20 w-20 rotate-12 items-center justify-center rounded-3xl border border-[#d8c29a] bg-[#f0dfc9] text-[#a9643a] transition-transform hover:rotate-0">
                             <GraduationCap size={44} strokeWidth={1.5} />
                         </div>
-                        <h3 className="text-2xl font-black text-white tracking-tight">升等考試報名</h3>
-                        <p className="text-slate-500 text-sm">提升職業等級，獲取更多工作收入加成</p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4">
                         {/* Normal Exam */}
-                        <div className="group relative flex items-center gap-4 p-5 rounded-2xl transition-all duration-300 text-left overflow-hidden border-2 bg-amber-500/10 border-amber-500 shadow-[0_0_20px_-5px_rgba(245,158,11,0.4)]">
-                            <div className="shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all border shadow-lg bg-amber-500 text-white border-amber-400">
+                        <div className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border-2 border-[#d6a94e] bg-[#fff2de] p-5 text-left transition-all duration-300 shadow-[0_12px_26px_-20px_rgba(169,100,58,0.75)]">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#d6a94e] bg-[#d6a94e] text-white shadow-lg">
                                 <BookOpen size={24} />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className="text-white font-bold text-lg leading-tight">一般考試</div>
-                                <div className="text-slate-500 text-xs mt-1">下一階目標：擲骰子 ≥ {currentRankLevel + 1} 點</div>
+                                <div className="text-[#293a38] font-black text-lg leading-tight">一般考試</div>
+                                <div className="text-[#7a6958] text-xs mt-1">下一階目標：擲骰子 ≥ {currentRankLevel + 1} 點</div>
                             </div>
                             <div className="flex flex-col items-end shrink-0">
-                                <div className="text-emerald-400 font-mono font-black text-xl">1,000</div>
-                                <CheckCircle2 size={16} className="text-amber-500 mt-1 animate-in zoom-in" />
+                                <div className="text-[#2e806d] font-mono font-black text-xl">1,000</div>
+                                <CheckCircle2 size={16} className="text-[#b88a43] mt-1" />
                             </div>
                         </div>
                     </div>
-
-                    <div className="flex flex-col gap-3 pt-2">
-                        <Button
-                            onClick={() => onConfirm('normal')}
-                            disabled={disabled}
-                            className="w-full py-4 rounded-2xl font-black text-lg transition-all shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white shadow-amber-900/40 disabled:opacity-50"
-                        >
-                            <span>{disabled ? '遊戲已結算' : '確認報名'}</span>
-                            {!disabled && <ChevronRight size={20} className="animate-in slide-in-from-left-2" />}
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            onClick={onClose}
-                            className="w-full py-4 text-slate-400 font-bold hover:text-white transition-colors border-none"
-                        >
-                            <span>關閉</span>
-                        </Button>
-                    </div>
-                </div>
-            </Card>
-        </div>
+        </PlayerModalFrame>
     );
 };

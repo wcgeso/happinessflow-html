@@ -133,9 +133,40 @@ test('coach creates a board room, 3 players join + set up, display syncs', async
 
   const roomRef = getEmulatorDb().collection('rooms').doc(roomCode);
   const cardCases = [
-    { deck: 'happiness', cardId: 'H001', title: '幸福卡投影測試' },
-    { deck: 'opportunity', cardId: 'C001', title: '機運卡投影測試' },
-    { deck: 'news', cardId: 'N001', title: '新聞卡投影測試' },
+    { deck: 'happiness', cardId: 'H001', title: '幸福卡投影測試', effectLines: ['現金 +1,000'] },
+    { deck: 'opportunity', cardId: 'C001', title: '機運卡投影測試', effectLines: ['現金 +1,000'] },
+    { deck: 'news', cardId: 'N001', title: '新聞卡投影測試', effectLines: ['現金 +1,000'] },
+    {
+      deck: 'happiness',
+      cardId: 'H013',
+      title: '幸福家庭的重要歷程',
+      subtitle: '家庭重要歷程',
+      effectLines: [],
+      familyMilestoneStatus: {
+        stages: [
+          { cardId: 'date', label: '第一次約會', cost: '3,000 元' },
+          { cardId: 'propose', label: '難忘的求婚', cost: '5,000 元' },
+          { cardId: 'wedding', label: '浪漫的婚禮', cost: '100,000 元' },
+          { cardId: 'child1', label: '擁有第一個孩子', cost: '增加月支出' },
+          { cardId: 'child2', label: '擁有第二個孩子', cost: '增加月支出' },
+        ],
+      },
+    },
+    {
+      deck: 'news',
+      cardId: 'N021',
+      title: '股市新聞投影測試',
+      effectLines: [
+        'A10：3,500', 'A20：4,000', 'A30：7,000', 'A40：5,000',
+        'B50：5,000', 'B60：5,500', 'B70：7,500', 'B80：8,500',
+      ],
+    },
+    {
+      deck: 'news',
+      cardId: 'N045',
+      title: '五房三廳豪華住宅',
+      effectLines: [],
+    },
   ] as const;
 
   for (const card of cardCases) {
@@ -155,7 +186,9 @@ test('coach creates a board room, 3 players join + set up, display syncs', async
         cardId: card.cardId,
         title: card.title,
         description: '投影卡片版面驗證',
-        effectLines: ['現金 +1,000'],
+        effectLines: card.effectLines,
+        ...('subtitle' in card ? { subtitle: card.subtitle } : {}),
+        ...('familyMilestoneStatus' in card ? { familyMilestoneStatus: card.familyMilestoneStatus } : {}),
       },
       'boardState.currentCardReveal': {
         eventId,
@@ -168,12 +201,23 @@ test('coach creates a board room, 3 players join + set up, display syncs', async
     const cardOverlay = displayPage.locator(`[data-projection-card][data-card-id="${card.cardId}"]`);
     await expect(cardOverlay).toBeVisible();
     await expect(cardOverlay.getByText('抽卡玩家')).toBeVisible();
-    await displayPage.screenshot({ path: `e2e/report/projection-p1-card-${card.deck}.png` });
+    await expect(cardOverlay.locator('[data-projection-card-cover]')).toHaveClass(/-translate-x-full/, { timeout: 1_000 });
+    const stageBox = await cardOverlay.locator('[data-projection-card-content]').boundingBox();
+    const viewport = displayPage.viewportSize()!;
+    expect(stageBox).not.toBeNull();
+    expect(stageBox!.x).toBeGreaterThanOrEqual(0);
+    expect(stageBox!.y).toBeGreaterThanOrEqual(0);
+    expect(stageBox!.x + stageBox!.width).toBeLessThanOrEqual(viewport.width);
+    expect(stageBox!.y + stageBox!.height).toBeLessThanOrEqual(viewport.height);
+    await displayPage.waitForTimeout(500);
+    await displayPage.screenshot({ path: `e2e/report/projection-p1-card-${card.cardId}.png` });
+
+    await roomRef.update({
+      'boardState.currentEvent': null,
+      'boardState.currentCard': null,
+      'boardState.currentCardReveal': null,
+    });
+    await expect(displayPage.locator('[data-projection-card]')).toHaveCount(0, { timeout: 1_000 });
   }
 
-  await roomRef.update({
-    'boardState.currentEvent': null,
-    'boardState.currentCard': null,
-    'boardState.currentCardReveal': null,
-  });
 });

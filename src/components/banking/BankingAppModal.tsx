@@ -264,38 +264,38 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md sm:p-6">
-      <div className="flex h-full w-full flex-col overflow-hidden bg-slate-900 shadow-2xl sm:h-[90vh] sm:max-w-4xl sm:rounded-3xl sm:border sm:border-slate-700 md:h-[650px]">
+    <div className="fixed inset-0 z-[10050] flex items-center justify-center bg-[#102f38]/78 backdrop-blur-md sm:p-6">
+      <div className="flex h-full w-full flex-col overflow-hidden border-[#d8c29a] bg-[#fffaf2] text-[#293a38] shadow-[0_28px_80px_-32px_rgba(16,47,56,0.85)] sm:h-[90vh] sm:max-w-4xl sm:rounded-3xl sm:border md:h-[650px]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-800/50 px-3 pb-2 pt-[calc(env(safe-area-inset-top)+8px)] sm:p-5">
+        <div className="flex items-center justify-between border-b border-[#ead7b8] bg-[#fffaf2] px-3 pb-2 pt-[calc(env(safe-area-inset-top)+8px)] sm:p-5">
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg sm:h-10 sm:w-10 sm:rounded-xl">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#5da58e] to-[#2e6570] shadow-lg sm:h-10 sm:w-10 sm:rounded-xl">
               <Landmark className="text-white" size={18} />
             </div>
             <div>
-              <h2 className="text-base font-black tracking-wide text-white sm:text-lg">數位銀行</h2>
-              <p className="text-[10px] font-medium text-indigo-300 sm:text-xs">Happiness Digital Banking</p>
+              <h2 className="text-base font-black tracking-wide text-[#293a38] sm:text-lg">數位銀行</h2>
+              <p className="text-[10px] font-medium text-[#2e6570] sm:text-xs">Happiness Digital Banking</p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-[#7a6958] transition-colors hover:bg-[#f3e4cc] hover:text-[#293a38]"
             aria-label="關閉數位銀行"
           >
             <X size={20} />
           </button>
         </div>
 
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-3 py-2 sm:px-6 sm:py-3">
-          <span className="text-xs font-black tracking-wider text-slate-400 sm:text-sm">持有現金</span>
-          <span className="text-lg font-black text-emerald-400 sm:text-xl">${cash.toLocaleString()}</span>
+        <div className="flex items-center justify-between border-b border-[#ead7b8] bg-[#f4e6d0] px-3 py-2 sm:px-6 sm:py-3">
+          <span className="text-xs font-black tracking-wider text-[#7a6958] sm:text-sm">持有現金</span>
+          <span className="text-lg font-black text-[#2e806d] sm:text-xl">${cash.toLocaleString()}</span>
         </div>
 
         {/* Content Area - Row layout for desktop, Col for mobile */}
         <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
           
           {/* Sidebar Tabs */}
-          <div className="w-full flex-shrink-0 overflow-x-auto border-b border-slate-800 bg-slate-900/50 p-2 no-scrollbar hide-scrollbar sm:w-56 sm:overflow-y-auto sm:border-b-0 sm:border-r sm:p-4">
+          <div className="w-full flex-shrink-0 overflow-x-auto border-b border-[#ead7b8] bg-[#f7f0e3] p-2 no-scrollbar hide-scrollbar sm:w-56 sm:overflow-y-auto sm:border-b-0 sm:border-r sm:p-4">
             <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-col sm:gap-2">
               {tabs.map(tab => {
                 const isActive = activeTab === tab.id;
@@ -308,9 +308,9 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
                     }}
                     disabled={false}
                     className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-black tracking-wide transition-all sm:flex-row sm:justify-start sm:gap-3 sm:whitespace-normal sm:rounded-2xl sm:px-4 sm:py-3.5 sm:text-[14.5px] sm:tracking-wider ${
-                      isActive 
-                        ? 'bg-indigo-600/20 text-indigo-400 shadow-inner ring-1 ring-indigo-500/50' 
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                      isActive
+                        ? 'bg-[#d8e9e5] text-[#2e6570] shadow-inner ring-1 ring-[#8eb49e]'
+                        : 'text-[#7a6958] hover:bg-[#f3e4cc] hover:text-[#293a38]'
                     }`}
                   >
                     {tab.icon}
@@ -323,9 +323,9 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
           </div>
 
           {/* Main Content */}
-          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-900 p-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] no-scrollbar sm:p-6">
+          <div className="player-banking-surface min-h-0 flex-1 overflow-y-auto bg-[#fffaf2] p-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] no-scrollbar sm:p-6">
             {!canUseBankProducts && activeTab === 'wealth' && (
-              <div className="mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 sm:mb-4 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
+              <div className="mb-2 rounded-xl border border-[#e2b978] bg-[#fff2de] px-3 py-2 text-xs font-bold text-[#a9643a] sm:mb-4 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
                 本回合尚未經過銀行，保險與新增定存暫時無法辦理；定存解約仍可使用。
               </div>
             )}

@@ -30,10 +30,10 @@ import { formatMoney } from '../../utils/gameUtils';
 import { BoardCardResult, FamilyMilestoneJoinPrompt, SharedCardPrompt, TransactionData } from '../../types';
 import { BoardAssetSaleCandidate, BoardFinancialAction, BoardInvestmentAction, buildBoardAssetSaleFinancialAction, getSharedOpportunityKind, hasIncompleteSharedPrompts, isForcedBoardCard, resolveBoardCardAction, selectActiveSharedCardPrompt, shouldBlockBoardCardDismissal } from '../../utils/boardCardActions';
 import { HAPPINESS_CARD_MAP, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP } from '../../constants/cards';
-import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
 import { flowLog } from '../../utils/flowLog';
 import { getBoardActionAvailability } from '../../utils/experienceState';
 import { audioManager } from '../../utils/audio';
+import { PlayerModalFrame } from '../../components/common/PlayerModalFrame';
 
 export const marketPricesMatch = (current: Record<string, number> | undefined, target: Record<string, number> | undefined) => {
     if (!current || !target) return false;
@@ -156,7 +156,6 @@ export const GameView: React.FC<{
     const [hospitalRollValue, setHospitalRollValue] = useState<number | null>(null);
     const [lastHospitalPromptKey, setLastHospitalPromptKey] = useState<string | null>(null);
     const [lastRepairPromptKey, setLastRepairPromptKey] = useState<string | null>(null);
-    const [showBoardCardLog, setShowBoardCardLog] = useState(false);
     const [isSubmittingFamilyJoin, setIsSubmittingFamilyJoin] = useState(false);
     const [familyJoinRollValue, setFamilyJoinRollValue] = useState<number | null>(null);
     const [familyJoinResult, setFamilyJoinResult] = useState<'passed' | 'failed' | null>(null);
@@ -2116,7 +2115,7 @@ export const GameView: React.FC<{
     ]);
 
     return (
-        <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500 pb-safe">
+        <div className="player-ui flex-1 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500 pb-safe">
             {showScoreView && (
                 <div className="fixed inset-0 z-[10000]">
                     <ScoreView
@@ -2170,26 +2169,10 @@ export const GameView: React.FC<{
                 onFinishGame={() => setShowScoreView(true)}
                 onShowStockMarket={() => { setTransactionQuickPreset({ initialTab: 'broker' }); setShowTransactionModal(true); }}
                 onShowTutorial={() => setShowTutorial(true)}
-                onShowCardLog={() => setShowBoardCardLog(true)}
                 onLeaveRoom={() => setShowLeaveConfirm(true)}
                 onAddMoney={addMoney}
                 isDevMode={isDevMode}
             />
-
-            {showBoardCardLog && (
-                <>
-                    <button
-                        type="button"
-                        aria-label="關閉抽卡日誌"
-                        onClick={() => setShowBoardCardLog(false)}
-                        className="fixed inset-0 z-[10029] bg-black/65 backdrop-blur-sm"
-                    />
-                    <BoardCardLogPanel
-                        entries={(room?.boardState?.cardLog || []).slice(0, 12)}
-                        onClose={() => setShowBoardCardLog(false)}
-                    />
-                </>
-            )}
 
             {shouldShowFamilyJoinModal && activeFamilyJoinPrompt && (
                 <div className="fixed inset-0 z-[10040] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
@@ -2284,10 +2267,10 @@ export const GameView: React.FC<{
             )}
 
             {shouldShowSharedCardPromptModal && activeSharedCardPrompt && (
-                <div className="fixed inset-0 z-[10041] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-                    <div className="w-full max-w-lg rounded-[32px] border border-cyan-200/20 bg-slate-950 p-6 text-white shadow-2xl">
+                <div className="fixed inset-0 z-[10050] flex items-center justify-center bg-[#102f38]/78 px-4 backdrop-blur-sm">
+                    <div className="w-full max-w-lg rounded-[32px] border border-[#d8c29a] bg-[#fffaf2] p-6 text-[#293a38] shadow-[0_28px_80px_-32px_rgba(16,47,56,0.85)]">
                         <div className="space-y-3">
-                            <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-4 py-1 text-sm font-black tracking-[0.2em] text-cyan-200">
+                            <div className="inline-flex rounded-full border border-[#9fc8d5] bg-[#edf6f6] px-4 py-1 text-sm font-black tracking-[0.2em] text-[#36798a]">
                                 共享卡片事件
                             </div>
                             <h3 className="text-3xl font-black leading-tight">
@@ -2298,7 +2281,7 @@ export const GameView: React.FC<{
                                 {activeSharedCardPrompt.kind === 'startup_loan' && '創業貸款選擇'}
                                 {activeSharedCardPrompt.kind === 'expense_adjustment' && '全體月支出調整'}
                             </h3>
-                            <p className="text-sm leading-relaxed text-slate-300">
+                            <p className="text-sm leading-relaxed text-[#765f47]">
                                 {activeSharedCardPrompt.sourcePlayerName} 抽到 {activeSharedCardPrompt.sourceCardId}。
                                 請完成屬於你的回覆，全部玩家處理完成後，本事件才會正式結束。
                             </p>
@@ -2307,7 +2290,7 @@ export const GameView: React.FC<{
                         {activeSharedCardPrompt.kind === 'asset_sale' && sharedCardLocalAction?.kind === 'asset_sale' && (
                             <div className="mt-6 space-y-3">
                                 {sharedCardLocalAction.items.length === 0 ? (
-                                    <div className="rounded-3xl border border-slate-800 bg-slate-900/80 px-4 py-4 text-sm leading-relaxed text-slate-300">
+                                    <div className="rounded-3xl border border-[#ead6b9] bg-[#f8eee0] px-4 py-4 text-sm leading-relaxed text-[#765f47]">
                                         {sharedCardLocalAction.emptyNote}
                                     </div>
                                 ) : (
@@ -2315,7 +2298,7 @@ export const GameView: React.FC<{
                                         {sharedCardLocalAction.items.map(item => {
                                             const checked = sharedSaleSelectionIds.includes(item.id);
                                             return (
-                                                <label key={item.id} className="block rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+                                                    <label key={item.id} className="block rounded-2xl border border-[#ead6b9] bg-[#f8eee0] p-4">
                                                     <div className="flex items-start gap-3">
                                                         <input
                                                             type="checkbox"
@@ -2331,9 +2314,9 @@ export const GameView: React.FC<{
                                                             }}
                                                         />
                                                         <div className="min-w-0 flex-1">
-                                                            <div className="font-black text-white">{item.asset.name}</div>
-                                                            <div className="mt-1 text-xs text-slate-400">{item.summary}</div>
-                                                            <div className="mt-2 text-sm font-bold text-emerald-300">入帳 {formatMoney(item.netCash)}</div>
+                                                            <div className="font-black text-[#293a38]">{item.asset.name}</div>
+                                                            <div className="mt-1 text-xs text-[#7a6958]">{item.summary}</div>
+                                                            <div className="mt-2 text-sm font-bold text-[#168269]">入帳 {formatMoney(item.netCash)}</div>
                                                         </div>
                                                     </div>
                                                 </label>
@@ -2345,34 +2328,34 @@ export const GameView: React.FC<{
                         )}
 
                         {activeSharedCardPrompt.kind === 'cash_dividend' && (
-                            <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-5 text-center">
-                                <div className="text-xs font-black tracking-[0.2em] text-slate-500">可領股利</div>
-                                <div className="mt-3 text-4xl font-black text-emerald-300">{formatMoney(sharedDividendAmount)}</div>
-                                <div className="mt-2 text-sm text-slate-400">
+                            <div className="mt-6 rounded-3xl border border-[#ead6b9] bg-[#f8eee0] p-5 text-center">
+                                <div className="text-xs font-black tracking-[0.2em] text-[#7a6958]">可領股利</div>
+                                <div className="mt-3 text-4xl font-black text-[#168269]">{formatMoney(sharedDividendAmount)}</div>
+                                <div className="mt-2 text-sm text-[#765f47]">
                                     {sharedDividendAmount > 0 ? '依你目前持股計算完成' : '沒有符合條件股票'}
                                 </div>
                             </div>
                         )}
 
                         {activeSharedCardPrompt.kind === 'stock_dividend' && (
-                            <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
-                                <div className="text-xs font-black tracking-[0.2em] text-slate-500">配股內容</div>
-                                <div className="mt-3 space-y-2 text-sm text-slate-200">
+                            <div className="mt-6 rounded-3xl border border-[#ead6b9] bg-[#f8eee0] p-5">
+                                <div className="text-xs font-black tracking-[0.2em] text-[#7a6958]">配股內容</div>
+                                <div className="mt-3 space-y-2 text-sm text-[#5f4933]">
                                     {sharedStockDividendItems.length > 0 ? sharedStockDividendItems.map(item => (
-                                        <div key={item.assetId} className="flex items-center justify-between rounded-2xl bg-slate-950/70 px-3 py-2">
+                                        <div key={item.assetId} className="flex items-center justify-between rounded-2xl bg-[#fffaf2] px-3 py-2">
                                             <span>{item.symbol}</span>
-                                            <span className="font-black text-emerald-300">+{item.addedQty} 張</span>
+                                            <span className="font-black text-[#168269]">+{item.addedQty} 張</span>
                                         </div>
                                     )) : (
-                                        <div className="rounded-2xl bg-slate-950/70 px-3 py-4 text-center text-slate-400">沒有符合條件股票</div>
+                                        <div className="rounded-2xl bg-[#fffaf2] px-3 py-4 text-center text-[#7a6958]">沒有符合條件股票</div>
                                     )}
                                 </div>
                             </div>
                         )}
 
                         {activeSharedCardPrompt.kind === 'investment' && (
-                            <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
-                                <div className="flex items-center justify-between text-xs font-black tracking-[0.16em] text-slate-500">
+                            <div className="mt-6 rounded-3xl border border-[#ead6b9] bg-[#f8eee0] p-4">
+                                <div className="flex items-center justify-between text-xs font-black tracking-[0.16em] text-[#7a6958]">
                                     <span>投資金額</span>
                                     <span>每次增減 {formatMoney(1000000)}</span>
                                 </div>
@@ -2380,7 +2363,7 @@ export const GameView: React.FC<{
                                     <button
                                         type="button"
                                         onClick={() => setSharedInvestmentAmount(current => Math.max(0, current - 1000000))}
-                                        className="h-11 w-11 rounded-2xl bg-slate-800 text-xl font-black text-slate-200"
+                                        className="h-11 w-11 rounded-2xl bg-[#f4e6d0] text-xl font-black text-[#76573a]"
                                     >
                                         -
                                     </button>
@@ -2390,36 +2373,36 @@ export const GameView: React.FC<{
                                         step={1000000}
                                         value={sharedInvestmentAmount || ''}
                                         onChange={(event) => setSharedInvestmentAmount(parseInt(event.target.value, 10) || 0)}
-                                        className="h-11 flex-1 rounded-2xl border border-slate-700 bg-slate-950 px-3 text-center text-lg font-black text-white"
+                                        className="h-11 flex-1 rounded-2xl border border-[#d8c29a] bg-[#fffaf2] px-3 text-center text-lg font-black text-[#293a38]"
                                         placeholder="0"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setSharedInvestmentAmount(current => current + 1000000)}
-                                        className="h-11 w-11 rounded-2xl bg-slate-800 text-xl font-black text-slate-200"
+                                        className="h-11 w-11 rounded-2xl bg-[#f4e6d0] text-xl font-black text-[#76573a]"
                                     >
                                         +
                                     </button>
                                 </div>
-                                <div className="mt-3 text-xs font-bold text-slate-400">可用現金 {formatMoney(gameState.cash)}</div>
+                                <div className="mt-3 text-xs font-bold text-[#7a6958]">可用現金 {formatMoney(gameState.cash)}</div>
                             </div>
                         )}
 
                         {activeSharedCardPrompt.kind === 'startup_loan' && (
-                            <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-5 text-sm leading-relaxed text-slate-300">
+                            <div className="mt-6 rounded-3xl border border-[#ead6b9] bg-[#f8eee0] p-5 text-sm leading-relaxed text-[#765f47]">
                                 接受後會建立兼職工作室、企業貸款與每月支出。之後經過銀行時，會觸發升級擲骰。
                             </div>
                         )}
 
                         {activeSharedCardPrompt.kind === 'expense_adjustment' && sharedCardLocalAction?.kind === 'financial' && (
-                            <div className="mt-6 rounded-3xl border border-amber-400/30 bg-amber-500/10 p-5">
-                                <div className="text-xs font-black tracking-[0.2em] text-amber-200">你的月支出調整</div>
-                                <div className="mt-3 space-y-2 text-sm font-bold leading-relaxed text-amber-50">
+                            <div className="mt-6 rounded-3xl border border-[#e3bd78] bg-[#fff2d8] p-5">
+                                <div className="text-xs font-black tracking-[0.2em] text-[#8c5b2b]">你的月支出調整</div>
+                                <div className="mt-3 space-y-2 text-sm font-bold leading-relaxed text-[#76573a]">
                                     {sharedCardLocalAction.txData.impacts.map(impact => (
                                         <div key={impact}>{impact}</div>
                                     ))}
                                 </div>
-                                <div className="mt-3 text-xs leading-relaxed text-amber-100/70">請完成財務檢核，這項調整會套用到你的財務報表。</div>
+                                <div className="mt-3 text-xs leading-relaxed text-[#8c5b2b]">請完成財務檢核，這項調整會套用到你的財務報表。</div>
                             </div>
                         )}
 
@@ -2429,7 +2412,7 @@ export const GameView: React.FC<{
                                     type="button"
                                     onClick={handleSharedCardDecline}
                                     disabled={hasRespondedToSharedCardPrompt}
-                                    className="flex-1 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-base font-black text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="flex-1 rounded-2xl border border-[#d8c29a] bg-[#f4e6d0] px-4 py-3 text-base font-black text-[#76573a] transition hover:bg-[#ead7b8] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     {hasRespondedToSharedCardPrompt ? '已回覆' : '放棄'}
                                 </button>
@@ -2439,7 +2422,7 @@ export const GameView: React.FC<{
                                     type="button"
                                     onClick={handleSharedAssetSaleConfirm}
                                     disabled={hasRespondedToSharedCardPrompt || sharedCardLocalAction?.kind !== 'asset_sale' || sharedCardLocalAction.items.length === 0}
-                                    className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="flex-1 rounded-2xl bg-[#168269] px-4 py-3 text-base font-black text-white transition hover:bg-[#106b58] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     進入出售
                                 </button>
@@ -2490,22 +2473,19 @@ export const GameView: React.FC<{
             )}
 
             {showLeaveConfirm && (
-                <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-[32px] p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div className="flex flex-col items-center text-center gap-4">
-                            <div className="p-4 bg-rose-500/20 text-rose-400 rounded-3xl">
-                                <LogOut size={40} />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-2xl font-black text-white">確定要離開房間？</h3>
-                                <p className="text-slate-400 font-medium">離開後將無法繼續目前的遊戲，且資料將不會被儲存。</p>
-                            </div>
-                        </div>
-                        <div className="flex flex-col gap-3">
+                <PlayerModalFrame
+                    eyebrow="離開遊戲"
+                    title="確定要離開房間？"
+                    description="離開後將無法繼續目前的遊戲，且資料將不會被儲存。"
+                    accent="medical"
+                    closeDisabled={isLeaving}
+                    onClose={() => setShowLeaveConfirm(false)}
+                    footer={(
+                        <div className="flex flex-col gap-3 sm:flex-row-reverse">
                             <button
                                 onClick={handleLeaveRoom}
                                 disabled={isLeaving}
-                                className="w-full py-4 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white rounded-2xl text-lg font-black transition-all active:scale-95 shadow-lg shadow-rose-900/40 flex items-center justify-center gap-2"
+                                className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#b54155] px-5 py-3 text-base font-black text-white transition hover:bg-[#9f3549] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {isLeaving ? (
                                     <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -2514,13 +2494,19 @@ export const GameView: React.FC<{
                             <button
                                 onClick={() => setShowLeaveConfirm(false)}
                                 disabled={isLeaving}
-                                className="w-full py-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 rounded-2xl text-lg font-black transition-all active:scale-95"
+                                className="min-h-12 flex-1 rounded-2xl border border-[#d8c29a] bg-[#fffaf2] px-5 py-3 text-base font-black text-[#765f47] transition hover:bg-[#f3e4cc] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 取消
                             </button>
                         </div>
+                    )}
+                >
+                    <div className="flex justify-center">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[#f5d9d0] text-[#b54155]">
+                            <LogOut size={34} />
+                        </div>
                     </div>
-                </div>
+                </PlayerModalFrame>
             )}
 
             {showWinAnimation && (
@@ -2529,7 +2515,7 @@ export const GameView: React.FC<{
 
             <main className="fixed inset-0 overflow-y-auto no-scrollbar pt-[calc(190px+env(safe-area-inset-top,0px))] pb-[calc(200px+env(safe-area-inset-bottom,0px))] sm:pb-[calc(230px+env(safe-area-inset-bottom,0px))] touch-pan-y">
                 <div className="max-w-4xl mx-auto w-full px-4 md:px-6 space-y-6">
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="-mt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <FinancialStatement
                             gameState={gameState}
                             summary={summary}
@@ -2537,6 +2523,8 @@ export const GameView: React.FC<{
                             showDashboard={false}
                             defaultShowDetails={true}
                             navPosition="inline"
+                            showCardLogTab={room?.isBoardGame}
+                            cardLogEntries={(room?.boardState?.cardLog || []).slice(0, 12)}
                             onShowAlert={showAlert}
                             onDeleteTransaction={handleDeleteTransactionRecord}
                             onUpgradeBiz={handleBizUpgrade}
@@ -2970,26 +2958,26 @@ export const GameView: React.FC<{
 
             {/* Modals */}
             {showRealEstateMarketModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="flex w-full max-w-3xl max-h-[90vh] flex-col overflow-hidden rounded-[32px] border border-slate-700 bg-slate-900 shadow-2xl">
-                        <div className="flex items-center justify-between shrink-0 border-b border-slate-800 p-4 sm:p-5">
-                            <h2 className="text-2xl font-black text-white">房市公告板</h2>
+                <div className="fixed inset-0 z-[10050] flex items-center justify-center p-4 sm:p-6 bg-[#102f38]/78 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="flex w-full max-w-3xl max-h-[90vh] flex-col overflow-hidden rounded-[32px] border border-[#d8c29a] bg-[#fffaf2] text-[#293a38] shadow-[0_28px_80px_-32px_rgba(16,47,56,0.85)]">
+                        <div className="flex items-center justify-between shrink-0 border-b border-[#ead7b8] p-4 sm:p-5">
+                            <h2 className="text-2xl font-black text-[#293a38]">房市公告板</h2>
                             <button
                                 onClick={() => setShowRealEstateMarketModal(false)}
-                                className="rounded-xl px-3 py-2 text-sm font-black text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+                                className="rounded-xl px-3 py-2 text-sm font-black text-[#76573a] transition-colors hover:bg-[#f4e6d0] hover:text-[#293a38]"
                             >
                                 關閉
                             </button>
                         </div>
 
-                        <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-3 sm:px-6">
-                            <span className="text-sm font-black tracking-wider text-slate-400">持有現金</span>
-                            <span className="text-xl font-black text-emerald-400">{formatMoney(gameState.cash)}</span>
+                        <div className="flex shrink-0 items-center justify-between border-b border-[#ead7b8] bg-[#f4e6d0] px-4 py-3 sm:px-6">
+                            <span className="text-sm font-black tracking-wider text-[#76573a]">持有現金</span>
+                            <span className="text-xl font-black text-[#168269]">{formatMoney(gameState.cash)}</span>
                         </div>
                         
                         <div className="flex-1 overflow-y-auto space-y-4 p-4 sm:p-6">
                             {(!boardState?.realEstateMarket || boardState.realEstateMarket.length === 0) ? (
-                                <div className="text-center py-10 text-slate-500 font-medium">
+                                <div className="text-center py-10 text-[#7a6958] font-medium">
                                     目前市場上沒有釋出的房屋
                                 </div>
                             ) : (
@@ -3013,30 +3001,30 @@ export const GameView: React.FC<{
                                     const price = newsCard.totalPrice;
                                     
                                     return (
-                                        <div key={cardId} className="bg-slate-800 rounded-2xl p-5 border border-slate-700 flex flex-col gap-4">
-                                            <div className="flex justify-between items-start border-b border-slate-700/50 pb-3">
+                                        <div key={cardId} className="bg-[#f8eee0] rounded-2xl p-5 border border-[#ead6b9] flex flex-col gap-4">
+                                            <div className="flex justify-between items-start border-b border-[#ead6b9] pb-3">
                                                 <div>
-                                                    <div className="text-lg font-bold text-slate-200">{title}</div>
-                                                    <div className="text-sm text-slate-400 mt-1">{newsCard.title}</div>
+                                                    <div className="text-lg font-bold text-[#293a38]">{title}</div>
+                                                    <div className="text-sm text-[#765f47] mt-1">{newsCard.title}</div>
                                                 </div>
-                                                <div className="text-emerald-400 font-black text-xl">{formatMoney(price)}</div>
+                                                <div className="text-[#168269] font-black text-xl">{formatMoney(price)}</div>
                                             </div>
                                             
                                             <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm">
                                                 <div className="flex flex-col">
-                                                    <span className="text-slate-500">頭期款 (自備現金)</span>
-                                                    <span className="text-slate-200 font-bold">{formatMoney(newsCard.downPayment)}</span>
+                                                    <span className="text-[#7a6958]">頭期款 (自備現金)</span>
+                                                    <span className="text-[#293a38] font-bold">{formatMoney(newsCard.downPayment)}</span>
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-slate-500">銀行貸款</span>
+                                                    <span className="text-[#7a6958]">銀行貸款</span>
                                                     <span className="text-rose-400 font-bold">{formatMoney(newsCard.loanAmount)}</span>
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-slate-500">每月貸款利息</span>
+                                                    <span className="text-[#7a6958]">每月貸款利息</span>
                                                     <span className="text-rose-400 font-bold">{formatMoney(newsCard.monthlyPayment)}</span>
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-slate-500">每月租金收入</span>
+                                                    <span className="text-[#7a6958]">每月租金收入</span>
                                                     <span className="text-emerald-400 font-bold">{formatMoney(newsCard.rent)}</span>
                                                 </div>
                                                 {newsCard.happinessBonus > 0 && (
@@ -3047,11 +3035,11 @@ export const GameView: React.FC<{
                                                 )}
                                             </div>
                                             
-                                            <div className="flex gap-3 mt-2 pt-3 border-t border-slate-700/50">
+                                            <div className="flex gap-3 mt-2 pt-3 border-t border-[#ead6b9]">
                                                 {selfUseOpt && (
                                                     <button
                                                         onClick={() => handleBuyRealEstateFromMarket(cardId, true)}
-                                                        className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-black transition-all active:scale-95"
+                                                        className="flex-1 py-3 bg-[#36798a] hover:bg-[#2e6570] text-white rounded-xl text-sm font-black transition-all active:scale-95"
                                                     >
                                                         自用購買
                                                     </button>
@@ -3059,7 +3047,7 @@ export const GameView: React.FC<{
                                                 {rentalOpt && (
                                                     <button
                                                         onClick={() => handleBuyRealEstateFromMarket(cardId, false)}
-                                                        className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-black transition-all active:scale-95"
+                                                        className="flex-1 py-3 bg-[#168269] hover:bg-[#106b58] text-white rounded-xl text-sm font-black transition-all active:scale-95"
                                                     >
                                                         出租購買
                                                     </button>
@@ -3119,47 +3107,45 @@ export const GameView: React.FC<{
             )}
 
             {showForcedBoardPaymentModal && pendingForcedBoardPayment && (
-                <div className="fixed inset-0 z-[10030] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="w-full max-w-md rounded-[32px] border border-slate-700 bg-slate-900 p-6 shadow-2xl space-y-5">
-                        <div className="space-y-2">
-                            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-400">現金不足</div>
-                            <h3 className="text-2xl font-black text-white">需要先周轉資金</h3>
-                            <p className="text-sm leading-relaxed text-slate-300">
-                                這張卡必須強制支付，目前還差 <span className="font-black text-rose-300">{formatMoney(forcedBoardPaymentShortfall)}</span>。
-                            </p>
-                            <p className="text-xs leading-relaxed text-slate-500">
-                                你可以先賣股票或資產、直接借信用貸款，或強制把差額記入負債並結束這次事件。
-                            </p>
-                        </div>
-
-                        <div className="space-y-3">
+                <PlayerModalFrame
+                    eyebrow="現金不足"
+                    title="需要先周轉資金"
+                    description={`這張卡必須強制支付，目前還差 ${formatMoney(forcedBoardPaymentShortfall)}。`}
+                    accent="opportunity"
+                    onClose={() => setShowForcedBoardPaymentModal(false)}
+                    footer={(
+                        <div className="grid gap-3 sm:grid-cols-2">
                             <button
                                 onClick={handleForcedBoardSellAssets}
-                                className="w-full rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white transition-colors hover:bg-emerald-500"
+                                className="min-h-12 rounded-2xl bg-[#168269] px-4 py-3 text-sm font-black text-white transition hover:bg-[#116c58]"
                             >
                                 先賣股票 / 資產周轉
                             </button>
                             <button
                                 onClick={handleForcedBoardBorrow}
-                                className="w-full rounded-2xl bg-cyan-500 py-4 text-sm font-black text-slate-950 transition-colors hover:bg-cyan-400"
+                                className="min-h-12 rounded-2xl bg-[#2e6570] px-4 py-3 text-sm font-black text-white transition hover:bg-[#254f57]"
                             >
                                 借信用貸款補差額
                             </button>
                             <button
                                 onClick={handleForcedBoardForceDebt}
-                                className="w-full rounded-2xl bg-rose-600 py-4 text-sm font-black text-white transition-colors hover:bg-rose-500"
+                                className="min-h-12 rounded-2xl bg-[#b54155] px-4 py-3 text-sm font-black text-white transition hover:bg-[#9f3549]"
                             >
                                 強制結束並計入負債
                             </button>
                             <button
                                 onClick={() => setShowForcedBoardPaymentModal(false)}
-                                className="w-full rounded-2xl bg-slate-800 py-4 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700"
+                                className="min-h-12 rounded-2xl border border-[#d8c29a] bg-[#fffaf2] px-4 py-3 text-sm font-black text-[#765f47] transition hover:bg-[#f3e4cc]"
                             >
                                 稍後再處理
                             </button>
                         </div>
+                    )}
+                >
+                    <div className="rounded-2xl border border-[#e4c78f] bg-[#fff2d8] p-4 text-sm font-bold leading-relaxed text-[#76573a]">
+                        你可以先賣股票或資產、直接借信用貸款，或強制把差額記入負債並結束這次事件。
                     </div>
-                </div>
+                </PlayerModalFrame>
             )}
 
             {showRankListModal && (
@@ -3226,24 +3212,12 @@ export const GameView: React.FC<{
             )}
 
             {showHospitalRollModal && visibleFlowModal === 'hospital' && (
-                <div className="fixed inset-0 z-[10020] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="w-full max-w-md rounded-[32px] border border-slate-700 bg-slate-900 p-6 shadow-2xl space-y-5">
-                        <div className="space-y-2 text-center">
-                            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-rose-300">醫院事件</div>
-                            <h3 className="text-2xl font-black text-white">確認醫藥費</h3>
-                            <p className="text-sm leading-relaxed text-slate-300">
-                                棋子到達醫院後，要再擲一次骰子，醫藥費 = 點數 x 1,000。
-                            </p>
-                        </div>
-
-                        <div className="rounded-3xl border border-slate-800 bg-slate-950/70 px-5 py-6 text-center">
-                            <div className="text-[11px] font-black tracking-[0.28em] text-slate-500">第二次骰點</div>
-                            <div className="mt-3 text-5xl font-black text-white">{hospitalRollValue ?? '？'}</div>
-                            <div className="mt-3 text-sm font-bold text-slate-400">
-                                {hospitalRollValue ? `醫藥費 ${formatMoney(hospitalRollValue * 1000)}` : '先擲骰確認點數'}
-                            </div>
-                        </div>
-
+                <PlayerModalFrame
+                    eyebrow="醫院事件"
+                    title="確認醫藥費"
+                    description="棋子到達醫院後，要再擲一次骰子，醫藥費 = 點數 x 1,000。"
+                    accent="medical"
+                    footer={(
                         <div className="grid grid-cols-2 gap-3">
                             <button
                                 onClick={() => {
@@ -3251,20 +3225,28 @@ export const GameView: React.FC<{
                                     setHospitalRollValue(Math.floor(Math.random() * 6) + 1);
                                 }}
                                 disabled={!!hospitalRollValue}
-                                className="rounded-2xl bg-cyan-500 py-4 text-sm font-black text-slate-950 transition-colors hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="min-h-12 rounded-2xl bg-[#2e6570] px-3 py-3 text-sm font-black text-white transition hover:bg-[#254f57] disabled:cursor-not-allowed disabled:opacity-45"
                             >
                                 {hospitalRollValue ? '已完成擲骰' : '擲第二次骰子'}
                             </button>
                             <button
                                 onClick={handleHospitalRollConfirm}
                                 disabled={!hospitalRollValue}
-                                className="rounded-2xl bg-emerald-600 py-4 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="min-h-12 rounded-2xl bg-[#168269] px-3 py-3 text-sm font-black text-white transition hover:bg-[#116c58] disabled:cursor-not-allowed disabled:opacity-45"
                             >
                                 進入財務流程
                             </button>
                         </div>
+                    )}
+                >
+                    <div className="rounded-3xl border border-[#d8c29a] bg-[#f8eee0] px-5 py-6 text-center">
+                        <div className="text-[11px] font-black tracking-[0.24em] text-[#7a6958]">第二次骰點</div>
+                        <div className="mt-3 text-5xl font-black text-[#293a38]">{hospitalRollValue ?? '？'}</div>
+                        <div className="mt-3 text-sm font-bold text-[#765f47]">
+                            {hospitalRollValue ? `醫藥費 ${formatMoney(hospitalRollValue * 1000)}` : '先擲骰確認點數'}
+                        </div>
                     </div>
-                </div>
+                </PlayerModalFrame>
             )}
 
             {showMedicalClaimModal && (

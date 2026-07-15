@@ -160,7 +160,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
           {availableProductTypes.includes('insurance') && (
             <button
               onClick={() => setProductType('insurance')}
-              className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2.5 text-xs font-black tracking-wide transition-all sm:gap-2 sm:rounded-xl sm:py-3 sm:text-[14px] sm:tracking-widest ${productType === 'insurance' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-lg border py-2.5 text-xs font-black tracking-wide transition sm:gap-2 sm:rounded-xl sm:py-3 sm:text-[14px] sm:tracking-widest ${productType === 'insurance' ? 'border-[#e3aaa3] bg-[#f5d9d0] text-[#b6544b]' : 'border-transparent text-[#765f47] hover:bg-[#f3e4cc]'}`}
             >
               <Shield size={16} /> 醫療保險
             </button>
@@ -168,7 +168,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
           {availableProductTypes.includes('deposit') && (
             <button
               onClick={() => setProductType('deposit')}
-              className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2.5 text-xs font-black tracking-wide transition-all sm:gap-2 sm:rounded-xl sm:py-3 sm:text-[14px] sm:tracking-widest ${productType === 'deposit' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-lg border py-2.5 text-xs font-black tracking-wide transition sm:gap-2 sm:rounded-xl sm:py-3 sm:text-[14px] sm:tracking-widest ${productType === 'deposit' ? 'border-[#b9d9d0] bg-[#e0f0e5] text-[#168269]' : 'border-transparent text-[#765f47] hover:bg-[#f3e4cc]'}`}
             >
               <PiggyBank size={16} /> 銀行定存
             </button>
@@ -176,7 +176,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
           {availableProductTypes.includes('car') && (
             <button
               onClick={() => setProductType('car')}
-              className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2.5 text-xs font-black tracking-wide transition-all sm:gap-2 sm:rounded-xl sm:py-3 sm:text-[14px] sm:tracking-widest ${productType === 'car' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-lg border py-2.5 text-xs font-black tracking-wide transition sm:gap-2 sm:rounded-xl sm:py-3 sm:text-[14px] sm:tracking-widest ${productType === 'car' ? 'border-[#d8c29a] bg-[#f4e6d0] text-[#a9643a]' : 'border-transparent text-[#765f47] hover:bg-[#f3e4cc]'}`}
             >
               <Car size={16} /> 購買汽車
             </button>
@@ -188,7 +188,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
         {productType === 'insurance' && (
           <div className="space-y-3 sm:space-y-6">
             <div className="mb-2 flex items-center gap-3 sm:mb-4 sm:gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-indigo-500/50 bg-gradient-to-br from-indigo-500/30 to-purple-500/30 text-indigo-400 sm:h-16 sm:w-16 sm:rounded-2xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#e3aaa3] bg-[#f5d9d0] text-[#b6544b] sm:h-16 sm:w-16 sm:rounded-2xl">
                 <ShieldCheck size={26} />
               </div>
               <div>
@@ -200,7 +200,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
             <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3 sm:space-y-4 sm:rounded-2xl sm:p-5">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-bold text-slate-400">目前持有保單</span>
-                <span className="text-lg font-black text-indigo-400">{medicalInsuranceCount} 份</span>
+                <span className="text-lg font-black text-[#b6544b]">{medicalInsuranceCount} 份</span>
               </div>
               <div className="h-px w-full bg-slate-800" />
               <div className="flex justify-between items-center">
@@ -215,7 +215,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
               className={`min-h-11 w-full rounded-xl py-2.5 text-sm font-black tracking-wide transition-all sm:rounded-2xl sm:py-4 sm:text-[16px] sm:tracking-widest ${
                 medicalInsuranceCount >= 1 || !canUseBankProducts
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                  : 'bg-indigo-600 text-white hover:bg-indigo-500 hover:shadow-[0_0_20px_rgba(79,70,229,0.4)]'
+                  : 'bg-[#b6544b] text-white hover:bg-[#9f453e]'
               }`}
             >
               {medicalInsuranceCount >= 1 ? '已達購買上限 (1份)' : !canUseBankProducts ? '需先經過銀行' : '確認購買保險'}
@@ -226,7 +226,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
         {productType === 'deposit' && (
           <div className="space-y-3 sm:space-y-6">
             <div className="mb-2 flex items-center gap-3 sm:mb-4 sm:gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-emerald-500/50 bg-gradient-to-br from-emerald-500/30 to-teal-500/30 text-emerald-400 sm:h-16 sm:w-16 sm:rounded-2xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#b9d9d0] bg-[#e0f0e5] text-[#168269] sm:h-16 sm:w-16 sm:rounded-2xl">
                 <PiggyBank size={26} />
               </div>
               <div>
@@ -246,7 +246,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
                 <div className="flex items-center gap-2 sm:gap-4">
                   <button 
                     onClick={() => setDepositAmount(Math.max(10000, depositAmount - 10000))}
-                    className="h-11 w-11 shrink-0 rounded-xl bg-slate-800 text-xl font-black text-slate-300 hover:bg-slate-700 sm:h-12 sm:w-12"
+                    className="h-11 w-11 shrink-0 rounded-xl border border-[#d8c29a] bg-[#f4e6d0] text-xl font-black text-[#765f47] hover:bg-[#ead7b8] sm:h-12 sm:w-12"
                   >-</button>
                   <input
                     type="number"
@@ -256,7 +256,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
                   />
                   <button 
                     onClick={() => setDepositAmount(Math.min(cash, depositAmount + 10000))}
-                    className="h-11 w-11 shrink-0 rounded-xl bg-slate-800 text-xl font-black text-slate-300 hover:bg-slate-700 sm:h-12 sm:w-12"
+                    className="h-11 w-11 shrink-0 rounded-xl border border-[#d8c29a] bg-[#f4e6d0] text-xl font-black text-[#765f47] hover:bg-[#ead7b8] sm:h-12 sm:w-12"
                   >+</button>
                 </div>
               </div>
@@ -275,7 +275,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
               className={`min-h-11 w-full rounded-xl py-2.5 text-sm font-black tracking-wide transition-all sm:rounded-2xl sm:py-4 sm:text-[16px] sm:tracking-widest ${
                 !canUseBankProducts || depositAmount <= 0 || cash < depositAmount
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                  : 'bg-emerald-600 text-white hover:bg-emerald-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]'
+                  : 'bg-[#168269] text-white hover:bg-[#116c58]'
               }`}
             >
               {!canUseBankProducts ? '需先經過銀行' : '確認辦理定存'}
@@ -316,7 +316,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
         {productType === 'car' && (
           <div className="space-y-3 sm:space-y-6">
             <div className="mb-2 flex items-center gap-3 sm:mb-4 sm:gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-amber-500/50 bg-gradient-to-br from-amber-500/30 to-orange-500/30 text-amber-300 sm:h-16 sm:w-16 sm:rounded-2xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#d8c29a] bg-[#f4e6d0] text-[#a9643a] sm:h-16 sm:w-16 sm:rounded-2xl">
                 <Car size={26} />
               </div>
               <div>
@@ -353,7 +353,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
                   <button
                     onClick={() => setCarCashAmount(Math.max(minCarDownPayment, normalizedCarCash - 10000))}
                     disabled={hasCarAsset || !canAffordMinDownPayment}
-                    className="h-11 w-11 shrink-0 rounded-xl bg-slate-800 text-xl font-black text-slate-300 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
+                    className="h-11 w-11 shrink-0 rounded-xl border border-[#d8c29a] bg-[#f4e6d0] text-xl font-black text-[#765f47] hover:bg-[#ead7b8] disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
                   >
                     -
                   </button>
@@ -367,7 +367,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
                   <button
                     onClick={() => setCarCashAmount(Math.min(maxAffordableCarCash, normalizedCarCash + 10000))}
                     disabled={hasCarAsset || !canAffordMinDownPayment}
-                    className="h-11 w-11 shrink-0 rounded-xl bg-slate-800 text-xl font-black text-slate-300 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
+                    className="h-11 w-11 shrink-0 rounded-xl border border-[#d8c29a] bg-[#f4e6d0] text-xl font-black text-[#765f47] hover:bg-[#ead7b8] disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
                   >
                     +
                   </button>
@@ -398,7 +398,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
               className={`min-h-11 w-full rounded-xl py-2.5 text-sm font-black tracking-wide transition-all sm:rounded-2xl sm:py-4 sm:text-[16px] sm:tracking-widest ${
                 hasCarAsset || !canAffordMinDownPayment
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                  : 'bg-amber-500 text-slate-950 hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(245,158,11,0.35)]'
+                  : 'bg-[#a9643a] text-white hover:bg-[#8f5230]'
               }`}
             >
               {hasCarAsset

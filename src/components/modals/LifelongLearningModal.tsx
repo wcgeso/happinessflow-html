@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, GraduationCap, TrendingUp, Building2, ChevronRight, ArrowLeft } from 'lucide-react';
-import { Button, Card } from '../ui/ui';
+import { GraduationCap, TrendingUp, Building2, ChevronRight, ArrowLeft } from 'lucide-react';
+import { PlayerModalFrame } from '../common/PlayerModalFrame';
 import { cn } from '../../utils/gameUtils';
 import { GameState } from '../../types';
 
@@ -66,28 +66,34 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-safe pb-safe bg-slate-950/95 backdrop-blur-md animate-in fade-in duration-300">
-            {/* 裝飾背景 */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-[100px]" />
-            </div>
-
-            <Card className="max-w-sm w-full bg-slate-900 border-slate-800 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="p-6 space-y-6 relative">
-                    {/* Close Button */}
-                    <button 
-                        onClick={onClose}
-                        className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/5 text-slate-500 hover:text-white transition-all z-20"
+        <PlayerModalFrame
+            eyebrow="能力與財富增益"
+            title="終身學習"
+            description="投資自己，獲得永久的能力與財富增益。"
+            accent="finance"
+            onClose={onClose}
+            footer={(
+                <div className="flex flex-col gap-2">
+                    <button
+                        type="button"
+                        disabled={!selectedId || disabled}
+                        onClick={handleConfirm}
+                        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2e6570] to-[#5da58e] py-3 font-black text-white shadow-[0_12px_24px_-14px_rgba(46,101,112,0.8)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                        <X size={20} />
+                        <span>{disabled ? '遊戲已結算' : '確認學習'}</span>
+                        {!disabled && <ChevronRight size={18} />}
                     </button>
-
-                    <div className="text-center space-y-2">
-                        <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-2xl flex items-center justify-center mx-auto text-white border border-white/20 shadow-[0_0_25px_-5px_rgba(245,158,11,0.6)] -rotate-6 transition-transform hover:rotate-0 duration-500">
+                    <button type="button" onClick={onBack} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-[#d8c29a] bg-[#f4e6d0] py-3 text-sm font-black text-[#7a6958] transition hover:bg-[#ead7b8]">
+                        <ArrowLeft size={16} />
+                        <span>上一頁</span>
+                    </button>
+                </div>
+            )}
+        >
+                    <div className="mb-6 text-center">
+                        <div className="mx-auto flex h-16 w-16 -rotate-6 items-center justify-center rounded-2xl border border-[#d8c29a] bg-gradient-to-br from-[#d6a94e] to-[#a9643a] text-white shadow-[0_0_25px_-8px_rgba(169,100,58,0.7)] transition-transform hover:rotate-0">
                             <TrendingUp size={36} strokeWidth={2.5} className="drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" />
                         </div>
-                        <h3 className="text-xl font-black text-white tracking-tight">終身學習</h3>
-                        <p className="text-slate-400 text-xs">投資自己，獲得永久的能力與財富增益</p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-2.5">
@@ -99,16 +105,16 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                                 className={cn(
                                     "group relative flex items-center gap-3 p-3 rounded-xl transition-all duration-300 text-left overflow-hidden border-2",
                                     selectedId === opt.id 
-                                        ? "bg-amber-500/10 border-amber-500 shadow-[0_0_20px_-5px_rgba(245,158,11,0.4)]"
-                                        : "bg-slate-950/40 border-slate-800 hover:border-slate-700",
+                                        ? "bg-[#fff2de] border-[#d6a94e] shadow-[0_0_20px_-8px_rgba(169,100,58,0.45)]"
+                                        : "bg-[#fffaf2] border-[#ead7b8] hover:border-[#d8c29a]",
                                     opt.disabled && "opacity-50 grayscale cursor-not-allowed"
                                 )}
                             >
                                 <div className={cn(
                                     "shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all border shadow-lg",
                                     selectedId === opt.id 
-                                        ? "bg-amber-500 text-white border-amber-400"
-                                        : "bg-slate-800 text-slate-400 border-slate-700"
+                                        ? "bg-[#d6a94e] text-white border-[#d6a94e]"
+                                        : "bg-[#f4e6d0] text-[#7a6958] border-[#d8c29a]"
                                 )}>
                                     {opt.icon}
                                 </div>
@@ -116,14 +122,14 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                                     <div className={cn(
                                         "font-bold text-sm leading-tight whitespace-nowrap transition-colors",
                                         selectedId === opt.id 
-                                            ? "text-amber-400"
-                                            : "text-white"
+                                            ? "text-[#a9643a]"
+                                            : "text-[#293a38]"
                                     )}>
                                         {opt.title}
                                     </div>
                                     <div className={cn(
                                         "text-[10px] mt-0.5 leading-normal whitespace-pre-line transition-colors",
-                                        selectedId === opt.id ? "text-white" : "text-slate-500"
+                                        selectedId === opt.id ? "text-[#6f6253]" : "text-[#8b7b68]"
                                     )}>
                                         {opt.description}
                                     </div>
@@ -131,8 +137,8 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                                         <span className={cn(
                                             "text-[9px] px-1.5 py-0.5 rounded font-medium transition-colors",
                                             selectedId === opt.id 
-                                                ? "bg-amber-500/20 text-amber-300"
-                                                : "bg-slate-800 text-slate-400"
+                                                ? "bg-[#f0dfc9] text-[#a9643a]"
+                                                : "bg-[#f4e6d0] text-[#8b7b68]"
                                         )}>
                                             {opt.requirement}
                                         </span>
@@ -144,8 +150,8 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                                         selectedId === opt.id 
                                             ? opt.color === 'blue' ? "text-blue-400"
                                               : opt.color === 'emerald' ? "text-emerald-400"
-                                              : "text-amber-400"
-                                            : "text-slate-400"
+                                              : "text-[#a9643a]"
+                                            : "text-[#7a6958]"
                                     )}>
                                         {opt.cost.toLocaleString()}
                                     </div>
@@ -154,26 +160,6 @@ export const LifelongLearningModal: React.FC<LifelongLearningModalProps> = ({
                         ))}
                     </div>
 
-                    <div className="flex flex-col gap-2 pt-1">
-                        <Button
-                            disabled={!selectedId || disabled}
-                            onClick={handleConfirm}
-                            className="w-full py-3 rounded-xl font-black text-base transition-all shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white shadow-amber-900/40 disabled:opacity-50 disabled:shadow-none"
-                        >
-                            <span>{disabled ? '遊戲已結算' : '確認學習'}</span>
-                            {!disabled && <ChevronRight size={18} className="animate-in slide-in-from-left-2" />}
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            onClick={onBack}
-                            className="w-full py-3 text-slate-400 font-bold hover:text-white transition-colors border-none flex items-center justify-center gap-2 text-sm"
-                        >
-                            <ArrowLeft size={16} />
-                            <span>上一頁</span>
-                        </Button>
-                    </div>
-                </div>
-            </Card>
-        </div>
+        </PlayerModalFrame>
     );
 };

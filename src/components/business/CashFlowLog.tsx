@@ -38,9 +38,9 @@ export const CashFlowLog: React.FC<CashFlowLogProps> = ({ history }) => {
                         <p className="text-xs text-slate-400 mt-1">追蹤每筆交易的現金變化</p>
                     </div>
                     <div className="flex gap-2">
-                        <span className="px-1.5 py-0.5 bg-blue-900/30 text-blue-400 text-[10px] rounded border border-blue-800/50">生活</span>
-                        <span className="px-1.5 py-0.5 bg-purple-900/30 text-purple-400 text-[10px] rounded border border-purple-800/50">投資</span>
-                        <span className="px-1.5 py-0.5 bg-orange-900/30 text-orange-400 text-[10px] rounded border border-orange-800/50">融資</span>
+                        <span className="rounded border border-[#9fc8d5] bg-[#d8e9e5] px-1.5 py-0.5 text-[10px] text-[#36798a]">生活</span>
+                        <span className="rounded border border-[#b9d9d0] bg-[#e0f0e5] px-1.5 py-0.5 text-[10px] text-[#168269]">投資</span>
+                        <span className="rounded border border-[#d8c29a] bg-[#f4e6d0] px-1.5 py-0.5 text-[10px] text-[#a9643a]">融資</span>
                     </div>
                 </div>
 
@@ -61,7 +61,7 @@ export const CashFlowLog: React.FC<CashFlowLogProps> = ({ history }) => {
                                 </tr>
                             ) : (
                                 cashFlowData.slice().reverse().map((item, index) => (
-                                    <tr key={index} className="hover:bg-slate-700/30 transition-colors">
+                                    <tr key={index} className="transition-colors hover:bg-[#f3e4cc]">
                                         <td className="px-2 py-3">
                                             <div className="text-slate-200 font-bold text-xs leading-relaxed mb-1" title={item.name}>{item.name}</div>
                                             <div className={`text-[10px] font-bold whitespace-nowrap ${item.cashChange > 0 ? 'text-emerald-400' : item.cashChange < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
@@ -76,10 +76,10 @@ export const CashFlowLog: React.FC<CashFlowLogProps> = ({ history }) => {
                                                 {item.flowType && (
                                                     <span className={cn(
                                                         "px-1.5 py-0.5 text-[9px] rounded font-bold leading-none",
-                                                        item.flowType === '生活' ? "bg-blue-900/40 text-blue-400 border border-blue-800/50" :
-                                                            item.flowType === '投資' ? "bg-purple-900/40 text-purple-400 border border-purple-800/50" :
-                                                                item.flowType === '融資' ? "bg-orange-900/40 text-orange-400 border border-orange-800/50" :
-                                                                    "bg-slate-700 text-slate-400"
+                                                        item.flowType === '生活' ? "border border-[#9fc8d5] bg-[#d8e9e5] text-[#36798a]" :
+                                                            item.flowType === '投資' ? "border border-[#b9d9d0] bg-[#e0f0e5] text-[#168269]" :
+                                                                item.flowType === '融資' ? "border border-[#d8c29a] bg-[#f4e6d0] text-[#a9643a]" :
+                                                                    "bg-[#ead7b8] text-[#7a6958]"
                                                     )}>
                                                         {item.flowType}
                                                     </span>

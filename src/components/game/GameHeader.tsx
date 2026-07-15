@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X, Dices, ScrollText } from 'lucide-react';
+import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X, Dices } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getProfessionIcon } from '../common/IconHelpers';
 import { cn, formatMoney } from '../../utils/gameUtils';
@@ -21,7 +21,6 @@ interface GameHeaderProps {
     onFinishGame: () => void;
     onShowStockMarket: () => void;
     onShowTutorial: () => void;
-    onShowCardLog: () => void;
     onLeaveRoom: () => void;
     onAddMoney?: (amount: number) => void;
     isDevMode?: boolean;
@@ -35,7 +34,6 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
     onFinishGame,
     onShowStockMarket,
     onShowTutorial,
-    onShowCardLog,
     onLeaveRoom,
     onAddMoney,
     isDevMode = false
@@ -187,13 +185,13 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
      };
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-[80] flex flex-col pt-safe pointer-events-none">
+        <header className="pointer-events-none fixed left-0 right-0 top-0 z-[120] flex flex-col pt-safe">
             {/* Top Profile Card HUD */}
-            <div className="relative z-[200] px-3 py-3 w-full">
+            <div className="relative z-[300] w-full px-3 py-3">
                 <div className="max-w-4xl mx-auto pointer-events-auto">
                     
                     {/* 懸浮名片主體 */}
-                    <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/60 rounded-3xl shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] p-2 sm:p-3 flex items-center gap-2.5 sm:gap-3">
+                    <div className="player-surface relative z-[301] flex items-center gap-2.5 overflow-visible rounded-[24px] border bg-[#fffaf2]/96 p-2.5 shadow-[0_16px_36px_-22px_rgba(16,47,56,0.75)] backdrop-blur-xl sm:gap-3 sm:p-3">
                         
                         {/* 左側：職業頭像區 */}
                         {gameState.profession && (
@@ -201,15 +199,15 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                 className="shrink-0 relative group cursor-pointer"
                                 onClick={onShowRankList}
                             >
-                                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-slate-700/50 flex flex-col items-center justify-center shadow-inner group-hover:border-yellow-500/50 transition-colors">
-                                    {getProfessionIcon(gameState.profession.id, { size: 20, className: "text-yellow-400 mb-0.5 drop-shadow-md sm:hidden" })}
-                                    {getProfessionIcon(gameState.profession.id, { size: 24, className: "text-yellow-400 mb-0.5 drop-shadow-md hidden sm:block" })}
+                                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#f4e6d0] border-2 border-[#d8c29a] flex flex-col items-center justify-center shadow-inner group-hover:border-[#a9643a] transition-colors">
+                                    {getProfessionIcon(gameState.profession.id, { size: 20, className: "text-[#a9643a] mb-0.5 sm:hidden" })}
+                                    {getProfessionIcon(gameState.profession.id, { size: 24, className: "text-[#a9643a] mb-0.5 hidden sm:block" })}
                                     <div className="flex items-center gap-0.5">
                                         {Array.from({ length: 5 }).map((_, i) => (
                                             <Star
                                                 key={i}
                                                 size={8}
-                                                className={cn(i < gameState.currentRankLevel ? 'text-yellow-400 fill-yellow-400' : 'text-slate-700')}
+                                                className={cn(i < gameState.currentRankLevel ? 'text-[#b88a43] fill-[#b88a43]' : 'text-[#d8c29a]')}
                                             />
                                         ))}
                                     </div>
@@ -227,16 +225,16 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                             >
                                 <div className="flex justify-between items-end">
                                     <div className="flex items-center gap-1">
-                                        <Heart size={14} className="text-pink-500 fill-pink-500 group-hover:scale-110 transition-transform sm:w-4 sm:h-4" />
-                                        <span className="text-[11px] sm:text-sm font-black text-pink-400 tracking-wider whitespace-nowrap">幸福指數</span>
+                                        <Heart size={14} className="text-[#d94f83] fill-[#d94f83] group-hover:scale-110 transition-transform sm:w-4 sm:h-4" />
+                                        <span className="text-[11px] sm:text-sm font-black text-[#bd4f73] tracking-wider whitespace-nowrap">幸福指數</span>
                                     </div>
-                                    <span className="text-sm sm:text-lg font-black text-white drop-shadow-[0_0_8px_rgba(236,72,153,0.5)] whitespace-nowrap">
-                                        {gameState.happinessTotal} <span className="text-[10px] sm:text-xs text-slate-500">/ 100</span>
+                                    <span className="text-sm sm:text-lg font-black text-[#293a38] whitespace-nowrap">
+                                        {gameState.happinessTotal} <span className="text-[10px] sm:text-xs text-[#8b7b68]">/ 100</span>
                                     </span>
                                 </div>
-                                <div className="h-2 w-full bg-slate-800/80 rounded-full overflow-hidden shadow-inner border border-slate-700/30">
+                                <div className="h-2 w-full bg-[#eadfca] rounded-full overflow-hidden shadow-inner border border-[#d8c29a]/60">
                                     <div 
-                                        className="h-full bg-gradient-to-r from-pink-600 to-pink-400 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(236,72,153,0.6)]"
+                                        className="h-full bg-gradient-to-r from-[#c9655a] to-[#ef9a9a] rounded-full transition-all duration-1000"
                                         style={{ width: `${Math.min((gameState.happinessTotal / 100) * 100, 100)}%` }}
                                     />
                                 </div>
@@ -245,19 +243,19 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                             {/* 下軌：財務自由 */}
                             <div className="flex flex-col gap-1">
                                 <div className="flex justify-between items-end">
-                                    <span className="text-[10px] sm:text-xs font-black text-emerald-500 tracking-wider whitespace-nowrap">財務自由</span>
+                                    <span className="text-[10px] sm:text-xs font-black text-[#2e806d] tracking-wider whitespace-nowrap">財務自由</span>
                                     <div className="flex items-baseline gap-1.5">
-                                        <span className="text-[8.5px] xs:text-[10px] sm:text-[11px] text-slate-500 font-mono whitespace-nowrap">
+                                        <span className="text-[8.5px] xs:text-[10px] sm:text-[11px] text-[#8b7b68] font-mono whitespace-nowrap">
                                             {formatMoney(passiveIncome)} / {formatMoney(totalExpenses)}
                                         </span>
-                                        <span className={cn("text-xs sm:text-sm font-black ml-1", isFinanciallyFree ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "text-slate-300")}>
+                                        <span className={cn("text-xs sm:text-sm font-black ml-1", isFinanciallyFree ? "text-[#2e806d]" : "text-[#7a6958]")}>
                                             {financialFreedomProgress.toFixed(0)}%
                                         </span>
                                     </div>
                                 </div>
-                                <div className="h-1.5 w-full bg-slate-800/80 rounded-full overflow-hidden shadow-inner border border-slate-700/30">
+                                <div className="h-1.5 w-full bg-[#eadfca] rounded-full overflow-hidden shadow-inner border border-[#d8c29a]/60">
                                     <div 
-                                        className={cn("h-full rounded-full transition-all duration-1000", isFinanciallyFree ? "bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" : "bg-gradient-to-r from-emerald-700 to-emerald-500")}
+                                        className={cn("h-full rounded-full transition-all duration-1000", isFinanciallyFree ? "bg-gradient-to-r from-[#2e6570] to-[#5da58e]" : "bg-[#8eb49e]")}
                                         style={{ width: `${financialFreedomProgress}%` }}
                                     />
                                 </div>
@@ -266,28 +264,28 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                         </div>
 
                         {/* 右側：金流數據與設定 */}
-                        <div className="shrink-0 flex flex-col items-end justify-between h-full py-0.5 border-l border-slate-700/50 pl-2 sm:pl-4">
+                        <div className="shrink-0 flex flex-col items-end justify-between h-full py-0.5 border-l border-[#d8c29a]/70 pl-2 sm:pl-4">
                             
                             {/* 現金與月結餘 */}
                             <div className="flex flex-col items-end mb-1">
-                                <div className="text-[10px] text-slate-500 font-bold mb-0.5">現金</div>
-                                <div className="text-base sm:text-xl font-black text-white leading-none tracking-tight whitespace-nowrap">{formatMoney(gameState.cash)}</div>
-                                <div className={cn("text-[10px] sm:text-xs font-black mt-1.5", summary.monthlyCashflow >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                                    {summary.monthlyCashflow >= 0 ? '+' : ''}{formatMoney(summary.monthlyCashflow)} <span className="text-[9px] text-slate-500 font-normal">/月</span>
+                                <div className="text-[10px] text-[#8b7b68] font-bold mb-0.5">現金</div>
+                                <div className="text-base sm:text-xl font-black text-[#293a38] leading-none tracking-tight whitespace-nowrap">{formatMoney(gameState.cash)}</div>
+                                <div className={cn("text-[10px] sm:text-xs font-black mt-1.5", summary.monthlyCashflow >= 0 ? "text-[#2e806d]" : "text-[#b6544b]")}>
+                                    {summary.monthlyCashflow >= 0 ? '+' : ''}{formatMoney(summary.monthlyCashflow)} <span className="text-[9px] text-[#8b7b68] font-normal">/月</span>
                                 </div>
                             </div>
 
                             {/* 設定選單 */}
-                            <div className="relative z-[201] mt-auto">
+                            <div className="relative z-[1000] mt-auto">
                                 <button
                                     onClick={() => setShowSettings(!showSettings)}
                                     aria-label={showSettings ? '關閉設定選單' : '開啟設定選單'}
                                     aria-expanded={showSettings}
                                     className={cn(
                                         "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
-                                        showSettings 
-                                            ? "bg-blue-600 text-white" 
-                                            : "bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700"
+                                        showSettings
+                                            ? "bg-[#2e6570] text-white"
+                                            : "bg-[#f4e6d0] text-[#7a6958] hover:text-[#293a38] hover:bg-[#ead7b8]"
                                     )}
                                 >
                                     <Settings size={16} className={cn("transition-transform duration-500", showSettings && "rotate-90")} />
@@ -300,53 +298,53 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                             initial={{ opacity: 0, scale: 0.9, y: -10, transformOrigin: 'top right' }}
                                             animate={{ opacity: 1, scale: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                                            className="absolute top-full right-0 z-[202] mt-2 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.8)] p-2 flex flex-col gap-1"
+                                            className="absolute right-0 top-full z-[1001] mt-2 isolate flex w-52 flex-col gap-1 rounded-2xl border border-[#d8c29a] bg-[#fffaf2] p-2 text-[#293a38] shadow-[0_20px_40px_-10px_rgba(16,47,56,0.45)]"
                                         >
-                                            <div className="px-3 py-2 border-b border-slate-800 mb-1 flex justify-between items-center">
-                                                <span className="text-[10px] text-slate-500 font-bold tracking-widest">房間倒數</span>
-                                                <span className="text-xs font-mono text-white">{timeLeft}</span>
+                                            <div className="px-3 py-2 border-b border-[#ead7b8] mb-1 flex justify-between items-center">
+                                                <span className="text-[10px] text-[#8b7b68] font-bold tracking-widest">房間倒數</span>
+                                                <span className="text-xs font-mono text-[#293a38]">{timeLeft}</span>
                                             </div>
                                             <button
                                                 onClick={() => setAudioSettingsState(setAudioSettings({ enabled: !audioSettings.enabled }))}
                                                 aria-pressed={audioSettings.enabled}
-                                                className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-sm font-bold"
+                                                className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f3e4cc] text-[#6f6253] hover:text-[#293a38] transition-colors text-sm font-bold"
                                             >
                                                 <span>音效</span>
-                                                <span className={audioSettings.enabled ? 'text-emerald-400' : 'text-slate-500'}>
+                                                <span className={audioSettings.enabled ? 'text-[#2e806d]' : 'text-[#8b7b68]'}>
                                                     {audioSettings.enabled ? '開啟' : '關閉'}
                                                 </span>
                                             </button>
-                                            <button onClick={() => { onFinishGame(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-sm font-bold">
-                                                <Trophy size={16} className="text-amber-500" />
+                                            <button onClick={() => { onFinishGame(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f3e4cc] text-[#6f6253] hover:text-[#293a38] transition-colors text-sm font-bold">
+                                                <Trophy size={16} className="text-[#b88a43]" />
                                                 結算評分
                                             </button>
-                                            <button onClick={() => { onShowStockMarket(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-sm font-bold">
-                                                <TrendingUp size={16} className="text-emerald-500" />
+                                            <button onClick={() => { onShowStockMarket(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f3e4cc] text-[#6f6253] hover:text-[#293a38] transition-colors text-sm font-bold">
+                                                <TrendingUp size={16} className="text-[#2e806d]" />
                                                 股市行情
                                             </button>
-                                            <button onClick={() => { onShowTutorial(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-sm font-bold">
-                                                <HelpCircle size={16} className="text-blue-500" />
+                                            <button onClick={() => { onShowTutorial(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f3e4cc] text-[#6f6253] hover:text-[#293a38] transition-colors text-sm font-bold">
+                                                <HelpCircle size={16} className="text-[#2e6570]" />
                                                 遊戲教學
                                             </button>
-                                            <div className="h-px bg-slate-800 my-1" />
-                                            <button onClick={() => { setShowRoomInfo(true); setShowSettings(false); }} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-sm font-bold">
+                                            <div className="h-px bg-[#ead7b8] my-1" />
+                                            <button onClick={() => { setShowRoomInfo(true); setShowSettings(false); }} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-[#f3e4cc] text-[#6f6253] hover:text-[#293a38] transition-colors text-sm font-bold">
                                                 <div className="flex items-center gap-3">
-                                                    <Users size={16} className="text-indigo-400" />
+                                                    <Users size={16} className="text-[#2e6570]" />
                                                     房間玩家
                                                 </div>
-                                                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono">
+                                                <div className="flex items-center gap-1.5 text-xs text-[#8b7b68] font-mono">
                                                     {room?.id}
                                                     <ChevronDown size={14} className="rotate-[-90deg]" />
                                                 </div>
                                             </button>
                                             {IS_DEV_VERSION && isGM && isDevMode && (
-                                                <button onClick={() => { setShowDevSettings(true); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 text-amber-500 transition-colors text-sm font-bold">
+                                                <button onClick={() => { setShowDevSettings(true); setShowSettings(false); }} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-[#8c5b2b] transition-colors hover:bg-[#f4e6d0]">
                                                     <Settings size={16} />
                                                     開發者設定
                                                 </button>
                                             )}
-                                            <div className="h-px bg-slate-800 my-1" />
-                                            <button onClick={() => { onLeaveRoom(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-rose-500/20 text-rose-500 transition-colors text-sm font-bold">
+                                            <div className="h-px bg-[#ead7b8] my-1" />
+                                            <button onClick={() => { onLeaveRoom(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f5d9d0] text-[#b6544b] transition-colors text-sm font-bold">
                                                 <LogOut size={16} />
                                                 離開房間
                                             </button>
@@ -361,52 +359,40 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                         <div
                             aria-live="polite"
                             className={cn(
-                                "relative z-0 mt-2 rounded-2xl border px-3 py-2 shadow-lg backdrop-blur-xl transition-colors",
+                                "relative z-[1] mt-2 rounded-2xl border px-3 py-2 shadow-[0_12px_26px_-18px_rgba(16,47,56,0.65)] backdrop-blur-xl transition-colors",
                                 boardTurnInfo.isMyTurn
-                                    ? "border-emerald-400/60 bg-emerald-950/90 text-emerald-100"
-                                    : "border-slate-700/70 bg-slate-900/90 text-slate-200"
+                                    ? "border-[#6aa98c] bg-[#e0f0e5] text-[#245d50]"
+                                    : "border-[#d8c29a] bg-[#fffaf2]/96 text-[#293a38]"
                             )}
                         >
                             <div className="flex items-center gap-2 text-xs sm:text-sm">
                                 <Dices size={16} className={boardTurnInfo.isMyTurn ? "text-emerald-300" : "text-amber-300"} />
-                                <span className="font-bold text-slate-400">目前回合</span>
-                                <strong className="min-w-0 truncate text-white">{boardTurnInfo.name}</strong>
+                                <span className="font-bold text-[#8b7b68]">目前回合</span>
+                                <strong className="min-w-0 truncate text-[#293a38]">{boardTurnInfo.name}</strong>
                                 {boardTurnInfo.position && boardTurnInfo.participantCount > 0 && (
-                                    <span className="shrink-0 text-[10px] font-bold text-slate-500">
+                                    <span className="shrink-0 text-[10px] font-bold text-[#8b7b68]">
                                         第 {boardTurnInfo.position}/{boardTurnInfo.participantCount} 位
                                     </span>
                                 )}
-                                {room?.isBoardGame && (
-                                    <button
-                                        type="button"
-                                        onClick={onShowCardLog}
-                                        aria-label="開啟抽卡日誌"
-                                        className="ml-auto flex shrink-0 items-center gap-1 rounded-full border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-[10px] font-black text-amber-100 transition hover:bg-amber-500/20"
-                                    >
-                                        <ScrollText size={13} />
-                                        <span className="hidden sm:inline">抽卡日誌</span>
-                                        <span>{room.boardState?.cardLog?.length || 0}</span>
-                                    </button>
-                                )}
                                 {boardTurnInfo.isMyTurn && (
-                                    <span className="shrink-0 rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-black text-emerald-200">
+                                    <span className="shrink-0 rounded-full bg-[#b9dfc8] px-2 py-0.5 text-[10px] font-black text-[#245d50]">
                                         輪到你
                                     </span>
                                 )}
                                 <span className={cn(
                                     "shrink-0 text-[10px] font-bold",
-                                    boardTurnInfo.isOnline === null ? "text-slate-400" : boardTurnInfo.isOnline ? "text-emerald-300" : "text-rose-300"
+                                    boardTurnInfo.isOnline === null ? "text-[#8b7b68]" : boardTurnInfo.isOnline ? "text-[#2e806d]" : "text-[#b6544b]"
                                 )}>
                                     {boardTurnInfo.isOnline === null ? '連線同步中' : boardTurnInfo.isOnline ? '在線' : '已離線'}
                                 </span>
                             </div>
                             {boardTurnInfo.eventSummary && (
-                                <div className="mt-1 truncate pl-6 text-[10px] text-slate-400" title={boardTurnInfo.eventSummary}>
+                                <div className="mt-1 truncate pl-6 text-[10px] text-[#7a6958]" title={boardTurnInfo.eventSummary}>
                                     事件：{boardTurnInfo.eventSummary}
                                 </div>
                             )}
                             {boardTurnInfo.pendingSkipTurns > 0 && (
-                                <div className="mt-1 pl-6 text-[10px] font-black text-amber-200">
+                                <div className="mt-1 pl-6 text-[10px] font-black text-[#a9643a]">
                                     {boardTurnInfo.name} 下回合將暫停 {boardTurnInfo.pendingSkipTurns} 回合
                                 </div>
                             )}
