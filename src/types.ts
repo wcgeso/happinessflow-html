@@ -250,6 +250,9 @@ export interface FamilyMilestoneJoinResponse {
   playerUid: string;
   playerName: string;
   status: 'passed' | 'failed' | 'declined';
+  // A passed roll only grants the option to join. The response is complete
+  // after the player accepts or declines the resulting card action.
+  actionCompleted?: boolean;
   roll?: number;
   respondedAt: number;
 }
@@ -299,6 +302,12 @@ export interface SharedExpenseEffect {
   timestamp: number;
 }
 
+export interface SkippedTurnNotice {
+  playerUids: string[];
+  nextTurnUid: string;
+  timestamp: number;
+}
+
 export interface BoardState {
   currentTurnUid: string | null;
   turnOrder: string[];
@@ -323,6 +332,7 @@ export interface BoardState {
   familyMilestoneJoinPrompt?: FamilyMilestoneJoinPrompt | null;
   sharedCardPrompt?: SharedCardPrompt | null;
   sharedExpenseEffect?: SharedExpenseEffect | null;
+  skippedTurnNotice?: SkippedTurnNotice | null;
   deckState: BoardDeckState;
   realEstateMarket?: string[];
   cardLog?: BoardCardLogEntry[];

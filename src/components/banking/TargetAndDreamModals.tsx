@@ -11,6 +11,45 @@ interface PurchaseModalProps {
   onClose: () => void;
 }
 
+export const buildTargetEnterpriseTransaction = (enterprise: Enterprise): TransactionData => ({
+  name: `達成事業成就：${enterprise.name}`,
+  amount: enterprise.cost,
+  cashChange: -enterprise.cost,
+  source: 'cash',
+  usage: 'asset',
+  financialCheckEntries: [
+    { category: 'Assets', name: '現金', direction: 'Decrease' },
+    { category: 'Assets', name: `目標企業（${enterprise.name}）`, direction: 'Increase' },
+    { category: 'Income', name: '企業收益', direction: 'Increase' }
+  ],
+  impacts: [
+    `現金 -${enterprise.cost.toLocaleString()}`,
+    `目標企業（${enterprise.name}） +${enterprise.cost.toLocaleString()}`,
+    `每月企業收益 +${enterprise.income.toLocaleString()}`
+  ],
+  assetDetails: {
+    type: '企業',
+    cashflow: enterprise.income,
+    downPayment: enterprise.cost,
+    symbol: enterprise.name
+  }
+});
+
+export const buildDreamTransaction = (dream: Dream): TransactionData => ({
+  name: `實現人生夢想：${dream.name}`,
+  amount: dream.cost,
+  cashChange: -dream.cost,
+  source: 'cash',
+  usage: 'expense',
+  financialCheckEntries: [
+    { category: 'Assets', name: '現金', direction: 'Decrease' }
+  ],
+  impacts: [
+    `現金 -${dream.cost.toLocaleString()}`,
+    `成功實現夢想：${dream.name}`
+  ]
+});
+
 export const TargetAndDreamModal: React.FC<PurchaseModalProps> = ({ type, item, cash, happiness, onTransaction, onClose }) => {
   if (!item) return null;
 
@@ -28,28 +67,10 @@ export const TargetAndDreamModal: React.FC<PurchaseModalProps> = ({ type, item, 
 
     if (isEnterprise) {
       const ent = item as Enterprise;
-      onTransaction({
-        name: `達成事業成就：${ent.name}`,
-        amount: ent.cost,
-        cashChange: -ent.cost,
-        source: 'cash',
-        usage: 'asset',
-        assetDetails: {
-          type: '企業',
-          cashflow: ent.income,
-          downPayment: ent.cost,
-          symbol: ent.name
-        }
-      });
+      onTransaction(buildTargetEnterpriseTransaction(ent));
     } else {
       const dream = item as Dream;
-      onTransaction({
-        name: `實現人生夢想：${dream.name}`,
-        amount: dream.cost,
-        cashChange: -dream.cost,
-        source: 'cash',
-        usage: 'expense'
-      });
+      onTransaction(buildDreamTransaction(dream));
     }
     onClose();
   };

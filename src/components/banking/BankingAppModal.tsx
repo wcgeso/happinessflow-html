@@ -108,7 +108,7 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
     if (data.usage === 'asset' && data.stockList?.length) {
       return [
         { category: 'Assets', name: '現金', direction: 'Decrease' },
-        ...data.stockList.map(item => ({ category: 'Assets' as const, name: getStockAssetLabel(item.symbol), direction: 'Increase' as const }))
+        { category: 'Assets', name: '股票', direction: 'Increase' }
       ];
     }
 
@@ -264,38 +264,39 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md">
-      <div className="w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl flex flex-col overflow-hidden h-[90vh] md:h-[650px]">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md sm:p-6">
+      <div className="flex h-full w-full flex-col overflow-hidden bg-slate-900 shadow-2xl sm:h-[90vh] sm:max-w-4xl sm:rounded-3xl sm:border sm:border-slate-700 md:h-[650px]">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 bg-slate-800/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-              <Landmark className="text-white" size={20} />
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-800/50 px-3 pb-2 pt-[calc(env(safe-area-inset-top)+8px)] sm:p-5">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg sm:h-10 sm:w-10 sm:rounded-xl">
+              <Landmark className="text-white" size={18} />
             </div>
             <div>
-              <h2 className="text-lg font-black text-white tracking-wide">數位理財 App</h2>
-              <p className="text-xs text-indigo-300 font-medium">Happiness Digital Banking</p>
+              <h2 className="text-base font-black tracking-wide text-white sm:text-lg">數位銀行</h2>
+              <p className="text-[10px] font-medium text-indigo-300 sm:text-xs">Happiness Digital Banking</p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-2.5 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+            aria-label="關閉數位銀行"
           >
             <X size={20} />
           </button>
         </div>
 
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-3 sm:px-6">
-          <span className="text-sm font-black tracking-wider text-slate-400">持有現金</span>
-          <span className="text-xl font-black text-emerald-400">${cash.toLocaleString()}</span>
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-3 py-2 sm:px-6 sm:py-3">
+          <span className="text-xs font-black tracking-wider text-slate-400 sm:text-sm">持有現金</span>
+          <span className="text-lg font-black text-emerald-400 sm:text-xl">${cash.toLocaleString()}</span>
         </div>
 
         {/* Content Area - Row layout for desktop, Col for mobile */}
         <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
           
           {/* Sidebar Tabs */}
-          <div className="w-full sm:w-56 flex-shrink-0 border-b sm:border-b-0 sm:border-r border-slate-800 bg-slate-900/50 p-3 sm:p-4 overflow-x-auto sm:overflow-y-auto no-scrollbar hide-scrollbar">
-            <div className="flex sm:flex-col gap-2">
+          <div className="w-full flex-shrink-0 overflow-x-auto border-b border-slate-800 bg-slate-900/50 p-2 no-scrollbar hide-scrollbar sm:w-56 sm:overflow-y-auto sm:border-b-0 sm:border-r sm:p-4">
+            <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-col sm:gap-2">
               {tabs.map(tab => {
                 const isActive = activeTab === tab.id;
                 const isLocked = false;
@@ -306,7 +307,7 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
                       setActiveTab(tab.id as BankingTab);
                     }}
                     disabled={false}
-                    className={`flex items-center gap-3 px-4 py-3 sm:py-3.5 rounded-2xl transition-all whitespace-nowrap sm:whitespace-normal font-black tracking-wider text-[14.5px] ${
+                    className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-black tracking-wide transition-all sm:flex-row sm:justify-start sm:gap-3 sm:whitespace-normal sm:rounded-2xl sm:px-4 sm:py-3.5 sm:text-[14.5px] sm:tracking-wider ${
                       isActive 
                         ? 'bg-indigo-600/20 text-indigo-400 shadow-inner ring-1 ring-indigo-500/50' 
                         : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
@@ -322,9 +323,9 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 overflow-y-auto no-scrollbar bg-slate-900 p-4 sm:p-6 ">
+          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-900 p-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] no-scrollbar sm:p-6">
             {!canUseBankProducts && activeTab === 'wealth' && (
-              <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-200">
+              <div className="mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 sm:mb-4 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm">
                 本回合尚未經過銀行，保險與新增定存暫時無法辦理；定存解約仍可使用。
               </div>
             )}

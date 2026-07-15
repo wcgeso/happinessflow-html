@@ -4,6 +4,7 @@ import {
   hasEligibleCashDividend,
   hasEligibleStockDividend,
   createInitialBoardState,
+  getSharedCardTargetPlayerUids,
   withPendingStartupUpgradeAction,
   withoutPendingStartupUpgradeAction
 } from './RoomContext';
@@ -52,6 +53,12 @@ describe('shared dividend eligibility', () => {
     expect(hasEligibleCashDividend(withStock, { A10: 5 })).toBe(true);
     expect(hasEligibleStockDividend(noStock, { A10: 0.1 })).toBe(false);
     expect(hasEligibleStockDividend(withStock, { A10: 0.1 })).toBe(true);
+  });
+});
+
+describe('shared card target players', () => {
+  it('keeps the source player in the response list during member sync', () => {
+    expect(getSharedCardTargetPlayerUids([{ uid: 'p2' }], 'coach', 'p1')).toEqual(['p2', 'p1']);
   });
 });
 

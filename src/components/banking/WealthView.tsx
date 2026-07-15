@@ -154,13 +154,13 @@ export const WealthView: React.FC<WealthViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 text-white max-w-2xl mx-auto">
+    <div className="mx-auto max-w-2xl space-y-3 text-white sm:space-y-6">
       {availableProductTypes.length > 1 && (
-        <div className="flex bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800">
+        <div className="flex rounded-xl border border-slate-800 bg-slate-900/80 p-1 sm:rounded-2xl sm:p-1.5">
           {availableProductTypes.includes('insurance') && (
             <button
               onClick={() => setProductType('insurance')}
-              className={`flex-1 py-3 flex items-center justify-center gap-2 rounded-xl font-black tracking-widest text-[14px] transition-all ${productType === 'insurance' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2.5 text-xs font-black tracking-wide transition-all sm:gap-2 sm:rounded-xl sm:py-3 sm:text-[14px] sm:tracking-widest ${productType === 'insurance' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
             >
               <Shield size={16} /> 醫療保險
             </button>
@@ -168,7 +168,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
           {availableProductTypes.includes('deposit') && (
             <button
               onClick={() => setProductType('deposit')}
-              className={`flex-1 py-3 flex items-center justify-center gap-2 rounded-xl font-black tracking-widest text-[14px] transition-all ${productType === 'deposit' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2.5 text-xs font-black tracking-wide transition-all sm:gap-2 sm:rounded-xl sm:py-3 sm:text-[14px] sm:tracking-widest ${productType === 'deposit' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
             >
               <PiggyBank size={16} /> 銀行定存
             </button>
@@ -176,7 +176,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
           {availableProductTypes.includes('car') && (
             <button
               onClick={() => setProductType('car')}
-              className={`flex-1 py-3 flex items-center justify-center gap-2 rounded-xl font-black tracking-widest text-[14px] transition-all ${productType === 'car' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2.5 text-xs font-black tracking-wide transition-all sm:gap-2 sm:rounded-xl sm:py-3 sm:text-[14px] sm:tracking-widest ${productType === 'car' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
             >
               <Car size={16} /> 購買汽車
             </button>
@@ -184,20 +184,20 @@ export const WealthView: React.FC<WealthViewProps> = ({
         </div>
       )}
 
-      <div className="bg-slate-800/60 border border-slate-700 rounded-3xl p-6 shadow-xl">
+      <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-3 shadow-xl sm:rounded-3xl sm:p-6">
         {productType === 'insurance' && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/30 to-purple-500/30 border border-indigo-500/50 flex items-center justify-center text-indigo-400">
-                <ShieldCheck size={32} />
+          <div className="space-y-3 sm:space-y-6">
+            <div className="mb-2 flex items-center gap-3 sm:mb-4 sm:gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-indigo-500/50 bg-gradient-to-br from-indigo-500/30 to-purple-500/30 text-indigo-400 sm:h-16 sm:w-16 sm:rounded-2xl">
+                <ShieldCheck size={26} />
               </div>
               <div>
-                <h3 className="text-xl font-black tracking-wide text-white">醫療險</h3>
-                <p className="text-sm font-medium text-slate-400 mt-1">遇到醫療支出時，可全額理賠</p>
+                <h3 className="text-lg font-black tracking-wide text-white sm:text-xl">醫療險</h3>
+                <p className="mt-1 text-xs font-medium text-slate-400 sm:text-sm">遇到醫療支出時，可全額理賠</p>
               </div>
             </div>
 
-            <div className="bg-slate-900/50 rounded-2xl p-5 border border-slate-800 space-y-4">
+            <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3 sm:space-y-4 sm:rounded-2xl sm:p-5">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-bold text-slate-400">目前持有保單</span>
                 <span className="text-lg font-black text-indigo-400">{medicalInsuranceCount} 份</span>
@@ -205,14 +205,14 @@ export const WealthView: React.FC<WealthViewProps> = ({
               <div className="h-px w-full bg-slate-800" />
               <div className="flex justify-between items-center">
                 <span className="text-sm font-bold text-slate-400">購買費用 (月支出增加)</span>
-                <span className="text-2xl font-black text-white">$2,000</span>
+                <span className="text-xl font-black text-white sm:text-2xl">$2,000</span>
               </div>
             </div>
 
             <button
               onClick={handleBuyInsurance}
               disabled={medicalInsuranceCount >= 1 || !canUseBankProducts}
-              className={`w-full py-4 rounded-2xl font-black tracking-widest text-[16px] transition-all ${
+              className={`min-h-11 w-full rounded-xl py-2.5 text-sm font-black tracking-wide transition-all sm:rounded-2xl sm:py-4 sm:text-[16px] sm:tracking-widest ${
                 medicalInsuranceCount >= 1 || !canUseBankProducts
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                   : 'bg-indigo-600 text-white hover:bg-indigo-500 hover:shadow-[0_0_20px_rgba(79,70,229,0.4)]'
@@ -224,18 +224,18 @@ export const WealthView: React.FC<WealthViewProps> = ({
         )}
 
         {productType === 'deposit' && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/30 to-teal-500/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400">
-                <PiggyBank size={32} />
+          <div className="space-y-3 sm:space-y-6">
+            <div className="mb-2 flex items-center gap-3 sm:mb-4 sm:gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-emerald-500/50 bg-gradient-to-br from-emerald-500/30 to-teal-500/30 text-emerald-400 sm:h-16 sm:w-16 sm:rounded-2xl">
+                <PiggyBank size={26} />
               </div>
               <div>
-                <h3 className="text-xl font-black tracking-wide text-white">銀行定期存款</h3>
-                <p className="text-sm font-medium text-slate-400 mt-1">每月可獲得 1% 穩定利息收入</p>
+                <h3 className="text-lg font-black tracking-wide text-white sm:text-xl">銀行定期存款</h3>
+                <p className="mt-1 text-xs font-medium text-slate-400 sm:text-sm">每月可獲得 1% 穩定利息收入</p>
               </div>
             </div>
 
-            <div className="bg-slate-900/50 rounded-2xl p-5 border border-slate-800 space-y-5">
+            <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3 sm:space-y-5 sm:rounded-2xl sm:p-5">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-bold text-slate-400">目前可用現金</span>
                 <span className="text-lg font-black text-emerald-400">${cash.toLocaleString()}</span>
@@ -243,20 +243,20 @@ export const WealthView: React.FC<WealthViewProps> = ({
               
               <div className="space-y-3">
                 <span className="text-sm font-bold text-slate-400 block">輸入定存金額</span>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4">
                   <button 
                     onClick={() => setDepositAmount(Math.max(10000, depositAmount - 10000))}
-                    className="w-12 h-12 rounded-xl bg-slate-800 text-slate-300 font-black text-xl hover:bg-slate-700"
+                    className="h-11 w-11 shrink-0 rounded-xl bg-slate-800 text-xl font-black text-slate-300 hover:bg-slate-700 sm:h-12 sm:w-12"
                   >-</button>
                   <input
                     type="number"
                     value={depositAmount || ''}
                     onChange={(e) => setDepositAmount(Math.max(0, parseInt(e.target.value) || 0))}
-                    className="flex-1 h-12 bg-slate-950 border border-slate-700 rounded-xl text-center text-xl font-black tracking-wider text-white"
+                    className="h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 text-center text-lg font-black tracking-wide text-white sm:h-12 sm:text-xl sm:tracking-wider"
                   />
                   <button 
                     onClick={() => setDepositAmount(Math.min(cash, depositAmount + 10000))}
-                    className="w-12 h-12 rounded-xl bg-slate-800 text-slate-300 font-black text-xl hover:bg-slate-700"
+                    className="h-11 w-11 shrink-0 rounded-xl bg-slate-800 text-xl font-black text-slate-300 hover:bg-slate-700 sm:h-12 sm:w-12"
                   >+</button>
                 </div>
               </div>
@@ -272,7 +272,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
             <button
               onClick={handleBuyDeposit}
               disabled={!canUseBankProducts || depositAmount <= 0 || cash < depositAmount}
-              className={`w-full py-4 rounded-2xl font-black tracking-widest text-[16px] transition-all ${
+              className={`min-h-11 w-full rounded-xl py-2.5 text-sm font-black tracking-wide transition-all sm:rounded-2xl sm:py-4 sm:text-[16px] sm:tracking-widest ${
                 !canUseBankProducts || depositAmount <= 0 || cash < depositAmount
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                   : 'bg-emerald-600 text-white hover:bg-emerald-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]'
@@ -281,19 +281,19 @@ export const WealthView: React.FC<WealthViewProps> = ({
               {!canUseBankProducts ? '需先經過銀行' : '確認辦理定存'}
             </button>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
+            <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 sm:rounded-2xl sm:p-5">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-slate-400">目前定存</span>
                 <span className="text-sm font-black text-emerald-300">{depositAssets.length} 筆</span>
               </div>
-              <div className="mt-4 space-y-3">
+              <div className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                 {depositAssets.length === 0 ? (
                   <div className="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-4 text-sm font-bold text-slate-500">
                     目前沒有可解約的定存
                   </div>
                 ) : (
                   depositAssets.map(asset => (
-                    <div key={asset.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-4">
+                    <div key={asset.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-4">
                       <div>
                         <div className="text-sm font-black text-white">定存 {asset.cost.toLocaleString()}</div>
                         <div className="mt-1 text-xs font-bold text-slate-500">每月利息 +${Math.floor((asset.cost || 0) * 0.01).toLocaleString()}</div>
@@ -314,18 +314,18 @@ export const WealthView: React.FC<WealthViewProps> = ({
         )}
 
         {productType === 'car' && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-500/30 border border-amber-500/50 flex items-center justify-center text-amber-300">
-                <Car size={32} />
+          <div className="space-y-3 sm:space-y-6">
+            <div className="mb-2 flex items-center gap-3 sm:mb-4 sm:gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-amber-500/50 bg-gradient-to-br from-amber-500/30 to-orange-500/30 text-amber-300 sm:h-16 sm:w-16 sm:rounded-2xl">
+                <Car size={26} />
               </div>
               <div>
-                <h3 className="text-xl font-black tracking-wide text-white">汽車資產</h3>
-                <p className="text-sm font-medium text-slate-400 mt-1">購買後可增加一顆骰子，總價 60 萬，自備款至少 2 成</p>
+                <h3 className="text-lg font-black tracking-wide text-white sm:text-xl">汽車資產</h3>
+                <p className="mt-1 text-xs font-medium text-slate-400 sm:text-sm">購買後可增加一顆骰子，總價 60 萬，自備款至少 2 成</p>
               </div>
             </div>
 
-            <div className="bg-slate-900/50 rounded-2xl p-5 border border-slate-800 space-y-5">
+            <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3 sm:space-y-5 sm:rounded-2xl sm:p-5">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-bold text-slate-400">資產價格</span>
                 <span className="text-2xl font-black text-white">${carPrice.toLocaleString()}</span>
@@ -349,11 +349,11 @@ export const WealthView: React.FC<WealthViewProps> = ({
 
               <div className="space-y-3">
                 <span className="text-sm font-bold text-slate-400 block">現金支付金額</span>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4">
                   <button
                     onClick={() => setCarCashAmount(Math.max(minCarDownPayment, normalizedCarCash - 10000))}
                     disabled={hasCarAsset || !canAffordMinDownPayment}
-                    className="w-12 h-12 rounded-xl bg-slate-800 text-slate-300 font-black text-xl hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-11 w-11 shrink-0 rounded-xl bg-slate-800 text-xl font-black text-slate-300 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
                   >
                     -
                   </button>
@@ -362,12 +362,12 @@ export const WealthView: React.FC<WealthViewProps> = ({
                     value={normalizedCarCash || ''}
                     onChange={(e) => setCarCashAmount(Math.max(minCarDownPayment, Math.min(carPrice, parseInt(e.target.value) || 0)))}
                     disabled={hasCarAsset || !canAffordMinDownPayment}
-                    className="flex-1 h-12 bg-slate-950 border border-slate-700 rounded-xl text-center text-xl font-black tracking-wider text-white disabled:opacity-50"
+                    className="h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 text-center text-lg font-black tracking-wide text-white disabled:opacity-50 sm:h-12 sm:text-xl sm:tracking-wider"
                   />
                   <button
                     onClick={() => setCarCashAmount(Math.min(maxAffordableCarCash, normalizedCarCash + 10000))}
                     disabled={hasCarAsset || !canAffordMinDownPayment}
-                    className="w-12 h-12 rounded-xl bg-slate-800 text-slate-300 font-black text-xl hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-11 w-11 shrink-0 rounded-xl bg-slate-800 text-xl font-black text-slate-300 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
                   >
                     +
                   </button>
@@ -379,14 +379,14 @@ export const WealthView: React.FC<WealthViewProps> = ({
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 sm:rounded-2xl sm:p-4">
                   <div className="text-sm font-bold text-slate-400">現金支出</div>
-                  <div className="mt-2 text-2xl font-black text-rose-400">-${normalizedCarCash.toLocaleString()}</div>
+                  <div className="mt-1 truncate text-lg font-black text-rose-400 sm:mt-2 sm:text-2xl">-${normalizedCarCash.toLocaleString()}</div>
                 </div>
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 sm:rounded-2xl sm:p-4">
                   <div className="text-sm font-bold text-slate-400">汽車貸款</div>
-                  <div className="mt-2 text-2xl font-black text-amber-300">${carLoanAmount.toLocaleString()}</div>
+                  <div className="mt-1 truncate text-lg font-black text-amber-300 sm:mt-2 sm:text-2xl">${carLoanAmount.toLocaleString()}</div>
                   <div className="mt-1 text-xs font-medium text-slate-500">每月利息 +${carLoanInterest.toLocaleString()}</div>
                 </div>
               </div>
@@ -395,7 +395,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
             <button
               onClick={handleBuyCar}
               disabled={hasCarAsset || !canAffordMinDownPayment}
-              className={`w-full py-4 rounded-2xl font-black tracking-widest text-[16px] transition-all ${
+              className={`min-h-11 w-full rounded-xl py-2.5 text-sm font-black tracking-wide transition-all sm:rounded-2xl sm:py-4 sm:text-[16px] sm:tracking-widest ${
                 hasCarAsset || !canAffordMinDownPayment
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                   : 'bg-amber-500 text-slate-950 hover:bg-amber-400 hover:shadow-[0_0_20px_rgba(245,158,11,0.35)]'

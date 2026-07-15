@@ -43,7 +43,7 @@ import { canSkipDisconnectedPlayer, isPresenceOnline } from '../../utils/presenc
 import { hasIncompleteSharedPrompts } from '../../utils/boardCardActions';
 
 export const CoachGameView: React.FC = () => {
-    const { room, playerStates, presenceStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, updateRoomTimer, approveRequest, rejectRequest, skipDisconnectedTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
+    const { room, playerStates, presenceStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, adjustPlayerCash, adjustPlayerInvestmentIncome, updateRoomTimer, approveRequest, rejectRequest, skipDisconnectedTurn, clearCurrentBoardEvent, forceEndBoardTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
     const { user } = useAuth();
 
     console.log('CoachGameView 渲染 - 房間:', room?.id, '狀態:', room?.status, '待審核數:', room?.pendingRequests ? Object.keys(room.pendingRequests).length : 0);
@@ -59,6 +59,10 @@ export const CoachGameView: React.FC = () => {
     const [stockCode, setStockCode] = useState('');
     const [isUpdatingMarket, setIsUpdatingMarket] = useState(false);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+    const [cashAdjustment, setCashAdjustment] = useState('10000');
+    const [isAdjustingCash, setIsAdjustingCash] = useState(false);
+    const [incomeAdjustment, setIncomeAdjustment] = useState('10000');
+    const [isAdjustingIncome, setIsAdjustingIncome] = useState(false);
 
     // 檢查 localStorage 是否已有紀錄
     useEffect(() => {
@@ -96,6 +100,7 @@ export const CoachGameView: React.FC = () => {
     const [isPaused, setIsPaused] = useState(room?.isTimerPaused ?? true);
     const [isTimerPanelOpen, setIsTimerPanelOpen] = useState(false);
     const [isEventPanelOpen, setIsEventPanelOpen] = useState(false);
+    const [isRecoveringBoard, setIsRecoveringBoard] = useState(false);
 
     // 當房間數據更新時，同步本地計時器狀態
     useEffect(() => {
@@ -320,6 +325,14 @@ export const CoachGameView: React.FC = () => {
             sharedTotal: sharedPrompt?.targetPlayerUids.length || 0,
             pendingRequestCount: pendingRequests.length,
             movementActive: !!boardState?.movement?.isActive,
+            hasBlockingFlow: !!(
+                boardState?.currentEvent ||
+                boardState?.pendingEvents?.length ||
+                boardState?.movement ||
+                boardState?.familyMilestoneJoinPrompt ||
+                boardState?.sharedCardPrompt
+            ),
+            hasCurrentTurn: !!boardState?.currentTurnUid,
         };
     }, [pendingRequests.length, players, presenceStates, room?.boardState]);
 
@@ -582,12 +595,72 @@ export const CoachGameView: React.FC = () => {
 
     const selectedPlayerState = selectedPlayerUid ? playerStates[selectedPlayerUid] : null;
 
+    const handleAdjustCash = async (direction: 1 | -1) => {
+        if (!selectedPlayerUid) return;
+        const amount = Math.trunc(Number(cashAdjustment));
+        if (!Number.isFinite(amount) || amount <= 0) {
+            window.alert('請輸入大於 0 的金額');
+            return;
+        }
+
+        setIsAdjustingCash(true);
+        try {
+            await adjustPlayerCash(selectedPlayerUid, direction * amount);
+        } catch (error: any) {
+            window.alert(error?.message || '現金調整失敗');
+        } finally {
+            setIsAdjustingCash(false);
+        }
+    };
+
+    const handleAdjustInvestmentIncome = async (direction: 1 | -1) => {
+        if (!selectedPlayerUid) return;
+        const amount = Math.trunc(Number(incomeAdjustment));
+        if (!Number.isFinite(amount) || amount <= 0) {
+            window.alert('請輸入大於 0 的金額');
+            return;
+        }
+
+        setIsAdjustingIncome(true);
+        try {
+            await adjustPlayerInvestmentIncome(selectedPlayerUid, direction * amount);
+        } catch (error: any) {
+            window.alert(error?.message || '理財收入調整失敗');
+        } finally {
+            setIsAdjustingIncome(false);
+        }
+    };
+
     const handleSkipDisconnectedTurn = async (playerUid: string) => {
         try {
             await skipDisconnectedTurn(playerUid);
         } catch (error: any) {
             window.alert(error?.message || '目前不能跳過這位玩家的回合');
         }
+    };
+
+    const executeBoardRecovery = async (mode: 'clear_event' | 'force_end') => {
+        setGenericConfirm(null);
+        setIsRecoveringBoard(true);
+        try {
+            await (mode === 'clear_event' ? clearCurrentBoardEvent() : forceEndBoardTurn());
+        } catch (error: any) {
+            window.alert(error?.message || '回合解鎖失敗');
+        } finally {
+            setIsRecoveringBoard(false);
+        }
+    };
+
+    const confirmBoardRecovery = (mode: 'clear_event' | 'force_end') => {
+        const forceEnd = mode === 'force_end';
+        setGenericConfirm({
+            title: forceEnd ? '強制結束目前回合？' : '解除目前事件？',
+            description: forceEnd
+                ? '將清除所有未完成的棋盤流程並直接換到下一位玩家。已完成的財務異動不會回滾。'
+                : '將清除目前卡片、移動、排隊事件及共享等待，保留目前玩家與擲骰狀態，之後由玩家自行按結束回合。',
+            type: forceEnd ? 'danger' : 'warning',
+            onConfirm: () => { void executeBoardRecovery(mode); }
+        });
     };
 
     const sortedPlayers = useMemo(() => {
@@ -947,6 +1020,24 @@ export const CoachGameView: React.FC = () => {
                                 重試移動收尾
                             </button>
                         )}
+                        <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-800 pt-3">
+                            <button
+                                type="button"
+                                onClick={() => confirmBoardRecovery('clear_event')}
+                                disabled={!eventPanelState.hasBlockingFlow || isRecoveringBoard}
+                                className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs font-black text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                解除目前事件
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => confirmBoardRecovery('force_end')}
+                                disabled={!eventPanelState.hasCurrentTurn || isRecoveringBoard}
+                                className="rounded-xl border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-xs font-black text-rose-200 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                強制結束回合
+                            </button>
+                        </div>
                         {!eventPanelState.eventSummary && !eventPanelState.queuedEvents && !eventPanelState.sharedTotal && !eventPanelState.pendingRequestCount && !eventPanelState.movementActive && (
                             <div className="mt-3 rounded-xl bg-emerald-500/10 px-3 py-2 text-center text-xs font-bold text-emerald-300">目前沒有阻塞流程</div>
                         )}
@@ -1646,6 +1737,71 @@ export const CoachGameView: React.FC = () => {
                                                     {selectedPlayerState.happinessTotal}
                                                 </div>
                                             </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3 border-b border-slate-800 bg-slate-900/80 px-6 py-3">
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <span className="text-xs font-black text-slate-400">現金調整</span>
+                                                <span className="text-sm font-black text-emerald-400 tabular-nums">
+                                                    ${Number(selectedPlayerState.cash || 0).toLocaleString()}
+                                                </span>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    step="1000"
+                                                    value={cashAdjustment}
+                                                    onChange={event => setCashAdjustment(event.target.value)}
+                                                    className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-right text-sm font-bold text-white outline-none focus:border-amber-500"
+                                                    aria-label="現金調整金額"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void handleAdjustCash(-1)}
+                                                    disabled={isAdjustingCash}
+                                                    className="rounded-lg border border-rose-500/30 px-3 py-1.5 text-sm font-black text-rose-300 hover:bg-rose-500/10 disabled:opacity-50"
+                                                >
+                                                    - 扣除
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void handleAdjustCash(1)}
+                                                    disabled={isAdjustingCash}
+                                                    className="rounded-lg border border-emerald-500/30 px-3 py-1.5 text-sm font-black text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50"
+                                                >
+                                                    + 增加
+                                                </button>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-3 border-l border-slate-700 pl-4">
+                                                <span className="text-xs font-black text-slate-400">理財收入調整</span>
+                                                <span className="text-sm font-black text-cyan-400 tabular-nums">
+                                                    +${Number(selectedPlayerSummary?.passiveIncome || 0).toLocaleString()}/月
+                                                </span>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    step="1000"
+                                                    value={incomeAdjustment}
+                                                    onChange={event => setIncomeAdjustment(event.target.value)}
+                                                    className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-right text-sm font-bold text-white outline-none focus:border-cyan-500"
+                                                    aria-label="理財收入調整金額"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void handleAdjustInvestmentIncome(-1)}
+                                                    disabled={isAdjustingIncome}
+                                                    className="rounded-lg border border-rose-500/30 px-3 py-1.5 text-sm font-black text-rose-300 hover:bg-rose-500/10 disabled:opacity-50"
+                                                >
+                                                    - 減少
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void handleAdjustInvestmentIncome(1)}
+                                                    disabled={isAdjustingIncome}
+                                                    className="rounded-lg border border-cyan-500/30 px-3 py-1.5 text-sm font-black text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-50"
+                                                >
+                                                    + 增加
+                                                </button>
+                                            </div>
                                         </div>
 
                                         <div

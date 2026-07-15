@@ -71,6 +71,12 @@ service cloud.firestore {
         return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
       }
 
+      function publicPlayerStates(data) {
+        return ('publicPlayerStates' in data) && data.publicPlayerStates is map
+          ? data.publicPlayerStates
+          : {};
+      }
+
       function joinsSelf() {
         return resource.data.status == 'waiting' &&
           changedOnly(['members', 'memberUids']) &&
@@ -96,7 +102,7 @@ service cloud.firestore {
       function updatesOwnPublicPlayerState() {
         return isMember(resource.data) &&
           changedOnly(['publicPlayerStates']) &&
-          request.resource.data.publicPlayerStates.diff(resource.data.publicPlayerStates).affectedKeys().hasOnly([request.auth.uid]);
+          request.resource.data.publicPlayerStates.diff(publicPlayerStates(resource.data)).affectedKeys().hasOnly([request.auth.uid]);
       }
 
       function submitsOwnRequest() {
@@ -117,7 +123,7 @@ service cloud.firestore {
 
       function updatesOnlyOwnPublicProjection() {
         return !resource.data.diff(request.resource.data).affectedKeys().hasAny(['publicPlayerStates']) ||
-          request.resource.data.publicPlayerStates.diff(resource.data.publicPlayerStates).affectedKeys().hasOnly([request.auth.uid]);
+          request.resource.data.publicPlayerStates.diff(publicPlayerStates(resource.data)).affectedKeys().hasOnly([request.auth.uid]);
       }
 
       function validPromptResponseMutation() {
@@ -151,12 +157,24 @@ service cloud.firestore {
           request.resource.data.boardState.currentEvent.id == resource.data.boardState.currentEvent.id;
       }
 
+      function completesOwnFamilySourceEvent() {
+        return resource.data.boardState.currentTurnUid == request.auth.uid &&
+          resource.data.boardState.currentEvent is map &&
+          resource.data.boardState.familyMilestoneJoinPrompt is map &&
+          resource.data.boardState.familyMilestoneJoinPrompt.sourcePlayerUid == request.auth.uid &&
+          resource.data.boardState.familyMilestoneJoinPrompt.sourceEventId == resource.data.boardState.currentEvent.id &&
+          (!('familyMilestoneJoinPrompt' in request.resource.data.boardState) ||
+            request.resource.data.boardState.familyMilestoneJoinPrompt == null) &&
+          (!('sharedCardPrompt' in resource.data.boardState) || resource.data.boardState.sharedCardPrompt == null);
+      }
+
       function validBoardCommand() {
         return isMember(resource.data) &&
           (
             (resource.data.boardState.currentTurnUid == request.auth.uid &&
               (!('familyMilestoneJoinPrompt' in resource.data.boardState) || resource.data.boardState.familyMilestoneJoinPrompt == null) &&
               (!('sharedCardPrompt' in resource.data.boardState) || resource.data.boardState.sharedCardPrompt == null)) ||
+            completesOwnFamilySourceEvent() ||
             (('familyMilestoneJoinPrompt' in resource.data.boardState) &&
               resource.data.boardState.familyMilestoneJoinPrompt is map &&
               request.auth.uid in resource.data.boardState.familyMilestoneJoinPrompt.targetPlayerUids &&

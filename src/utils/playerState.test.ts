@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GameState } from '../types';
-import { toPublicPlayerState } from './playerState';
+import { hasPublicPlayerStateChanged, toPublicPlayerState } from './playerState';
 
 describe('toPublicPlayerState', () => {
   it('removes optional undefined values before Firestore writes', () => {
@@ -23,5 +23,16 @@ describe('toPublicPlayerState', () => {
       currentRankTitle: '助理'
     });
     expect(Object.values(publicState)).not.toContain(undefined);
+  });
+
+  it('detects only meaningful public projection changes', () => {
+    const previous = toPublicPlayerState('player-1', {
+      playerName: 'Player',
+      isSetup: true,
+      happinessTotal: 4
+    } as GameState);
+
+    expect(hasPublicPlayerStateChanged(previous, { ...previous })).toBe(false);
+    expect(hasPublicPlayerStateChanged(previous, { ...previous, happinessTotal: 5 })).toBe(true);
   });
 });

@@ -82,6 +82,10 @@ describe('160 card completion coverage', () => {
     });
   });
 
+  it('keeps H013 player title as the family milestone card name', () => {
+    expect(buildHappinessCardMetaFromSchema('H013')?.title).toBe('幸福家庭的重要歷程');
+  });
+
   it('resolves every card to a completable action with a representative player state', () => {
     const state = coverageGameState();
 

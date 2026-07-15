@@ -44,6 +44,12 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
     actionArea,
     closeDisabled = false
 }) => {
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
+
+    React.useEffect(() => {
+        setIsCollapsed(false);
+    }, [card.cardId]);
+
     if (!isOpen) return null;
 
     const presentation = toCardPresentationModel(card);
@@ -58,6 +64,23 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
     const currentFamilyStage = isFamilyMilestoneCard && familyMilestoneStatus.currentStageIndex >= 0
         ? familyMilestoneStatus.stages[familyMilestoneStatus.currentStageIndex]
         : null;
+
+    if (isCollapsed) {
+        return (
+            <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[90] flex justify-center px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]">
+                <button
+                    type="button"
+                    onClick={() => setIsCollapsed(false)}
+                    aria-label="展開卡片"
+                    className="pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-cyan-300/30 bg-slate-900/95 px-4 py-2.5 text-sm font-black text-cyan-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md transition hover:border-cyan-200/60 hover:bg-slate-800"
+                >
+                    <span>展開卡片</span>
+                    <span className="max-w-[min(55vw,18rem)] truncate text-slate-400">{presentation.title}</span>
+                </button>
+            </div>
+        );
+    }
+
     return (
         <div className="fixed inset-x-0 bottom-0 z-[10002] flex justify-center">
             <div
@@ -71,8 +94,16 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
                 <div className="rounded-t-[32px] bg-slate-900 border-t border-slate-700/50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] flex flex-col max-h-[85vh] sm:max-h-[90vh]">
                     
                     {/* Handle Bar */}
-                    <div className="flex-shrink-0 pt-4 pb-2 flex justify-center">
+                    <div className="relative flex-shrink-0 pt-4 pb-2 flex justify-center">
                         <div className="h-1.5 w-16 rounded-full bg-slate-600/60" />
+                        <button
+                            type="button"
+                            onClick={() => setIsCollapsed(true)}
+                            aria-label="收起卡片"
+                            className="absolute right-4 top-2 rounded-full border border-slate-700 bg-slate-800/90 px-3 py-1.5 text-[11px] font-black text-slate-300 transition hover:border-cyan-400/50 hover:text-cyan-200"
+                        >
+                            收起卡片
+                        </button>
                     </div>
 
                     {/* Scrollable Content */}

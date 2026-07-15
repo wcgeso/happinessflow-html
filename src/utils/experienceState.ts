@@ -7,6 +7,7 @@ import type {
 
 export interface ExperienceStateInput {
   roomStatus?: 'waiting' | 'playing' | 'finished';
+  isTimerPaused?: boolean;
   isBoardGame?: boolean;
   hostId?: string;
   members?: Array<{ uid: string; name?: string }>;
@@ -19,8 +20,47 @@ export interface ExperienceStateInput {
 
 const blocker = (code: string, message: string): BoardBlocker => ({ code, message });
 
+export const clearBoardFlowState = (boardState: BoardState, updatedAt = Date.now()): BoardState => ({
+  ...boardState,
+  currentCard: null,
+  currentCardReveal: null,
+  currentEvent: null,
+  pendingEvents: [],
+  movement: null,
+  familyMilestoneJoinPrompt: null,
+  sharedCardPrompt: null,
+  sharedExpenseEffect: null,
+  skippedTurnNotice: null,
+  updatedAt,
+});
+
+export const getNextBoardTurn = (boardState: Pick<BoardState, 'currentTurnUid' | 'turnOrder' | 'skipTurns'>) => {
+  if (!boardState.turnOrder.length) return null;
+  if (!boardState.currentTurnUid) {
+    return { nextUid: boardState.turnOrder[0], skipTurns: boardState.skipTurns, skippedUids: [] as string[] };
+  }
+
+  const currentIndex = boardState.turnOrder.indexOf(boardState.currentTurnUid);
+  const skipTurns = { ...boardState.skipTurns };
+  const skippedUids: string[] = [];
+
+  for (let offset = 1; offset <= boardState.turnOrder.length; offset += 1) {
+    const nextUid = boardState.turnOrder[(currentIndex + offset) % boardState.turnOrder.length];
+    const remainingSkips = skipTurns[nextUid] || 0;
+    if (remainingSkips > 0) {
+      skipTurns[nextUid] = remainingSkips - 1;
+      skippedUids.push(nextUid);
+      continue;
+    }
+    return { nextUid, skipTurns, skippedUids };
+  }
+
+  return { nextUid: boardState.currentTurnUid, skipTurns, skippedUids };
+};
+
 export const getBoardActionAvailability = ({
   roomStatus,
+  isTimerPaused = false,
   isBoardGame = false,
   currentUid,
   boardState,
@@ -36,6 +76,16 @@ export const getBoardActionAvailability = ({
   if (roomStatus === 'finished') {
     const finished = blocker('game_finished', '本局已結算');
     return { canRoll: false, canEndTurn: false, rollBlocker: finished, endTurnBlocker: finished };
+  }
+
+  if (roomStatus !== 'playing') {
+    const notStarted = blocker('game_not_started', '請等待執行師開始遊戲');
+    return { canRoll: false, canEndTurn: false, rollBlocker: notStarted, endTurnBlocker: notStarted };
+  }
+
+  if (isTimerPaused) {
+    const paused = blocker('game_paused', '請等待執行師開始或繼續遊戲');
+    return { canRoll: false, canEndTurn: false, rollBlocker: paused, endTurnBlocker: paused };
   }
 
   const isMyTurn = boardState.currentTurnUid === currentUid;

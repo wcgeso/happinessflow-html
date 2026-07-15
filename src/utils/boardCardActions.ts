@@ -21,12 +21,65 @@ export const hasIncompleteSharedPrompts = (
   }
 
   const familyPrompt = boardState.familyMilestoneJoinPrompt;
-  if (familyPrompt && !familyPrompt.targetPlayerUids.every(uid => !!familyPrompt.responses?.[uid])) {
+  if (familyPrompt && !familyPrompt.targetPlayerUids.every(uid => {
+    const response = familyPrompt.responses?.[uid];
+    if (!response) return false;
+    return response.status !== 'passed' || response.actionCompleted === true;
+  })) {
     return true;
   }
 
   return false;
 };
+
+export const isFamilyMilestoneSourceDismissal = (
+  boardState: Pick<BoardState, 'sharedCardPrompt' | 'familyMilestoneJoinPrompt'>,
+  eventId: string,
+  cardId: string,
+  playerUid: string
+): boolean => {
+  const prompt = boardState.familyMilestoneJoinPrompt;
+  const sharedPrompt = boardState.sharedCardPrompt;
+  const hasIncompleteSharedPrompt = !!(
+    sharedPrompt && !sharedPrompt.targetPlayerUids.every(uid => !!sharedPrompt.responses?.[uid])
+  );
+
+  return !hasIncompleteSharedPrompt &&
+    prompt?.sourceEventId === eventId &&
+    prompt.sourceCardId === cardId &&
+    prompt.sourcePlayerUid === playerUid;
+};
+
+export const shouldBlockBoardCardDismissal = (
+  boardState: Pick<BoardState, 'sharedCardPrompt' | 'familyMilestoneJoinPrompt'> | null | undefined,
+  eventId: string | undefined,
+  cardId: string | undefined,
+  playerUid: string | undefined,
+  isExplicitDismissal: boolean
+): boolean => {
+  if (!boardState || !hasIncompleteSharedPrompts(boardState)) return false;
+  if (!eventId || !cardId || !playerUid || !isExplicitDismissal) return true;
+  return !isFamilyMilestoneSourceDismissal(boardState, eventId, cardId, playerUid);
+};
+
+export const selectActiveSharedCardPrompt = (
+  prompt: SharedCardPrompt | null | undefined,
+  snapshot: SharedCardPrompt | null | undefined
+) => snapshot?.id === prompt?.id ? snapshot : prompt || null;
+
+export interface BoardAfterApply {
+  drawCard?: 'happiness' | 'news';
+  affectsAllPlayersExpense?: {
+    amount: number;
+    category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild';
+    isIncrease: boolean;
+  };
+  moveToSquare?: {
+    squareType: 'school' | 'hospital' | 'bank' | 'repair';
+    skipTurns?: number;
+    detail?: string;
+  };
+}
 
 export interface BoardFinancialAction {
   kind: 'financial';
@@ -34,19 +87,7 @@ export interface BoardFinancialAction {
   txData: TransactionData;
   expectedEntries: AccountEntry[];
   note?: string;
-  afterApply?: {
-    drawCard?: 'happiness' | 'news';
-    affectsAllPlayersExpense?: {
-      amount: number;
-      category: 'basicLiving' | 'transportEdu' | 'otherMedicalChild';
-      isIncrease: boolean;
-    };
-    moveToSquare?: {
-      squareType: 'school' | 'hospital' | 'bank';
-      skipTurns?: number;
-      detail?: string;
-    };
-  };
+  afterApply?: BoardAfterApply;
 }
 
 export interface BoardDirectHappinessAction {
@@ -63,9 +104,7 @@ export interface BoardInstantEffectAction {
   label: string;
   title: string;
   note?: string;
-  afterApply?: {
-    drawCard?: 'happiness' | 'news';
-  };
+  afterApply?: BoardAfterApply;
 }
 
 export interface BoardMarketAction {
@@ -309,6 +348,21 @@ export const getSharedOpportunityKind = (cardId: string): SharedCardPrompt['kind
 export const resolveBoardCardAction = (cardId: string, gameState: GameState): BoardCardActionDefinition => {
   let happinessCard = HAPPINESS_CARD_MAP[cardId];
   if (happinessCard) {
+    if (happinessCard.requiresChildCount && gameState.children < happinessCard.requiresChildCount) {
+      return {
+        kind: 'choice',
+        label: '確認卡片',
+        note: '你目前沒有孩子，這張卡本次無效果。',
+        options: [
+          {
+            id: 'dismiss',
+            label: '關閉',
+            action: { kind: 'dismiss' }
+          }
+        ]
+      };
+    }
+
     let familyStage = getFamilyMilestoneStageByCardId(happinessCard.id);
     if (happinessCard.category === '家庭重要歷程') {
       const familyStatus = getFamilyMilestoneStatus(gameState);
@@ -448,6 +502,21 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
 
   const opportunityCard = OPPORTUNITY_CARD_MAP[cardId];
   if (opportunityCard) {
+    const moveSquareType = opportunityCard.goToSquare === 'hospital'
+      ? 'hospital'
+      : opportunityCard.goToSquare === '4s_shop'
+        ? 'repair'
+        : opportunityCard.goToSquare === 'school'
+          ? 'school'
+          : null;
+    const moveAfterApply: BoardAfterApply | undefined = moveSquareType ? {
+      moveToSquare: {
+        squareType: moveSquareType,
+        skipTurns: opportunityCard.missRounds || 0,
+        detail: `${opportunityCard.title}：移動到${moveSquareType === 'hospital' ? '醫院' : moveSquareType === 'repair' ? '維修廠' : '學校'}${opportunityCard.missRounds ? `，暫停 ${opportunityCard.missRounds} 回合` : ''}`
+      }
+    } : undefined;
+
     if (opportunityCard.type === 'property_repair') {
       if (!hasOwnedHouse(gameState.assets)) {
         return {
@@ -497,6 +566,15 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
       }
 
       if (hasInsuredVehicle(gameState.assets)) {
+        if (moveAfterApply) {
+          return {
+            kind: 'effect',
+            label: '套用移動與暫停效果',
+            title: opportunityCard.title,
+            note: '本次維修費由保險支付，但仍需移動至維修廠並暫停回合。',
+            afterApply: moveAfterApply
+          };
+        }
         return {
           kind: 'choice',
           label: '確認卡片',
@@ -808,9 +886,10 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
           },
           expectedEntries,
           note: opportunityCard.insurancePays ? '若你要改用保險理賠，請改走保險流程。' : undefined,
-          ...(opportunityCard.drawCard ? {
+          ...((opportunityCard.drawCard || moveAfterApply) ? {
             afterApply: {
-              drawCard: opportunityCard.drawCard
+              ...(opportunityCard.drawCard ? { drawCard: opportunityCard.drawCard } : {}),
+              ...moveAfterApply
             }
           } : {})
         };

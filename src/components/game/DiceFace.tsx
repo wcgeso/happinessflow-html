@@ -9,20 +9,6 @@ interface DiceFaceProps {
 }
 
 export const DiceFace: React.FC<DiceFaceProps> = ({ value, rolling, size = 'md', className }) => {
-    const [displayValue, setDisplayValue] = React.useState(value);
-
-    React.useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (rolling) {
-            interval = setInterval(() => {
-                setDisplayValue(Math.floor(Math.random() * 6) + 1);
-            }, 80);
-        } else {
-            setDisplayValue(value);
-        }
-        return () => clearInterval(interval);
-    }, [rolling, value]);
-
     const sizeClasses = {
         sm: 'w-16 h-16',
         md: 'w-24 h-24',
@@ -49,15 +35,15 @@ export const DiceFace: React.FC<DiceFaceProps> = ({ value, rolling, size = 'md',
 
     return (
         <div className={cn(
-            "relative perspective-1000",
+            "relative",
             sizeClasses[size],
-            rolling ? "animate-dice-roll" : "animate-dice-float",
+            rolling && "animate-dice-roll",
             className
-        )}>
+        )} role="img" aria-label={`骰子 ${value} 點`}>
             {/* 骰子主體 - 3D 效果層 */}
             <div className={cn(
-                "w-full h-full bg-white rounded-2xl shadow-2xl relative overflow-hidden transition-all duration-300 transform-gpu",
-                !rolling && "hover:scale-110 hover:rotate-3",
+                "w-full h-full bg-white rounded-[24px] shadow-2xl relative overflow-hidden transition-transform duration-200 transform-gpu",
+                !rolling && "group-hover:scale-[1.03]",
                 /* 使用 shadow 代替 border 來營造 3D 感，避免影響內部對齊 */
                 "shadow-[inset_-8px_-8px_15px_rgba(0,0,0,0.1),8px_8px_15px_rgba(0,0,0,0.05),0_0_0_1px_rgba(0,0,0,0.05)]"
             )}>
@@ -69,13 +55,11 @@ export const DiceFace: React.FC<DiceFaceProps> = ({ value, rolling, size = 'md',
 
                 {/* 點數格 - 使用絕對定位與 Flex 確保絕對置中 */}
                 <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 p-3 z-10">
-                    {getDots(displayValue).map((dot, idx) => (
+                    {getDots(value).map((dot, idx) => (
                         <div
-                            key={`${displayValue}-${idx}`}
-                            className={cn(
-                                "w-full h-full flex items-center justify-center",
-                                `col-start-${dot.col} row-start-${dot.row}`
-                            )}
+                            key={`${value}-${idx}`}
+                            className="flex h-full w-full items-center justify-center"
+                            style={{ gridColumnStart: dot.col, gridRowStart: dot.row }}
                         >
                             <div
                                 className={cn(
@@ -89,14 +73,13 @@ export const DiceFace: React.FC<DiceFaceProps> = ({ value, rolling, size = 'md',
                     ))}
                 </div>
 
-                {/* 反光效果 */}
-                <div className="absolute top-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -rotate-45 -translate-x-full animate-[shimmer_3s_infinite]" />
+                <div className="absolute inset-x-3 top-2 h-px rounded-full bg-white/80" />
             </div>
 
             {/* 底部投影 */}
             <div className={cn(
-                "absolute -bottom-6 left-1/2 -translate-x-1/2 w-4/5 h-3 bg-black/40 blur-xl rounded-full transition-all duration-300",
-                rolling ? "scale-x-150 opacity-20 blur-lg" : "scale-100 opacity-60"
+                "absolute -bottom-4 left-1/2 -translate-x-1/2 w-4/5 h-2 bg-black/40 blur-lg rounded-full transition-all duration-300",
+                rolling ? "scale-x-125 opacity-25" : "scale-100 opacity-50"
             )} />
         </div>
     );

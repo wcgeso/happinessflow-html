@@ -54,11 +54,11 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 pt-safe pb-safe sm:p-6 bg-slate-950 backdrop-blur-xl overflow-y-auto">
+        <div className="fixed inset-0 z-[150] flex items-start justify-center overflow-y-auto bg-slate-950 p-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xl sm:items-center sm:p-6">
             {/* 彈出視窗主體 */}
             <div className={cn(
-                "relative w-full max-w-md bg-slate-900 border border-white/10 rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] overflow-hidden transition-all duration-500",
-                examResult === 'success' ? "animate-success-pulse" : "animate-in zoom-in-95",
+                "relative max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-[2.5rem] border border-white/10 bg-slate-900 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] transition-all duration-500",
+                "animate-in zoom-in-95",
                 shake && "animate-shake"
             )}>
                 {/* 背景裝飾效果 (限縮在視窗內) */}
@@ -76,13 +76,13 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                 </div>
 
                 {/* 內容容器 */}
-                <div className="relative z-10 p-8 sm:p-10 flex flex-col items-center gap-10">
+                <div className="relative z-10 flex flex-col items-center gap-6 p-6 sm:gap-8 sm:p-10">
                     {/* 狀態標題 */}
-                    <div className="w-full flex flex-col items-center justify-center text-center space-y-4">
+                    <div className="flex w-full flex-col items-center justify-center space-y-2 text-center">
                         <div className="relative h-10 w-full flex items-center justify-center">
                             {isRolling ? (
                                 <h2 key="rolling" className="text-2xl font-black uppercase tracking-[0.3em] text-slate-400 animate-pulse absolute inset-0 flex items-center justify-center">
-                                    ROLLING...
+                                    擲骰中...
                                 </h2>
                             ) : (
                                 <h2 key="result" className={cn(
@@ -91,7 +91,7 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                                     examResult === 'failure' ? "text-rose-500" : "text-white"
                                 )}>
                                     {examResult === 'idle' ? (promotionType === 'normal' ? '升等考試' : '終身學習') : 
-                                     examResult === 'success' ? 'SUCCESS!' : 'FAILED'}
+                                     examResult === 'success' ? '考試通過' : '未通過'}
                                 </h2>
                             )}
                         </div>
@@ -113,35 +113,30 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                     </div>
 
                     {/* 骰子區域 */}
-                    <div className="relative group perspective-1000 scale-90">
+                    <div className="relative group">
                         {/* 托盤背景 */}
                         <div className={cn(
-                            "absolute -inset-6 bg-slate-950/50 rounded-[3rem] border border-white/5 transition-all duration-500",
+                            "absolute -inset-5 bg-slate-950/60 rounded-[2.5rem] border border-white/5 transition-all duration-500",
                             "shadow-[inset_0_0_30px_rgba(0,0,0,0.5)]",
                             isRolling && "scale-95 opacity-80"
                         )} />
 
-                        <div 
+                        <button
+                            type="button"
+                            disabled={isRolling || examResult !== 'idle'}
                             onClick={() => !isRolling && examResult === 'idle' && onRoll()} 
                             className={cn(
-                                "relative z-10 p-8 rounded-3xl transition-all duration-300",
+                                "relative z-10 flex flex-col items-center gap-6 rounded-3xl p-7 transition-transform duration-200 disabled:cursor-default",
                                 examResult === 'idle' && !isRolling ? "cursor-pointer hover:scale-105 active:scale-90" : "cursor-default"
                             )}
                         >
                             <DiceFace value={diceValue} rolling={isRolling} size="lg" />
-                            
-                            {/* 提示點擊效果 */}
                             {!isRolling && examResult === 'idle' && (
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="bg-white/10 rounded-full p-6 animate-ping opacity-30">
-                                        <Dices size={48} className="text-white/50" />
-                                    </div>
-                                    <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] text-white/40 font-black tracking-tighter uppercase animate-bounce">
-                                        Click to Roll
-                                    </span>
-                                </div>
+                                <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-black tracking-widest text-slate-300">
+                                    點擊骰子開始
+                                </span>
                             )}
-                        </div>
+                        </button>
 
                         {/* 狀態裝飾光 */}
                         <div className={cn(
@@ -182,20 +177,20 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                         {/* 結果詳細卡片 */}
                         {examResult !== 'idle' && !isRolling && (
                             <div className={cn(
-                                "w-full p-5 rounded-2xl border transition-all duration-500 animate-in fade-in slide-in-from-bottom-2",
+                                "w-full rounded-2xl border p-4 transition-all duration-500 animate-in fade-in slide-in-from-bottom-2",
                                 examResult === 'success' 
                                     ? "bg-emerald-500/10 border-emerald-500/20" 
                                     : "bg-rose-500/10 border-rose-500/20"
                             )}>
                                 {examResult === 'success' ? (
                                     <div className="space-y-3 text-center">
-                                        <div className="flex justify-center">
-                                            <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center">
-                                                <Trophy className="text-emerald-500" size={20} />
+                                    <div className="flex justify-center">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/20">
+                                            <Trophy className="text-emerald-500" size={18} />
                                             </div>
                                         </div>
                                         {promotionType === 'stock_ability' || promotionType === 'real_estate_ability' ? (
-                                            <div className="space-y-3">
+                                            <div className="space-y-2">
                                                 <div>
                                                     <p className="text-[9px] text-slate-400 uppercase tracking-widest mb-0.5">獲得能力</p>
                                                     <p className="text-lg font-black text-white">
@@ -203,7 +198,7 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                                                     </p>
                                                 </div>
                                                 <div className="h-px bg-white/5" />
-                                                <div className="bg-slate-950/40 p-3 rounded-xl border border-white/5">
+                                                <div className="rounded-xl border border-white/5 bg-slate-950/40 p-2.5">
                                                     <p className="text-[10px] text-emerald-400/90 leading-relaxed font-medium">
                                                         {promotionType === 'stock_ability' 
                                                             ? '✨ 恭喜！你持有的所有股票張數已翻倍！' 

@@ -13,6 +13,7 @@ interface GameActionsProps {
     onShowTargetDream: () => void;
     onShowRealEstateMarket?: () => void;
     onEndTurn?: () => void;
+    canRoll?: boolean;
     canEndTurn?: boolean;
     rollBlockReason?: string | null;
     endTurnBlockReason?: string | null;
@@ -33,6 +34,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
     onShowTargetDream,
     onShowRealEstateMarket,
     onEndTurn,
+    canRoll = false,
     canEndTurn = false,
     rollBlockReason = null,
     endTurnBlockReason = null,
@@ -86,7 +88,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
     };
     const faces = getDiceFaces(diceResult);
 
-    const isActive = isBoardTurn && !isRollingBoardDice && !disabled;
+    const isActive = isBoardTurn && canRoll && !isRollingBoardDice && !disabled;
     const shouldShowEndTurn = !!(onEndTurn && hasRolledBoardDice && !isRollingBoardDice);
     const visibleBlockReason = shouldShowEndTurn ? endTurnBlockReason : rollBlockReason;
     const isVisualActive = isActive || isAnimating;

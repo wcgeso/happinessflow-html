@@ -9,7 +9,7 @@ import { STOCK_NAMES } from '../../constants';
 import { BOARD_SQUARES } from '../../constants/board';
 import { NEWS_CARD_MAP, normalizeCardCopy } from '../../constants/cards';
 import { Room } from '../../context/RoomContext';
-import { BoardCardLogEntry, BoardCardResult, BoardSquare } from '../../types';
+import { BoardCardLogEntry, BoardCardResult, BoardSquare, SkippedTurnNotice } from '../../types';
 import { getCardNarrative, hydrateBoardCardResult } from '../../utils/boardCardDisplay';
 import { FAMILY_MILESTONE_STAGES } from '../../utils/familyMilestones';
 import { SettlementView } from '../../components/game/SettlementView';
@@ -27,6 +27,7 @@ const VIEWPORT_PADDING_X = 64;
 const VIEWPORT_PADDING_TOP = 80;
 const VIEWPORT_PADDING_BOTTOM = 32;
 const BOARD_MOVEMENT_TICK_MS = 80;
+const SKIPPED_TURN_NOTICE_MS = 2600;
 
 const SQUARE_THEME: Record<BoardSquare['type'], {
   bg: string;
@@ -537,7 +538,7 @@ const CardStage: React.FC<{
               {isFamilyMilestoneCard ? '幸福家庭的重要歷程' : card.title}
             </div>
             {!isFamilyMilestoneCard && !realEstateMetrics && <ImpactSummaryBar impacts={impacts} />}
-            <div className={`mt-4 min-h-0 flex-1 pr-1 ${isFamilyMilestoneCard ? 'overflow-hidden' : 'overflow-y-auto no-scrollbar'}`}>
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1 no-scrollbar">
               {flavorText && !isFamilyMilestoneCard && (
                 <p className="whitespace-pre-wrap break-words border-l-2 border-[#e5cfac] pl-3 text-xs italic leading-relaxed text-[#a4896c] sm:text-sm">
                   {flavorText}
@@ -646,6 +647,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const [zoom, setZoom] = useState(FIT_ZOOM_FALLBACK);
   const [animationNow, setAnimationNow] = useState(() => Date.now());
   const [showBoardCardLog, setShowBoardCardLog] = useState(false);
+  const [visibleSkippedTurnNotice, setVisibleSkippedTurnNotice] = useState<SkippedTurnNotice | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const boardFrameRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<{
@@ -683,6 +685,21 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
 
     return () => window.clearInterval(intervalId);
   }, [room?.boardState?.movement]);
+
+  useEffect(() => {
+    const notice = room?.boardState?.skippedTurnNotice;
+    if (!notice) return;
+
+    const remainingMs = SKIPPED_TURN_NOTICE_MS - (Date.now() - notice.timestamp);
+    if (remainingMs <= 0) {
+      setVisibleSkippedTurnNotice(null);
+      return;
+    }
+
+    setVisibleSkippedTurnNotice(notice);
+    const timeoutId = window.setTimeout(() => setVisibleSkippedTurnNotice(null), remainingMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [room?.boardState?.skippedTurnNotice?.timestamp]);
 
   const players = useMemo(() => {
     if (!room?.boardState) return [];
@@ -823,6 +840,11 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const boardState = room.boardState;
   const roomName = room.name || '蜂富人生';
   const currentTurnName = room.members.find(member => member.uid === boardState?.currentTurnUid)?.name || '尚未開始';
+  const skippedTurnNames = visibleSkippedTurnNotice?.playerUids
+    .map(uid => room.members.find(member => member.uid === uid)?.name || '玩家') || [];
+  const nextTurnName = visibleSkippedTurnNotice
+    ? room.members.find(member => member.uid === visibleSkippedTurnNotice.nextTurnUid)?.name || currentTurnName
+    : currentTurnName;
   const currentPlayerState = boardState?.currentEvent?.playerUid
     ? room.playerStates?.[boardState.currentEvent.playerUid] || null
     : null;
@@ -900,6 +922,28 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
       onDoubleClick={handleDoubleClick}
       className="h-screen cursor-grab overflow-auto bg-[radial-gradient(circle_at_top,#f8f1e5_0%,#efe2ce_45%,#e5d2b5_100%)] text-[#4f3c29] active:cursor-grabbing"
     >
+      {visibleSkippedTurnNotice && (
+        <motion.div
+          key={visibleSkippedTurnNotice.timestamp}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="pointer-events-none fixed inset-0 z-[10040] flex items-center justify-center bg-[#4f3c29]/45 backdrop-blur-sm"
+        >
+          <motion.div
+            initial={{ y: 24, scale: 0.92 }}
+            animate={{ y: 0, scale: 1 }}
+            className="min-w-[420px] rounded-[36px] border-2 border-[#f3d7ac] bg-[linear-gradient(180deg,#fff9ef,#f0dfc4)] px-12 py-10 text-center shadow-[0_30px_80px_-28px_rgba(62,43,25,0.9)]"
+          >
+            <div className="text-sm font-black tracking-[0.3em] text-[#a17a4d]">暫停回合</div>
+            <div className="mt-3 text-4xl font-black text-[#5a4028]">{skippedTurnNames.join('、')}</div>
+            <div className="mt-3 text-xl font-bold text-[#8a6744]">本回合暫停，無法行動</div>
+            <div className="mt-6 rounded-full bg-[#e7cfaa]/65 px-5 py-3 text-base font-black text-[#65492f]">
+              接著輪到 {nextTurnName}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
       <div
         onPointerDown={event => event.stopPropagation()}
         onDoubleClick={event => event.stopPropagation()}
@@ -912,7 +956,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         <div className="h-8 w-px bg-[#d9bd98]" />
         <div className="flex flex-col items-center">
           <div className="text-[10px] font-black tracking-[0.2em] text-[#9c7c58]">目前回合</div>
-          <div className="text-lg font-black text-[#4f3c29]">{currentTurnName}</div>
+          <div className="text-lg font-black text-[#4f3c29]">{visibleSkippedTurnNotice ? '暫停回合處理中' : currentTurnName}</div>
         </div>
       </div>
 

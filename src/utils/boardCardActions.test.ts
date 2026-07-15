@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { GameState } from '../types';
-import { getSharedOpportunityKind, isForcedBoardCard, resolveBoardCardAction } from './boardCardActions';
+import { HAPPINESS_CARDS, OPPORTUNITY_CARDS } from '../constants/cards';
+import { FamilyMilestoneJoinPrompt, GameState, SharedCardPrompt } from '../types';
+import { getSharedOpportunityKind, hasIncompleteSharedPrompts, isFamilyMilestoneSourceDismissal, isForcedBoardCard, resolveBoardCardAction, selectActiveSharedCardPrompt, shouldBlockBoardCardDismissal } from './boardCardActions';
 
 const createGameState = (overrides: Partial<GameState> = {}): GameState => ({
   profession: null,
@@ -43,6 +44,100 @@ const createGameState = (overrides: Partial<GameState> = {}): GameState => ({
   },
   completedHappinessEvents: [],
   ...overrides
+});
+
+const createFamilyPrompt = (response: FamilyMilestoneJoinPrompt['responses'][string]): FamilyMilestoneJoinPrompt => ({
+  id: 'family-prompt-1',
+  sourceEventId: 'event-1',
+  sourceCardId: 'H011',
+  sourcePlayerUid: 'source-player',
+  sourcePlayerName: '來源玩家',
+  requiredRoll: 4,
+  targetPlayerUids: ['joining-player'],
+  responses: { 'joining-player': response },
+  createdAt: 1
+});
+
+describe('family milestone shared completion', () => {
+  it('keeps a passed roll incomplete until the player chooses whether to join', () => {
+    const prompt = createFamilyPrompt({
+      playerUid: 'joining-player',
+      playerName: '共享玩家',
+      status: 'passed',
+      actionCompleted: false,
+      roll: 5,
+      respondedAt: 2
+    });
+
+    expect(hasIncompleteSharedPrompts({ familyMilestoneJoinPrompt: prompt, sharedCardPrompt: null })).toBe(true);
+
+    prompt.responses['joining-player'].actionCompleted = true;
+    expect(hasIncompleteSharedPrompts({ familyMilestoneJoinPrompt: prompt, sharedCardPrompt: null })).toBe(false);
+  });
+
+  it('treats failed and declined rolls as completed responses', () => {
+    const failedPrompt = createFamilyPrompt({
+      playerUid: 'joining-player',
+      playerName: '共享玩家',
+      status: 'failed',
+      roll: 2,
+      respondedAt: 2
+    });
+    const declinedPrompt = createFamilyPrompt({
+      playerUid: 'joining-player',
+      playerName: '共享玩家',
+      status: 'declined',
+      respondedAt: 2
+    });
+
+    expect(hasIncompleteSharedPrompts({ familyMilestoneJoinPrompt: failedPrompt, sharedCardPrompt: null })).toBe(false);
+    expect(hasIncompleteSharedPrompts({ familyMilestoneJoinPrompt: declinedPrompt, sharedCardPrompt: null })).toBe(false);
+  });
+
+  it('allows only the source player to dismiss their active family milestone prompt', () => {
+    const prompt = {
+      ...createFamilyPrompt({
+        playerUid: 'joining-player',
+        playerName: '共享玩家',
+        status: 'declined',
+        respondedAt: 2
+      }),
+      sourceCardId: 'H012'
+    };
+    const boardState = { familyMilestoneJoinPrompt: prompt, sharedCardPrompt: null };
+
+    expect(isFamilyMilestoneSourceDismissal(boardState, 'event-1', 'H012', 'source-player')).toBe(true);
+    expect(isFamilyMilestoneSourceDismissal(boardState, 'event-1', 'H012', 'joining-player')).toBe(false);
+  });
+
+  it('lets the source explicitly reject H016 without unlocking normal completion', () => {
+    const prompt = {
+      ...createFamilyPrompt({
+        playerUid: 'joining-player',
+        playerName: '共享玩家',
+        status: 'passed',
+        actionCompleted: false,
+        roll: 5,
+        respondedAt: 2
+      }),
+      sourceCardId: 'H016'
+    };
+    const boardState = { familyMilestoneJoinPrompt: prompt, sharedCardPrompt: null };
+
+    expect(shouldBlockBoardCardDismissal(boardState, 'event-1', 'H016', 'source-player', true)).toBe(false);
+    expect(shouldBlockBoardCardDismissal(boardState, 'event-1', 'H016', 'source-player', false)).toBe(true);
+    expect(shouldBlockBoardCardDismissal(boardState, 'event-1', 'H016', 'joining-player', true)).toBe(true);
+  });
+
+  it('routes every family milestone card through the same shared choice flow', () => {
+    const familyCards = HAPPINESS_CARDS.filter(card => card.category === '家庭重要歷程');
+
+    expect(familyCards).toHaveLength(14);
+    familyCards.forEach(card => {
+      expect(card.otherPlayersCanJoin, card.id).toBe(true);
+      expect(resolveBoardCardAction(card.id, createGameState()).kind, card.id).toBe('choice');
+    });
+  });
 });
 
 describe('resolveBoardCardAction', () => {
@@ -102,6 +197,13 @@ describe('resolveBoardCardAction', () => {
     expect(action.items[0]?.price).toBe(16000000);
   });
 
+  it('C014 has no sale candidates when the player owns no residence', () => {
+    const action = resolveBoardCardAction('C014', createGameState());
+    expect(action.kind).toBe('asset_sale');
+    if (action.kind !== 'asset_sale') return;
+    expect(action.items).toHaveLength(0);
+  });
+
   it('C011 offers an owned single-room apartment at the fixed purchase price', () => {
     const action = resolveBoardCardAction('C011', createGameState({
       assets: [{
@@ -120,6 +222,30 @@ describe('resolveBoardCardAction', () => {
 
   it('C011 is classified as a shared asset-sale event from card data', () => {
     expect(getSharedOpportunityKind('C011')).toBe('asset_sale');
+  });
+
+  it('classifies every purchase card as a shared asset-sale event', () => {
+    const purchaseTypes = new Set([
+      'purchase_1room',
+      'purchase_any_house',
+      'purchase_store',
+      'purchase_startup',
+      'enterprise_acquisition'
+    ]);
+    const purchaseCards = OPPORTUNITY_CARDS.filter(card => purchaseTypes.has(card.type));
+
+    expect(purchaseCards).toHaveLength(26);
+    purchaseCards.forEach(card => {
+      expect(getSharedOpportunityKind(card.id), card.id).toBe('asset_sale');
+      expect(resolveBoardCardAction(card.id, createGameState()).kind, card.id).toBe('asset_sale');
+    });
+  });
+
+  it('uses a new shared prompt instead of a stale local snapshot', () => {
+    const current = { id: 'event_C014_shared' } as SharedCardPrompt;
+    const stale = { id: 'old_shared' } as SharedCardPrompt;
+
+    expect(selectActiveSharedCardPrompt(current, stale)).toBe(current);
   });
 
   it('C034 tolerates legacy enterprise assets without cashflow', () => {
@@ -157,7 +283,12 @@ describe('resolveBoardCardAction', () => {
         isInsured: true
       }]
     }));
-    expect(action.kind).toBe('choice');
+    expect(action.kind).toBe('effect');
+    if (action.kind !== 'effect') return;
+    expect(action.afterApply?.moveToSquare).toEqual(expect.objectContaining({
+      squareType: 'repair',
+      skipTurns: 1,
+    }));
   });
 
   it('C039: legacy aircraft also counts as vehicle ownership', () => {
@@ -174,6 +305,21 @@ describe('resolveBoardCardAction', () => {
     expect(action.kind).toBe('financial');
     if (action.kind !== 'financial') return;
     expect(action.txData.cashChange).toBe(-100000);
+    expect(action.afterApply?.moveToSquare).toEqual(expect.objectContaining({
+      squareType: 'repair',
+      skipTurns: 1,
+    }));
+  });
+
+  it('C035 moves the player to hospital and pauses one turn after payment', () => {
+    const action = resolveBoardCardAction('C035', createGameState());
+
+    expect(action.kind).toBe('financial');
+    if (action.kind !== 'financial') return;
+    expect(action.afterApply?.moveToSquare).toEqual(expect.objectContaining({
+      squareType: 'hospital',
+      skipTurns: 1,
+    }));
   });
 
   it('C048 keeps shared expense effect for all players', () => {
@@ -229,6 +375,26 @@ describe('resolveBoardCardAction', () => {
       amount: 500,
       isIncrease: false
     });
+  });
+
+  it('H026 without children only offers close', () => {
+    const action = resolveBoardCardAction('H026', createGameState({ children: 0 }));
+    expect(action.kind).toBe('choice');
+    if (action.kind !== 'choice') return;
+    expect(action.options).toHaveLength(1);
+    expect(action.options[0]).toMatchObject({
+      id: 'dismiss',
+      label: '關閉',
+      action: { kind: 'dismiss' }
+    });
+  });
+
+  it('H026 with a child keeps the accept flow', () => {
+    const action = resolveBoardCardAction('H026', createGameState({ children: 1 }));
+    expect(action.kind).toBe('choice');
+    if (action.kind !== 'choice') return;
+    expect(action.options.map(option => option.id)).toEqual(['accept', 'reject']);
+    expect(action.options[0]?.action.kind).toBe('financial');
   });
 
   it('N055 creates investment input flow', () => {

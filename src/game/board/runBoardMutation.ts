@@ -14,6 +14,8 @@ const setNestedValue = (target: Record<string, any>, path: string[], value: unkn
 const getBoardCommandType = (commandId: string): string => commandId.split(':')[0] || 'unknown';
 
 export interface BoardRoomSnapshot {
+  status?: 'waiting' | 'playing' | 'finished';
+  isTimerPaused?: boolean;
   sessionId?: string;
   isBoardGame?: boolean;
   boardState?: BoardState | null;

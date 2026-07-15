@@ -8,8 +8,8 @@ export const calculateFinancialSummary = (gameState: GameState): FinancialSummar
     const income = gameState.income || {};
     const expenses = gameState.expenses || {};
 
-    // 1. 理財收入 (完全根據當前持有的資產動態計算)
-    const passiveIncome = assets.reduce((sum, a) => {
+    // 1. 理財收入（資產收益 + 執行師手動調整）
+    const passiveIncome = (Number(income.investment) || 0) + assets.reduce((sum, a) => {
         let incomeVal = Number(a.cashflow) || 0;
         // 投資不動產的能力加成
         if (a.type === '不動產' && !a.isSelfUse && (gameState.abilities?.realEstateAbilityCount || 0) > 0) {
@@ -21,7 +21,7 @@ export const calculateFinancialSummary = (gameState: GameState): FinancialSummar
     // 2. 額外動態收入 (從 income 物件中抓取，但排除掉可能重複計算的部分)
     const dynamicIncome = Object.entries(income).reduce((sum, [key, v]) => {
         // 排除 salary 和 已經在 passiveIncome 算過的項目（標籤含 "收益", "租金" 等）
-        if (key === 'salary') return sum;
+        if (key === 'salary' || key === 'investment') return sum;
         return sum + (Number(v) || 0);
     }, 0);
 

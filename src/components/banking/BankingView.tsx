@@ -161,41 +161,41 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
   const disableConfirm = amount <= 0 || (actionType === 'repay' && (!selectedRepayTarget || amount > maxRepay));
 
   return (
-    <div className="space-y-6 text-white max-w-2xl mx-auto">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-slate-800/40 border border-slate-700/80 rounded-3xl p-5 shadow-inner flex flex-col justify-between">
-          <div className="flex items-center gap-2 text-slate-400 mb-2">
+    <div className="mx-auto max-w-2xl space-y-3 text-white sm:space-y-6">
+      <div className="grid grid-cols-2 gap-2 sm:gap-4">
+        <div className="flex flex-col justify-between rounded-2xl border border-slate-700/80 bg-slate-800/40 p-3 shadow-inner sm:rounded-3xl sm:p-5">
+          <div className="mb-1 flex items-center gap-1.5 text-slate-400 sm:mb-2 sm:gap-2">
             <Wallet size={16} />
-            <span className="text-[13px] font-black tracking-widest">目前現金</span>
+            <span className="text-[11px] font-black tracking-wide sm:text-[13px] sm:tracking-widest">目前現金</span>
           </div>
-          <div className="text-2xl font-black text-emerald-400">${cash.toLocaleString()}</div>
+          <div className="truncate text-lg font-black text-emerald-400 sm:text-2xl">${cash.toLocaleString()}</div>
         </div>
-        <div className="bg-slate-800/40 border border-slate-700/80 rounded-3xl p-5 shadow-inner flex flex-col justify-between">
-          <div className="flex items-center gap-2 text-slate-400 mb-2">
+        <div className="flex flex-col justify-between rounded-2xl border border-slate-700/80 bg-slate-800/40 p-3 shadow-inner sm:rounded-3xl sm:p-5">
+          <div className="mb-1 flex items-center gap-1.5 text-slate-400 sm:mb-2 sm:gap-2">
             <Landmark size={16} />
-            <span className="text-[13px] font-black tracking-widest">目前貸款總額</span>
+            <span className="text-[11px] font-black tracking-wide sm:text-[13px] sm:tracking-widest">目前貸款總額</span>
           </div>
-          <div className="text-2xl font-black text-rose-400">${totalDebt.toLocaleString()}</div>
+          <div className="truncate text-lg font-black text-rose-400 sm:text-2xl">${totalDebt.toLocaleString()}</div>
         </div>
       </div>
 
-      <div className="bg-slate-800/60 border border-slate-700 rounded-3xl p-5 sm:p-6 shadow-xl">
-        <div className="flex bg-slate-900/80 p-1.5 rounded-2xl mb-8 border border-slate-800">
+      <div className="rounded-2xl border border-slate-700 bg-slate-800/60 p-3 shadow-xl sm:rounded-3xl sm:p-6">
+        <div className="mb-4 flex rounded-xl border border-slate-800 bg-slate-900/80 p-1 sm:mb-8 sm:rounded-2xl sm:p-1.5">
           <button
             onClick={() => { setActionType('borrow'); setAmount(100000); }}
-            className={`flex-1 py-3 rounded-xl font-black tracking-widest text-[14px] transition-all ${actionType === 'borrow' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+            className={`flex-1 rounded-lg py-2.5 text-xs font-black tracking-wide transition-all sm:rounded-xl sm:py-3 sm:text-[14px] sm:tracking-widest ${actionType === 'borrow' ? 'bg-indigo-600/20 text-indigo-400 shadow-inner border border-indigo-500/30' : 'text-slate-400 hover:text-slate-200'}`}
           >
             申請信貸
           </button>
           <button
             onClick={() => { setActionType('repay'); setAmount(Math.min(100000, Math.min(cash, selectedRepayTarget?.totalOwed || 0))); }}
-            className={`flex-1 py-3 rounded-xl font-black tracking-widest text-[14px] transition-all ${actionType === 'repay' ? 'bg-emerald-600/20 text-emerald-400 shadow-inner border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'}`}
+            className={`flex-1 rounded-lg py-2.5 text-xs font-black tracking-wide transition-all sm:rounded-xl sm:py-3 sm:text-[14px] sm:tracking-widest ${actionType === 'repay' ? 'bg-emerald-600/20 text-emerald-400 shadow-inner border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'}`}
           >
             償還各類貸款
           </button>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-6">
           {actionType === 'repay' && (
               <div className="space-y-3">
                 <div className="text-sm font-bold text-slate-400">選擇要償還的貸款</div>
@@ -211,7 +211,7 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
                           setSelectedRepayTargetId(target.id);
                           setAmount(Math.min(100000, Math.min(cash, target.totalOwed)));
                         }}
-                        className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${
+                        className={`w-full rounded-xl border px-3 py-2.5 text-left transition-all sm:rounded-2xl sm:px-4 sm:py-4 ${
                           selectedRepayTargetId === target.id
                             ? 'border-emerald-500/60 bg-emerald-500/10'
                             : 'border-slate-700 bg-slate-900/40 hover:border-slate-600'
@@ -223,7 +223,7 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
                             <div className="mt-1 text-xs font-bold text-slate-400">{target.type === '飛行器貸款' ? '汽車貸款' : target.type}</div>
                           </div>
                           <div className="text-right">
-                            <div className="text-lg font-black text-rose-400">${target.totalOwed.toLocaleString()}</div>
+                          <div className="text-base font-black text-rose-400 sm:text-lg">${target.totalOwed.toLocaleString()}</div>
                             <div className="text-xs font-medium text-slate-500">月利息 ${target.monthlyPayment.toLocaleString()}</div>
                           </div>
                         </div>
@@ -251,24 +251,24 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={() => setAmount(Math.max(0, amount - 10000))}
-              className="w-14 h-14 rounded-2xl bg-slate-700 text-slate-300 font-black text-2xl flex items-center justify-center hover:bg-slate-600"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-700 text-xl font-black text-slate-300 hover:bg-slate-600 sm:h-14 sm:w-14 sm:rounded-2xl sm:text-2xl"
             >-</button>
             <input
               type="number"
               value={amount || ''}
               onChange={(e) => setAmount(Math.max(0, parseInt(e.target.value) || 0))}
-              className="flex-1 h-14 bg-slate-900 border border-slate-700 rounded-2xl text-center text-3xl font-black tracking-wider text-white"
+              className="h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-900 text-center text-xl font-black tracking-wide text-white sm:h-14 sm:rounded-2xl sm:text-3xl sm:tracking-wider"
             />
             <button
               onClick={() => setAmount(actionType === 'repay' ? Math.min(maxRepay, amount + 10000) : amount + 10000)}
-              className="w-14 h-14 rounded-2xl bg-slate-700 text-slate-300 font-black text-2xl flex items-center justify-center hover:bg-slate-600"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-700 text-xl font-black text-slate-300 hover:bg-slate-600 sm:h-14 sm:w-14 sm:rounded-2xl sm:text-2xl"
             >+</button>
           </div>
 
-          <div className="bg-slate-900/50 rounded-2xl p-4 border border-slate-800">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 sm:rounded-2xl sm:p-4">
             {actionType === 'borrow' ? (
               <div className="flex items-center justify-between">
                 <span className="text-sm font-bold text-slate-400">每月新增利息負擔 (10%)</span>
@@ -287,7 +287,7 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
           <button
             onClick={handleTransact}
             disabled={disableConfirm}
-            className={`w-full py-4 rounded-2xl font-black tracking-widest text-[16px] transition-all flex items-center justify-center gap-2 ${
+            className={`flex min-h-11 w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-black tracking-wide transition-all sm:rounded-2xl sm:py-4 sm:text-[16px] sm:tracking-widest ${
               disableConfirm
                 ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                 : actionType === 'borrow'

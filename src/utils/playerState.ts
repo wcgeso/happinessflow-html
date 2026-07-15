@@ -14,5 +14,10 @@ export const toPublicPlayerState = (uid: string, state: GameState): PublicPlayer
   currentRankTitle: state.currentRankTitle
 }) as PublicPlayerState;
 
+export const hasPublicPlayerStateChanged = (
+  previous: PublicPlayerState | undefined,
+  next: PublicPlayerState
+) => JSON.stringify(previous) !== JSON.stringify(next);
+
 export const toPublicPlayerStates = (states: Record<string, GameState>) =>
   Object.fromEntries(Object.entries(states).map(([uid, state]) => [uid, toPublicPlayerState(uid, state)]));

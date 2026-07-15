@@ -22,6 +22,7 @@ interface FinancialStatementProps {
   isMasked?: boolean;
   disabled?: boolean;
   showDashboard?: boolean;
+  navPosition?: 'fixed' | 'inline';
 }
 
 const formatMoney = (amount: number, isMasked?: boolean) => {
@@ -91,6 +92,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   isMasked = false,
   disabled = false,
   showDashboard = true,
+  navPosition = 'fixed',
 }) => {
   const [view, setView] = useState<'financial' | 'cashflow' | 'history'>('financial');
   const [isIncomeOpen, setIsIncomeOpen] = useState(defaultShowDetails);
@@ -163,9 +165,10 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   const aircraftInsCost = aircraftInsuranceCount * 2000;
 
   const netAssets = summary.totalAssets - summary.totalLiabilities;
+  const isInlineNav = navPosition === 'inline';
 
   return (
-    <div className={cn("space-y-4 no-scrollbar", !hideNav && "pb-[100px]")}>
+    <div className={cn("space-y-4 no-scrollbar", !hideNav && !isInlineNav && "pb-[100px]")}>
       {!hideNav && (
         <div className="space-y-4">
           {/* Asset Dashboard (Stats Bar) */}
@@ -241,6 +244,45 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
           )}
       </div>
     )}
+
+      {!hideNav && (
+        <div className={cn(
+          "pointer-events-none flex justify-center",
+          isInlineNav
+            ? "relative z-[60] w-full"
+            : "fixed bottom-[calc(120px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-[60] px-4 sm:bottom-[calc(175px+env(safe-area-inset-bottom,0px))]"
+        )}>
+          <div className="relative flex items-center rounded-full border border-slate-700/60 bg-slate-900/80 p-1.5 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] backdrop-blur-xl pointer-events-auto">
+            {[
+              { id: 'financial', label: '報表' },
+              { id: 'cashflow', label: '金流' },
+              { id: 'history', label: '紀錄' }
+            ].map((v) => {
+              const isActive = view === v.id;
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => setView(v.id as any)}
+                  className={cn(
+                    "relative rounded-full px-7 py-3 text-sm font-black tracking-widest transition-colors z-10 touch-manipulation sm:px-8 sm:py-3.5",
+                    isActive ? "text-white" : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="pill-active-bg"
+                      className="absolute inset-0 rounded-full bg-emerald-600 shadow-[0_0_15px_rgba(5,150,105,0.6)] -z-10"
+                      initial={false}
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-20 pointer-events-none">{v.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {view === 'financial' && (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -321,6 +363,9 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                         />
                         <div className="pt-2 border-t border-slate-800/50 space-y-2">
                           <div className="text-xs text-slate-400 leading-tight break-all whitespace-nowrap text-left">理財收入</div>
+                          {(Number(gameState.income?.investment) || 0) > 0 && (
+                            <TAccountSubItem label="執行師調整" value={Number(gameState.income?.investment) || 0} isMasked={isMasked} />
+                          )}
                           {cds.length > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-orange-300 flex justify-between items-center">
@@ -630,40 +675,6 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
         />
       )}
 
-      {/* 底部 Tab 切換 (藥丸式懸浮切換器) */}
-      {!hideNav && (
-        <div className="fixed bottom-[calc(120px+env(safe-area-inset-bottom,0px))] sm:bottom-[calc(175px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-[60] px-4 pointer-events-none flex justify-center">
-          <div className="relative flex items-center bg-slate-900/80 backdrop-blur-xl p-1.5 rounded-full border border-slate-700/60 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5)] pointer-events-auto">
-            {[
-              { id: 'financial', label: '報表' },
-              { id: 'cashflow', label: '金流' },
-              { id: 'history', label: '紀錄' }
-            ].map((v) => {
-              const isActive = view === v.id;
-              return (
-                <button
-                  key={v.id}
-                  onClick={() => setView(v.id as any)}
-                  className={cn(
-                    "relative px-7 py-3 sm:px-8 sm:py-3.5 rounded-full text-sm font-black tracking-widest transition-colors z-10 touch-manipulation",
-                    isActive ? "text-white" : "text-slate-400 hover:text-slate-200"
-                  )}
-                >
-                  {isActive && (
-                    <motion.div
-                      layoutId="pill-active-bg"
-                      className="absolute inset-0 bg-emerald-600 rounded-full shadow-[0_0_15px_rgba(5,150,105,0.6)] -z-10"
-                      initial={false}
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  <span className="relative z-20 pointer-events-none">{v.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

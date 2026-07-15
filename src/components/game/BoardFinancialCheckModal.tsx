@@ -274,21 +274,21 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
 
   return (
     <div className="fixed inset-0 z-[10020] bg-black/92 text-white animate-in fade-in duration-200">
-      <div className="flex h-full items-center justify-center px-4 py-6 pt-[calc(env(safe-area-inset-top)+12px)] pb-[calc(env(safe-area-inset-bottom)+12px)]">
-        <div className="flex h-full max-h-[920px] w-full max-w-[870px] flex-col overflow-hidden rounded-[30px] border border-[#4c5a73] bg-[#171f33] shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
-          <div className="shrink-0 border-b border-[#3b4760] bg-[#283247] px-6 py-5">
+      <div className="h-full">
+        <div className="flex h-full w-full flex-col overflow-hidden bg-[#171f33]">
+          <div className="shrink-0 border-b border-[#3b4760] bg-[#283247] px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-5 sm:pb-4">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-yellow-400/50 bg-[#202a3d] text-yellow-400">
-                  <HelpCircle size={24} />
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-yellow-400/50 bg-[#202a3d] text-yellow-400 sm:h-10 sm:w-10">
+                  <HelpCircle size={20} />
                 </div>
-                <h3 className="text-[clamp(1.8rem,2.5vw,2.4rem)] font-black tracking-tight text-white">
+                <h3 className="text-xl font-black tracking-tight text-white sm:text-2xl">
                   財務檢核
                 </h3>
               </div>
               <button
                 onClick={onClose}
-                className="text-[clamp(1.25rem,1.9vw,1.8rem)] font-black text-slate-400 transition-colors hover:text-white"
+                className="min-h-10 px-1 text-base font-black text-slate-400 transition-colors hover:text-white sm:text-lg"
                 title="取消"
               >
                 取消
@@ -296,11 +296,11 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-6 no-scrollbar">
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 no-scrollbar sm:px-5 sm:py-4">
           {!isApplied ? (
-            <div className="animate-in fade-in duration-300">
-              <div className="mb-5 rounded-[22px] border border-[#243665] bg-[#1d2740] px-6 py-5 text-center">
-                <div className="text-[clamp(1.1rem,1.6vw,1.6rem)] font-black tracking-tight text-[#93a4c7]">
+            <div className="flex min-h-full flex-col animate-in fade-in duration-300">
+              <div className="mb-2 rounded-2xl border border-[#243665] bg-[#1d2740] px-3 py-2.5 text-center sm:mb-3 sm:py-3">
+                <div className="text-sm font-black tracking-tight text-[#93a4c7] sm:text-base">
                   請問此筆交易如何影響財務報表？
                 </div>
               </div>
@@ -354,23 +354,23 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
           )}
           </div>
 
-          <div className="shrink-0 border-t border-[#313d57] bg-[#171f33] px-6 py-5">
+          <div className="shrink-0 border-t border-[#313d57] bg-[#171f33] px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] sm:px-5 sm:pt-4">
           {!isApplied ? (
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={onClose} className="flex-1 rounded-[18px] bg-[#44526b] py-4 text-lg font-black text-white hover:bg-[#50607c]" disabled={isApplying}>
+            <div className="flex gap-2.5">
+              <Button variant="secondary" onClick={onClose} className="min-h-11 flex-1 rounded-xl bg-[#44526b] py-2.5 text-sm font-black text-white hover:bg-[#50607c] sm:text-base" disabled={isApplying}>
                 上一步
               </Button>
               <Button
                 onClick={handleVerify}
                 disabled={isApplying}
-                className="flex-[1.4] rounded-[18px] bg-[#21c488] py-4 text-lg font-black text-white hover:bg-[#29d394] disabled:opacity-60"
+                className="min-h-11 flex-[1.4] rounded-xl bg-[#21c488] py-2.5 text-sm font-black text-white hover:bg-[#29d394] disabled:opacity-60 sm:text-base"
               >
                 {isApplying ? '處理中...' : '確認檢核答案'}
               </Button>
             </div>
           ) : (
             <div className="flex">
-              <Button onClick={onClose} className="w-full rounded-[18px] bg-[#21c488] py-4 text-lg font-black text-white hover:bg-[#29d394]">
+              <Button onClick={onClose} className="min-h-11 w-full rounded-xl bg-[#21c488] py-2.5 text-base font-black text-white hover:bg-[#29d394]">
                 返回遊戲
               </Button>
             </div>

@@ -18,7 +18,7 @@ import { useRoom } from './RoomContext';
 import { GameState, GameRecord, FinancialSummary, SharedExpenseEffect } from '../types';
 import { calculateFinancialSummary, calculateScoreResult } from '../utils/gameUtils';
 import { cleanObject, safeAsync } from '../utils/utils';
-import { toPublicPlayerState } from '../utils/playerState';
+import { hasPublicPlayerStateChanged, toPublicPlayerState } from '../utils/playerState';
 import { globalGameCoreEngine, CommandGateway, LegacyGameAdapter } from '../game';
 
 interface GameContextValue {
@@ -155,6 +155,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const roomHasPlayerState = user?.uid
         ? !!room?.playerStates?.[user.uid]
         : false;
+    const roomPlayerState = user?.uid ? room?.playerStates?.[user.uid] : undefined;
 
     // 自動同步到房間文件 (供執行師監控)
     useEffect(() => {
@@ -196,9 +197,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 });
                 const batch = writeBatch(db);
                 batch.set(playerRef, cleanedState, { merge: true });
-                batch.update(roomRef, {
-                    [`publicPlayerStates.${user.uid}`]: toPublicPlayerState(user.uid, cleanedState as GameState)
-                });
+                const nextPublicState = toPublicPlayerState(user.uid, cleanedState as GameState);
+                if (hasPublicPlayerStateChanged(room?.publicPlayerStates?.[user.uid], nextPublicState)) {
+                    batch.update(roomRef, {
+                        [`publicPlayerStates.${user.uid}`]: nextPublicState
+                    });
+                }
                 await batch.commit();
             } catch (err: any) {
                 console.error('[GameContext] 同步玩家狀態失敗:', err);
@@ -212,6 +216,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         return () => clearTimeout(timeoutId);
     }, [gameState, room?.id, room?.hostId, room?.startedAt, roomMedicalInsuranceCount, roomPlayerIsSetup, roomHasPlayerState, user?.uid, user?.role]);
+
+    // 房間私有狀態是多人遊戲中的權威來源。執行師調整玩家現金等操作會先
+    // 寫入 rooms/{roomId}/players/{uid}，玩家端收到 RoomContext 快照後必須
+    // 更新本地 gameState，否則下一次自動同步會把舊資料寫回去。
+    useEffect(() => {
+        if (!room?.id || !user?.uid || user.uid === room.hostId || !roomPlayerState) return;
+
+        setGameState(prev => {
+            const synchronizedState = {
+                ...prev,
+                ...roomPlayerState,
+                assets: Array.isArray(roomPlayerState.assets) ? roomPlayerState.assets : (prev.assets || []),
+                liabilities: Array.isArray(roomPlayerState.liabilities) ? roomPlayerState.liabilities : (prev.liabilities || []),
+                history: Array.isArray(roomPlayerState.history) ? roomPlayerState.history : (prev.history || []),
+                happiness: Array.isArray(roomPlayerState.happiness) ? roomPlayerState.happiness : (prev.happiness || [])
+            };
+
+            return JSON.stringify(prev) === JSON.stringify(synchronizedState)
+                ? prev
+                : synchronizedState;
+        });
+    }, [room?.id, room?.hostId, roomPlayerState, user?.uid]);
 
     const hideAlert = useCallback(() => {
         if (alertTimeoutRef.current) {
@@ -519,43 +545,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     }, []);
 
-    // 監聽來自執行師的行情更新
+    // 房間主 listener 已經帶回行情更新，避免玩家端再開第二條同房間 listener。
     useEffect(() => {
-        // 只要不是房主（執行師本人），不論角色身份，都應該接收行情更新
-        if (!room?.id || user?.uid === room.hostId || !gameState.isSetup) return;
+        const marketUpdate = room?.marketUpdates;
+        if (!room?.id || user?.uid === room.hostId || !gameState.isSetup || !marketUpdate) return;
+        if (marketUpdate.timestamp <= (gameState.lastMarketUpdateTimestamp || 0)) return;
 
-        const roomRef = doc(db, 'rooms', room.id);
-        const unsubscribe = onSnapshot(roomRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.data();
-                if (data.marketUpdates && data.marketUpdates.timestamp > (gameState.lastMarketUpdateTimestamp || 0)) {
-                    const { updates, code, isBubble } = data.marketUpdates;
+        const { updates, code, isBubble } = marketUpdate;
+        if (isBubble) {
+            bubbleBurst(code);
+            updateMarketPrices(updates, code);
+            showAlert(`💥 股市泡沫破裂！代碼：${code}\n所有股票數量已減半。`, 'error', true);
+        } else {
+            updateMarketPrices(updates, code);
+            showAlert(`📈 股市行情已更新！代碼：${code}\n請檢查股市面板查看最新價格。`, 'success', true);
+        }
 
-                    if (isBubble) {
-                        // 泡沫破裂除了持股減半，泡沫卡本身通常也帶有崩跌後的新股價，
-                        // 之前只呼叫 bubbleBurst() 沒有連帶套用 updates，導致崩跌後
-                        // 的新股價從未真正寫進本地 gameState（詳見稽核報告 C3）。
-                        bubbleBurst(code);
-                        updateMarketPrices(updates, code);
-                        showAlert(`💥 股市泡沫破裂！代碼：${code}\n所有股票數量已減半。`, 'error', true);
-                    } else {
-                        updateMarketPrices(updates, code);
-                        showAlert(`📈 股市行情已更新！代碼：${code}\n請檢查股市面板查看最新價格。`, 'success', true);
-                    }
-
-                    // 記錄已處理的更新時間戳，避免重複處理
-                    setGameState(prev => ({
-                        ...prev,
-                        lastMarketUpdateTimestamp: data.marketUpdates.timestamp
-                    }));
-                }
-            }
-        }, (err) => {
-            console.error("[GameContext] 監聽房間行情失敗:", err);
-        });
-
-        return () => unsubscribe();
-    }, [room?.id, user?.uid, room?.hostId, gameState.isSetup, gameState.lastMarketUpdateTimestamp, bubbleBurst, updateMarketPrices]);
+        setGameState(prev => ({
+            ...prev,
+            lastMarketUpdateTimestamp: marketUpdate.timestamp
+        }));
+    }, [room?.id, room?.hostId, room?.marketUpdates, user?.uid, gameState.isSetup, gameState.lastMarketUpdateTimestamp, bubbleBurst, updateMarketPrices, showAlert]);
 
     // 監聽共享棋盤支出效果（例如新聞卡「全體支出調整」）回灌到本地 gameState。
     // 事件本身只放在公開棋盤狀態，財務數字仍由每位玩家自己的私有文件保存。

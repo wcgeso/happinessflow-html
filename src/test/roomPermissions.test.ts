@@ -147,6 +147,35 @@ rulesDescribe('Firestore room P0 permissions', () => {
     expect((await getDoc(doc(coachDb, 'rooms/room-p0'))).data()?.publicPlayerStates?.player?.isSetup).toBe(true);
   });
 
+  it('allows a legacy room without public player states to publish player setup', async () => {
+    await assertSucceeds(setDoc(roomRef('coach'), room()));
+    await assertSucceeds(updateDoc(roomRef('coach'), {
+      status: 'playing',
+      members: [{ uid: 'coach', name: 'Coach', role: 'coach' }, { uid: 'player', name: 'Player', role: 'player' }],
+      memberUids: ['coach', 'player'],
+      publicPlayerStates: deleteField()
+    }));
+
+    const playerDb = testEnv.authenticatedContext('player').firestore();
+    const batch = writeBatch(playerDb);
+    batch.set(doc(playerDb, 'rooms/room-p0/players/player'), {
+      playerName: 'Player',
+      isSetup: true,
+      selectionStep: 'completed'
+    }, { merge: true });
+    batch.update(doc(playerDb, 'rooms/room-p0'), {
+      'publicPlayerStates.player': {
+        uid: 'player',
+        playerName: 'Player',
+        isSetup: true,
+        selectionStep: 'completed',
+        happinessTotal: 0
+      }
+    });
+
+    await assertSucceeds(batch.commit());
+  });
+
   it('requires revision and command ledger for board writes', async () => {
     await assertSucceeds(setDoc(roomRef('coach'), room()));
     await assertSucceeds(updateDoc(roomRef('coach'), {
@@ -257,6 +286,48 @@ rulesDescribe('Firestore room P0 permissions', () => {
         updatedAt: 3
       }
     }));
+  });
+
+  it('allows the source player to finish their own family milestone event', async () => {
+    await assertSucceeds(setDoc(roomRef('coach'), room()));
+    const familyBoard = {
+      ...boardState('player'),
+      currentCard: { cardId: 'H016', deck: 'happiness' },
+      currentEvent: { id: 'event-1', playerUid: 'player' },
+      familyMilestoneJoinPrompt: {
+        id: 'family-1',
+        sourceEventId: 'event-1',
+        sourceCardId: 'H016',
+        sourcePlayerUid: 'player',
+        targetPlayerUids: ['other'],
+        responses: { other: { status: 'declined' } }
+      }
+    };
+    await assertSucceeds(updateDoc(roomRef('coach'), {
+      status: 'playing',
+      boardState: familyBoard,
+      memberUids: ['coach', 'player', 'other'],
+      members: [
+        { uid: 'coach', name: 'Coach', role: 'coach' },
+        { uid: 'player', name: 'Player', role: 'player' },
+        { uid: 'other', name: 'Other', role: 'player' }
+      ]
+    }));
+
+    const completedBoard = {
+      ...familyBoard,
+      currentCard: null,
+      currentEvent: null,
+      familyMilestoneJoinPrompt: null,
+      revision: 1,
+      processedCommandIds: ['dismiss:event-1:H016'],
+      updatedAt: 2
+    };
+    const otherDb = testEnv.authenticatedContext('other').firestore();
+    await assertFails(updateDoc(doc(otherDb, 'rooms/room-p0'), { boardState: completedBoard }));
+
+    const playerDb = testEnv.authenticatedContext('player').firestore();
+    await assertSucceeds(updateDoc(doc(playerDb, 'rooms/room-p0'), { boardState: completedBoard }));
   });
 
   it('allows the final shared-card response to remove the completed prompt', async () => {

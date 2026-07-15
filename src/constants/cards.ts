@@ -25,6 +25,7 @@ export interface HappinessCard {
   cashCost?: number;
   monthlyExpenseIncrease?: number;
   childrenIncrease?: number;
+  requiresChildCount?: number;
   requiresStorySharing?: boolean;
   otherPlayersCanJoin?: boolean;
   joinDiceMin?: number;
@@ -241,6 +242,7 @@ export const HAPPINESS_CARDS: HappinessCard[] = happinessRawCards.map(card => ({
   cashCost: asNullableNumber(card.amount?.cashCost ?? card.effects?.cashCost),
   monthlyExpenseIncrease: asNullableNumber(card.amount?.monthlyExpenseIncrease ?? card.effects?.monthlyExpenseIncrease),
   childrenIncrease: asNullableNumber(card.effects?.childrenIncrease),
+  requiresChildCount: hasRequirement(card, 'requires_child_count_1') ? 1 : undefined,
   requiresStorySharing: hasRequirement(card, 'requires_story_sharing'),
   otherPlayersCanJoin: !!(card.multiplayer?.otherPlayersCanJoin || card.effects?.otherPlayersCanJoin),
   joinDiceMin: asNullableNumber(card.multiplier?.joinDiceMin),
@@ -416,7 +418,7 @@ export const buildHappinessCardMetaFromSchema = (cardId: string, playerState?: G
 
   return {
     deck: 'happiness' as const,
-    title: isFamilyMilestone && stage ? stage.label.replace(/^\d+\.\s*/, '') : card.title,
+    title: card.title,
     subtitle: card.category,
     description: normalizeCardCopy(rawCard.description) || `${card.category}事件`,
     familyMilestoneStatus,

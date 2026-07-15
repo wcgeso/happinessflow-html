@@ -2,7 +2,7 @@
 
 ## Current branch
 
-- Branch: `修復環境260713`
+- Branch: `本地開發環境260714`
 - Worktree: `.claude/worktrees/260712`
 - Original worktrees were left untouched.
 
@@ -153,3 +153,191 @@
 - Added a regression test for the public projection shape.
 - Validation: focused board/state tests 9 passed, Firestore rules tests 12 passed, typecheck passed, and production build passed.
 - If Firebase still returns a literal `Quota exceeded` after a fresh reload, the project service quota must reset or be increased; the client cannot bypass that server-side limit.
+
+## H013 family milestone card and player card drawer
+
+- H013 player metadata now keeps the base title `幸福家庭的重要歷程`; the current family stage remains a separate player-facing field.
+- Projection family-milestone content now scrolls inside the card so the introduction, stage costs, and status label are not clipped by the fixed card height.
+- Player card drawers now support `收起卡片` / `展開卡片`. Collapsing only hides the card UI and keeps the card event pending, allowing the player to open credit or sell assets from the game action dock before returning to the card.
+- Validation: `npm run typecheck`, 31 focused Vitest tests, `npm run build`, and `git diff --check` passed.
+
+## Financial navigation placement
+
+- The player game page now renders the `報表／金流／紀錄` switcher inline between the current-turn header and the income statement. Other financial-report views keep the original floating placement.
+- Validation: `npm run typecheck`, 6 focused Vitest tests, `npm run build`, and `git diff --check` passed.
+
+## Promotion dice polish
+
+- Promotion and lifelong-learning dice now use explicit pip coordinates, one shared random-value source, and a restrained bounce animation instead of stacked spin, float, shimmer, and modal pulse effects.
+- The roll surface is now an accessible button with Chinese status copy and a clear `點擊骰子開始` prompt.
+- Validation: `npm run typecheck`, focused DiceFace and GameView tests, `npm run build`, and `git diff --check` passed. Browser-driven visual inspection was unavailable because the local browser-control runtime could not initialize; live exam replay remains the final visual check.
+
+## Promotion result modal fit
+
+- The promotion result modal now has a viewport-relative maximum height and internal scrolling, with smaller mobile padding and result-card spacing so the success details and close button stay reachable on short screens.
+- Validation: `npm run typecheck`, 3 focused tests, `npm run build`, and `git diff --check` passed.
+
+## H026 child eligibility
+
+- H026's `requires_child_count_1` condition is now mapped into the happiness card model and enforced by the board-card action resolver.
+- Players with no children now receive only a `關閉` action because the card has no effect; players with at least one child retain the existing `接受` / `不接受` flow and financial check.
+- Validation: `npm run typecheck`, 30 focused tests, and `npm run build` passed.
+
+## Player and projection sync latency
+
+- Player private-state sync still writes the full private player document, but only updates `publicPlayerStates` when a public projection field actually changes. Financial-only changes no longer wake the projection screen or cause it to rerender from an unnecessary room-document update.
+- Removed the player's duplicate room listener for market updates. Market changes now use the room snapshot already maintained by `RoomContext`, avoiding a second listener and repeated listener rebinding after each market timestamp update.
+- Validation: `npm run typecheck`, 31 focused tests, `npm run build`, and `git diff --check` passed.
+- Remaining check: replay one player plus projection window and confirm dice, movement, card reveal, and market update latency under the current emulator/network setup.
+
+## Room creation stuck on loading
+
+- Room-code lookup and room creation now have a 10-second timeout. A failed or unreachable Firestore connection no longer leaves the create modal stuck on `建立中...`; the existing error handler shows a usable connection error and resets the button.
+- Normal room creation behavior is unchanged. Local Playwright replay with the seeded coach account successfully created a waiting room.
+
+## Login and room creation spinner recovery
+
+- The shared root cause was a hung orphaned Firestore Emulator process: port `8080` remained open, but document requests produced no response for more than 3 seconds. Vite and Auth Emulator were healthy.
+- Preserved the local Auth accounts, stopped the stale emulator processes, and restarted Auth plus Firestore together. Re-seeded the four fixed local test users so the coach role document was restored.
+- Post-restart health check: Vite and Auth responded in about 0.002 seconds; Firestore responded in about 0.09 seconds instead of timing out.
+- Browser verification passed: the seeded coach logged in without console errors and created board-game room `104398`, reaching the waiting-room screen.
+
+## Coach-controlled board start gate
+
+- `room.status === 'playing'` only means players may enter setup; it does not prove the coach has pressed the monitor's central start button.
+- Board action availability and the authoritative dice mutation now also reject rolls while `room.isTimerPaused === true`. The player sees `請等待執行師開始或繼續遊戲` until the coach starts the timer.
+- No new start flag was added; the existing room timer state remains the source of truth.
+- Validation: focused experience-state tests passed 4/4, `npm run typecheck` passed, `npm run build` passed, and scoped `git diff --check` passed.
+
+## Pause-turn execution and projection notice
+
+- Fixed the shared turn scanner: it no longer changes both the base index and offset after encountering a paused player. Two-player and three-player rooms now skip the correct player and decrement the counter exactly once.
+- Turn changes now store a short `skippedTurnNotice` with the skipped player UIDs and next player. The projection shows a 2.6-second pause-turn message before revealing the next current-turn name.
+- Completed the card write paths for every card with `missRounds`: C001-C008 move to school, C035-C037 move to hospital, and C039 moves to the repair shop; all write the pause count through `moveCurrentPlayerToSquare`.
+- Hospital and repair board-square events continue to commit their pause count when the event is completed. `boardState.skipTurns` remains the single authoritative counter.
+- Validation: focused turn/card tests passed 30/30, `npm run typecheck` passed, `npm run build` passed, and `git diff --check` passed.
+
+## Purchase card without a saleable asset
+
+- Shared purchase-card prompts now disable `進入出售` when the player has no matching sale candidates; `放棄` remains available to complete the prompt.
+- The existing handler-side empty-list guard remains as a second safety net.
+- Validation: focused board-card tests, typecheck, build, and diff check passed.
+
+## C045 source player shared prompt
+
+- Shared-card target construction now explicitly includes the card-drawing player, even if that player's member record is temporarily missing from the local member snapshot.
+- The player view also accepts the prompt by `sourcePlayerUid`, so the source player receives the same C045 expense-adjustment window as other players.
+- Validation: focused board-card and room-context tests, typecheck, build, and diff check passed.
+
+## N027 no-stock player shared prompt
+
+- Players without matching stock holdings no longer auto-submit `no_effect` and close the N027 shared prompt during render.
+- The prompt remains visible so the player can explicitly choose `關閉`; players with holdings keep the existing financial-check flow.
+- Validation: focused board-card and room-context tests, typecheck, build, and diff check passed.
+
+## Shared prompt keeps source card visible
+
+- The source player's card drawer is no longer closed when a shared prompt opens; the prompt appears above the card.
+- Existing completion flow still closes the card after all shared responses and financial processing finish.
+- Validation: focused board-card, room-context, and experience-state tests, typecheck, build, and diff check passed.
+
+## All purchase cards shared prompt reliability
+
+- The source player now marks a newly opened shared prompt visible immediately instead of waiting only for a later room snapshot effect.
+- A stale local shared-prompt snapshot can no longer override a newer room prompt; cleared room prompts also clear the local snapshot.
+- Data-driven coverage confirms all 26 purchase cards C009-C034 resolve to `asset_sale` and are classified as shared events.
+- Validation: 37 focused tests, typecheck, build, and diff check passed.
+
+## Family milestone source-card ownership
+
+- Family milestone join rolls no longer advance or clear the source player's board event. The drawing player keeps control of the card until they explicitly finish it.
+- A successful shared roll remains incomplete until that player accepts or declines the resulting family action; failed and declined rolls complete immediately.
+- The completion guard is shared by all 14 family milestone cards rather than hard-coded for H011.
+- Validation: 35 focused tests passed, `npm run typecheck` passed, `npm run build` passed, and `git diff --check` passed.
+
+## Coach investment-income adjustment
+
+- Added monthly investment-income decrease/increase controls beside the existing coach cash adjustment controls.
+- Coach adjustments write to the player's private `income.investment` field and reject reductions below zero.
+- Manual investment income is included once in passive income and appears as `執行師調整` in the financial statement.
+- Validation: 8 focused tests passed, `npm run typecheck` passed, `npm run build` passed, and `git diff --check` passed. Live coach-room interaction remains unverified because no active coach room tab was available.
+
+## Compact mobile financial check
+
+- Reduced the financial-check modal width, header, prompt, footer, spacing, and control sizes for phone screens.
+- Removed the fixed 240px empty area from every financial category; the 2x2 board now sizes to its selected content.
+- Overflow remains available only as a safety fallback when a category contains many selected entries.
+- Validation: financial-check tests passed 5/5, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+## Mobile digital banking app
+
+- The banking app now uses a full-screen phone layout with compact safe-area header, pinned cash row, four-column tab bar, and independently scrolling content.
+- Stock cards use a two-column phone grid; loan, insurance, deposit, and vehicle panels use reduced mobile spacing, typography, cards, and controls while retaining desktop sizes at `sm` and above.
+- Added an accessible close label and bottom safe-area padding; transaction behavior is unchanged.
+- Validation: React best-practices review, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+## Native number spinners
+
+- Hid browser-native number input spinner controls globally; app-specific increment/decrement buttons remain unchanged.
+- Validation: `git diff --check` and `npm run typecheck` passed.
+
+## Compact stock trade action
+
+- Removed the large stock trade summary container and replaced it with a compact total amount row and action button.
+- Buy mode shows `購買總金額` and `購買`; sell mode keeps the corresponding sell action.
+- Validation: `git diff --check` and `npm run typecheck` passed.
+
+## N009 market sync loading
+
+- Fixed the market-sync effect cancelling its own request when loading state changed, which left the N009 action stuck on `同步行情中...`.
+- Success and failure now both clear the loading state.
+- Validation: `git diff --check`, `npm run typecheck`, and `GameView.test.ts` passed.
+
+## Batch stock financial check
+
+- Consolidated batch stock purchases into one `股票` asset entry in financial checks instead of one entry per ticker.
+- Transaction impacts and stock holdings still retain each ticker and amount as detail.
+- Validation: `git diff --check` and `npm run typecheck` passed.
+
+## H020 family source card visibility
+
+- Removed automatic source-card completion when the last family milestone participant finishes responding.
+- After the source player completes their own action, the card stays visible as `等待其他玩家完成`; once all responses finish, the source player explicitly presses `完成卡片`.
+- The fix applies to every family milestone card, not only H020.
+- Validation: 39 focused tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed. Live multiplayer verification remains pending.
+
+## Legacy room player sync permissions
+
+- Firestore rules now treat a missing legacy `publicPlayerStates` field as an empty map while still allowing players to change only their own public projection.
+- This prevents the player sync batch from falling through the room update rule and reaching the 1000-expression limit.
+- Added a regression test for private player state plus public projection sync against a legacy room document.
+- Validation: Firestore room permission tests passed 14/14 against the active emulator.
+
+## Family milestone rejection unlocks end turn
+
+- When the drawing player rejects H012 or another family milestone card, the matching family join prompt is cancelled and the board event advances immediately.
+- Only the source player can use this path; other players and unrelated shared prompts remain blocked from early dismissal.
+- Validation: focused family-card, room-context, and turn-state tests passed 41/41; typecheck and diff checks passed.
+
+## Coach emergency board recovery
+
+- Added `解除目前事件` and `強制結束回合` to the coach flow panel with confirmation dialogs.
+- Both commands clear current card/event queues, movement, shared prompts, and stale player pending actions without reverting completed financial changes.
+- Clear-event preserves the current player and roll state; force-end uses the existing skip-turn-aware next-player calculation.
+- Validation: focused room and turn-state tests passed 10/10; typecheck, production build, and diff checks passed.
+
+## H016 family milestone source completion permission
+
+- Fixed Firestore rules so the current family-milestone source player can remove their matching family prompt and complete the board event after accepting or rejecting the card.
+- The permission is tied to the current event ID, source card prompt, source player UID, and current turn; invited non-source players remain denied.
+- The fix applies to all family milestone source cards rather than hard-coding H016.
+- The player UI now marks the card handled only after the backend confirms dismissal; failed writes keep the card retryable instead of closing it locally.
+- Fixed the remaining player-side guard so an explicit `不接受` from the source player reaches that backend path even while family participants are pending. Normal accepted-card completion still waits for participants.
+- Validation: Firestore room permission tests passed 15/15; latest focused family, player-view, and room tests passed 39/39; typecheck, production build, and diff checks passed.
+
+## Target enterprise financial check entries
+
+- Target enterprise purchases now provide explicit financial check entries for cash decrease, `目標企業（名稱）` asset increase, and `企業收益` income increase.
+- Target enterprise and dream purchases now provide completion impact summaries, so their transaction-complete screen matches the other transaction flows.
+- The existing enterprise asset model and monthly income calculation remain unchanged.
+- Validation: target/dream transaction regression tests, typecheck, production build, and diff checks passed.
