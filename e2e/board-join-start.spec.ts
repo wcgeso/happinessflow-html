@@ -1,6 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import { login, switchToCoachMode } from './fixtures/login';
 import { seedAccounts, TEST_ACCOUNTS } from '../scripts/e2e/seedAccounts.mjs';
+import { getEmulatorDb } from '../scripts/e2e/adminClient.mjs';
 
 test.setTimeout(150_000);
 
@@ -26,7 +27,7 @@ const completeSelectionWizard = async (page: Page) => {
 };
 
 test('coach creates a board room, 3 players join + set up, display syncs', async ({ browser }) => {
-  await seedAccounts();
+  const seededAccounts = await seedAccounts();
 
   const coachContext = await browser.newContext();
   const coachPage = await coachContext.newPage();
@@ -85,19 +86,94 @@ test('coach creates a board room, 3 players join + set up, display syncs', async
   // simultaneously rather than artificially serializing them.
   await Promise.all(playerPages.map((page) => completeSelectionWizard(page)));
 
-  // Coach should now see the 3/3 ready counter in CoachGameView. This has
-  // been flaky under 3 concurrent contexts in this sandbox — see the KNOWN
-  // ISSUE note above.
-  await expect(coachPage.getByText('3 / 3')).toBeVisible({ timeout: 30_000 });
+  // CoachGameView now summarizes readiness in a start modal instead of the
+  // former "3 / 3" counter. Start the actual turn flow before opening the
+  // projector so this verifies the playable board state.
+  await expect(coachPage.getByText('所有玩家已準備就緒')).toBeVisible({ timeout: 30_000 });
+  await expect(coachPage.getByText('總玩家數').locator('..')).toContainText('3');
+  await coachPage.getByRole('button', { name: '開始遊戲' }).click();
 
   // Display: a second browser context logged in as the same coach account,
   // opening the projector URL (see CoachGameView.tsx's `?boardRoom=` link).
-  const displayContext = await browser.newContext();
+  const displayContext = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   const displayPage = await displayContext.newPage();
-  await login(displayPage, COACH.email, COACH.password);
-  await displayPage.goto(`/?boardRoom=${roomCode}`);
+  await login(displayPage, COACH.email, COACH.password, `/?boardRoom=${roomCode}`);
 
   for (const player of PLAYERS) {
-    await expect(displayPage.getByText(player.name)).toBeVisible({ timeout: 20_000 });
+    await expect(displayPage.locator(`[data-player-token="${player.name}"]`)).toBeVisible({ timeout: 20_000 });
   }
+
+  const playerTokenBoxes = await displayPage.locator('[data-player-token]').evaluateAll((tokens) =>
+    tokens.map((token) => {
+      const box = token.getBoundingClientRect();
+      return {
+        position: token.getAttribute('data-board-position'),
+        centerX: Math.round(box.left + box.width / 2),
+        centerY: Math.round(box.top + box.height / 2),
+      };
+    }),
+  );
+
+  expect(playerTokenBoxes).toHaveLength(3);
+  expect(new Set(playerTokenBoxes.map((token) => token.position))).toEqual(new Set(['0']));
+  expect(new Set(playerTokenBoxes.map((token) => `${token.centerX}:${token.centerY}`)).size).toBe(3);
+
+  await expect(displayPage.locator('[data-projection-hud]')).toBeVisible();
+  await expect(displayPage.locator('[data-projection-stage]')).toBeVisible();
+  await expect(displayPage.getByText('順位 1／3').first()).toBeVisible();
+  await displayPage.screenshot({ path: 'e2e/report/projection-p1-1920.png' });
+
+  await displayPage.setViewportSize({ width: 1366, height: 768 });
+  await expect(displayPage.locator('[data-projection-hud]')).toBeInViewport();
+  await expect(displayPage.locator('[data-projection-stage]')).toBeInViewport();
+  for (const player of PLAYERS) {
+    await expect(displayPage.locator(`[data-player-token="${player.name}"]`)).toBeInViewport();
+  }
+  await displayPage.screenshot({ path: 'e2e/report/projection-p1-1366.png' });
+
+  const roomRef = getEmulatorDb().collection('rooms').doc(roomCode);
+  const cardCases = [
+    { deck: 'happiness', cardId: 'H001', title: '幸福卡投影測試' },
+    { deck: 'opportunity', cardId: 'C001', title: '機運卡投影測試' },
+    { deck: 'news', cardId: 'N001', title: '新聞卡投影測試' },
+  ] as const;
+
+  for (const card of cardCases) {
+    const eventId = `projection_${card.cardId}`;
+    await roomRef.update({
+      'boardState.currentEvent': {
+        id: eventId,
+        playerUid: seededAccounts.p1.uid,
+        playerName: PLAYERS[0].name,
+        type: 'card',
+        summary: `${PLAYERS[0].name} 抽到卡片`,
+        squareIndex: 0,
+        timestamp: Date.now(),
+      },
+      'boardState.currentCard': {
+        deck: card.deck,
+        cardId: card.cardId,
+        title: card.title,
+        description: '投影卡片版面驗證',
+        effectLines: ['現金 +1,000'],
+      },
+      'boardState.currentCardReveal': {
+        eventId,
+        cardId: card.cardId,
+        isRevealed: true,
+        revealedAt: Date.now(),
+      },
+    });
+
+    const cardOverlay = displayPage.locator(`[data-projection-card][data-card-id="${card.cardId}"]`);
+    await expect(cardOverlay).toBeVisible();
+    await expect(cardOverlay.getByText('抽卡玩家')).toBeVisible();
+    await displayPage.screenshot({ path: `e2e/report/projection-p1-card-${card.deck}.png` });
+  }
+
+  await roomRef.update({
+    'boardState.currentEvent': null,
+    'boardState.currentCard': null,
+    'boardState.currentCardReveal': null,
+  });
 });

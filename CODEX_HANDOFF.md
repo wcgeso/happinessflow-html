@@ -341,3 +341,19 @@
 - Target enterprise and dream purchases now provide completion impact summaries, so their transaction-complete screen matches the other transaction flows.
 - The existing enterprise asset model and monthly income calculation remain unchanged.
 - Validation: target/dream transaction regression tests, typecheck, production build, and diff checks passed.
+
+## Projection city map visual refresh
+
+- Added the foundation-only city map asset at `public/assets/projection-map/life-city-foundation.png` with its generation prompt beside it. Runtime-controlled tiles, labels, tokens, and HUD remain separate.
+- Reworked the projection layout from a 14x14 square ring to a 16x12 rectangular ring while preserving the existing 52-square index order and game state contracts.
+- Added live central landmark labels for residential, growth, wellness, family, finance, and dreams areas, plus a dark teal projection HUD that matches the new warm city palette.
+- Validation: `npm run typecheck`, `npm run build`, and `git diff --check` passed. Source unit tests passed 21 suites / 112 tests. Full Vitest invocation still reports two pre-existing Playwright E2E loading/configuration failures.
+- Risk: live projection screenshot verification needs an authenticated Firestore emulator session because the current rules deny unauthenticated room reads.
+
+## Main-map background music
+
+- Added a 120-second AAC/M4A background track at `public/audio/happinessflow-bgm-main-map.m4a` for the projection main map, using the approved city-stroll and warm wooden tabletop direction.
+- Extended the existing native audio manager with looping background music, shared volume settings, autoplay-retry handling, and cleanup on projection unmount.
+- Projection starts the music on load when allowed, retries on the first pointer or keyboard interaction, and stops/resets when leaving the map.
+- Validation: `npm run typecheck`, `npx vitest run src/utils/audio.test.ts`, `npm run build`, and `git diff --check` passed. Audio metadata confirms a 120-second stereo AAC track.
+- Risk: browser autoplay policy still determines whether sound starts before the first user interaction.

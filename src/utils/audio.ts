@@ -7,6 +7,7 @@ export interface AudioSettings {
 
 export const AUDIO_SETTINGS_KEY = 'hf_audio_settings_v1';
 export const AUDIO_SETTINGS_EVENT = 'hf-audio-settings-change';
+export const MAIN_MAP_BGM_SRC = '/audio/happinessflow-bgm-main-map.m4a';
 
 const DEFAULT_AUDIO_SETTINGS: AudioSettings = { enabled: true, volume: 0.55 };
 
@@ -58,6 +59,7 @@ const CUE_PROFILES: Record<AudioCue, { frequencies: number[]; duration: number; 
 
 class NativeAudioManager {
   private context: AudioContextWithLegacy | null = null;
+  private backgroundMusic: HTMLAudioElement | null = null;
   private playedEventIds = new Set<string>();
 
   private getContext() {
@@ -106,6 +108,39 @@ class NativeAudioManager {
       oscillator.start(start);
       oscillator.stop(start + profile.duration + 0.01);
     });
+  }
+
+  startBackgroundMusic() {
+    if (typeof window === 'undefined') return Promise.resolve();
+
+    if (!this.backgroundMusic) {
+      this.backgroundMusic = new Audio(MAIN_MAP_BGM_SRC);
+      this.backgroundMusic.loop = true;
+      this.backgroundMusic.preload = 'auto';
+    }
+
+    const settings = getAudioSettings();
+    this.backgroundMusic.volume = settings.enabled ? settings.volume * 0.32 : 0;
+    if (!settings.enabled || !this.backgroundMusic.paused) return Promise.resolve();
+
+    return this.backgroundMusic.play().catch(() => undefined);
+  }
+
+  syncBackgroundMusic() {
+    if (!this.backgroundMusic) return;
+    const settings = getAudioSettings();
+    this.backgroundMusic.volume = settings.enabled ? settings.volume * 0.32 : 0;
+    if (!settings.enabled) {
+      this.backgroundMusic.pause();
+      return;
+    }
+    void this.startBackgroundMusic();
+  }
+
+  stopBackgroundMusic() {
+    if (!this.backgroundMusic) return;
+    this.backgroundMusic.pause();
+    this.backgroundMusic.currentTime = 0;
   }
 }
 

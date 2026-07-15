@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { normalizeCardCopy } from '../../constants/cards';
 import { BoardCardLogEntry } from '../../types';
 
 interface BoardCardLogPanelProps {
   entries: BoardCardLogEntry[];
   onClose?: () => void;
+  variant?: 'default' | 'projection';
 }
 
 const getDeckLabel = (deck: BoardCardLogEntry['deck']) => {
@@ -13,7 +15,92 @@ const getDeckLabel = (deck: BoardCardLogEntry['deck']) => {
   return '幸福卡';
 };
 
-export const BoardCardLogPanel: React.FC<BoardCardLogPanelProps> = ({ entries, onClose }) => {
+const getEntryResult = (entry: BoardCardLogEntry) => {
+  const line = entry.effectLines?.[0] || entry.summary || '';
+  return normalizeCardCopy(line).trim();
+};
+
+export const BoardCardLogPanel: React.FC<BoardCardLogPanelProps> = ({ entries, onClose, variant = 'default' }) => {
+  const [showAllProjectionEntries, setShowAllProjectionEntries] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+
+  if (variant === 'projection') {
+    const visibleEntries = entries.slice(0, showAllProjectionEntries ? 12 : 3);
+
+    return (
+      <motion.aside
+        initial={prefersReducedMotion ? false : { x: 36, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.3, ease: 'easeOut' }}
+        className="fixed bottom-5 right-5 top-24 z-[10030] flex w-[380px] flex-col overflow-hidden rounded-[26px] border border-[#e9c77d]/45 bg-[#102f38] text-[#fff9e9] shadow-[0_28px_70px_-30px_rgba(0,0,0,0.9)]"
+        style={{ backgroundColor: 'rgba(16, 47, 56, 0.96)' }}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
+          <div>
+            <div className="text-[10px] font-black tracking-[0.28em] text-[#e8c37a]">CARD LOG</div>
+            <div className="mt-1 text-lg font-black">抽卡日誌</div>
+          </div>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-black text-[#fff4d8]"
+            >
+              關閉
+            </button>
+          )}
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-4">
+          {visibleEntries.length > 0 ? visibleEntries.map(entry => {
+            const result = getEntryResult(entry);
+            return (
+              <motion.div
+                key={entry.id}
+                initial={prefersReducedMotion ? false : { x: 18, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.3, ease: 'easeOut' }}
+                className="rounded-[18px] border border-white/10 bg-white/[0.07] px-4 py-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-black tracking-[0.1em] text-[#e8c37a]">
+                    {entry.playerName} · {getDeckLabel(entry.deck)}
+                  </span>
+                  <span className="text-[10px] font-bold text-white/45">{entry.cardId}</span>
+                </div>
+                <div className="mt-1.5 text-base font-black leading-tight text-white">{entry.title}</div>
+                {result && (
+                  <div className="mt-2 line-clamp-2 text-sm font-bold leading-relaxed text-[#d9e8e4]">
+                    {result}
+                  </div>
+                )}
+                {showAllProjectionEntries && entry.description && (
+                  <div className="mt-2 border-t border-white/10 pt-2 text-xs font-semibold leading-relaxed text-white/65">
+                    {normalizeCardCopy(entry.description)}
+                  </div>
+                )}
+              </motion.div>
+            );
+          }) : (
+            <div className="rounded-[18px] border border-dashed border-white/20 bg-white/[0.04] px-4 py-5 text-sm font-bold text-white/65">
+              目前還沒有抽卡紀錄。
+            </div>
+          )}
+        </div>
+
+        {entries.length > 3 && (
+          <button
+            type="button"
+            onClick={() => setShowAllProjectionEntries(current => !current)}
+            className="border-t border-white/10 px-5 py-3 text-sm font-black text-[#f1d28f]"
+          >
+            {showAllProjectionEntries ? '收起摘要' : `查看完整紀錄（${Math.min(entries.length, 12)}）`}
+          </button>
+        )}
+      </motion.aside>
+    );
+  }
+
   return (
     <div className="fixed inset-x-4 top-24 z-[10030] mx-auto w-auto max-w-[420px] rounded-[28px] border border-[#d9bd98] bg-[linear-gradient(180deg,rgba(255,251,244,0.98),rgba(243,230,206,0.97))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_24px_50px_-32px_rgba(92,64,33,0.6)] md:inset-x-auto md:right-5 md:w-[360px]">
       <div className="flex items-center justify-between gap-3">

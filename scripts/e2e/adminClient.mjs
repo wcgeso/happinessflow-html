@@ -9,10 +9,9 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// Must match the client app's default projectId in services/firebase.ts,
-// since that's the project the emulator UI/data will be scoped under when
-// the app itself has no VITE_FIREBASE_PROJECT_ID override.
-export const PROJECT_ID = 'happinessflow-online';
+// Override this when an already-running local emulator uses a different
+// project. The default still matches services/firebase.ts.
+export const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'happinessflow-online';
 
 const isLocalEmulatorHost = (value) => {
   if (!value) return false;

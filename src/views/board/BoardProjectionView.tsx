@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Activity, GraduationCap, Heart, HeartCrack, Landmark, Newspaper, ScrollText, Sparkles, TrendingDown, TrendingUp, Wrench } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
@@ -15,13 +15,17 @@ import { FAMILY_MILESTONE_STAGES } from '../../utils/familyMilestones';
 import { SettlementView } from '../../components/game/SettlementView';
 import { buildSettlementPlayers } from '../../utils/settlement';
 import { toCardPresentationModel } from '../../utils/cardPresentation';
-
-const TILE_SIZE = 126;
-const TILE_GAP = 16;
-const BOARD_PADDING = 84;
-const BOARD_GRID_SIZE = TILE_SIZE * 14 + TILE_GAP * 13;
-const BOARD_WIDTH = BOARD_GRID_SIZE + BOARD_PADDING * 2;
-const BOARD_HEIGHT = BOARD_GRID_SIZE + BOARD_PADDING * 2;
+import {
+  BOARD_HEIGHT,
+  BOARD_PADDING,
+  BOARD_WIDTH,
+  getProjectionGridCoordinates,
+  getProjectionPlayerColor,
+  getProjectionPlayerOffset,
+  getProjectionTileCenter,
+} from './boardProjectionLayout';
+import { getProjectionActionState } from './boardProjectionStatus';
+import { AUDIO_SETTINGS_EVENT, audioManager } from '../../utils/audio';
 const FIT_ZOOM_FALLBACK = 0.62;
 const VIEWPORT_PADDING_X = 64;
 const VIEWPORT_PADDING_TOP = 80;
@@ -160,15 +164,8 @@ const getCardIcon = (deck: BoardCardResult['deck'], size = 30) => {
   }
 };
 
-const getGridCoordinates = (index: number) => {
-  if (index <= 13) return { column: index + 1, row: 1 };
-  if (index <= 25) return { column: 14, row: index - 12 };
-  if (index <= 39) return { column: 40 - index, row: 14 };
-  return { column: 1, row: 53 - index };
-};
-
 const getGridPosition = (index: number) => {
-  const { column, row } = getGridCoordinates(index);
+  const { column, row } = getProjectionGridCoordinates(index);
   return { gridColumn: `${column}`, gridRow: `${row}` };
 };
 
@@ -177,9 +174,9 @@ const getGridPosition = (index: number) => {
 // 再依賴 z-index 去跟隔壁棋格的堆疊上下文搶層級。
 type BadgeDirection = 'down' | 'left' | 'up' | 'right';
 const getBoardEdgeInwardDirection = (index: number): BadgeDirection => {
-  if (index <= 13) return 'down';   // 頂邊 → 往下（往內部）
+  if (index <= 15) return 'down';   // 頂邊 → 往下（往內部）
   if (index <= 25) return 'left';   // 右邊 → 往左
-  if (index <= 39) return 'up';     // 底邊 → 往上
+  if (index <= 41) return 'up';     // 底邊 → 往上
   return 'right';                   // 左邊 → 往右
 };
 
@@ -281,9 +278,17 @@ const renderPlayerToken = (player: {
   const isCustomAvatar = !!player.photoURL && (player.photoURL.startsWith('http') || player.photoURL.startsWith('data:image'));
 
   if (!isCustomAvatar) {
+    const trimmedName = player.name.trim();
+    const trailingNumber = trimmedName.match(/\d+$/)?.[0];
+    const words = trimmedName.split(/\s+/).filter(Boolean);
+    const initial = trailingNumber
+      ? `${trimmedName.slice(0, 1)}${trailingNumber.slice(-1)}`
+      : words.length > 1
+        ? words.slice(0, 2).map(word => word.slice(0, 1)).join('')
+        : trimmedName.slice(0, 2) || '玩';
     return (
-      <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br from-[#f8dfb5] to-[#c78f47] shadow-inner ${isMoving ? 'text-2xl' : 'text-base'}`}>
-        🐝
+      <div className={`flex h-full w-full items-center justify-center bg-black/10 font-black uppercase text-white shadow-inner ${isMoving ? 'text-xl' : 'text-lg'}`}>
+        {initial}
       </div>
     );
   }
@@ -644,12 +649,14 @@ const CardStage: React.FC<{
 
 export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }) => {
   const [room, setRoom] = useState<Room | null>(null);
+  const [syncState, setSyncState] = useState<'loading' | 'live' | 'missing' | 'error'>('loading');
   const [zoom, setZoom] = useState(FIT_ZOOM_FALLBACK);
   const [animationNow, setAnimationNow] = useState(() => Date.now());
   const [showBoardCardLog, setShowBoardCardLog] = useState(false);
   const [visibleSkippedTurnNotice, setVisibleSkippedTurnNotice] = useState<SkippedTurnNotice | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const boardFrameRef = useRef<HTMLDivElement | null>(null);
+  const prefersReducedMotion = useReducedMotion();
   const dragStateRef = useRef<{
     pointerId: number;
     startX: number;
@@ -667,12 +674,40 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'rooms', roomCode), snapshot => {
-      setRoom(snapshot.exists() ? snapshot.data() as Room : null);
-    });
+    setSyncState('loading');
+    const unsubscribe = onSnapshot(
+      doc(db, 'rooms', roomCode),
+      snapshot => {
+        if (!snapshot.exists()) {
+          setRoom(null);
+          setSyncState('missing');
+          return;
+        }
+        setRoom(snapshot.data() as Room);
+        setSyncState('live');
+      },
+      () => setSyncState('error'),
+    );
 
     return () => unsubscribe();
   }, [roomCode]);
+
+  useEffect(() => {
+    const startMusic = () => { void audioManager.startBackgroundMusic(); };
+    const syncMusic = () => audioManager.syncBackgroundMusic();
+
+    startMusic();
+    window.addEventListener('pointerdown', startMusic);
+    window.addEventListener('keydown', startMusic);
+    window.addEventListener(AUDIO_SETTINGS_EVENT, syncMusic);
+
+    return () => {
+      window.removeEventListener('pointerdown', startMusic);
+      window.removeEventListener('keydown', startMusic);
+      window.removeEventListener(AUDIO_SETTINGS_EVENT, syncMusic);
+      audioManager.stopBackgroundMusic();
+    };
+  }, []);
 
   useEffect(() => {
     const movement = room?.boardState?.movement;
@@ -717,7 +752,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         .filter(member => member.uid !== room.hostId && !room.boardState!.turnOrder.includes(member.uid))
         .map(member => member.uid)
     ];
-    return uids.map(uid => {
+    return uids.map((uid, turnOrderIndex) => {
       const member = room.members.find(item => item.uid === uid);
       return {
         uid,
@@ -725,14 +760,17 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         photoURL: member?.photoURL,
         photoPosition: member?.photoPosition,
         photoScale: member?.photoScale,
-        position: getAnimatedBoardPosition(room, uid, animationNow)
+        position: getAnimatedBoardPosition(room, uid, animationNow),
+        turnOrderIndex,
+        color: getProjectionPlayerColor(turnOrderIndex),
       };
     });
   }, [room, animationNow]);
 
   const playerGroups = useMemo(() => {
-    return BOARD_SQUARES.reduce<Record<number, typeof players>>((acc, square) => {
-      acc[square.index] = players.filter(player => player.position === square.index);
+    return players.reduce<Record<number, typeof players>>((acc, player) => {
+      acc[player.position] ||= [];
+      acc[player.position].push(player);
       return acc;
     }, {});
   }, [players]);
@@ -796,6 +834,15 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const movingPlayerPosition = movement
     ? players.find(player => player.uid === movement.playerUid)?.position ?? movement.startPosition
     : null;
+  const movingPathIndex = movement?.isActive && movingPlayerPosition !== null
+    ? movement.path.lastIndexOf(movingPlayerPosition)
+    : -1;
+  const movementTrailSquare = movement?.isActive
+    ? (movingPathIndex > 0 ? movement.path[movingPathIndex - 1] : movement.startPosition)
+    : null;
+  const tokenStepDurationSeconds = movement?.stepDurationMs
+    ? Math.min(0.32, Math.max(0.28, movement.stepDurationMs / 1000 * 0.75))
+    : 0.3;
   const focusUid = movement?.isActive ? movement.playerUid : currentTurnUid;
   const focusPosition = movement?.isActive ? movingPlayerPosition : currentTurnPosition;
   const boardCardLog = useMemo(() => {
@@ -807,9 +854,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     const boardFrame = boardFrameRef.current;
     if (!viewport || !boardFrame || focusPosition === null) return;
 
-    const { column, row } = getGridCoordinates(focusPosition);
-    const tileCenterX = BOARD_PADDING + (column - 1) * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2;
-    const tileCenterY = BOARD_PADDING + (row - 1) * (TILE_SIZE + TILE_GAP) + TILE_SIZE / 2;
+    const { x: tileCenterX, y: tileCenterY } = getProjectionTileCenter(focusPosition);
 
     requestAnimationFrame(() => {
       const targetLeft = boardFrame.offsetLeft + tileCenterX * zoom - viewport.clientWidth / 2;
@@ -820,13 +865,28 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
       viewport.scrollTo({
         left: Math.min(maxLeft, Math.max(0, targetLeft)),
         top: Math.min(maxTop, Math.max(0, targetTop)),
-        behavior: 'smooth'
+        behavior: prefersReducedMotion ? 'auto' : 'smooth'
       });
     });
-  }, [focusUid, focusPosition, zoom]);
+  }, [focusUid, focusPosition, prefersReducedMotion, zoom]);
 
   if (!room) {
-    return <div className="flex h-screen items-center justify-center bg-[#efe2ce] text-[#5a4430]">找不到房間 {roomCode}</div>;
+    const message = syncState === 'loading'
+      ? '正在同步投影幕資料'
+      : syncState === 'missing'
+        ? `找不到房間 ${roomCode}`
+        : '同步中斷，正在重新連線';
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-[#102f38] text-[#fff8e9]">
+        <div className="text-2xl font-black">{message}</div>
+        <div className="text-sm font-bold text-[#d9bd83]">房號 {roomCode}</div>
+        {syncState === 'error' && (
+          <button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-full border border-[#e6c477]/55 bg-[#1a4149] px-5 py-2 text-sm font-black">
+            重新連線
+          </button>
+        )}
+      </div>
+    );
   }
 
   if (room.status === 'finished') {
@@ -840,6 +900,14 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const boardState = room.boardState;
   const roomName = room.name || '蜂富人生';
   const currentTurnName = room.members.find(member => member.uid === boardState?.currentTurnUid)?.name || '尚未開始';
+  const currentTurnPlayer = players.find(player => player.uid === boardState?.currentTurnUid) || null;
+  const currentTurnIndex = boardState?.currentTurnUid ? boardState.turnOrder.indexOf(boardState.currentTurnUid) : -1;
+  const turnPositionLabel = currentTurnIndex >= 0
+    ? `順位 ${currentTurnIndex + 1}／${boardState.turnOrder.length}`
+    : `順位 -／${boardState?.turnOrder.length || players.length}`;
+  const actionState = boardState
+    ? getProjectionActionState({ boardState, roomStatus: room.status, isTimerPaused: room.isTimerPaused })
+    : { kind: 'waiting_start' as const, label: '等待執行師開始遊戲', waitingCount: 0 };
   const skippedTurnNames = visibleSkippedTurnNotice?.playerUids
     .map(uid => room.members.find(member => member.uid === uid)?.name || '玩家') || [];
   const nextTurnName = visibleSkippedTurnNotice
@@ -861,6 +929,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const currentDrawerName = boardState?.currentEvent?.playerUid
     ? room.members.find(member => member.uid === boardState.currentEvent?.playerUid)?.name || '玩家'
     : '玩家';
+  const currentDrawerPlayer = players.find(player => player.uid === boardState?.currentEvent?.playerUid) || null;
   const cardStatusLabel = currentCard
     ? getCardStatusLabel({
         isRevealed: isCardRevealed,
@@ -873,7 +942,22 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const zoomPercent = Math.round(zoom * 100);
   const scaledBoardWidth = BOARD_WIDTH * zoom;
   const scaledBoardHeight = BOARD_HEIGHT * zoom;
-
+  const remainingMovementSteps = movement?.isActive
+    ? getRemainingMovementSteps(room, movement.playerUid, animationNow)
+    : 0;
+  const lastRollText = boardState?.lastRoll ? `${boardState.lastRoll.total} 點` : '尚未擲骰';
+  const stageTitle = actionState.kind === 'moving'
+    ? `${remainingMovementSteps} 步`
+    : actionState.kind === 'event'
+      ? boardState?.currentEvent?.summary || '處理目前事件'
+      : actionState.kind === 'shared'
+        ? `等待 ${actionState.waitingCount} 位玩家`
+        : currentTurnName;
+  const stageDetail = actionState.kind === 'moving'
+    ? `擲出 ${boardState?.lastRoll?.total ?? movement?.rollTotal ?? 0} 點，沿城市道路前進`
+    : actionState.kind === 'event'
+      ? `${boardState?.currentEvent?.playerName || currentTurnName} 正在處理事件`
+      : actionState.label;
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const viewport = viewportRef.current;
     if (!viewport || event.button !== 0) return;
@@ -920,7 +1004,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
       onDoubleClick={handleDoubleClick}
-      className="h-screen cursor-grab overflow-auto bg-[radial-gradient(circle_at_top,#f8f1e5_0%,#efe2ce_45%,#e5d2b5_100%)] text-[#4f3c29] active:cursor-grabbing"
+      className="h-screen cursor-grab overflow-auto bg-[radial-gradient(circle_at_top,#234c52_0%,#16353d_55%,#0b222a_100%)] text-[#4f3c29] active:cursor-grabbing"
     >
       {visibleSkippedTurnNotice && (
         <motion.div
@@ -944,19 +1028,36 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         </motion.div>
       )}
 
+      {syncState === 'error' && (
+        <div className="pointer-events-none fixed left-1/2 top-24 z-[10035] -translate-x-1/2 rounded-full border border-rose-300/45 bg-[#5d2730]/95 px-5 py-2 text-sm font-black text-white shadow-xl">
+          同步中斷，正在重新連線
+        </div>
+      )}
+
       <div
+        data-projection-hud
         onPointerDown={event => event.stopPropagation()}
         onDoubleClick={event => event.stopPropagation()}
-        className="fixed left-1/2 top-5 z-50 flex -translate-x-1/2 items-center gap-6 rounded-full border border-[#d2b58c] bg-[linear-gradient(180deg,rgba(255,251,244,0.98),rgba(242,228,204,0.96))] px-6 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_18px_36px_-28px_rgba(92,64,33,0.65)]"
+        className="fixed left-5 right-[190px] top-4 z-50 flex h-[68px] items-center gap-4 rounded-[24px] border border-[#f0cf86]/45 bg-[#173943]/96 px-4 text-[#fff8e9] shadow-[0_18px_36px_-22px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.16)]"
       >
-        <div className="flex flex-col items-center">
-          <div className="text-[10px] font-black tracking-[0.2em] text-[#9c7c58]">{roomName}</div>
-          <div className="text-lg font-black tracking-widest text-[#4f3c29]">{room.id}</div>
+        <div
+          className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-[3px] border-white/90 p-1"
+          style={{ backgroundColor: currentTurnPlayer?.color.base || '#b58a45' }}
+        >
+          <div className="h-full w-full overflow-hidden rounded-full">
+            {currentTurnPlayer ? renderPlayerToken(currentTurnPlayer) : <div className="flex h-full items-center justify-center font-black">-</div>}
+          </div>
         </div>
-        <div className="h-8 w-px bg-[#d9bd98]" />
-        <div className="flex flex-col items-center">
-          <div className="text-[10px] font-black tracking-[0.2em] text-[#9c7c58]">目前回合</div>
-          <div className="text-lg font-black text-[#4f3c29]">{visibleSkippedTurnNotice ? '暫停回合處理中' : currentTurnName}</div>
+        <div className="min-w-[150px] shrink-0">
+          <div className="text-[10px] font-black tracking-[0.16em] text-[#e8c37a]">目前玩家</div>
+          <div className="truncate text-xl font-black">{currentTurnName}</div>
+        </div>
+        <div className="rounded-full border border-[#f0cf86]/30 bg-white/5 px-3 py-1.5 text-sm font-black text-[#f4d993]">{turnPositionLabel}</div>
+        <div className="h-8 w-px bg-[#f0cf86]/25" />
+        <div className="min-w-0 flex-1 truncate text-lg font-black">{actionState.label}</div>
+        <div className="shrink-0 text-right text-[10px] font-black tracking-[0.14em] text-[#bfa879]">
+          <div>{roomName}</div>
+          <div>房號 {room.id}</div>
         </div>
       </div>
 
@@ -968,11 +1069,11 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         <button
           type="button"
           onClick={() => setShowBoardCardLog(prev => !prev)}
-          className="flex items-center gap-2 rounded-full border border-[#d2b58c] bg-[linear-gradient(180deg,rgba(255,251,244,0.98),rgba(242,228,204,0.96))] px-4 py-3 text-sm font-black text-[#4f3c29] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_18px_36px_-28px_rgba(92,64,33,0.65)]"
+          className="flex items-center gap-2 rounded-full border border-[#f0cf86]/55 bg-[#173943]/95 px-4 py-3 text-sm font-black text-[#fff8e9] shadow-[0_18px_36px_-22px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md"
         >
-          <ScrollText size={16} className="text-[#9c7c58]" />
+          <ScrollText size={16} className="text-[#e8c37a]" />
           <span>抽卡日誌</span>
-          <span className="rounded-full bg-[#f4e6d0] px-2 py-0.5 text-xs text-[#76573a]">
+          <span className="rounded-full bg-[#e8c37a]/20 px-2 py-0.5 text-xs text-[#f4d993]">
             {boardCardLog.length}
           </span>
         </button>
@@ -986,6 +1087,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
           <BoardCardLogPanel
             entries={boardCardLog}
             onClose={() => setShowBoardCardLog(false)}
+            variant="projection"
           />
         </div>
       )}
@@ -1004,121 +1106,197 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
           style={{ width: `${scaledBoardWidth}px`, height: `${scaledBoardHeight}px` }}
         >
           <main
-            className="relative shrink-0 overflow-hidden rounded-[34px] border border-[#d2b58c] bg-[linear-gradient(180deg,#fbf4ea_0%,#f2e2ca_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_30px_70px_-42px_rgba(105,75,42,0.58)]"
+            className="relative shrink-0 overflow-hidden rounded-[34px] border border-[#d5ad5b] bg-[#f5e4bd] shadow-[0_34px_80px_-30px_rgba(0,0,0,0.78),inset_0_1px_0_rgba(255,255,255,0.8)] transition-[filter] duration-300 motion-reduce:transition-none"
             style={{
               width: BOARD_WIDTH,
               height: BOARD_HEIGHT,
               transform: `scale(${zoom})`,
-              transformOrigin: 'top left'
+              transformOrigin: 'top left',
+              filter: currentCard ? 'brightness(0.55) saturate(0.72)' : undefined,
             }}
           >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(255,248,235,0.96),rgba(241,222,195,0.95)_55%,rgba(227,203,166,0.94)_100%)]">
-              <div className="absolute inset-0 opacity-25" style={{ backgroundImage: 'linear-gradient(rgba(148,112,70,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(148,112,70,0.08) 1px, transparent 1px)', backgroundSize: '34px 34px' }} />
-              <div className="absolute inset-[4.5%] rounded-[28px] border border-[#d6bc96]/80 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.55)]" />
-              <div className="absolute inset-[9%] rounded-[24px] border border-dashed border-[#cfb28a] bg-[#fffaf2]/78 shadow-[inset_0_0_50px_rgba(219,190,147,0.18)]" />
+            <div className="pointer-events-none absolute inset-0">
+              <img
+                src="/assets/projection-map/life-city-foundation.webp"
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              <motion.div
+                animate={prefersReducedMotion ? { opacity: 0.08 } : { opacity: [0.07, 0.14, 0.07], x: [0, 6, 0] }}
+                transition={{ duration: 15, ease: 'easeInOut', repeat: Infinity }}
+                className="absolute inset-0 bg-[radial-gradient(ellipse_at_58%_8%,rgba(225,251,238,0.55),transparent_30%),radial-gradient(ellipse_at_76%_78%,rgba(139,220,213,0.38),transparent_24%)]"
+              />
+              <motion.div
+                animate={prefersReducedMotion ? { opacity: 0.06 } : { opacity: [0.05, 0.1, 0.05], y: [0, 4, 0] }}
+                transition={{ duration: 18, ease: 'easeInOut', repeat: Infinity }}
+                className="absolute inset-0 bg-[radial-gradient(ellipse_at_18%_44%,rgba(41,82,52,0.42),transparent_22%),radial-gradient(ellipse_at_84%_45%,rgba(41,82,52,0.3),transparent_18%)]"
+              />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(255,245,214,0.12),rgba(17,55,58,0.1)_62%,rgba(9,35,40,0.28))]" />
+              <div className="absolute inset-[2.5%] rounded-[30px] border border-white/35 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.25)]" />
+            </div>
+
+            <div className="pointer-events-none absolute inset-[19%_16%] z-[5] rounded-[34px] border border-white/25 bg-[#fff3d0]/10 shadow-[inset_0_0_48px_rgba(255,255,255,0.16)] backdrop-blur-[1px]" />
+            <div className="pointer-events-none absolute inset-[30%_28%] z-[12] flex items-center justify-center">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  data-projection-stage
+                  key={`${actionState.kind}_${boardState?.currentEvent?.id || boardState?.currentTurnUid || 'waiting'}`}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
+                  animate={{ opacity: currentCard ? 0 : 1, y: 0 }}
+                  exit={prefersReducedMotion ? undefined : { opacity: 0, y: -10 }}
+                  transition={{ duration: prefersReducedMotion ? 0 : 0.3, ease: 'easeOut' }}
+                  className="w-full max-w-[760px] rounded-[34px] border border-[#f0cf86]/42 bg-[#12343c]/92 px-10 py-8 text-center text-[#fff8e9] shadow-[0_28px_60px_-30px_rgba(0,0,0,0.88),inset_0_1px_0_rgba(255,255,255,0.14)]"
+                  style={{ backgroundColor: 'rgba(18, 52, 60, 0.96)' }}
+                >
+                  <div className="text-[13px] font-black tracking-[0.24em] text-[#e8c37a]">{turnPositionLabel}</div>
+                  <div className={`${actionState.kind === 'moving' ? 'text-[78px]' : 'text-[38px]'} mt-3 line-clamp-2 font-black leading-tight`}>
+                    {stageTitle}
+                  </div>
+                  <div className="mt-3 text-lg font-bold text-[#d9e7df]">{stageDetail}</div>
+
+                  {actionState.kind === 'moving' ? (
+                    <div className="mx-auto mt-7 h-3 w-[78%] overflow-hidden rounded-full bg-black/25">
+                      <motion.div
+                        className="h-full rounded-full bg-[linear-gradient(90deg,#d89a3e,#ffe2a0)]"
+                        animate={{ width: `${Math.max(8, Math.round(((movingPathIndex + 1) / Math.max(1, movement?.path.length || 1)) * 100))}%` }}
+                        transition={{ duration: prefersReducedMotion ? 0 : 0.25, ease: 'easeOut' }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-7 flex items-center justify-center gap-3 text-sm font-black text-[#f0d18f]">
+                      <span className="rounded-full bg-white/[0.07] px-4 py-2">上次骰點 {lastRollText}</span>
+                      <span className="rounded-full bg-white/[0.07] px-4 py-2">{actionState.label}</span>
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
             </div>
 
             <div
-              className="absolute grid grid-cols-[repeat(14,126px)] grid-rows-[repeat(14,126px)] gap-4"
+              className="absolute grid grid-cols-[repeat(16,132px)] grid-rows-[repeat(12,92px)] gap-[14px]"
               style={{ left: BOARD_PADDING, top: BOARD_PADDING }}
             >
               {BOARD_SQUARES.map(square => {
                 const theme = SQUARE_THEME[square.type];
-                const groupedPlayers = playerGroups[square.index] || [];
-                const hasPlayers = groupedPlayers.length > 0;
-                const isCorner = square.type === 'school' || square.type === 'hospital';
+                const isSpecialSquare = ['school', 'hospital', 'bank', 'repair'].includes(square.type);
                 const isCurrentEventSquare = movement?.isActive
                   ? movingPlayerPosition === square.index
                   : boardState?.currentEvent?.squareIndex === square.index;
-                const badgeDirection = getBoardEdgeInwardDirection(square.index);
-                // 這個棋格上有玩家正顯示「剩餘步數」氣泡時，把棋格自己的堆疊層級
-                // 拉到最高，確保氣泡（巢狀在棋格的堆疊上下文內）不會被隔壁棋格蓋過。
-                const hasRemainingBadge = groupedPlayers.some(player => {
-                  const isMoving = movement?.isActive && movement.playerUid === player.uid;
-                  const isPausedMidMove = !movement?.isActive && movement?.playerUid === player.uid && (movement?.remainingPath?.length ?? 0) > 0;
-                  return isMoving || isPausedMidMove;
-                });
+                const isMovementTrailSquare = movementTrailSquare === square.index;
 
                 return (
                   <div
                     key={square.id}
                     className={[
-                      'relative flex h-[126px] w-[126px] flex-col items-center justify-center border text-center transition-all duration-300',
-                      isCorner ? 'rounded-[20px]' : 'rounded-[14px]',
-                      isCurrentEventSquare ? 'z-20 -translate-y-1 ring-[3px] ring-[#8f6a3b]/45 shadow-[0_22px_40px_-20px_rgba(117,83,42,0.8)]' : 'hover:-translate-y-0.5',
+                      'relative flex h-[92px] w-[132px] flex-col items-center justify-center border text-center transition-[transform,box-shadow,filter] duration-[220ms] motion-reduce:transition-none',
+                      isSpecialSquare ? 'rounded-[20px] shadow-[0_12px_22px_-16px_rgba(48,36,20,0.72)]' : 'rounded-[12px] shadow-[0_8px_16px_-15px_rgba(48,36,20,0.58)]',
+                      isCurrentEventSquare ? 'z-20 -translate-y-[6px] brightness-110 shadow-[0_22px_36px_-18px_rgba(73,50,20,0.88)]' : 'z-10',
+                      isMovementTrailSquare ? 'brightness-110 ring-2 ring-[#fff3c8]/75' : '',
                       theme.bg,
                       theme.border,
-                      theme.glow,
-                      hasRemainingBadge ? 'z-40' : (hasPlayers ? 'z-30' : 'z-10')
+                      isSpecialSquare ? theme.glow : ''
                     ].join(' ')}
                     style={getGridPosition(square.index)}
                   >
+                    {isCurrentEventSquare && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: [0, 1, 0.55], scale: [0.96, 1.08, 1.03] }}
+                        transition={{ duration: 0.6, ease: 'easeOut', times: [0, 0.35, 1] }}
+                        className="pointer-events-none absolute -inset-[7px] rounded-[inherit] border-[3px] border-[#fff1b9] shadow-[0_0_26px_rgba(240,190,86,0.72)] motion-reduce:hidden"
+                      />
+                    )}
                     <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
                       <div className={`absolute inset-0 bg-gradient-to-br ${theme.surface}`} />
-                      <div className={`absolute inset-[1px] rounded-[inherit] bg-gradient-to-br ${theme.bevel} opacity-90`} />
-                      <div className="absolute inset-x-[10px] top-[8px] h-[22px] rounded-full bg-white/28 blur-md" />
-                      <div className="absolute inset-x-0 bottom-0 h-[30px] bg-gradient-to-t from-[#8f6a3b]/10 to-transparent" />
+                      {isSpecialSquare ? (
+                        <>
+                          <div className={`absolute inset-[1px] rounded-[inherit] bg-gradient-to-br ${theme.bevel} opacity-65`} />
+                          <div className="absolute inset-x-0 bottom-0 h-[28px] bg-gradient-to-t from-[#5c452c]/13 to-transparent" />
+                        </>
+                      ) : (
+                        <>
+                          <div className="absolute inset-[2px] rounded-[10px] border border-white/38" />
+                          <div className={`absolute inset-x-3 top-0 h-[5px] rounded-b-full ${theme.bg} brightness-90`} />
+                        </>
+                      )}
                     </div>
-                    <div className={`${theme.icon} relative z-10 mb-2`}>
-                      {getSquareIcon(square, isCorner ? 30 : 24)}
+                    <div className={`${theme.icon} relative z-10 mb-1.5`}>
+                      {getSquareIcon(square, isSpecialSquare ? 28 : 22)}
                     </div>
-                    <div className={`relative z-10 text-[22px] font-black leading-none drop-shadow-[0_1px_0_rgba(255,255,255,0.3)] ${theme.text}`}>
+                    <div className={`relative z-10 text-[24px] font-black leading-none drop-shadow-[0_1px_0_rgba(255,255,255,0.35)] ${theme.text}`}>
                       {square.label}
                     </div>
+                  </div>
+                );
+              })}
+            </div>
 
-                    {hasPlayers && (
-                      <div className="pointer-events-none absolute bottom-0 left-1/2 flex w-[140px] -translate-x-1/2 translate-y-1/3 flex-wrap justify-center gap-1">
-                        {groupedPlayers.slice(0, 6).map((player, idx) => {
-                          const isMoving = movement?.isActive && movement.playerUid === player.uid;
-                          const isCurrentTurn = currentTurnUid === player.uid;
-                          // 頂端提示已移除，改成完全跟著棋偶走的浮動氣泡：只要這位玩家還在
-                          // 移動中，或是移動暫停在「經過事件」等待處理（remainingPath 還有
-                          // 剩餘步數），就顯示氣泡，涵蓋原本頂端提示涵蓋的兩種狀態。
-                          const isPausedMidMove = !movement?.isActive && movement?.playerUid === player.uid && (movement?.remainingPath?.length ?? 0) > 0;
-                          const showRemainingBadge = isMoving || isPausedMidMove;
-                          return (
-                            <div key={player.uid} className="relative" style={{ zIndex: isMoving ? 100 : isCurrentTurn ? 40 : 30 - idx }}>
-                              {showRemainingBadge && (
-                                <div
-                                  className={`pointer-events-none absolute z-[110] whitespace-nowrap rounded-full border border-[#ffefd6] bg-[#4f3c29] px-4 py-2 text-center shadow-[0_8px_16px_-6px_rgba(0,0,0,0.6)] ${BADGE_DIRECTION_CLASSES[badgeDirection]}`}
-                                >
-                                  <div className="text-[10px] font-black tracking-[0.2em] text-[#e8c795]">
-                                    {isMoving ? '移動中' : '停靠處理中'}
-                                  </div>
-                                  <div className="text-sm font-black text-[#ffefd6]">
-                                    剩餘 {getRemainingMovementSteps(room, player.uid, animationNow)} 步
-                                  </div>
-                                </div>
-                              )}
-                              <motion.div
-                                layoutId={`player-token-${player.uid}`}
-                                initial={{ scale: 0.5, opacity: 0 }}
-                                animate={{
-                                  scale: isMoving ? 1.3 : isCurrentTurn ? 1.15 : 1,
-                                  opacity: 1,
-                                  y: isMoving ? -16 : 0
-                                }}
-                                transition={{
-                                  type: "spring",
-                                  stiffness: 400,
-                                  damping: 28,
-                                  mass: 0.8
-                                }}
-                                className={[
-                                  'flex items-center justify-center overflow-hidden rounded-full border-2 bg-[linear-gradient(180deg,#8f6b48,#6f5237)] shadow-[0_12px_24px_-8px_rgba(86,58,32,0.9)]',
-                                  isMoving ? 'h-16 w-16 border-[#ffefd6] ring-4 ring-[#ffefd6]/50' : 'h-14 w-14 border-[#fff8ee]',
-                                  isCurrentTurn && !isMoving ? 'ring-2 ring-[#d8a66a]/70' : ''
-                                ].join(' ')}
-                                title={player.name}
-                              >
-                                {renderPlayerToken(player, isMoving)}
-                              </motion.div>
-                            </div>
-                          );
-                        })}
+            <div className="pointer-events-none absolute inset-0 z-[80]">
+              {players.map(player => {
+                const groupedPlayers = playerGroups[player.position] || [player];
+                const playerIndex = Math.max(0, groupedPlayers.findIndex(groupedPlayer => groupedPlayer.uid === player.uid));
+                const offset = getProjectionPlayerOffset(playerIndex, groupedPlayers.length);
+                const center = getProjectionTileCenter(player.position);
+                const isMoving = movement?.isActive && movement.playerUid === player.uid;
+                const isPausedMidMove = !movement?.isActive && movement?.playerUid === player.uid && (movement?.remainingPath?.length ?? 0) > 0;
+                const showMovementLabel = isMoving || isPausedMidMove;
+                const isCurrentTurn = currentTurnUid === player.uid;
+                const badgeDirection = getBoardEdgeInwardDirection(player.position);
+
+                return (
+                  <motion.div
+                    key={player.uid}
+                    data-player-token={player.name}
+                    data-board-position={player.position}
+                    initial={false}
+                    animate={{
+                      x: center.x + offset.x - 29,
+                      y: center.y + offset.y - 31 - (isMoving ? 12 : 0),
+                      scale: isMoving ? 1.08 : 1,
+                    }}
+                    transition={{
+                      x: { duration: prefersReducedMotion ? 0 : tokenStepDurationSeconds, ease: 'easeOut' },
+                      y: { duration: prefersReducedMotion ? 0 : tokenStepDurationSeconds, ease: 'easeOut' },
+                      scale: { duration: prefersReducedMotion ? 0 : 0.18, ease: 'easeOut' },
+                    }}
+                    className="absolute left-0 top-0 h-[66px] w-[58px] motion-reduce:transition-none"
+                    style={{ zIndex: isMoving ? 120 : isCurrentTurn ? 100 : 90 + player.turnOrderIndex }}
+                  >
+                    {showMovementLabel && (
+                      <div className={`absolute z-[130] whitespace-nowrap rounded-full border border-[#fff0c7]/65 bg-[#102f38]/96 px-3 py-2 text-center shadow-[0_10px_20px_-10px_rgba(0,0,0,0.8)] ${BADGE_DIRECTION_CLASSES[badgeDirection]}`}>
+                        <div className="text-xs font-black text-white">{player.name}</div>
+                        <div className="text-[10px] font-black tracking-[0.1em] text-[#f0ce86]">
+                          {isMoving ? `移動中 · 剩餘 ${getRemainingMovementSteps(room, player.uid, animationNow)} 步` : '停靠處理中'}
+                        </div>
                       </div>
                     )}
-                  </div>
+
+                    {isCurrentTurn && (
+                      <div
+                        className="absolute -inset-[7px] rounded-full border-2"
+                        style={{ borderColor: player.color.base, boxShadow: `0 0 0 3px white, 0 0 24px ${player.color.glow}` }}
+                      />
+                    )}
+
+                    <div
+                      className="relative h-[58px] w-[58px] rounded-full border-[3px] border-white/95 p-[5px] shadow-[0_14px_24px_-10px_rgba(27,35,31,0.9)]"
+                      style={{ background: `linear-gradient(180deg, ${player.color.base}, ${player.color.dark})` }}
+                      title={player.name}
+                    >
+                      <div className="h-full w-full overflow-hidden rounded-full">
+                        {renderPlayerToken(player, isMoving)}
+                      </div>
+                    </div>
+                    <div
+                      className="absolute bottom-0 left-1/2 h-[8px] w-[38px] -translate-x-1/2 rounded-full border border-white/55"
+                      style={{ backgroundColor: player.color.dark, boxShadow: `0 6px 12px -6px ${player.color.glow}` }}
+                    />
+                  </motion.div>
                 );
               })}
             </div>
@@ -1126,18 +1304,51 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         </div>
       </div>
 
-      {currentCard && (
-          <div className="pointer-events-none fixed inset-0 z-[10020] flex items-center justify-center p-4 sm:p-8">
-          <div className="pointer-events-auto flex items-center justify-center">
-            <CardStage
-              card={currentCard}
-              isRevealed={isCardRevealed}
-              drawerName={currentDrawerName}
-              statusLabel={cardStatusLabel}
-            />
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {currentCard && (
+          <motion.div
+            data-projection-card
+            data-card-id={currentCard.cardId}
+            key={`${boardState?.currentEvent?.id || 'card'}_${currentCard.cardId}`}
+            initial={prefersReducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
+            className="pointer-events-none fixed inset-0 z-[10020] flex items-center justify-center bg-[#091b21]/45 p-4 sm:p-8"
+          >
+            <motion.div
+              initial={prefersReducedMotion ? false : { y: 24, scale: 0.97 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={prefersReducedMotion ? undefined : { y: 14, scale: 0.985 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.3, ease: 'easeOut' }}
+              className="flex max-h-full flex-col items-center"
+            >
+              <div
+                className="mb-3 flex items-center gap-3 rounded-full border border-white/50 bg-[#102f38]/96 py-2 pl-2 pr-5 text-white shadow-[0_12px_30px_-18px_rgba(0,0,0,0.9)]"
+                style={{
+                  boxShadow: `0 0 28px ${currentCard.deck === 'happiness' ? 'rgba(234,176,78,0.42)' : currentCard.deck === 'news' ? 'rgba(143,163,148,0.42)' : 'rgba(197,153,98,0.42)'}`,
+                }}
+              >
+                <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-white/90 bg-[#b88a43]">
+                  {currentDrawerPlayer ? renderPlayerToken(currentDrawerPlayer) : <div className="flex h-full items-center justify-center font-black">{currentDrawerName.slice(0, 1)}</div>}
+                </div>
+                <div>
+                  <div className="text-[10px] font-black tracking-[0.18em] text-[#e8c37a]">抽卡玩家</div>
+                  <div className="text-base font-black">{currentDrawerName}</div>
+                </div>
+              </div>
+              <div className="flex min-h-0 items-center justify-center">
+                <CardStage
+                  card={currentCard}
+                  isRevealed={isCardRevealed}
+                  drawerName={currentDrawerName}
+                  statusLabel={cardStatusLabel}
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

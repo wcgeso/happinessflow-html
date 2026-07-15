@@ -115,6 +115,14 @@ const AppContent = () => {
 
     const boardRoomCode = new URLSearchParams(window.location.search).get('boardRoom');
     if (boardRoomCode) {
+        if (isLoadingAuth) return <Spinner />;
+        if (!user) {
+            return (
+                <Suspense fallback={<Spinner />}>
+                    <AuthView />
+                </Suspense>
+            );
+        }
         return (
             <Suspense fallback={<Spinner />}>
                 <BoardProjectionView roomCode={boardRoomCode} />
