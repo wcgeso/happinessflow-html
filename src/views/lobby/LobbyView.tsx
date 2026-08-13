@@ -478,7 +478,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 
   if (showRoomView || (room && room.status === 'waiting')) {
     return (
-      <div className="relative flex flex-1 touch-none select-none flex-col overflow-hidden bg-[#102f38] pb-safe pt-safe">
+      <div className="relative flex min-h-0 flex-1 touch-pan-y select-none flex-col overflow-y-auto bg-[#102f38]">
         <RoomView
           onBack={() => {
             setShowRoomView(false);
@@ -564,13 +564,13 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
         </div>
       </div>
 
-      <div className="relative z-10 flex-1 flex flex-col px-6 py-4 max-w-4xl mx-auto w-full overflow-hidden md:overflow-y-auto no-scrollbar">
+      <div className="relative z-10 flex-1 min-h-0 flex flex-col px-6 py-4 max-w-4xl mx-auto w-full overflow-y-auto md:overflow-y-auto no-scrollbar">
         {/* Main Content Area - Auto Scaling */}
           <div className="flex-1 flex flex-col justify-center gap-6 lg:gap-8 md:justify-start md:pb-8">
             {/* Logo Section - Common to both modes */}
             <div className="text-center relative top-4">
               <h1 className="mb-2 bg-gradient-to-b from-[#fffaf2] via-[#f4e6d0] to-[#d6a94e] bg-clip-text text-5xl font-black tracking-tight text-transparent md:text-6xl lg:text-7xl">
-                {viewMode === 'gm' ? 'GM 控制台' : viewMode === 'coach' ? '執行師' : '幸福流'}
+                {viewMode === 'gm' ? 'GM 控制台' : viewMode === 'coach' ? '執行師' : '第二人生'}
               </h1>
               <div className="flex items-center justify-center gap-2 mb-3">
                 <div className="h-[1px] w-5 bg-gradient-to-r from-transparent to-amber-500/40"></div>

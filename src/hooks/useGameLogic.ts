@@ -3,6 +3,7 @@ import { useGame } from '../context/GameContext';
 import { GameRecord, Transaction, Asset, TransactionData, HappinessItem, GameState } from '../types';
 import { formatMoney } from '../utils/gameUtils';
 import { extractAssetSymbol, getAssetDisplayLabel, getStockAssetLabel } from '../utils/assetLabels';
+import { getRemainingCreditCapacity } from '../utils/financialRules';
 
 // Simple ID generator
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -621,6 +622,21 @@ export const useGameLogic = () => {
             showAlert('請輸入有效金額', 'error');
             return false;
         }
+        if (data.source === 'loan' && data.usage === 'cash') {
+            const remainingCredit = getRemainingCreditCapacity(
+                gameState.profession?.salary || 0,
+                gameState.liabilities,
+                gameState.loans
+            );
+            if (amount > remainingCredit) {
+                showAlert(`超過信貸上限，剩餘可借 ${formatMoney(remainingCredit)}`, 'error');
+                return false;
+            }
+        }
+        if (data.cashChange < 0 && gameState.cash + data.cashChange < 0) {
+            showAlert(`現金不足，還差 ${formatMoney(Math.abs(gameState.cash + data.cashChange))}，請先周轉資金`, 'error');
+            return false;
+        }
         if (data.usage === 'liability' && data.liabilityId) {
             if (amount > gameState.cash) {
                 showAlert('現金不足，無法完成還款', 'error');
@@ -1175,8 +1191,7 @@ export const useGameLogic = () => {
     const handlePromotionConfirm = (_type: 'normal' | 'lifelong' = 'normal'): boolean | 'pending' => {
         const cost = 1000;
         if (gameState.cash < cost) {
-            showAlert(`現金不足！報名費需 ${cost.toLocaleString()}`, 'error');
-            return false;
+            return 'pending';
         }
         executePromotionFee(cost);
         return true;
@@ -1260,8 +1275,7 @@ export const useGameLogic = () => {
 
     const handleLifelongConfirm = (type: string, cost: number): boolean | 'pending' => {
         if (gameState.cash < cost) {
-            showAlert(`現金不足，需要 ${formatMoney(cost)}`, 'error');
-            return false;
+            return 'pending';
         }
         executeLifelongFee(type, cost);
         return true;

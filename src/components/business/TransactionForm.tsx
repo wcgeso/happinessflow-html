@@ -8,6 +8,7 @@ interface TransactionFormProps {
   selectedDream: Dream | null;
   cash: number;
   salary: number;
+  legacyLoans?: number;
   assets?: Asset[];
   happiness?: HappinessItem[];
   completedHappinessEvents?: string[];
@@ -32,6 +33,7 @@ interface TransactionFormProps {
 export const TransactionForm: React.FC<TransactionFormProps> = ({
   cash,
   salary,
+  legacyLoans = 0,
   assets,
   liabilities,
   medicalInsuranceCount,
@@ -72,6 +74,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     <BankingAppModal
       cash={cash}
       salary={salary}
+      legacyLoans={legacyLoans}
       assets={assets}
       liabilities={liabilities}
       marketPrices={marketPrices}

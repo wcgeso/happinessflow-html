@@ -180,6 +180,36 @@ describe('resolveBoardCardAction', () => {
     expect(action.txData.cashChange).toBe(-100000);
   });
 
+  it('property repair charges every uninsured eligible rental house', () => {
+    const action = resolveBoardCardAction('C041', createGameState({
+      assets: [
+        {
+          id: 'house-1',
+          name: 'N001 單間小套房',
+          cost: 1000000,
+          downPayment: 300000,
+          cashflow: 10000,
+          type: '不動產',
+          isSelfUse: false
+        },
+        {
+          id: 'house-2',
+          name: 'N002 兩房一廳',
+          cost: 2000000,
+          downPayment: 600000,
+          cashflow: 20000,
+          type: '不動產',
+          isSelfUse: false
+        }
+      ]
+    }));
+
+    expect(action.kind).toBe('financial');
+    if (action.kind !== 'financial') return;
+    expect(action.txData.amount).toBe(400000);
+    expect(action.txData.impacts).toContain('未投保房屋 2 間');
+  });
+
   it('C014 offers every qualifying residence at a 60% premium', () => {
     const action = resolveBoardCardAction('C014', createGameState({
       assets: [{

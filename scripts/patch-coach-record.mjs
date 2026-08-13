@@ -134,7 +134,7 @@ function objToFsFields(obj) {
 
 // ── 主程式 ────────────────────────────────────────────────
 async function main() {
-  console.log('🐝 蜂富人生 — 補寫執行師紀錄工具\n');
+  console.log('🐝 第二人生 — 補寫執行師紀錄工具\n');
 
   const password = await ask('請輸入 GM 密碼 (gm0221@happinessflow.com)：');
   console.log('\n🔐 登入中...');

@@ -12,7 +12,7 @@
 
 ## Purpose
 
-本文件定義《幸福流》的正式財務系統，涵蓋 `Cash`、`Income`、`Expense`、`Passive Income`、`Financial Check`、`Transaction`、`Settlement` 與 `Debt`。
+本文件定義《第二人生》的正式財務系統，涵蓋 `Cash`、`Income`、`Expense`、`Passive Income`、`Financial Check`、`Transaction`、`Settlement` 與 `Debt`。
 
 本文件的責任是把已確認的產品規格轉化為可維護、可追蹤、可同步的正式財務設計。
 

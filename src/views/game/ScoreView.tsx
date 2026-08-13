@@ -277,42 +277,42 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
 
     if (isInline) {
         return (
-            <div className="w-full h-full flex flex-col overflow-hidden no-scrollbar bg-slate-900/50">
+            <div className="h-full w-full touch-pan-y overflow-y-auto overscroll-contain bg-[#f4e6d0] text-[#293a38]">
                 <SettlementView
                     players={settlementPlayers}
                     privateState={privateSettlementState}
                     showPrivateRecap={!!privateSettlementState}
                     compact
                 />
-                <div className="shrink-0 p-6 bg-slate-800/40 border-b border-slate-500/30 text-center">
-                    <Trophy size={40} className="mx-auto text-yellow-400 mb-2" />
-                    <h2 className="text-2xl font-black text-white">遊戲結算</h2>
-                    <p className="text-amber-400 font-mono text-xs mt-1">
+                <div className="shrink-0 p-6 bg-[#fffaf2] border-b border-[#d8c29a] text-center">
+                    <Trophy size={40} className="mx-auto text-[#b9783d] mb-2" />
+                    <h2 className="text-2xl font-black text-[#293a38]">遊戲結算</h2>
+                    <p className="text-[#a9643a] font-mono text-xs mt-1">
                         {room?.name || '本次遊戲'} - {formatDuration(room?.duration || 0)}
                     </p>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 scrollbar-none no-scrollbar">
-                    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                        <h3 className="text-xs font-bold text-slate-300 mb-3 flex items-center gap-2">
-                            <List size={14} className="text-amber-400" /> 積分概覽 (當前選中: {playerName})
+                <div className="p-6">
+                    <div className="bg-[#fffaf2] rounded-xl p-4 border border-[#ead7b8]">
+                        <h3 className="text-xs font-bold text-[#5f5145] mb-3 flex items-center gap-2">
+                            <List size={14} className="text-[#b9783d]" /> 積分概覽 (當前選中: {playerName})
                         </h3>
                         <div className="space-y-2">
                             {displayScoreResult.details.map((detail, idx) => (
-                                <div key={idx} className={`flex justify-between items-center text-xs py-3 border-b border-slate-700/50 last:border-0 ${detail.achieved ? 'text-slate-300' : 'text-slate-500'}`}>
+                                <div key={idx} className={`flex justify-between items-center text-xs py-3 border-b border-[#ead7b8] last:border-0 ${detail.achieved ? 'text-[#5f5145]' : 'text-[#7e6d5c]'}`}>
                                     <div className="flex items-center gap-2">
                                         {detail.achieved ? (
-                                            <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                                            <div className="w-5 h-5 rounded-full bg-[#dcefe7] flex items-center justify-center text-[#2e8876]">
                                                 <Check size={12} strokeWidth={3} />
                                             </div>
                                         ) : (
-                                            <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-slate-600">
+                                            <div className="w-5 h-5 rounded-full bg-[#f4e6d0] flex items-center justify-center text-[#7e6d5c]">
                                                 <div className="w-1 h-1 rounded-full bg-current" />
                                             </div>
                                         )}
                                         {detail.label}
                                     </div>
-                                    <span className={`font-bold ${detail.achieved ? 'text-amber-400' : 'text-slate-600'}`}>
+                                    <span className={`font-bold ${detail.achieved ? 'text-[#b9783d]' : 'text-[#7e6d5c]'}`}>
                                         +{detail.points}
                                     </span>
                                 </div>
@@ -322,18 +322,18 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                 </div>
 
                 <div className="shrink-0 p-4 pt-0 flex justify-center">
-                    <div className="bg-slate-800/90 rounded-2xl px-5 py-2 border border-amber-500/30 flex items-center gap-4 shadow-xl shadow-amber-900/20">
+                    <div className="bg-[#fffaf2] rounded-2xl px-5 py-2 border border-[#d8c29a] flex items-center gap-4 shadow-[0_12px_28px_-20px_rgba(16,47,56,0.65)]">
                         <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500">
+                            <div className="w-7 h-7 rounded-full bg-[#f8e8c8] flex items-center justify-center text-[#b9783d]">
                                 <Trophy size={14} />
                             </div>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">結算總分</span>
+                            <span className="text-[10px] font-black text-[#8a7867] uppercase tracking-widest">結算總分</span>
                         </div>
                         <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-black text-amber-400 font-mono tracking-tighter">
+                            <span className="text-2xl font-black text-[#b9783d] font-mono tracking-tighter">
                                 {displayScoreResult.totalScore}
                             </span>
-                            <span className="text-[8px] font-bold text-amber-500/40 uppercase">pts</span>
+                            <span className="text-[8px] font-bold text-[#a9643a]/65 uppercase">pts</span>
                         </div>
                     </div>
                 </div>
@@ -342,7 +342,7 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
     }
 
     return (
-        <div className="h-full w-full bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 relative pt-safe pb-safe">
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#f4e6d0] p-4 pt-safe pb-safe">
             {/* 成就達成通知隊列 */}
             <div className="fixed top-4 mt-safe left-0 right-0 z-[1000] flex flex-col items-center gap-2 pointer-events-none">
                 <AnimatePresence mode="popLayout">
@@ -353,10 +353,10 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
                             layout
-                            className="bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-6 flex items-center h-[40px] shadow-lg"
+                            className="flex h-[40px] items-center rounded-full border border-[#d8c29a] bg-[#173943]/96 px-6 shadow-lg"
                         >
                             <span className="text-white text-sm font-bold tracking-wide flex items-center gap-2">
-                                <Trophy size={14} className="text-yellow-400" />
+                                <Trophy size={14} className="text-[#e8c37a]" />
                                 達成成就：{achievement.label}
                             </span>
                         </motion.div>
@@ -366,15 +366,15 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
 
             {/* Custom Confirm Modal */}
             {showConfirm && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#102f38]/78 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-[#fffaf2] border border-[#d8c29a] text-[#293a38] w-full max-w-xs rounded-3xl p-6 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-200">
                         <div className="text-center space-y-4">
                             <div className="mx-auto w-12 h-12 bg-rose-500/20 rounded-2xl flex items-center justify-center text-rose-500">
                                 <LogOut size={24} />
                             </div>
                             <div>
-                                <h3 className="text-lg font-black text-white">確定要離開？</h3>
-                                <p className="text-slate-400 text-xs mt-2 leading-relaxed">
+                                <h3 className="text-lg font-black text-[#293a38]">確定要離開？</h3>
+                                <p className="text-[#6f6253] text-xs mt-2 leading-relaxed">
                                     離開後將回到大廳，且不會記錄本次遊戲積分。此操作無法撤銷。
                                 </p>
                             </div>
@@ -389,7 +389,7 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                                 <button
                                     disabled={isLeaving}
                                     onClick={() => setShowConfirm(false)}
-                                    className="w-full py-3 text-slate-500 hover:text-white font-bold text-sm transition-colors"
+                                    className="w-full py-3 text-[#8a7867] hover:text-[#293a38] font-bold text-sm transition-colors"
                                 >
                                     取消
                                 </button>
@@ -399,21 +399,21 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                 </div>
             )}
 
-            <div className="max-w-lg w-full max-h-full flex flex-col py-4">
-                <Card className="bg-slate-900 border-slate-500 shadow-2xl shadow-slate-500/10 flex flex-col overflow-hidden animate-in zoom-in-95 no-scrollbar relative min-h-0">
+            <div className="mx-auto flex min-h-full w-full max-w-lg items-center py-4">
+                <Card className="relative flex max-h-[calc(100dvh-2rem)] w-full touch-pan-y flex-col overflow-y-auto overscroll-contain !border-[#d8c29a] !bg-[#fffaf2] text-[#293a38] shadow-[0_26px_60px_-28px_rgba(0,0,0,0.72)] animate-in zoom-in-95">
                     {/* Close Button at Top Right */}
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white hover:bg-white/10 rounded-full transition-all z-10"
+                        className="absolute top-4 right-4 p-2 text-[#8a7867] hover:text-[#293a38] hover:bg-[#f4e6d0] rounded-full transition-all z-10"
                     >
                         <X size={24} />
                     </button>
 
-                    <div className="shrink-0 p-6 bg-slate-800/40 border-b border-slate-500/30 text-center">
-                        <Trophy size={40} className="mx-auto text-yellow-400 mb-2" />
-                        <h2 className="text-2xl font-black text-white">遊戲評分</h2>
-                        <p className="text-amber-400 font-mono text-xs mt-1">玩家: {playerName}</p>
-                        <p className="text-slate-500 text-[10px] mt-2 italic">※ 遊戲紀錄將由執行師統一確認存檔</p>
+                    <div className="shrink-0 p-6 bg-[#fffaf2] border-b border-[#d8c29a] text-center">
+                        <Trophy size={40} className="mx-auto text-[#b9783d] mb-2" />
+                        <h2 className="text-2xl font-black text-[#293a38]">遊戲評分</h2>
+                        <p className="text-[#a9643a] font-mono text-xs mt-1">玩家: {playerName}</p>
+                        <p className="text-[#8a7867] text-[10px] mt-2 italic">※ 遊戲紀錄將由執行師統一確認存檔</p>
                     </div>
 
                     <SettlementView
@@ -423,27 +423,27 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                         compact
                     />
 
-                    <div className="flex-1 overflow-y-auto p-6 scrollbar-none no-scrollbar">
-                        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                            <h3 className="text-xs font-bold text-slate-300 mb-3 flex items-center gap-2">
-                                <List size={14} className="text-amber-400" /> 積分細項
+                    <div className="shrink-0 p-6">
+                        <div className="bg-[#fffaf2] rounded-xl p-4 border border-[#ead7b8]">
+                            <h3 className="text-xs font-bold text-[#5f5145] mb-3 flex items-center gap-2">
+                                <List size={14} className="text-[#b9783d]" /> 積分細項
                             </h3>
                             <div className="space-y-2">
                                 {displayScoreResult.details.map((detail, idx) => (
-                                    <div key={idx} className={`flex justify-between items-center text-xs py-3 border-b border-slate-700/50 last:border-0 ${detail.achieved ? 'text-slate-300' : 'text-slate-500'}`}>
+                                    <div key={idx} className={`flex justify-between items-center text-xs py-3 border-b border-[#ead7b8] last:border-0 ${detail.achieved ? 'text-[#5f5145]' : 'text-[#7e6d5c]'}`}>
                                         <div className="flex items-center gap-2">
                                             {detail.achieved ? (
-                                                <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                                                <div className="w-5 h-5 rounded-full bg-[#dcefe7] flex items-center justify-center text-[#2e8876]">
                                                     <Check size={12} strokeWidth={3} />
                                                 </div>
                                             ) : (
-                                                <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-slate-600">
+                                                <div className="w-5 h-5 rounded-full bg-[#f4e6d0] flex items-center justify-center text-[#7e6d5c]">
                                                     <div className="w-1 h-1 rounded-full bg-current" />
                                                 </div>
                                             )}
                                             {detail.label}
                                         </div>
-                                        <span className={`font-bold ${detail.achieved ? 'text-amber-400' : 'text-slate-600'}`}>
+                                        <span className={`font-bold ${detail.achieved ? 'text-[#b9783d]' : 'text-[#7e6d5c]'}`}>
                                             +{detail.points}
                                         </span>
                                     </div>
@@ -455,21 +455,21 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                     {/* Fixed Bottom Section */}
                     <div className="shrink-0 p-6 pt-0 space-y-3">
                         {/* Total Score Display */}
-                        <div className="bg-slate-800/80 rounded-2xl p-4 border border-amber-500/30 flex justify-between items-center shadow-lg shadow-amber-900/20 mt-auto">
+                        <div className="bg-[#f4e6d0] rounded-2xl p-4 border border-[#d8c29a] flex justify-between items-center shadow-[0_14px_28px_-22px_rgba(16,47,56,0.7)] mt-auto">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500 shadow-inner">
+                                <div className="w-10 h-10 rounded-2xl bg-[#f8e8c8] flex items-center justify-center text-[#b9783d] shadow-inner">
                                     <Trophy size={20} />
                                 </div>
                                 <div>
-                                    <div className="text-[9px] font-black text-amber-500/60 uppercase tracking-[0.2em] leading-none mb-1">Total Score</div>
-                                    <div className="text-base font-black text-white tracking-wide uppercase">結算總積分</div>
+                                    <div className="text-[9px] font-black text-[#a9643a] uppercase tracking-[0.2em] leading-none mb-1">Total Score</div>
+                                    <div className="text-base font-black text-[#293a38] tracking-wide uppercase">結算總積分</div>
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-4xl font-black text-amber-400 font-mono tracking-tighter drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]">
+                                <div className="text-4xl font-black text-[#b9783d] font-mono tracking-tighter">
                                     {displayScoreResult.totalScore}
                                 </div>
-                                <div className="text-[9px] font-black text-amber-500/40 mt-0.5 tracking-widest">POINTS</div>
+                                <div className="text-[9px] font-black text-[#a9643a]/60 mt-0.5 tracking-widest">POINTS</div>
                             </div>
                         </div>
 

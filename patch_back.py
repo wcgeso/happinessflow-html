@@ -3,8 +3,8 @@ import re
 with open('src/components/game/BoardCardDrawer.tsx', 'r', encoding='utf-8') as f:
     content = f.read()
 
-# "Happiness Flow" -> "蜂富人生"
-content = content.replace("Happiness Flow", "蜂富人生")
+# "第二人生" -> "第二人生"
+content = content.replace("第二人生", "第二人生")
 
 # "Tap To Reveal" -> "點擊翻牌"
 content = content.replace("Tap To Reveal", "點擊翻牌")

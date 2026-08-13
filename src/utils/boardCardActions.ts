@@ -199,7 +199,11 @@ const stockSymbolFromAssetName = (name: string) => extractAssetSymbol(name) || n
 const formatAmount = (value: number) => Math.abs(value).toLocaleString();
 
 const hasOwnedHouse = (assets: Asset[]) => assets.some(asset => asset.type === '不動產');
-const hasInsuredHouse = (assets: Asset[]) => assets.some(asset => asset.type === '不動產' && asset.isInsured);
+const getRepairableHouses = (assets: Asset[]) => {
+  const houses = assets.filter(asset => asset.type === '不動產');
+  const rentals = houses.filter(asset => asset.isSelfUse === false);
+  return rentals.length > 0 ? rentals : houses;
+};
 const hasOwnedVehicle = (assets: Asset[]) => assets.some(asset => asset.type === '汽車' || asset.type === '飛行器');
 const hasInsuredVehicle = (assets: Asset[]) => assets.some(
   asset => (asset.type === '汽車' || asset.type === '飛行器') && asset.isInsured
@@ -273,7 +277,11 @@ const createBatchSaleFinancialAction = (title: string, items: BoardAssetSaleCand
     }
     impacts.push(`${item.asset.name} 入帳現金 +${formatAmount(item.netCash)}`);
 
-    addExpected({ category: 'Assets', name: item.asset.type === '企業' ? '企業' : '不動產', direction: 'Decrease' });
+    addExpected({
+      category: 'Assets',
+      name: item.asset.type === '企業' ? item.asset.name : '不動產',
+      direction: 'Decrease'
+    });
 
     if (item.asset.cashflow > 0) {
       addExpected({
@@ -518,7 +526,8 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
     } : undefined;
 
     if (opportunityCard.type === 'property_repair') {
-      if (!hasOwnedHouse(gameState.assets)) {
+      const repairableHouses = getRepairableHouses(gameState.assets);
+      if (!hasOwnedHouse(repairableHouses)) {
         return {
           kind: 'choice',
           label: '確認卡片',
@@ -533,7 +542,8 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
         };
       }
 
-      if (hasInsuredHouse(gameState.assets)) {
+      const uninsuredHouses = repairableHouses.filter(asset => !asset.isInsured);
+      if (uninsuredHouses.length === 0) {
         return {
           kind: 'choice',
           label: '確認卡片',
@@ -547,6 +557,22 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
           ]
         };
       }
+
+      const repairFee = (opportunityCard.cashLoss || 0) * uninsuredHouses.length;
+      return {
+        kind: 'financial',
+        label: '進入財務檢核',
+        txData: {
+          name: `機運卡：${opportunityCard.title}`,
+          amount: repairFee,
+          cashChange: -repairFee,
+          source: 'cash',
+          usage: 'expense',
+          impacts: [`未投保房屋 ${uninsuredHouses.length} 間`, `現金 -${formatAmount(repairFee)}`]
+        },
+        expectedEntries: [{ category: 'Assets', name: '現金', direction: 'Decrease' }],
+        afterApply: moveAfterApply
+      };
     }
 
     if (opportunityCard.type === 'aircraft_damage') {
@@ -977,7 +1003,7 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
     return {
       kind: 'unsupported',
       label: '待補流程',
-      note: '這張卡目前沒有可直接套用的金流或幸福流程。'
+      note: '這張卡目前沒有可直接套用的金流或第二人生程。'
     };
   }
 

@@ -14,6 +14,7 @@ export type BankingTab = 'broker' | 'banking' | 'wealth' | 'vehicle';
 export interface BankingAppModalProps {
   cash: number;
   salary: number;
+  legacyLoans?: number;
   assets?: Asset[];
   liabilities: any[];
   marketPrices?: Record<string, number>;
@@ -29,6 +30,7 @@ export interface BankingAppModalProps {
 export const BankingAppModal: React.FC<BankingAppModalProps> = ({
   cash = 0,
   salary = 0,
+  legacyLoans = 0,
   assets = [],
   liabilities = [],
   marketPrices = {},
@@ -122,7 +124,7 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
     if (data.usage === 'cash' && data.stockList?.length) {
       return [
         { category: 'Assets', name: '現金', direction: 'Increase' },
-        ...data.stockList.map(item => ({ category: 'Assets' as const, name: getStockAssetLabel(item.symbol), direction: 'Decrease' as const }))
+        { category: 'Assets', name: '股票', direction: 'Decrease' }
       ];
     }
 
@@ -233,6 +235,8 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
       const interest = Math.floor(loanAmount * 0.1);
       return {
         ...nextData,
+        source: 'loan',
+        usage: 'cash',
         impacts: nextData.impacts || [
           `現金 +${loanAmount.toLocaleString()}`,
           `信用貸款 +${loanAmount.toLocaleString()}`,
@@ -264,8 +268,8 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-[10050] flex items-center justify-center bg-[#102f38]/78 backdrop-blur-md sm:p-6">
-      <div className="flex h-full w-full flex-col overflow-hidden border-[#d8c29a] bg-[#fffaf2] text-[#293a38] shadow-[0_28px_80px_-32px_rgba(16,47,56,0.85)] sm:h-[90vh] sm:max-w-4xl sm:rounded-3xl sm:border md:h-[650px]">
+    <div className="fixed inset-0 z-[10050] flex items-center justify-center bg-[#102f38]/78 p-3 backdrop-blur-md sm:p-6">
+      <div className="flex h-[calc(100dvh-1.5rem)] max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-3xl border border-[#d8c29a] bg-[#fffaf2] text-[#293a38] shadow-[0_28px_80px_-32px_rgba(16,47,56,0.85)] sm:h-[90vh] sm:max-w-4xl md:h-[650px]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#ead7b8] bg-[#fffaf2] px-3 pb-2 pt-[calc(env(safe-area-inset-top)+8px)] sm:p-5">
           <div className="flex items-center gap-2.5 sm:gap-3">
@@ -341,7 +345,9 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
             {activeTab === 'banking' && (
               <BankingView
                 cash={cash}
+                salary={salary}
                 liabilities={liabilities}
+                legacyLoans={legacyLoans}
                 onTransaction={(data) => onTransaction(normalizeTransactionForGame(data))}
               />
             )}

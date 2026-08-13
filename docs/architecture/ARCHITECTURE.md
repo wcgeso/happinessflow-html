@@ -12,7 +12,7 @@
 
 # Purpose
 
-本文件是《幸福流》Architecture Layer 的總覽文件。
+本文件是《第二人生》Architecture Layer 的總覽文件。
 
 本文件只負責整理正式文件體系中的系統分層、模組邊界、依賴方向、權威順序與系統責任。
 

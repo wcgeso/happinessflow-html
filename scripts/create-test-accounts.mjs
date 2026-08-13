@@ -81,7 +81,7 @@ async function setFirestoreDoc(uid, data) {
   if (result.error) throw new Error(JSON.stringify(result.error));
 }
 
-console.log('🐝 蜂富人生 — 建立測試帳號\n');
+console.log('🐝 第二人生 — 建立測試帳號\n');
 
 for (const account of accounts) {
   console.log(`建立 [${account.role}]: ${account.email}`);

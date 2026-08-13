@@ -175,7 +175,7 @@
   - 卡片結果
   - 家庭歷程
   - 自訂項目
-- `Completed Events` 目前只是一個 `string[]`，不是正式事件紀錄，所以它能拿來去重，但不適合單獨描述完整幸福流程
+- `Completed Events` 目前只是一個 `string[]`，不是正式事件紀錄，所以它能拿來去重，但不適合單獨描述完整第二人生程
 - `Happiness Card` 的行為依賴 `GameState`：
   - 家庭重要歷程會依目前進度改寫成不同 stage card
   - 同一張卡在不同狀態下可能走 `happiness`、`financial`、`choice` 或 `unsupported`

@@ -5,7 +5,7 @@ import { GameState } from '../types';
 import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from '../utils/familyMilestones';
 
 // ============================================================
-// 蜂富人生 Card Database Adapter
+// 第二人生 Card Database Adapter
 // ============================================================
 
 type RawCardRecord = Record<string, any>;
@@ -394,11 +394,6 @@ export const buildHappinessCardMetaFromSchema = (cardId: string, playerState?: G
   const stage = isFamilyMilestone ? getFamilyMilestoneStageByCardId(card.id) : null;
   const familyMilestoneStatus = playerState ? getFamilyMilestoneStatus(playerState) : null;
   const effectLines: string[] = [];
-
-  if (isFamilyMilestone && familyMilestoneStatus) {
-    familyMilestoneStatus.stageLines.forEach((line: string) => pushUniqueLine(effectLines, line));
-    pushUniqueLine(effectLines, `目前進度：第 ${familyMilestoneStatus.currentStage} 階段`);
-  }
 
   // 幸福卡的 effects.summary 內容（例如「幸福 +2；需要故事分享」）完全是下面
   // 結構化欄位（幸福/一次性支出/月支出/需要故事分享）的白話重述，兩者同時

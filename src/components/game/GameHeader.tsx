@@ -219,26 +219,29 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                         <div className="flex-1 flex flex-col justify-center gap-2 sm:gap-3 overflow-hidden">
                             
                             {/* 上軌：幸福分數 (最醒目) */}
-                            <div 
-                                className="flex flex-col gap-1 cursor-pointer group"
+                            <button
+                                type="button"
+                                aria-label={`查看幸福指數明細，目前 ${gameState.happinessTotal} 分`}
                                 onClick={onShowHappiness}
+                                className="group w-full rounded-xl border border-[#d94f83]/30 bg-[#fff5f8]/70 px-2 py-1.5 text-left shadow-[0_6px_14px_-10px_rgba(189,79,115,0.8)] transition-all hover:-translate-y-0.5 hover:border-[#d94f83]/60 hover:bg-[#fff0f5] hover:shadow-[0_10px_18px_-10px_rgba(189,79,115,0.7)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d94f83]/50"
                             >
                                 <div className="flex justify-between items-end">
                                     <div className="flex items-center gap-1">
                                         <Heart size={14} className="text-[#d94f83] fill-[#d94f83] group-hover:scale-110 transition-transform sm:w-4 sm:h-4" />
                                         <span className="text-[11px] sm:text-sm font-black text-[#bd4f73] tracking-wider whitespace-nowrap">幸福指數</span>
+                                        <span className="rounded-full bg-[#d94f83]/10 px-1.5 py-0.5 text-[9px] font-black text-[#bd4f73]">查看</span>
                                     </div>
                                     <span className="text-sm sm:text-lg font-black text-[#293a38] whitespace-nowrap">
                                         {gameState.happinessTotal} <span className="text-[10px] sm:text-xs text-[#8b7b68]">/ 100</span>
                                     </span>
                                 </div>
-                                <div className="h-2 w-full bg-[#eadfca] rounded-full overflow-hidden shadow-inner border border-[#d8c29a]/60">
+                                <div className="mt-1.5 h-2 w-full bg-[#eadfca] rounded-full overflow-hidden shadow-inner border border-[#d8c29a]/60">
                                     <div 
                                         className="h-full bg-gradient-to-r from-[#c9655a] to-[#ef9a9a] rounded-full transition-all duration-1000"
                                         style={{ width: `${Math.min((gameState.happinessTotal / 100) * 100, 100)}%` }}
                                     />
                                 </div>
-                            </div>
+                            </button>
 
                             {/* 下軌：財務自由 */}
                             <div className="flex flex-col gap-1">
@@ -362,7 +365,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                 "relative z-[1] mt-2 rounded-2xl border px-3 py-2 shadow-[0_12px_26px_-18px_rgba(16,47,56,0.65)] backdrop-blur-xl transition-colors",
                                 boardTurnInfo.isMyTurn
                                     ? "border-[#6aa98c] bg-[#e0f0e5] text-[#245d50]"
-                                    : "border-[#d8c29a] bg-[#fffaf2]/96 text-[#293a38]"
+                                    : "border-[#d8c29a] bg-[#e0f0e5] text-[#293a38]"
                             )}
                         >
                             <div className="flex items-center gap-2 text-xs sm:text-sm">
@@ -374,17 +377,19 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                         第 {boardTurnInfo.position}/{boardTurnInfo.participantCount} 位
                                     </span>
                                 )}
-                                {boardTurnInfo.isMyTurn && (
-                                    <span className="shrink-0 rounded-full bg-[#b9dfc8] px-2 py-0.5 text-[10px] font-black text-[#245d50]">
-                                        輪到你
+                                <div className="ml-auto flex shrink-0 items-center gap-2">
+                                    {boardTurnInfo.isMyTurn && (
+                                        <span className="rounded-full bg-[#b9dfc8] px-2 py-0.5 text-[10px] font-black text-[#245d50]">
+                                            輪到你
+                                        </span>
+                                    )}
+                                    <span className={cn(
+                                        "text-[10px] font-bold",
+                                        boardTurnInfo.isOnline === null ? "text-[#8b7b68]" : boardTurnInfo.isOnline ? "text-[#2e806d]" : "text-[#b6544b]"
+                                    )}>
+                                        {boardTurnInfo.isOnline === null ? '連線同步中' : boardTurnInfo.isOnline ? '在線' : '已離線'}
                                     </span>
-                                )}
-                                <span className={cn(
-                                    "shrink-0 text-[10px] font-bold",
-                                    boardTurnInfo.isOnline === null ? "text-[#8b7b68]" : boardTurnInfo.isOnline ? "text-[#2e806d]" : "text-[#b6544b]"
-                                )}>
-                                    {boardTurnInfo.isOnline === null ? '連線同步中' : boardTurnInfo.isOnline ? '在線' : '已離線'}
-                                </span>
+                                </div>
                             </div>
                             {boardTurnInfo.eventSummary && (
                                 <div className="mt-1 truncate pl-6 text-[10px] text-[#7a6958]" title={boardTurnInfo.eventSummary}>

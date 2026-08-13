@@ -2,7 +2,7 @@
 
 ## Purpose
 
-本文件定義《幸福流》卡片資料庫第一階段正式欄位結構。
+本文件定義《第二人生》卡片資料庫第一階段正式欄位結構。
 
 這份 Schema 只負責卡片資料整理與欄位語意，不改動既有卡片遊戲邏輯，也不重寫 Product Specification、Decision、GDD 或 Architecture。
 

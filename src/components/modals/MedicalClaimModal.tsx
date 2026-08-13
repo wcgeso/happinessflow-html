@@ -37,6 +37,7 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
             title={claimType === 'medical' ? '醫療理賠申請' : '汽車理賠申請'}
             description="確認目前保險狀態與可申請的理賠金額。"
             accent="medical"
+            layout="dialog"
             onClose={onClose}
             footer={(
                 <div className="flex gap-3">

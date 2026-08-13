@@ -272,7 +272,7 @@ export const DeveloperPortal: React.FC<DeveloperPortalProps> = ({
               {/* Footer */}
               <div className="p-6 bg-slate-950/50 border-t border-slate-800 text-center">
                 <p className="text-[10px] text-slate-600 font-bold uppercase tracking-[0.2em]">
-                  Internal Developer Portal • Happiness Flow System
+                  Internal Developer Portal • 第二人生 System
                 </p>
               </div>
             </div>

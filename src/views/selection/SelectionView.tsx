@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { SelectionCarousel } from '../../components/common/SelectionCarousel';
 import { PROFESSIONS, ENTERPRISES, DREAMS } from '../../constants';
-import { Profession, Enterprise, Dream, GameSessionMeta } from '../../types';
+import { Profession, Enterprise, Dream, GameSessionMeta, GameState } from '../../types';
 import { getProfessionIcon, getEnterpriseIcon, getDreamIcon } from '../../components/common/IconHelpers';
 import { formatMoney } from '../../utils/gameUtils';
 
@@ -11,11 +11,13 @@ interface SelectionViewProps {
     onComplete: (data: { professionId: string; enterpriseId: string; dreamId: string }) => void;
     onBackToLobby: () => void;
     onStepChange?: (step: 'profession' | 'enterprise' | 'dream') => void;
+    initialSelections?: GameState['selectionDraft'];
+    onSelectionChange?: (selection: NonNullable<GameState['selectionDraft']>) => void;
 }
 
 type SelectionStep = 'profession' | 'enterprise' | 'dream';
 
-export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, initialStep, onComplete, onBackToLobby, onStepChange }) => {
+export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, initialStep, onComplete, onBackToLobby, onStepChange, initialSelections, onSelectionChange }) => {
     const [currentStep, setCurrentStep] = useState<SelectionStep>(initialStep || 'profession');
 
     // 當步驟改變時通知父組件
@@ -24,9 +26,38 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, initi
     }, [currentStep, onStepChange]);
 
     // Local state for selections
-    const [selectedProfessionId, setSelectedProfessionId] = useState<string | null>(null);
-    const [selectedEnterpriseId, setSelectedEnterpriseId] = useState<string | null>(null);
-    const [selectedDreamId, setSelectedDreamId] = useState<string | null>(null);
+    const [selectedProfessionId, setSelectedProfessionId] = useState<string | null>(initialSelections?.professionId || null);
+    const [selectedEnterpriseId, setSelectedEnterpriseId] = useState<string | null>(initialSelections?.enterpriseId || null);
+    const [selectedDreamId, setSelectedDreamId] = useState<string | null>(initialSelections?.dreamId || null);
+
+    React.useEffect(() => {
+        if (initialStep) setCurrentStep(initialStep);
+    }, [initialStep]);
+
+    React.useEffect(() => {
+        setSelectedProfessionId(initialSelections?.professionId || null);
+        setSelectedEnterpriseId(initialSelections?.enterpriseId || null);
+        setSelectedDreamId(initialSelections?.dreamId || null);
+    }, [initialSelections?.professionId, initialSelections?.enterpriseId, initialSelections?.dreamId]);
+
+    const updateSelection = (draft: NonNullable<GameState['selectionDraft']>) => {
+        onSelectionChange?.(draft);
+    };
+
+    const selectProfession = (id: string) => {
+        setSelectedProfessionId(id);
+        updateSelection({ professionId: id, enterpriseId: selectedEnterpriseId, dreamId: selectedDreamId });
+    };
+
+    const selectEnterprise = (id: string) => {
+        setSelectedEnterpriseId(id);
+        updateSelection({ professionId: selectedProfessionId, enterpriseId: id, dreamId: selectedDreamId });
+    };
+
+    const selectDream = (id: string) => {
+        setSelectedDreamId(id);
+        updateSelection({ professionId: selectedProfessionId, enterpriseId: selectedEnterpriseId, dreamId: id });
+    };
 
     const handleProfessionSelect = () => {
         if (selectedProfessionId) {
@@ -59,7 +90,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, initi
                 btnLabel="確認選擇並前往：選擇企業"
                 items={PROFESSIONS}
                 selectedId={selectedProfessionId}
-                onSelect={setSelectedProfessionId}
+                onSelect={selectProfession}
                 onNext={handleProfessionSelect}
                 onBack={onBackToLobby}
                 sessionMeta={sessionMeta}
@@ -113,7 +144,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, initi
                 btnLabel="確認選擇並前往：選擇夢想"
                 items={ENTERPRISES}
                 selectedId={selectedEnterpriseId}
-                onSelect={setSelectedEnterpriseId}
+                onSelect={selectEnterprise}
                 onNext={handleEnterpriseSelect}
                 onBack={() => setCurrentStep('profession')}
                 sessionMeta={sessionMeta}
@@ -155,7 +186,7 @@ export const SelectionView: React.FC<SelectionViewProps> = ({ sessionMeta, initi
             btnLabel="確認選擇並開始遊戲"
             items={DREAMS}
             selectedId={selectedDreamId}
-            onSelect={setSelectedDreamId}
+                onSelect={selectDream}
             onNext={handleDreamSelect}
             onBack={() => setCurrentStep('enterprise')}
             sessionMeta={sessionMeta}

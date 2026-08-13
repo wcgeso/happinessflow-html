@@ -703,6 +703,7 @@ interface RoomContextValue {
     isLoadingRoom: boolean;
     error: string | null;
     playerStates: Record<string, GameState>;
+    playerStatesHydrated: boolean;
     presenceStates: Record<string, PresenceState>;
     createRoom: (settings?: { name: string; maxPlayers: number; duration: number; isPractice?: boolean; isBoardGame?: boolean }) => Promise<string>;
     joinRoom: (roomCode: string) => Promise<void>;
@@ -718,7 +719,7 @@ interface RoomContextValue {
     approveRequest: (requestId: string) => Promise<void>;
     rejectRequest: (requestId: string) => Promise<void>;
     clearRequest: (requestId: string) => Promise<void>;
-    rollBoardDice: (diceCount?: 1 | 2) => Promise<{ position: number; detail: string; skipTurns: number; total: number }>;
+    rollBoardDice: (diceCount?: 1 | 2) => Promise<{ position: number; detail: string; skipTurns: number; total: number; dice: number[] }>;
     revealBoardCard: (eventId: string, cardId: string) => Promise<void>;
     dismissBoardCard: (eventId: string, cardId: string) => Promise<boolean>;
     advanceBoardEventQueue: (expectedType?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup') => Promise<void>;
@@ -732,8 +733,8 @@ interface RoomContextValue {
         status: 'passed' | 'failed' | 'declined';
         roll?: number;
         cardId: string;
-    }) => Promise<void>;
-    clearPendingFamilyMilestoneJoinAction: (promptId: string) => Promise<void>;
+    }) => Promise<boolean>;
+    clearPendingFamilyMilestoneJoinAction: (promptId: string) => Promise<boolean>;
     submitSharedCardPromptResponse: (payload: {
         promptId: string;
         status: 'completed' | 'declined' | 'no_effect';
@@ -760,6 +761,8 @@ interface RoomContextValue {
     abandonRealEstateCard: (cardId: string) => Promise<void>;
     buyRealEstateFromMarket: (cardId: string) => Promise<void>;
     skipDisconnectedTurn: (playerUid: string) => Promise<void>;
+    repeatCurrentBoardEvent: () => Promise<void>;
+    setCoachNextTurn: (playerUid: string) => Promise<void>;
     clearCurrentBoardEvent: () => Promise<void>;
     forceEndBoardTurn: () => Promise<void>;
     resyncRoom: () => Promise<void>;
@@ -774,6 +777,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoadingRoom, setIsLoadingRoom] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [playerStates, setPlayerStates] = useState<Record<string, GameState>>({});
+    const [playerStatesHydrated, setPlayerStatesHydrated] = useState(false);
     const [presenceStates, setPresenceStates] = useState<Record<string, PresenceState>>({});
     const presenceSessionIdRef = useRef<string | null>(null);
 
@@ -846,6 +850,21 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             isProcessingRef.current = false;
         }
+    };
+
+    const executeBoardRevealWithRetry = async (action: () => Promise<boolean>): Promise<void> => {
+        const retryLimit = 20;
+        for (let attempt = 0; attempt < retryLimit; attempt += 1) {
+            if (isProcessingRef.current) {
+                await new Promise(resolve => window.setTimeout(resolve, 50));
+                continue;
+            }
+
+            const completed = await executeWithLock(action);
+            if (completed) return;
+        }
+
+        throw new Error('翻牌同步逾時，請再試一次');
     };
 
     // 補救措施：即使開始遊戲時已改用 transaction 讀最新 room.members，仍有極小
@@ -1034,12 +1053,17 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Full financial state is private. Coaches can monitor all player documents;
     // ordinary players only subscribe to their own document.
     useEffect(() => {
-        if (!user || !room?.id) return;
+        setPlayerStatesHydrated(false);
+        if (!user || !room?.id) {
+            setPlayerStates({});
+            return;
+        }
 
         const statesRef = collection(db, 'rooms', room.id, 'players');
         const applyStates = (states: Record<string, GameState>) => {
             setPlayerStates(states);
             setRoom(prev => prev ? { ...prev, playerStates: states } : prev);
+            setPlayerStatesHydrated(true);
         };
 
         // 房主即使帳號角色資料尚未同步，也必須能讀取所有玩家的私有狀態。
@@ -1049,12 +1073,18 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 applyStates(Object.fromEntries(
                     snapshot.docs.map(playerDoc => [playerDoc.id, playerDoc.data() as GameState])
                 ));
-            }, error => console.error('監聽玩家私有狀態失敗:', error));
+            }, error => {
+                console.error('監聽玩家私有狀態失敗:', error);
+                setPlayerStatesHydrated(true);
+            });
         }
 
         return onSnapshot(doc(db, 'rooms', room.id, 'players', user.uid), snapshot => {
             applyStates(snapshot.exists() ? { [user.uid]: snapshot.data() as GameState } : {});
-        }, error => console.error('監聽自己的玩家狀態失敗:', error));
+        }, error => {
+            console.error('監聽自己的玩家狀態失敗:', error);
+            setPlayerStatesHydrated(true);
+        });
     }, [room?.id, room?.hostId, user?.role, user?.uid]);
 
     // 生成 6 位數房間碼
@@ -1403,7 +1433,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 position: latestRoom.boardState?.movement?.path.at(-1) ?? latestRoom.boardState?.playerPositions[user.uid] ?? startPosition,
                 detail: (latestRoom.boardState?.lastRoll as any)?.detail || '',
                 skipTurns: latestRoom.playerStates?.[user.uid]?.skipTurns || 0,
-                total: latestRoom.boardState?.lastRoll?.total || total
+                total: latestRoom.boardState?.lastRoll?.total || total,
+                dice: latestRoom.boardState?.lastRoll?.dice || [latestRoom.boardState?.lastRoll?.total || total]
             }),
             mutate: (latestRoom, latestBoard) => {
                 if (latestRoom.status !== 'playing') throw new Error('請等待執行師開始遊戲');
@@ -1451,7 +1482,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         position: latestMovement.path.at(-1) ?? latestStart,
                         detail: passedMessages.join('\n'),
                         skipTurns: latestPlayerState?.skipTurns || 0,
-                        total
+                        total,
+                        dice
                     }
                 };
             }
@@ -1504,9 +1536,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             position: nextPosition,
             detail: passedMessages.join('\n'),
             skipTurns: room.playerStates?.[user.uid]?.skipTurns || 0,
-            total
+            total,
+            dice
         };
-    }) as Promise<{ position: number; detail: string; skipTurns: number; total: number }>;
+    }) as Promise<{ position: number; detail: string; skipTurns: number; total: number; dice: number[] }>;
 
     const finishRoomGame = async () => {
         if (!room || user?.uid !== room.hostId) return;
@@ -1600,38 +1633,36 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const revealBoardCard = async (eventId: string, cardId: string) => executeWithLock(async () => {
-        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
-
-        const { boardState } = room;
-        const isCurrentCard =
-            boardState.currentEvent?.id === eventId &&
-            boardState.currentCard?.cardId === cardId;
-
-        if (!isCurrentCard) return;
-
-        const commandId = `reveal:${eventId}:${cardId}`;
-        await runRoomBoardMutation({
-            db,
-            roomId: room.id,
-            commandId,
-            onDuplicate: () => undefined,
-            mutate: (latestRoom, latestBoard) => {
-                if (latestBoard.currentEvent?.id !== eventId || latestBoard.currentCard?.cardId !== cardId) {
-                    throw new Error('棋盤卡片已更新');
-                }
-                const timestamp = Date.now();
-                return {
-                    boardState: {
-                        ...latestBoard,
-                        currentCardReveal: { eventId, cardId, isRevealed: true, revealedAt: timestamp, revealedBy: user.uid },
-                        updatedAt: timestamp
-                    },
-                    result: undefined
-                };
+    const revealBoardCard = async (eventId: string, cardId: string): Promise<void> => {
+        await executeBoardRevealWithRetry(async () => {
+            if (!room?.id || !room.isBoardGame || !room.boardState || !user) {
+                throw new Error('棋盤房間尚未準備完成');
             }
+
+            const commandId = `reveal:${eventId}:${cardId}`;
+            await runRoomBoardMutation({
+                db,
+                roomId: room.id,
+                commandId,
+                onDuplicate: () => undefined,
+                mutate: (latestRoom, latestBoard) => {
+                    if (latestBoard.currentEvent?.id !== eventId || latestBoard.currentCard?.cardId !== cardId) {
+                        throw new Error('棋盤卡片已更新');
+                    }
+                    const timestamp = Date.now();
+                    return {
+                        boardState: {
+                            ...latestBoard,
+                            currentCardReveal: { eventId, cardId, isRevealed: true, revealedAt: timestamp, revealedBy: user.uid },
+                            updatedAt: timestamp
+                        },
+                        result: undefined
+                    };
+                }
+            });
+            return true;
         });
-    });
+    };
 
     const advanceBoardEventQueue = async (expectedType?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup') => executeWithLock(async () => {
         if (!room?.id || !room.isBoardGame || !room.boardState) return;
@@ -2148,12 +2179,12 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         roll?: number;
         cardId: string;
     }) => {
-        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return;
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user) return false;
 
         const prompt = room.boardState.familyMilestoneJoinPrompt;
-        if (!prompt || prompt.id !== payload.promptId) return;
-        if (!prompt.targetPlayerUids.includes(user.uid)) return;
-        if (prompt.responses?.[user.uid]) return;
+        if (!prompt || prompt.id !== payload.promptId) return false;
+        if (!prompt.targetPlayerUids.includes(user.uid)) return false;
+        if (prompt.responses?.[user.uid]) return true;
 
         const playerState = room.playerStates?.[user.uid];
         const response = cleanObject({
@@ -2165,7 +2196,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             respondedAt: Date.now()
         });
 
-        await safeAsync(runRoomBoardMutation({
+        const result = await safeAsync(runRoomBoardMutation({
             db,
             roomId: room.id,
             commandId: `prompt:family:response:${payload.promptId}:${user.uid}`,
@@ -2200,18 +2231,19 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     result: { completed: !hasIncompleteSharedPrompts({ ...latestBoard, familyMilestoneJoinPrompt: nextPrompt }) }
                 };
             }
-        }), undefined, err => {
+        }), null, err => {
             setError(err?.message || '家庭重要歷程回覆失敗');
         });
+        return result !== null;
     };
 
     const clearPendingFamilyMilestoneJoinAction = async (promptId: string) => {
-        if (!room?.id || !user) return;
+        if (!room?.id || !user) return false;
 
         const currentPending = room.playerStates?.[user.uid]?.pendingFamilyMilestoneJoinAction;
-        if (!currentPending || currentPending.promptId !== promptId) return;
+        if (!currentPending || currentPending.promptId !== promptId) return true;
 
-        await safeAsync(runRoomBoardMutation({
+        const result = await safeAsync(runRoomBoardMutation({
             db,
             roomId: room.id,
             commandId: `prompt:family:action-complete:${promptId}:${user.uid}`,
@@ -2248,9 +2280,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     result: undefined
                 };
             }
-        }), undefined, err => {
+        }), null, err => {
             setError(err?.message || '清除家庭重要歷程等待狀態失敗');
         });
+        return result !== null;
     };
 
     const submitSharedCardPromptResponse = async (payload: {
@@ -2882,6 +2915,82 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
     };
 
+    const repeatCurrentBoardEvent = async () => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user || (user.role !== 'coach' && user.role !== 'gm')) {
+            throw new Error('只有執行師可以重複目前事件');
+        }
+        if (!room.boardState.currentEvent) throw new Error('目前沒有可重複的事件');
+        if (room.boardState.movement || room.boardState.pendingEvents?.length || hasIncompleteSharedPrompts(room.boardState)) {
+            throw new Error('請先完成目前的移動或共享事件');
+        }
+
+        const eventId = room.boardState.currentEvent.id;
+        const commandId = `coach-repeat:${eventId}:${room.boardState.revision || 0}`;
+        await runRoomBoardMutation({
+            db,
+            roomId: room.id,
+            commandId,
+            playerStateUids: [room.boardState.currentEvent.playerUid],
+            onDuplicate: () => undefined,
+            mutate: (_latestRoom, latestBoard) => {
+                const currentEvent = latestBoard.currentEvent;
+                if (!currentEvent || currentEvent.id !== eventId) throw new Error('目前事件已更新');
+                if (latestBoard.movement || latestBoard.pendingEvents?.length || hasIncompleteSharedPrompts(latestBoard)) {
+                    throw new Error('請先完成目前的移動或共享事件');
+                }
+                const timestamp = Date.now();
+                return {
+                    boardState: {
+                        ...latestBoard,
+                        currentEvent: {
+                            ...currentEvent,
+                            id: `${currentEvent.id}:repeat:${timestamp}`,
+                            timestamp
+                        },
+                        currentCardReveal: null,
+                        updatedAt: timestamp
+                    },
+                    result: undefined
+                };
+            }
+        });
+    };
+
+    const setCoachNextTurn = async (playerUid: string) => {
+        if (!room?.id || !room.isBoardGame || !room.boardState || !user || (user.role !== 'coach' && user.role !== 'gm')) {
+            throw new Error('只有執行師可以指定下一回合');
+        }
+        if (!room.boardState.turnOrder.includes(playerUid)) throw new Error('找不到這位玩家');
+        if (room.boardState.movement || room.boardState.currentEvent || room.boardState.pendingEvents?.length || hasIncompleteSharedPrompts(room.boardState)) {
+            throw new Error('請先完成目前的遊戲流程');
+        }
+
+        const commandId = `coach-turn:${playerUid}:${room.boardState.revision || 0}`;
+        await runRoomBoardMutation({
+            db,
+            roomId: room.id,
+            commandId,
+            onDuplicate: () => undefined,
+            mutate: (latestRoom, latestBoard) => {
+                const isPlayer = latestBoard.turnOrder.includes(playerUid);
+                if (!isPlayer) throw new Error('這位玩家目前不在遊戲中');
+                if (latestBoard.movement || latestBoard.currentEvent || latestBoard.pendingEvents?.length || hasIncompleteSharedPrompts(latestBoard)) {
+                    throw new Error('請先完成目前的遊戲流程');
+                }
+                return {
+                    boardState: {
+                        ...latestBoard,
+                        currentTurnUid: playerUid,
+                        hasRolledThisTurn: false,
+                        skippedTurnNotice: null,
+                        updatedAt: Date.now()
+                    },
+                    result: undefined
+                };
+            }
+        });
+    };
+
     const runCoachBoardRecovery = async (mode: 'clear_event' | 'force_end') => {
         if (!room?.id || !room.boardState || !user || (user.role !== 'coach' && user.role !== 'gm')) {
             throw new Error('只有執行師可以執行回合解鎖');
@@ -2945,6 +3054,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isLoadingRoom,
             error,
             playerStates,
+            playerStatesHydrated,
             presenceStates,
             createRoom,
             joinRoom,
@@ -2981,6 +3091,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             abandonRealEstateCard,
             buyRealEstateFromMarket,
             skipDisconnectedTurn,
+            repeatCurrentBoardEvent,
+            setCoachNextTurn,
             clearCurrentBoardEvent,
             forceEndBoardTurn,
             resyncRoom,

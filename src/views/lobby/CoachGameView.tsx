@@ -43,7 +43,7 @@ import { canSkipDisconnectedPlayer, isPresenceOnline } from '../../utils/presenc
 import { hasIncompleteSharedPrompts } from '../../utils/boardCardActions';
 
 export const CoachGameView: React.FC = () => {
-    const { room, playerStates, presenceStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, adjustPlayerCash, adjustPlayerInvestmentIncome, updateRoomTimer, approveRequest, rejectRequest, skipDisconnectedTurn, clearCurrentBoardEvent, forceEndBoardTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
+    const { room, playerStates, presenceStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, adjustPlayerCash, adjustPlayerInvestmentIncome, updateRoomTimer, approveRequest, rejectRequest, skipDisconnectedTurn, repeatCurrentBoardEvent, setCoachNextTurn, clearCurrentBoardEvent, forceEndBoardTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
     const { user } = useAuth();
 
     console.log('CoachGameView 渲染 - 房間:', room?.id, '狀態:', room?.status, '待審核數:', room?.pendingRequests ? Object.keys(room.pendingRequests).length : 0);
@@ -101,6 +101,8 @@ export const CoachGameView: React.FC = () => {
     const [isTimerPanelOpen, setIsTimerPanelOpen] = useState(false);
     const [isEventPanelOpen, setIsEventPanelOpen] = useState(false);
     const [isRecoveringBoard, setIsRecoveringBoard] = useState(false);
+    const [isRepeatingBoardEvent, setIsRepeatingBoardEvent] = useState(false);
+    const [isTurnPickerOpen, setIsTurnPickerOpen] = useState(false);
 
     // 當房間數據更新時，同步本地計時器狀態
     useEffect(() => {
@@ -651,6 +653,36 @@ export const CoachGameView: React.FC = () => {
         }
     };
 
+    const executeRepeatCurrentBoardEvent = async () => {
+        setGenericConfirm(null);
+        setIsRepeatingBoardEvent(true);
+        try {
+            await repeatCurrentBoardEvent();
+        } catch (error: any) {
+            window.alert(error?.message || '重複目前事件失敗');
+        } finally {
+            setIsRepeatingBoardEvent(false);
+        }
+    };
+
+    const confirmRepeatCurrentBoardEvent = () => {
+        setGenericConfirm({
+            title: '重複目前事件？',
+            description: '將重新顯示目前事件。若事件已完成部分財務操作，請避免重複套用同一筆結果。',
+            type: 'warning',
+            onConfirm: () => { void executeRepeatCurrentBoardEvent(); }
+        });
+    };
+
+    const handleSetCoachNextTurn = async (playerUid: string) => {
+        try {
+            await setCoachNextTurn(playerUid);
+            setIsTurnPickerOpen(false);
+        } catch (error: any) {
+            window.alert(error?.message || '指定下一回合玩家失敗');
+        }
+    };
+
     const confirmBoardRecovery = (mode: 'clear_event' | 'force_end') => {
         const forceEnd = mode === 'force_end';
         setGenericConfirm({
@@ -1019,6 +1051,49 @@ export const CoachGameView: React.FC = () => {
                             >
                                 重試移動收尾
                             </button>
+                        )}
+                        <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-800 pt-3">
+                            <button
+                                type="button"
+                                onClick={confirmRepeatCurrentBoardEvent}
+                                disabled={!eventPanelState.eventSummary || isRepeatingBoardEvent || isRecoveringBoard}
+                                className="flex items-center justify-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs font-black text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <RotateCcw size={13} />
+                                {isRepeatingBoardEvent ? '處理中...' : '重複目前事件'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsTurnPickerOpen(open => !open)}
+                                disabled={!eventPanelState.hasCurrentTurn || eventPanelState.hasBlockingFlow || isRecoveringBoard || isRepeatingBoardEvent}
+                                className="flex items-center justify-center gap-1.5 rounded-xl border border-indigo-400/30 bg-indigo-400/10 px-3 py-2 text-xs font-black text-indigo-200 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <Users size={13} />
+                                選擇下一回合
+                            </button>
+                        </div>
+                        {isTurnPickerOpen && (
+                            <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-indigo-400/20 bg-indigo-400/5 p-2">
+                                {(room?.boardState?.turnOrder || [])
+                                    .map(uid => players.find(player => player.uid === uid))
+                                    .filter((player): player is RoomPlayer => !!player && !player.isLeft)
+                                    .map(player => (
+                                        <button
+                                            key={player.uid}
+                                            type="button"
+                                            onClick={() => void handleSetCoachNextTurn(player.uid)}
+                                            className={cn(
+                                                "rounded-lg border px-2 py-2 text-left text-[11px] font-black transition-colors",
+                                                room?.boardState?.currentTurnUid === player.uid
+                                                    ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-200"
+                                                    : "border-slate-700 bg-slate-800/70 text-slate-300 hover:border-indigo-400/50 hover:text-white"
+                                            )}
+                                        >
+                                            {player.name}
+                                            {room?.boardState?.currentTurnUid === player.uid && <span className="ml-1 text-[9px] text-emerald-300">目前</span>}
+                                        </button>
+                                    ))}
+                            </div>
                         )}
                         <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-800 pt-3">
                             <button

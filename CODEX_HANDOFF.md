@@ -1,4 +1,4 @@
-# HappinessFlow P0 Integration Handoff
+# 第二人生 P0 Integration Handoff
 
 ## Current branch
 
@@ -464,3 +464,80 @@
 
 - Moved the player financial tabs up by 16px so they sit closer to the current-turn container.
 - Validation: `npm run typecheck` and `git diff --check` passed.
+
+## iPhone bottom safe-area correction
+
+- Removed duplicate bottom safe-area padding from the player game root, action-dock wrapper, and waiting-room wrapper.
+- The player action dock now keeps one non-additive Home Indicator clearance using `max(0.5rem, env(safe-area-inset-bottom))`.
+- Standalone iPhone mode now uses `window.innerHeight` so the app background reaches the physical screen bottom; regular browser mode still follows `visualViewport.height`.
+- Root viewport measurements confirmed the page already fills the screen; the remaining visible cutoff was the mismatched document/PWA background behind the iPhone Home Indicator.
+- Document, theme, and manifest backgrounds now consistently use `#102f38`, with manifest cache version `v8`.
+- Validation: `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Live follow-up: fully close and reopen the installed iPhone app, then confirm the bottom dock no longer leaves an oversized blank band.
+- Replaced the mixed iPhone viewport calculation with the known working layout pattern: fixed document/App shell, native `100dvh`, no `viewport-fit=cover`, and no JavaScript viewport-height variable.
+- The player action dock now uses a fixed bottom offset instead of safe-area padding. A `390x844` check confirmed every root layer reaches exactly `844px`.
+- Raised the game tutorial overlay above `GameHeader` (`z-[10060]` vs `z-[120]`) so the opening tutorial is not covered by the top HUD.
+
+## Tutorial and settlement surface correction
+
+- Replaced the remaining dark full-screen tutorial, player settlement, inline settlement, and projection settlement backgrounds with the shared warm cream surface.
+- Recolored the tutorial modal's embedded mock UI surfaces, borders, and text inside a scoped warm-preview region; semantic red and green buttons keep white labels.
+- Forced the tutorial and player settlement cards to override the shared `Card` component's dark default background.
+- Made the player settlement card the single vertical scroll owner and removed the nested score-detail scroll area.
+- Removed the `GameView` root `touch-none` rule that prevented settlement scrolling on touch devices; normal game content keeps its existing `touch-pan-y` behavior.
+- Validation: 9 focused tests passed, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Risk: final iPhone verification should confirm the total-score and action area can be reached in a real completed game.
+
+## Player utility dialogs
+
+- Restored monthly cashflow, target and dream, digital banking, and medical screens as centered dialogs on mobile instead of full-screen pages.
+- Target and dream purchase confirmation keeps the same dialog presentation after choosing an item.
+- Dialog content remains internally scrollable on short screens; transaction and event callbacks are unchanged.
+- Validation: focused modal and GameView tests 3/3, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+## Player card back alignment
+
+- Updated the player board-card back to match the projection card cover: deck editorial art, teal overlay, white inset frame, deck icon, deck name, and waiting-for-reveal label.
+- Kept the existing card flip, reveal callback, and action flow unchanged.
+- Validation: `npm run typecheck`, focused card/game tests, `npm run build`, and `git diff --check` passed.
+
+## Player notification surface
+
+- Unified transient and persistent player notifications with the warm modal language: cream surface, gold border, teal text, and semantic success/error/info accents.
+- Persistent notifications keep the existing acknowledgement button and transient notifications keep the existing auto-dismiss behavior.
+- Raised the notification layer above player dialogs so synchronization and action errors remain visible.
+- Validation: 10 focused tests, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+
+## Two-dice board roll flow
+
+- Returned the authoritative `dice` array from `rollBoardDice` so the player UI can render both rolled dice instead of displaying only the sum as one die.
+- Kept the server-authoritative total and movement path unchanged; projection now shows `die 1 + die 2 = total` when two dice are used.
+- Synchronized the player dice animation duration with the board movement intro delay (`3500ms`) to avoid the player UI advancing early.
+- Added a legacy fallback for rooms whose historical `lastRoll` has no dice array.
+- Validation: typecheck passed; focused tests, production build, and `git diff --check` are next.
+
+## Dice 3D landing correction
+
+- Removed the landing-only flat result face; every die now keeps all six faces throughout rolling and landing.
+- The authoritative result is assigned to the visible front face after the landing rotation resets, preserving the 3D cube silhouette.
+- Validation: focused tests 10/10, typecheck, production build, and `git diff --check` passed.
+
+## Cash-event and insurance repair pass
+
+- Credit capacity is now `work income × 10`, calculated from outstanding credit principal plus legacy credit balance. Real-estate, business, and car loans do not consume this credit capacity.
+- Credit borrowing is guarded in both the banking UI and the authoritative game transaction handler; repayment restores the available capacity.
+- Player profession, enterprise, and dream selections now persist as a local draft and are restored only after private player-state hydration, preventing a mobile tab switch from restarting setup.
+- Family milestone responses and action cleanup now return success/failure. The player UI only marks the action complete after Firestore cleanup succeeds, and direct happiness rewards carry an idempotent action key to prevent duplicate rewards after retry.
+- Projection family milestone summaries now show only the introduction and stage costs/happiness; the current-stage label remains player-side only. The stage table scrolls inside its card.
+- Large-enterprise shared investment input keeps the exact entered amount, validates the million-unit step, and no longer resets from a stale cash snapshot. Shared batch stock sales use one generic `股票` financial-check entry.
+- Removed the generic enterprise option from financial-check asset categories.
+- Added house and car insurance purchase actions in the bank. House insurance targets all uninsured houses in one transaction; car insurance updates eligible car/vehicle assets and both feed the existing monthly insurance calculation.
+- Property repair fees are calculated per eligible uninsured rental property, with a fallback to all uninsured properties for legacy states. Hospital fees, repairs, board-card payments, promotion fees, and lifelong-learning fees now share the cash-shortfall recovery path for stock/asset sale, credit borrowing, or forced debt.
+- The public projection guard now handles rooms missing `publicPlayerStates` without evaluating an undefined field, addressing the previous player-sync permission failure.
+- Validation: `npm run typecheck`, `npx vitest run src` (26 files, 128 tests passed; rules suite skipped without emulator), `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npx vitest run src/test/roomPermissions.test.ts` (15 passed), `npm run build`, and `git diff --check` passed. A plain `npm test -- --run` still incorrectly collects Playwright files under `e2e/`; use the scoped Vitest command for source tests.
+
+## Coach game-flow controls
+
+- Added `重複目前事件` to re-trigger the current board event for the player, with a confirmation warning and guards for active movement/shared prompts.
+- Added `選擇下一回合` to let the coach choose an active player after the current flow is clear.
+- Validation: `npm run typecheck`, `npx vitest run src/context/RoomContext.test.ts src/test/roomPermissions.test.ts src/views/board/boardProjectionStatus.test.ts` (6 passed; rules suite skipped), and `git diff --check` passed.

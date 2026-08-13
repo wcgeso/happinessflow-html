@@ -82,6 +82,7 @@ export const TargetAndDreamModal: React.FC<PurchaseModalProps> = ({ type, item, 
       title={title}
       description={item.name}
       accent={isEnterprise ? 'opportunity' : 'happiness'}
+      layout="dialog"
       onClose={onClose}
       footer={(
         <button

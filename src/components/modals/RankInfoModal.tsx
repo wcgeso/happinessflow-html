@@ -21,7 +21,7 @@ const PLAYER_RANKS = [
         bg: 'bg-slate-800/40',
         activeBg: 'bg-slate-800/80',
         dotColor: 'bg-slate-500',
-        description: '踏上蜂富人生之旅的起點',
+        description: '踏上第二人生之旅的起點',
         xpLabel: '起始位階',
     },
     {

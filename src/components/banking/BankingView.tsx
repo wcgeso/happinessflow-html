@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Landmark, Wallet } from 'lucide-react';
 import { TransactionData } from '../../types';
+import { getCreditLimit, getOutstandingCreditPrincipal, getRemainingCreditCapacity } from '../../utils/financialRules';
 
 interface BankingViewProps {
   cash: number;
+  salary: number;
   liabilities: any[];
+  legacyLoans?: number;
   onTransaction: (data: TransactionData) => void;
 }
 
@@ -20,14 +23,17 @@ const getLiabilityRate = (type: string) => (
   type === '信用貸款' ? 0.1 : type === '強制負債' ? 0 : 0.005
 );
 
-export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onTransaction }) => {
+export const BankingView: React.FC<BankingViewProps> = ({ cash, salary, liabilities, legacyLoans = 0, onTransaction }) => {
   const creditLiabilities = useMemo(
     () => liabilities.filter(l => l.type === '信用貸款'),
     [liabilities]
   );
 
-  const currentLoan = creditLiabilities.reduce((sum, l) => sum + (l.totalOwed || 0), 0);
-  const currentCreditInterest = creditLiabilities.reduce((sum, l) => sum + (l.monthlyPayment || 0), 0);
+  const currentLoan = creditLiabilities.reduce((sum, l) => sum + (l.totalOwed || 0), 0) + legacyLoans;
+  const currentCreditInterest = creditLiabilities.reduce((sum, l) => sum + (l.monthlyPayment || 0), 0) + Math.floor(legacyLoans * 0.1);
+  const creditLimit = getCreditLimit(salary);
+  const creditUsed = getOutstandingCreditPrincipal(liabilities, legacyLoans);
+  const remainingCredit = getRemainingCreditCapacity(salary, liabilities, legacyLoans);
 
   const repayTargets = useMemo(() => {
     const targets: Array<{
@@ -99,6 +105,7 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
     if (amount <= 0) return;
 
     if (actionType === 'borrow') {
+      if (amount > remainingCredit) return;
       onTransaction({
         name: '申請信用貸款',
         amount,
@@ -157,8 +164,10 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
   };
 
   const repayRate = selectedRepayTarget ? getLiabilityRate(selectedRepayTarget.type) : 0;
-  const totalDebt = liabilities.reduce((sum, liability) => sum + (liability.totalOwed || 0), 0);
-  const disableConfirm = amount <= 0 || (actionType === 'repay' && (!selectedRepayTarget || amount > maxRepay));
+  const totalDebt = liabilities.reduce((sum, liability) => sum + (liability.totalOwed || 0), 0) + legacyLoans;
+  const disableConfirm = amount <= 0 ||
+    (actionType === 'borrow' && amount > remainingCredit) ||
+    (actionType === 'repay' && (!selectedRepayTarget || amount > maxRepay));
 
   return (
     <div className="mx-auto max-w-2xl space-y-3 text-white sm:space-y-6">
@@ -176,6 +185,17 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
             <span className="text-[11px] font-black tracking-wide sm:text-[13px] sm:tracking-widest">目前貸款總額</span>
           </div>
           <div className="truncate text-lg font-black text-rose-400 sm:text-2xl">${totalDebt.toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-700/80 bg-slate-800/40 p-3 text-xs sm:rounded-3xl sm:p-5 sm:text-sm">
+        <div className="flex items-center justify-between gap-3 font-black text-slate-300">
+          <span>信貸額度（工作收入 × 10）</span>
+          <span className="text-cyan-300">${creditLimit.toLocaleString()}</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-3 font-bold text-slate-400">
+          <span>已使用／剩餘</span>
+          <span>${creditUsed.toLocaleString()} ／ ${remainingCredit.toLocaleString()}</span>
         </div>
       </div>
 
@@ -267,6 +287,9 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, liabilities, onT
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-700 text-xl font-black text-slate-300 hover:bg-slate-600 sm:h-14 sm:w-14 sm:rounded-2xl sm:text-2xl"
             >+</button>
           </div>
+          {actionType === 'borrow' && amount > remainingCredit && (
+            <div className="text-xs font-bold text-rose-300">超過剩餘信貸額度，最多可借 ${remainingCredit.toLocaleString()}</div>
+          )}
 
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 sm:rounded-2xl sm:p-4">
             {actionType === 'borrow' ? (

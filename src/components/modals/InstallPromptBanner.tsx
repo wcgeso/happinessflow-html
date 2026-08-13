@@ -75,7 +75,7 @@ export const InstallPromptBanner: React.FC = () => {
                         <div className="flex items-start gap-3">
                             {/* App icon */}
                             <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-slate-700">
-                                <img src="/icon-192.png" alt="蜂富人生" className="w-full h-full object-cover" />
+                                <img src="/icon-192.png" alt="第二人生" className="w-full h-full object-cover" />
                             </div>
 
                             <div className="flex-1 min-w-0">

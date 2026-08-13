@@ -1,6 +1,6 @@
 # 漸進式重構遷移計畫 (Incremental Core Migration Plan)
 
-本文件採用 **Strangler Fig Pattern（絞殺者模式）**，規劃如何將 Legacy 《蜂富人生 HappinessFlow》系統，在不影響既有 UI 渲染、大廳、房間、執行師介面與 Firebase 連線的前提下，漸進式重構並遷移至獨立的 Headless Game Core。
+本文件採用 **Strangler Fig Pattern（絞殺者模式）**，規劃如何將 Legacy 《第二人生》系統，在不影響既有 UI 渲染、大廳、房間、執行師介面與 Firebase 連線的前提下，漸進式重構並遷移至獨立的 Headless Game Core。
 
 ---
 

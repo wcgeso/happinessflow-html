@@ -212,18 +212,18 @@ export const AuthView: React.FC = () => {
                             <div className="absolute inset-0 bg-amber-400/10 blur-3xl group-hover:bg-amber-400/20 transition-all duration-500 scale-110"></div>
                             <img 
                                 src="/logo.png?v=7" 
-                                alt="幸福流" 
+                                alt="第二人生"
                                 className="w-24 md:w-32 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)] mx-auto mb-2"
                             />
                             <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)]">
-                                幸福流
+                                第二人生
                             </h1>
                         </div>
 
                     {/* English title & tagline */}
                     <div className="flex items-center justify-center gap-2.5 mt-5">
                         <div className="h-[1px] flex-1 max-w-[40px] bg-gradient-to-r from-transparent to-amber-500/50"></div>
-                        <span className="text-amber-400 font-black tracking-[0.3em] text-[10px] md:text-[11px] uppercase">Happiness Flow</span>
+                        <span className="text-amber-400 font-black tracking-[0.3em] text-[10px] md:text-[11px] uppercase">第二人生</span>
                         <div className="h-[1px] flex-1 max-w-[40px] bg-gradient-to-l from-transparent to-amber-500/50"></div>
                     </div>
 

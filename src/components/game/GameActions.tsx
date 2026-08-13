@@ -46,14 +46,13 @@ export const GameActions: React.FC<GameActionsProps> = ({
 }) => {
     const diceControls = useAnimation();
     const [isAnimating, setIsAnimating] = useState(false);
-    const [diceResult, setDiceResult] = useState<number | null>(null);
-    const [showLandingFace, setShowLandingFace] = useState(false);
+    const [diceResults, setDiceResults] = useState<number[]>([]);
     const [selectedDiceCount, setSelectedDiceCount] = useState<1 | 2>(hasCar ? 2 : 1);
     const landingFaceTimerRef = useRef<NodeJS.Timeout | null>(null);
     const animationCompleteTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const shouldShowLandingFace = isAnimating && showLandingFace && diceResult !== null;
-    const DICE_ROLL_DURATION_MS = 2400;
+    const DICE_ROLL_DURATION_MS = 3500;
     const DICE_RESULT_REVEAL_MS = 850;
+    const idleDiceRotation = { rotateX: -18, rotateY: 22, rotateZ: 0 };
 
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => {
@@ -69,34 +68,34 @@ export const GameActions: React.FC<GameActionsProps> = ({
         setSelectedDiceCount(hasCar ? 2 : 1);
     }, [hasCar]);
 
-    const tz = isMobile ? '25px' : '31px';
+    const tz = isMobile ? '26px' : '32px';
     const tagTz = isMobile ? '31px' : '39px';
 
-    // 根據結果動態分配骰子面，確保 Top 面永遠是骰出的點數
+    // 將結果固定在正面，落地時仍保留完整六面骰體，不切換成平面圖。
     const getDiceFaces = (result: number | null) => {
-        const top = result || 5; // 預設 Top 是 5
-        const bottom = 7 - top;
-        const others = [1, 2, 3, 4, 5, 6].filter(n => n !== top && n !== bottom);
+        const front = Math.min(6, Math.max(1, result || 5));
+        const back = 7 - front;
+        const others = [1, 2, 3, 4, 5, 6].filter(n => n !== front && n !== back);
         return {
-            front: others[0],
-            back: others[1],
-            right: others[2],
-            left: others[3],
-            bottom: bottom,
-            top: top
+            front,
+            back,
+            right: others[0],
+            left: others[1],
+            bottom: others[2],
+            top: others[3]
         };
     };
-    const faces = getDiceFaces(diceResult);
-
     const isActive = isBoardTurn && canRoll && !isRollingBoardDice && !disabled;
     const shouldShowEndTurn = !!(onEndTurn && hasRolledBoardDice && !isRollingBoardDice);
     const visibleBlockReason = shouldShowEndTurn ? endTurnBlockReason : rollBlockReason;
     const isVisualActive = isActive || isAnimating;
+    const visibleDiceCount = diceResults.length > 0 ? diceResults.length : selectedDiceCount;
     const faceBg = isVisualActive 
         ? "bg-gradient-to-br from-white to-slate-100 border-slate-300 shadow-[inset_0_0_15px_rgba(0,0,0,0.05)]" 
-        : "bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 shadow-[inset_0_0_15px_rgba(0,0,0,0.5)]";
-    const dotBg = isVisualActive ? "bg-slate-800" : "bg-slate-950";
-    const dot1Bg = isVisualActive ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" : "bg-slate-950";
+        : "bg-gradient-to-br from-[#d8e5e0] to-[#a9c0ba] border-[#829f97] shadow-[inset_0_0_15px_rgba(46,101,112,0.18)]";
+    const coreBg = isVisualActive ? 'bg-[#dce6e3]' : 'bg-[#9fb9b2]';
+    const dotBg = isVisualActive ? "bg-slate-800" : "bg-[#5d766f]";
+    const dot1Bg = isVisualActive ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" : "bg-[#9a6a5a]";
 
     const renderDots = (num: number) => {
         switch (num) {
@@ -145,7 +144,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                 );
             default:
                 if (num > 6) {
-                    return <span className={`text-[32px] font-black ${isVisualActive ? 'text-slate-800' : 'text-slate-950'}`}>{num}</span>;
+                    return <span className={`text-[32px] font-black ${isVisualActive ? 'text-slate-800' : 'text-[#5d766f]'}`}>{num}</span>;
                 }
                 return null;
         }
@@ -163,10 +162,9 @@ export const GameActions: React.FC<GameActionsProps> = ({
                 animationCompleteTimerRef.current = null;
             }
             diceControls.stop(); // 停止所有進行中的動畫(包含延遲消失)
-            diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, rotateX: -15, rotateY: 15, rotateZ: 0 });
+            diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, ...idleDiceRotation });
             setIsAnimating(false);
-            setShowLandingFace(false);
-            setDiceResult(null);
+            setDiceResults([]);
         }
     }, [isRollingBoardDice, diceControls]);
 
@@ -179,10 +177,8 @@ export const GameActions: React.FC<GameActionsProps> = ({
 
     const showResultWhenLanded = () => {
         if (landingFaceTimerRef.current) clearTimeout(landingFaceTimerRef.current);
-        setShowLandingFace(false);
         landingFaceTimerRef.current = setTimeout(() => {
-            diceControls.set({ rotateX: 0, rotateY: 0, rotateZ: 0 });
-            setShowLandingFace(true);
+            diceControls.set(idleDiceRotation);
             landingFaceTimerRef.current = null;
         }, DICE_RESULT_REVEAL_MS);
     };
@@ -197,6 +193,24 @@ export const GameActions: React.FC<GameActionsProps> = ({
             rotateY: [0, spinY * 0.4, spinY, spinY * 1.12, 0, 0, 0, 0, 0],
             rotateZ: [0, spinZ * 0.5, spinZ, spinZ * 1.1, 0, 0, 0, 0, 0],
         };
+    };
+
+    const renderDie = (result: number, index: number) => {
+        const faces = getDiceFaces(result);
+        const faceBase = "absolute inset-0 flex items-center justify-center overflow-hidden rounded-[6px]";
+        return (
+            <div key={`die-${index}`} className="relative h-[52px] w-[52px] sm:h-[64px] sm:w-[64px]" style={{ transformStyle: 'preserve-3d' }}>
+                <div className="absolute inset-0 h-full w-full" style={{ transformStyle: 'preserve-3d' }}>
+                    <div className={`absolute inset-0 ${coreBg}`} style={{ transform: 'translateZ(0)' }} />
+                    <div className={`${faceBase} ${faceBg}`} style={{ transform: `translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.front)}</div>
+                    <div className={`${faceBase} ${faceBg} brightness-75`} style={{ transform: `rotateY(180deg) translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.back)}</div>
+                    <div className={`${faceBase} ${faceBg} brightness-90`} style={{ transform: `rotateY(90deg) translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.right)}</div>
+                    <div className={`${faceBase} ${faceBg} brightness-75`} style={{ transform: `rotateY(-90deg) translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.left)}</div>
+                    <div className={`${faceBase} ${faceBg} brightness-[.65]`} style={{ transform: `rotateX(90deg) translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.bottom)}</div>
+                    <div className={`${faceBase} ${faceBg} brightness-110`} style={{ transform: `rotateX(-90deg) translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.top)}</div>
+                </div>
+            </div>
+        );
     };
 
     const handleDiceClick = async () => {
@@ -217,8 +231,10 @@ export const GameActions: React.FC<GameActionsProps> = ({
             return;
         }
 
-        const actualDiceTotal = rollResult.total;
-        setDiceResult(actualDiceTotal);
+        const actualDice = Array.isArray(rollResult.dice) && rollResult.dice.length > 0
+            ? rollResult.dice
+            : [rollResult.total];
+        setDiceResults(actualDice);
         showResultWhenLanded();
 
         const targetX = (Math.random() - 0.5) * 150;
@@ -249,10 +265,10 @@ export const GameActions: React.FC<GameActionsProps> = ({
 
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-[90] pointer-events-none pb-safe">
+        <div className="fixed bottom-8 left-0 right-0 z-[90] pointer-events-none">
             {/* Dock 容器 */}
             <div className="pointer-events-none mx-auto w-full max-w-xl px-2">
-                <div className="flex items-end justify-center gap-1.5 px-2 pb-[calc(0.8rem+env(safe-area-inset-bottom,0px))] pt-4 sm:gap-3 sm:px-5 sm:pb-5 sm:pt-5">
+                <div className="flex items-end justify-center gap-1.5 px-2 pt-4 sm:gap-3 sm:px-5 sm:pt-5">
                     {/* 左側：房市公告板 */}
                     {onShowRealEstateMarket && (
                         <button
@@ -284,7 +300,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                     </button>
 
                     {/* 中央主按鈕：擲骰子 / 數位銀行 */}
-                    <div className="pointer-events-auto px-2 pb-1 relative" style={{ perspective: '1000px' }}>
+                    <div className="pointer-events-auto px-2 pb-1 relative" style={{ perspective: '700px' }}>
                         {onRollBoardDice ? (
                             shouldShowEndTurn ? (
                             <button
@@ -313,43 +329,17 @@ export const GameActions: React.FC<GameActionsProps> = ({
 
                                 <motion.button
                                     animate={diceControls}
-                                    initial={{ x: 0, y: 0, z: 0, rotateX: -15, rotateY: 15, rotateZ: 0 }}
+                                    initial={{ x: 0, y: 0, z: 0, scale: 1, opacity: 1, ...idleDiceRotation }}
                                     whileHover={isActive ? { scale: 1.05 } : {}}
                                     whileTap={isActive ? { scale: 0.95 } : {}}
                                     onClick={handleDiceClick}
                                     aria-label={isRollingBoardDice ? '骰子同步中' : (isBoardTurn ? `擲骰子${hasCar ? `，目前選擇${selectedDiceCount}顆` : ''}` : '尚未輪到你擲骰子')}
                                     style={{ touchAction: "manipulation", transformStyle: "preserve-3d" }}
-                                    className={`relative z-10 w-[52px] h-[52px] sm:w-[64px] sm:h-[64px] ${!isVisualActive ? 'opacity-50 cursor-not-allowed filter grayscale-[0.5]' : 'cursor-pointer'}`}
+                                    className={`relative z-10 min-h-[52px] sm:min-h-[64px] ${!isVisualActive ? 'opacity-100 cursor-not-allowed' : 'cursor-pointer'}`}
                                     title={!isBoardTurn ? "尚未輪到你" : (isRollingBoardDice ? "同步中..." : `點擊拋擲 (${hasCar ? `${selectedDiceCount}顆` : '1顆'})`)}
                                 >
-		                                    {/* 飛行中保留六面骰體，落地後只顯示單一結果面。 */}
-		                                    <div className="absolute inset-0 w-full h-full" style={{ transformStyle: shouldShowLandingFace ? "flat" : "preserve-3d" }}>
-	                                            {shouldShowLandingFace ? (
-                                                <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`}>
-                                                    {renderDots(diceResult)}
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `translateZ(${tz})` }}>
-                                                        {renderDots(faces.front)}
-                                                    </div>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `rotateY(180deg) translateZ(${tz})` }}>
-                                                        {renderDots(faces.back)}
-                                                    </div>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `rotateY(90deg) translateZ(${tz})` }}>
-                                                        {renderDots(faces.right)}
-                                                    </div>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `rotateY(-90deg) translateZ(${tz})` }}>
-                                                        {renderDots(faces.left)}
-                                                    </div>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `rotateX(90deg) translateZ(${tz})` }}>
-                                                        {renderDots(faces.bottom)}
-                                                    </div>
-                                                    <div className={`absolute inset-0 border-2 rounded-[14px] flex items-center justify-center ${faceBg}`} style={{ transform: `rotateX(-90deg) translateZ(${tz})` }}>
-                                                        {renderDots(faces.top)}
-                                                    </div>
-                                                </>
-                                            )}
+                                    <div className={`relative flex items-center justify-center gap-2 ${visibleDiceCount === 2 ? 'w-[112px] sm:w-[136px]' : 'w-[52px] sm:w-[64px]'}`} style={{ transformStyle: 'preserve-3d' }}>
+	                                        {(diceResults.length > 0 ? diceResults : Array.from({ length: selectedDiceCount }, () => 5)).map(renderDie)}
 
 	                                        {hasCar && isVisualActive && (
                                             <div
@@ -372,7 +362,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                                 title={isActive ? '點一下切換單骰 / 雙骰' : '持有汽車時可切換單骰 / 雙骰'}
                                             >
                                                 <span className="text-[10px] font-black text-[#604721] leading-none tracking-tighter">x{selectedDiceCount}</span>
-                                            </div>
+	                                    </div>
                                         )}
                                     </div>
                                 </motion.button>

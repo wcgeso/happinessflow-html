@@ -21,7 +21,7 @@ const AchievementsView = React.lazy(() => import('./views/achievements/Achieveme
 const CoachGameView = React.lazy(() => import('./views/lobby/CoachGameView').then(module => ({ default: module.CoachGameView })));
 const BoardProjectionView = React.lazy(() => import('./views/board/BoardProjectionView').then(module => ({ default: module.BoardProjectionView })));
 
-import { GameSessionMeta } from './types';
+import { GameSessionMeta, GameState } from './types';
 
 // Mock Spinner
 const Spinner = () => (
@@ -103,7 +103,7 @@ const AppContent = () => {
                     正在優化您的幸福體驗
                 </h1>
                 <p className="text-slate-400 max-w-sm leading-relaxed mb-8">
-                    「蜂富人生」正在進行系統維護與功能升級。<br />
+                    「第二人生」正在進行系統維護與功能升級。<br />
                     我們很快就會帶著更棒的體驗回來！
                 </p>
                 <div className="text-[11px] text-slate-500 font-medium">
@@ -372,7 +372,7 @@ const MainRouting = ({
     setPracticeRoomAutoOpen
 }: any) => {
     const { logout } = useAuth();
-    const { room } = useRoom();
+    const { room, playerStatesHydrated } = useRoom();
     const [lastProcessedStartTime, setLastProcessedStartTime] = useState<number | null>(null);
 
 
@@ -407,9 +407,15 @@ const MainRouting = ({
 
             // 處理玩家重設狀態 (當偵測到新的開始時間戳時)
             // 如果玩家在雲端已經有狀態（斷線重連），則不應觸發重設
-            const hasCloudState = !isHost && room.playerStates && room.playerStates[user.uid];
+            const hasCloudState = !isHost && playerStatesHydrated && room.playerStates && room.playerStates[user.uid];
+            const hasMatchingLocalState = gameState.boardGameStartedAt === room.startedAt &&
+                (!!gameState.selectionStep || gameState.isSetup);
             
-            if (!isHost && room.startedAt && room.startedAt !== lastProcessedStartTime && !hasCloudState) {
+            if (!isHost && room.startedAt && !playerStatesHydrated) {
+                return;
+            }
+
+            if (!isHost && room.startedAt && room.startedAt !== lastProcessedStartTime && !hasCloudState && !hasMatchingLocalState) {
                 console.log('偵測到新遊戲開始，重設玩家狀態');
                 setLastProcessedStartTime(room.startedAt);
 
@@ -538,6 +544,7 @@ const MainRouting = ({
         room?.hostId,
         room?.startedAt,
         room?.playerStates,
+        playerStatesHydrated,
         room?.publicPlayerStates,
         currentView,
         sessionMeta,
@@ -548,13 +555,22 @@ const MainRouting = ({
 
     const handleSelectionStepChange = useCallback((step: 'profession' | 'enterprise' | 'dream') => {
         setGameState(prev => {
-            if (prev.selectionStep === step) return prev;
+            if (prev.selectionStep === step && prev.boardGameStartedAt === room?.startedAt) return prev;
             return {
                 ...prev,
-                selectionStep: step
+                selectionStep: step,
+                boardGameStartedAt: room?.startedAt
             };
         });
-    }, [setGameState]);
+    }, [room?.startedAt, setGameState]);
+
+    const handleSelectionChange = useCallback((selectionDraft: NonNullable<GameState['selectionDraft']>) => {
+        setGameState(prev => ({
+            ...prev,
+            selectionDraft,
+            boardGameStartedAt: room?.startedAt
+        }));
+    }, [room?.startedAt, setGameState]);
 
     const handleCreateReportComplete = (meta: GameSessionMeta) => {
         setIsDevRouting(false);
@@ -719,9 +735,11 @@ const MainRouting = ({
                 <SelectionView
                     sessionMeta={sessionMeta}
                     initialStep={gameState.selectionStep as any}
+                    initialSelections={gameState.selectionDraft}
                     onBackToLobby={backToLobby}
                     onComplete={handleSelectionComplete}
                     onStepChange={handleSelectionStepChange}
+                    onSelectionChange={handleSelectionChange}
                 />
             );
         case 'game':
@@ -749,12 +767,14 @@ export default function App() {
     useEffect(() => {
         // 防止行動端瀏覽器彈性滾動 (Elastic Scrolling)
         document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
         document.body.style.width = '100%';
         document.body.style.height = '100%';
         document.body.style.touchAction = 'none';
 
         return () => {
             document.body.style.overflow = '';
+            document.body.style.position = '';
             document.body.style.width = '';
             document.body.style.height = '';
             document.body.style.touchAction = '';
@@ -762,7 +782,7 @@ export default function App() {
     }, []);
 
     const content = (
-        <div className="flex-1 w-full h-full overflow-hidden bg-slate-950 select-none touch-none flex flex-col">
+        <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-950 select-none touch-none">
             <AppContent />
             <InstallPromptBanner />
         </div>

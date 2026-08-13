@@ -1,4 +1,4 @@
-# HappinessFlow Legacy System Inventory
+# 第二人生 Legacy System Inventory
 
 本文件只做 Legacy 盤點，不評論程式碼品質，也不提出重寫方案。  
 目的是回答：

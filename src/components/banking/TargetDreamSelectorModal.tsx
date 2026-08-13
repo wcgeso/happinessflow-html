@@ -40,12 +40,12 @@ export const TargetDreamSelectorModal: React.FC<TargetDreamSelectorModalProps> =
   }
 
   return (
-    <PlayerModalFrame eyebrow="人生目標" title="目標與夢想" description="請選擇你要實現的項目。" accent="opportunity" onClose={onClose}>
-        <div className="space-y-4">
+    <PlayerModalFrame eyebrow="人生目標" title="目標與夢想" description="請選擇你要實現的項目。" accent="opportunity" layout="dialog" onClose={onClose}>
+        <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => setSelectedType('enterprise')}
             disabled={!enterprise}
-            className={`w-full p-4 rounded-2xl border transition-all flex items-center gap-4 ${
+            className={`w-full min-w-0 rounded-2xl border p-4 transition-all flex flex-col items-center justify-center gap-3 text-center ${
               !enterprise
                 ? 'bg-[#f4e6d0] border-[#ead7b8] opacity-50 cursor-not-allowed'
                 : 'bg-[#fff2de] border-[#d6a94e] hover:bg-[#f4e6d0] hover:border-[#a9643a] group'
@@ -54,16 +54,16 @@ export const TargetDreamSelectorModal: React.FC<TargetDreamSelectorModalProps> =
             <div className="w-12 h-12 rounded-full bg-[#f0dfc9] text-[#a9643a] flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
               <Target size={24} />
             </div>
-            <div className="text-left">
+            <div className="min-w-0">
               <h3 className="font-black tracking-wide text-[#293a38]">購買目標企業</h3>
-              <p className="text-xs text-[#7a6958] mt-1">{enterprise ? enterprise.name : '尚未設定'}</p>
+              <p className="mt-1 break-words text-xs text-[#7a6958]">{enterprise ? enterprise.name : '尚未設定'}</p>
             </div>
           </button>
 
           <button
             onClick={() => setSelectedType('dream')}
             disabled={!dream}
-            className={`w-full p-4 rounded-2xl border transition-all flex items-center gap-4 ${
+            className={`w-full min-w-0 rounded-2xl border p-4 transition-all flex flex-col items-center justify-center gap-3 text-center ${
               !dream
                 ? 'bg-[#f4e6d0] border-[#ead7b8] opacity-50 cursor-not-allowed'
                 : 'bg-[#e5f1eb] border-[#b9d9d0] hover:bg-[#d8e9e5] hover:border-[#2e6570] group'
@@ -72,9 +72,9 @@ export const TargetDreamSelectorModal: React.FC<TargetDreamSelectorModalProps> =
             <div className="w-12 h-12 rounded-full bg-[#d8e9e5] text-[#2e6570] flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
               <Star size={24} />
             </div>
-            <div className="text-left">
+            <div className="min-w-0">
               <h3 className="font-black tracking-wide text-[#293a38]">實現心儀夢想</h3>
-              <p className="text-xs text-[#7a6958] mt-1">{dream ? dream.name : '尚未設定'}</p>
+              <p className="mt-1 break-words text-xs text-[#7a6958]">{dream ? dream.name : '尚未設定'}</p>
             </div>
           </button>
         </div>

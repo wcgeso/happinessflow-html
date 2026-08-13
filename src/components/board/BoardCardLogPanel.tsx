@@ -21,11 +21,11 @@ const getEntryResult = (entry: BoardCardLogEntry) => {
 };
 
 export const BoardCardLogPanel: React.FC<BoardCardLogPanelProps> = ({ entries, onClose, variant = 'default' }) => {
-  const [showAllProjectionEntries, setShowAllProjectionEntries] = useState(false);
+  const [showAllEntries, setShowAllEntries] = useState(false);
   const prefersReducedMotion = useReducedMotion();
 
   if (variant === 'projection') {
-    const visibleEntries = entries.slice(0, showAllProjectionEntries ? 12 : 3);
+    const visibleEntries = entries.slice(0, showAllEntries ? 12 : 3);
 
     return (
       <motion.aside
@@ -74,7 +74,7 @@ export const BoardCardLogPanel: React.FC<BoardCardLogPanelProps> = ({ entries, o
                     {result}
                   </div>
                 )}
-                {showAllProjectionEntries && entry.description && (
+                {showAllEntries && entry.description && (
                   <div className="mt-2 border-t border-white/10 pt-2 text-xs font-semibold leading-relaxed text-white/65">
                     {normalizeCardCopy(entry.description)}
                   </div>
@@ -91,10 +91,10 @@ export const BoardCardLogPanel: React.FC<BoardCardLogPanelProps> = ({ entries, o
         {entries.length > 3 && (
           <button
             type="button"
-            onClick={() => setShowAllProjectionEntries(current => !current)}
+            onClick={() => setShowAllEntries(current => !current)}
             className="border-t border-white/10 px-5 py-3 text-sm font-black text-[#f1d28f]"
           >
-            {showAllProjectionEntries ? '收起摘要' : `查看完整紀錄（${Math.min(entries.length, 12)}）`}
+            {showAllEntries ? '收起摘要' : `查看完整紀錄（${Math.min(entries.length, 12)}）`}
           </button>
         )}
       </motion.aside>
@@ -118,15 +118,25 @@ export const BoardCardLogPanel: React.FC<BoardCardLogPanelProps> = ({ entries, o
           >
             關閉
           </button>
+        ) : variant === 'inline' ? (
+          entries.length > 3 ? (
+            <button
+              type="button"
+              onClick={() => setShowAllEntries(current => !current)}
+              className="rounded-full border border-[#dbc39d] bg-[#fffaf2] px-3 py-2 text-xs font-black text-[#76573a]"
+            >
+              {showAllEntries ? '收起摘要' : `查看完整紀錄（${Math.min(entries.length, 12)}）`}
+            </button>
+          ) : null
         ) : (
           <div className="text-xs font-bold text-[#8f7353]">顯示最近 12 筆</div>
         )}
       </div>
 
       <div className={variant === 'inline'
-        ? "mt-4 max-h-[65vh] space-y-3 overflow-y-auto pr-1"
+        ? "mt-4 space-y-3"
         : "mt-4 max-h-[calc(100dvh-15rem)] space-y-3 overflow-y-auto pr-1 md:max-h-[65vh]"}>
-        {entries.length > 0 ? entries.map((entry) => (
+        {entries.length > 0 ? (variant === 'inline' ? entries.slice(0, showAllEntries ? 12 : 3) : entries).map((entry) => (
           <div key={entry.id} className="rounded-[20px] border border-[#e5cfac] bg-[#fffaf2] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -140,13 +150,19 @@ export const BoardCardLogPanel: React.FC<BoardCardLogPanelProps> = ({ entries, o
               </div>
             </div>
 
-            {entry.description && (
+            {!showAllEntries && variant === 'inline' && getEntryResult(entry) && (
+              <div className="mt-2 line-clamp-2 text-sm font-bold leading-relaxed text-[#6f5336]">
+                {getEntryResult(entry)}
+              </div>
+            )}
+
+            {(variant !== 'inline' || showAllEntries) && entry.description && (
               <div className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-[#6f5336]">
                 {normalizeCardCopy(entry.description)}
               </div>
             )}
 
-            {!!entry.effectLines?.length && (
+            {(variant !== 'inline' || showAllEntries) && !!entry.effectLines?.length && (
               <div className="mt-3 grid gap-2">
                 {entry.effectLines.map((line, lineIndex) => (
                   <div

@@ -1,6 +1,6 @@
 # Game System Map
 
-本文件根據 [GAME_OVERVIEW.md](file:///Users/wcg/程式開發/蜂富人生HappinessFlow/.worktrees/線上模式0611/docs/rewrite/GAME_OVERVIEW.md) 與 [LEGACY_SYSTEM_INVENTORY.md](file:///Users/wcg/程式開發/蜂富人生HappinessFlow/.worktrees/線上模式0611/docs/rewrite/LEGACY_SYSTEM_INVENTORY.md)，以模組化軟體架構（Modular Software Architecture）與高內聚、低耦合原則，定義新版《蜂富人生 HappinessFlow》的系統架構與地圖。
+本文件根據 [GAME_OVERVIEW.md](file:///Users/wcg/程式開發/蜂富人生HappinessFlow/.worktrees/線上模式0611/docs/rewrite/GAME_OVERVIEW.md) 與 [LEGACY_SYSTEM_INVENTORY.md](file:///Users/wcg/程式開發/蜂富人生HappinessFlow/.worktrees/線上模式0611/docs/rewrite/LEGACY_SYSTEM_INVENTORY.md)，以模組化軟體架構（Modular Software Architecture）與高內聚、低耦合原則，定義新版《第二人生》的系統架構與地圖。
 
 ---
 

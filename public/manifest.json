@@ -1,11 +1,11 @@
 {
-  "name": "幸福流 HappinessFlow",
-  "short_name": "幸福流",
+  "name": "第二人生",
+  "short_name": "第二人生",
   "description": "財務是為了實現幸福的人生而服務",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#f59e0b",
+  "background_color": "#102f38",
+  "theme_color": "#102f38",
   "icons": [
     {
       "src": "/icon-192.png?v=7",

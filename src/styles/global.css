@@ -5,9 +5,8 @@
 @tailwind utilities;
 
 :root {
-  --app-height: 100%;
   --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: 0px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --hf-deep-teal: #102f38;
@@ -53,16 +52,18 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
+  position: fixed;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
   -moz-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  background-color: #0f172a; /* Match index.html */
+  background-color: #102f38;
 }
 
 #root {
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -71,7 +72,7 @@ html, body {
 }
 
 body {
-  @apply bg-slate-950 text-white;
+  @apply text-white;
   font-family: 'Inter', sans-serif;
   -webkit-overflow-scrolling: touch;
   touch-action: manipulation;
@@ -439,6 +440,27 @@ input[type='number'] {
 }
 
 .player-ui .player-card-actions button[class~="bg-emerald-600"][class~="text-white"] {
+  color: #fff !important;
+}
+
+.tutorial-warm-preview [class*="bg-slate-"] {
+  background-color: #fffaf2 !important;
+}
+
+.tutorial-warm-preview [class*="border-slate-"] {
+  border-color: #d8c29a !important;
+}
+
+.tutorial-warm-preview [class*="text-slate-"] {
+  color: #6f6253 !important;
+}
+
+.tutorial-warm-preview [class*="text-white"] {
+  color: #293a38 !important;
+}
+
+.tutorial-warm-preview [class*="bg-emerald-"][class*="text-white"],
+.tutorial-warm-preview [class*="bg-rose-"][class*="text-white"] {
   color: #fff !important;
 }
 

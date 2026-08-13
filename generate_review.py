@@ -30,7 +30,7 @@ for p in parts[1:]:
 
 cards.sort(key=lambda x: (x[0][0], int(x[0][1:]) if x[0][1:].isdigit() else 999))
 
-md = ["# 蜂富人生 - 卡片內容校對總表\n"]
+md = ["# 第二人生 - 卡片內容校對總表\n"]
 md.append("以下為目前遊戲中 **幸福卡 (H)**、**機會卡 (C)** 與 **新聞卡 (N)** 的最新內容。已經過手動與自動校對，並將「蜂富城」等字眼移除。\n\n")
 
 current_category = ""

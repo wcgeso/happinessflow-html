@@ -130,17 +130,28 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
                             >
                                 {/* Card Back */}
                                 <div
-                                    className={`absolute inset-0 rounded-[24px] border-2 border-white/10 bg-gradient-to-br ${deckMeta.backClass} ${deckMeta.glowClass} overflow-hidden shadow-xl`}
+                                    className="absolute inset-0 overflow-hidden rounded-[24px] border-2 border-white/70 bg-[#293a38] shadow-xl"
                                     style={{ backfaceVisibility: 'hidden' }}
                                 >
-                                    {/* Pinstripe inner border */}
-                                    <div className="absolute inset-[8px] rounded-[16px] border-[1.5px] border-white/40" />
-                                    {/* Texture Pattern */}
-                                    <div className="absolute inset-0 opacity-20 mix-blend-overlay" style={{ backgroundImage: 'radial-gradient(circle at center, #000 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
-                                    
-                                    <div className={`relative z-10 flex h-full flex-col items-center justify-center transition-opacity duration-150 ${isRevealed ? 'opacity-0' : 'opacity-100'}`}>
-                                        <div className="text-2xl font-black tracking-widest text-slate-900/70 drop-shadow-sm mix-blend-color-burn">
+                                    <img
+                                        src={deckMeta.editorialArt}
+                                        alt=""
+                                        aria-hidden="true"
+                                        draggable={false}
+                                        className="absolute inset-0 h-full w-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-[#293a38]/62" />
+                                    <div className="absolute inset-3 rounded-[20px] border border-white/35 sm:inset-5 sm:rounded-[24px]" />
+
+                                    <div className={`relative z-10 flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-[#fffaf2] transition-opacity duration-150 sm:gap-5 sm:px-8 ${isRevealed ? 'opacity-0' : 'opacity-100'}`}>
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-white/55 bg-white/15 shadow-[0_18px_36px_-18px_rgba(0,0,0,0.8)] sm:h-20 sm:w-20 sm:rounded-[24px]">
+                                            {deckMeta.icon}
+                                        </div>
+                                        <div className="text-3xl font-black tracking-[0.18em] drop-shadow-lg sm:text-5xl sm:tracking-[0.22em]">
                                             {deckMeta.label}
+                                        </div>
+                                        <div className="text-xs font-bold tracking-[0.12em] text-[#fffaf2]/80 sm:text-lg sm:tracking-[0.16em]">
+                                            事件封面 · 等待翻牌
                                         </div>
                                     </div>
                                 </div>

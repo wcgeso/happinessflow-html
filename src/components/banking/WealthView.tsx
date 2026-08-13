@@ -31,6 +31,11 @@ export const WealthView: React.FC<WealthViewProps> = ({
 
   const insuranceCost = salary * 0.1;
   const hasCarAsset = assets.some(asset => asset.type === '汽車' || asset.type === '飛行器');
+  const uninsuredHouses = useMemo(
+    () => assets.filter(asset => asset.type === '不動產' && !asset.isInsured),
+    [assets]
+  );
+  const uninsuredCar = assets.find(asset => (asset.type === '汽車' || asset.type === '飛行器') && !asset.isInsured);
   const depositAssets = useMemo(
     () => assets.filter(asset => asset.type === '定存' && asset.cost > 0),
     [assets]
@@ -59,13 +64,39 @@ export const WealthView: React.FC<WealthViewProps> = ({
     // 保險費用由 medicalInsuranceCount 即時計算（見 calculateFinancialSummary 的 insuranceCost），
     // 不需要另外疊加 expensePayload，否則會與保險費用公式重複計算。
     onTransaction({
-      name: '購買醫療險',
+      name: '購買醫療保險',
       amount: 0,
       cashChange: 0,
       source: 'cash',
       usage: 'insurance',
       insuranceType: 'medical',
       insurancePayload: { medicalQty: 1 }
+    });
+  };
+
+  const handleBuyHouseInsurance = () => {
+    if (!canUseBankProducts || uninsuredHouses.length === 0) return;
+    onTransaction({
+      name: `購買房屋保險（${uninsuredHouses.length} 間）`,
+      amount: 0,
+      cashChange: 0,
+      source: 'cash',
+      usage: 'insurance',
+      insuranceType: 'house',
+      insurancePayload: { targetAssetIds: uninsuredHouses.map(asset => asset.id) }
+    });
+  };
+
+  const handleBuyCarInsurance = () => {
+    if (!canUseBankProducts || !uninsuredCar) return;
+    onTransaction({
+      name: '購買汽車保險',
+      amount: 0,
+      cashChange: 0,
+      source: 'cash',
+      usage: 'insurance',
+      insuranceType: 'aircraft',
+      insurancePayload: { aircraft: true }
     });
   };
 
@@ -192,8 +223,8 @@ export const WealthView: React.FC<WealthViewProps> = ({
                 <ShieldCheck size={26} />
               </div>
               <div>
-                <h3 className="text-lg font-black tracking-wide text-white sm:text-xl">醫療險</h3>
-                <p className="mt-1 text-xs font-medium text-slate-400 sm:text-sm">遇到醫療支出時，可全額理賠</p>
+                <h3 className="text-lg font-black tracking-wide text-white sm:text-xl">保險服務</h3>
+                <p className="mt-1 text-xs font-medium text-slate-400 sm:text-sm">醫療、房屋與汽車保險都在銀行辦理</p>
               </div>
             </div>
 
@@ -220,6 +251,43 @@ export const WealthView: React.FC<WealthViewProps> = ({
             >
               {medicalInsuranceCount >= 1 ? '已達購買上限 (1份)' : !canUseBankProducts ? '需先經過銀行' : '確認購買保險'}
             </button>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3 sm:p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-black text-white">房屋保險</div>
+                    <div className="mt-1 text-xs font-bold text-slate-400">未投保 {uninsuredHouses.length} 間，每間每月 $2,000</div>
+                  </div>
+                  <Shield size={20} className="text-amber-300" />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleBuyHouseInsurance}
+                  disabled={!canUseBankProducts || uninsuredHouses.length === 0}
+                  className="mt-3 w-full rounded-xl bg-amber-500 px-3 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {uninsuredHouses.length === 0 ? '已全部投保' : '投保全部房屋'}
+                </button>
+              </div>
+              <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3 sm:p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-black text-white">汽車保險</div>
+                    <div className="mt-1 text-xs font-bold text-slate-400">每月支出 $2,000</div>
+                  </div>
+                  <Car size={20} className="text-amber-300" />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleBuyCarInsurance}
+                  disabled={!canUseBankProducts || !uninsuredCar}
+                  className="mt-3 w-full rounded-xl bg-amber-500 px-3 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {!hasCarAsset ? '尚未持有汽車' : uninsuredCar ? '投保汽車' : '已投保'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

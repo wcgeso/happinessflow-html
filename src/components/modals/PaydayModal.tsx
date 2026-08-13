@@ -36,6 +36,7 @@ export const PaydayModal: React.FC<PaydayModalProps> = ({
             title={isFollowup ? '月結餘已完成' : isPositive ? '領取月結餘' : '支付月結餘'}
             description={isFollowup ? '月結餘已處理完畢，可選擇下一步理財行動。' : '本回合的月結餘已完成結算。'}
             accent="finance"
+            layout="dialog"
             onClose={onClose}
             footer={!isFollowup ? (
                 <button className={`min-h-11 w-full rounded-2xl py-3.5 text-[15px] font-black tracking-widest text-white transition-all active:scale-[0.98] ${isPositive ? 'bg-[#2e806d] hover:bg-[#246c5c]' : 'bg-[#c9655a] hover:bg-[#b6544b]'}`} onClick={onClose} disabled={disabled}>
@@ -67,19 +68,17 @@ export const PaydayModal: React.FC<PaydayModalProps> = ({
                                 ) : (
                                     /* Step 2: Follow-up Options */
                                     <div className="flex flex-col">
-                                        <div className="grid gap-4">
+                                        <div className="grid grid-cols-2 gap-3">
                                             <button 
                                                 onClick={onOpenInsurance}
-                                                className="group relative flex w-full items-center justify-between rounded-2xl border border-[#b9d9d0] bg-[#e5f1eb] p-4 transition-all hover:border-[#5da58e] active:scale-[0.98]"
+                                                className="group relative flex h-full w-full flex-col items-center justify-between gap-3 rounded-2xl border border-[#b9d9d0] bg-[#e5f1eb] p-4 text-center transition-all hover:border-[#5da58e] active:scale-[0.98]"
                                             >
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#d8e9e5] text-[#2e6570]">
-                                                        <ShieldCheck size={24} />
-                                                    </div>
-                                                    <div className="text-left">
-                                                        <div className="text-[15px] font-black text-[#293a38]">購買保險</div>
-                                                        <div className="text-xs text-[#6f6253] mt-0.5">多一份保障，減少意外損失</div>
-                                                    </div>
+                                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#d8e9e5] text-[#2e6570]">
+                                                    <ShieldCheck size={24} />
+                                                </div>
+                                                <div>
+                                                    <div className="text-[15px] font-black text-[#293a38]">購買保險</div>
+                                                    <div className="mt-0.5 text-xs text-[#6f6253]">多一份保障，減少意外損失</div>
                                                 </div>
                                                 <div className="text-[#2e6570] opacity-60 transition-transform group-hover:translate-x-1 group-hover:opacity-100">
                                                     <ArrowRight size={20} />
@@ -88,16 +87,14 @@ export const PaydayModal: React.FC<PaydayModalProps> = ({
 
                                             <button 
                                                 onClick={onOpenDeposit}
-                                                className="group relative flex w-full items-center justify-between rounded-2xl border border-[#d8c29a] bg-[#fff2de] p-4 transition-all hover:border-[#d6a94e] active:scale-[0.98]"
+                                                className="group relative flex h-full w-full flex-col items-center justify-between gap-3 rounded-2xl border border-[#d8c29a] bg-[#fff2de] p-4 text-center transition-all hover:border-[#d6a94e] active:scale-[0.98]"
                                             >
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#f0dfc9] text-[#a9643a]">
-                                                        <PiggyBank size={24} />
-                                                    </div>
-                                                    <div className="text-left">
-                                                        <div className="text-[15px] font-black text-[#293a38]">購買定存</div>
-                                                        <div className="text-xs text-[#6f6253] mt-0.5">穩定獲利，增加被動收入</div>
-                                                    </div>
+                                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#f0dfc9] text-[#a9643a]">
+                                                    <PiggyBank size={24} />
+                                                </div>
+                                                <div>
+                                                    <div className="text-[15px] font-black text-[#293a38]">購買定存</div>
+                                                    <div className="mt-0.5 text-xs text-[#6f6253]">穩定獲利，增加被動收入</div>
                                                 </div>
                                                 <div className="text-[#a9643a] opacity-60 transition-transform group-hover:translate-x-1 group-hover:opacity-100">
                                                     <ArrowRight size={20} />

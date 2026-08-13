@@ -389,6 +389,11 @@ export interface GameState {
   loans: number;
   isSetup: boolean;
   selectionStep?: 'profession' | 'enterprise' | 'dream' | 'completed';
+  selectionDraft?: {
+    professionId?: string | null;
+    enterpriseId?: string | null;
+    dreamId?: string | null;
+  };
   history: Transaction[];
   happiness: HappinessItem[];
   happinessTotal: number;

@@ -6,6 +6,7 @@ import {
 } from '../types';
 import { STOCK_SYMBOLS, REAL_ESTATE_SYMBOLS, REAL_ESTATE_PRESETS, BUSINESS_SYMBOLS } from '../constants';
 import { extractAssetSymbol, getBusinessAssetLabel, getRealEstateAssetLabel, getStockAssetLabel } from '../utils/assetLabels';
+import { getRemainingCreditCapacity } from '../utils/financialRules';
 
 const formatMoney = (amount: number) => {
     const num = Number(amount);
@@ -26,6 +27,7 @@ interface UseTransactionLogicProps {
     happinessSubMode: 'history' | 'pay' | 'inc_exp';
     setHappinessSubMode: (v: 'history' | 'pay' | 'inc_exp') => void;
     liabilities: Liability[];
+    legacyLoans?: number;
     marketPrices?: Record<string, number>;
     medicalInsuranceCount?: number;
     onTransaction: (data: TransactionData) => void;
@@ -44,6 +46,7 @@ export const useTransactionLogic = ({
     happinessSubMode,
     setHappinessSubMode,
     liabilities,
+    legacyLoans = 0,
     marketPrices,
     medicalInsuranceCount = 0,
     onTransaction,
@@ -457,7 +460,8 @@ export const useTransactionLogic = ({
             if (loanSubMode === 'borrow') {
                 const amt = Number(borrowAmount);
                 if (!amt) { showError("請輸入借貸金額"); return; }
-                if (amt > salary * 10) { showError(`上限為 $${(salary * 10).toLocaleString()}`); return; }
+                const remainingCredit = getRemainingCreditCapacity(salary, liabilities, legacyLoans);
+                if (amt > remainingCredit) { showError(`剩餘可借額度為 $${remainingCredit.toLocaleString()}`); return; }
                 txData = { name: `申請信用貸款`, amount: amt, cashChange: amt, source: 'loan', usage: 'cash', assetDetails: { type: '股票', cashflow: 0, downPayment: 0, loanAmount: amt, loanInterest: Math.floor(amt * 0.1) } };
                 impactList = [`現金 +${formatMoney(amt)}`, `信用貸款 +${formatMoney(amt)}`, `信貸利息 +${formatMoney(Math.floor(amt * 0.1))}`];
                 expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Increase' }, { category: 'Liabilities', name: '信用貸款', direction: 'Increase' }, { category: 'Expenses', name: '信貸利息', direction: 'Increase' }];
@@ -486,7 +490,7 @@ export const useTransactionLogic = ({
 
                     const totalCreditLoan = liabilities
                         .filter(l => l.type === '信用貸款')
-                        .reduce((sum, l) => sum + l.totalOwed, 0);
+                        .reduce((sum, l) => sum + l.totalOwed, 0) + legacyLoans;
 
                     if (totalCreditLoan <= 0) { showError("目前沒有任何信用貸款"); return; }
                     if (amt > totalCreditLoan) { showError(`還款金額不可超過信用貸款總額 (${formatMoney(totalCreditLoan)})`); return; }

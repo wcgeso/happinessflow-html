@@ -12,7 +12,7 @@
 
 # Purpose
 
-本文件定義《幸福流》的正式多人模型。
+本文件定義《第二人生》的正式多人模型。
 
 本文件只負責說明 Room、Player、Synchronization、Consistency、Authority、Ownership 與 Conflict Resolution 的正式邊界。
 

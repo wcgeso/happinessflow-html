@@ -347,10 +347,10 @@ interface TutorialStep {
 
 const tutorialSteps: TutorialStep[] = [
   {
-    title: "歡迎遊玩「蜂富人生」",
+    title: "歡迎遊玩「第二人生」",
     icon: <Target className="text-rose-400" />,
     category: 'basic',
-    content: "《蜂富人生》不只是累積財富，你的終極目標是達到「百分百的幸福」。唯有財富與心靈同時豐盛，才是真正的幸福人生。",
+    content: "《第二人生》不只是累積財富，你的終極目標是達到「百分百的幸福」。唯有財富與心靈同時豐盛，才是真正的幸福人生。",
     uiPreview: <MockGameStats />
   },
   {
@@ -364,43 +364,43 @@ const tutorialSteps: TutorialStep[] = [
     title: "第二步 - 財務檢核",
     icon: <FileSearch className="text-yellow-400" />,
     category: 'audit',
-    content: "這是《蜂富人生》的核心玩法，學習理解財務報表的實際運用。\n你必須手動記錄這筆交易如何影響財務報表：\n• 資產：現金、股票、房產的增減\n• 負債：各類貸款的變化\n• 收入：利息、租金、股息的流入\n• 支出：利息、稅金、保費的流出",
+    content: "這是《第二人生》的核心玩法，學習理解財務報表的實際運用。\n你必須手動記錄這筆交易如何影響財務報表：\n• 資產：現金、股票、房產的增減\n• 負債：各類貸款的變化\n• 收入：利息、租金、股息的流入\n• 支出：利息、稅金、保費的流出",
     uiPreview: <MockFinancialCheckBoard />
   },
   {
     title: "實戰示範 - 買房收租",
-    icon: <HelpCircle className="text-purple-400" />,
+    icon: <HelpCircle className="text-[#8a6744]" />,
     category: 'audit',
     content: "假設你要購買一間不動產並出租：\n1. 資產欄：現金「減少」、不動產「增加」\n2. 負債欄：房貸「增加」\n3. 收入欄：租金收入「增加」\n4. 支出欄：房貸利息「增加」\n\n全部選對後交易才會成功執行！這能訓練你理解各項目的資產負債類別，並掌握現金流向。",
   },
   {
     title: "查看財務報表",
-    icon: <FileSearch className="text-blue-400" />,
+    icon: <FileSearch className="text-[#2e6570]" />,
     category: 'advanced',
     content: "財務報表是你最真實的導師。回到遊戲主畫面，檢視完成的交易是否正確顯示在收入支出表與資產負債表中。",
     uiPreview: <MockFinancialStatement />
   },
   {
     title: "打造被動收入",
-    icon: <BarChart3 className="text-emerald-400" />,
+    icon: <BarChart3 className="text-[#2e8876]" />,
     category: 'advanced',
     content: "專注於購買資產，提升「理財收入」。當被動收入覆蓋你的「總支出」時，你就擺脫了「為生存而工作」的循環。",
   },
   {
     title: "善用財務槓桿",
-    icon: <Wallet className="text-amber-400" />,
+    icon: <Wallet className="text-[#b9783d]" />,
     category: 'advanced',
     content: "學會區分「好債」與「壞債」。利用低息貸款獲取高收益資產是致富槓桿，但必須確保「每月結餘」為正，避免現金流斷裂。",
   },
   {
     title: "財富之外的人生",
-    icon: <Heart className="text-pink-400" />,
+    icon: <Heart className="text-[#c94f78]" />,
     category: 'advanced',
     content: "金錢只是工具，實現夢想才是幸福人生。完成夢想、發展事業、建立家庭，這些都會增加你的幸福指數並解鎖特殊成就。平衡財富與生活才是真正的贏家。",
   },
   {
     title: "致富關鍵",
-    icon: <Lightbulb className="text-yellow-400" />,
+    icon: <Lightbulb className="text-[#b9783d]" />,
     category: 'advanced',
     content: "• 保持學習提升專業，提升工作收入\n• 始終保有6個月的「緊急預備金」\n• 在遊戲初期累積資產\n• 持續優化資產配置，讓錢為你工作",
   }
@@ -409,7 +409,7 @@ const tutorialSteps: TutorialStep[] = [
 const boardTutorialSteps: TutorialStep[] = [
   {
     title: '棋盤模式：先看目前回合',
-    icon: <Target className="text-cyan-400" />,
+    icon: <Target className="text-[#2e6570]" />,
     category: 'basic',
     content: '畫面上方會固定顯示目前輪到哪位玩家。只有目前回合玩家可以擲骰，其他玩家先等待，不需要重複操作。執行師可以從監控頁看到目前回合與等待原因。'
   },
@@ -421,13 +421,13 @@ const boardTutorialSteps: TutorialStep[] = [
   },
   {
     title: '共享卡片要等所有人完成選擇',
-    icon: <Heart className="text-pink-400" />,
+    icon: <Heart className="text-[#c94f78]" />,
     category: 'audit',
     content: '抽到共享卡片時，符合條件的玩家會收到自己的選擇。每位玩家可以接受或放棄；共享彈窗完成前，不要直接進入下一回合。需要說明做法或分享內容的卡片，還要等執行師審核後才能進入財務檢核。'
   },
   {
     title: '完成檢核後再結束回合',
-    icon: <CheckCircle2 className="text-yellow-400" />,
+    icon: <CheckCircle2 className="text-[#b9783d]" />,
     category: 'advanced',
     content: '所有必要事件、共享選擇與財務檢核完成後，擲骰按鈕會切換成「結束回合」。點擊後才會換下一位玩家；若畫面顯示等待或阻塞原因，先依提示完成處理，不要重新整理遊戲。'
   }
@@ -468,41 +468,41 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-safe pb-safe bg-slate-950/90 backdrop-blur-md">
-      <Card className="w-full max-w-5xl bg-slate-900 border-slate-700 shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-[680px] max-h-[90vh]">
+    <div className="fixed inset-0 z-[10060] flex items-center justify-center bg-[#f4e6d0] p-4 pt-safe pb-safe">
+      <Card className="w-full max-w-5xl !bg-[#fffaf2] !border-[#d8c29a] text-[#293a38] shadow-[0_28px_70px_-28px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col h-[85vh] md:h-[680px] max-h-[90vh]">
         {/* Progress Bar */}
-        <div className="h-1.5 w-full bg-slate-800 shrink-0">
+        <div className="h-1.5 w-full bg-[#f4e6d0] shrink-0">
           <div
-            className="h-full bg-blue-500 transition-all duration-500 ease-out"
+            className="h-full bg-[#c94f78] transition-all duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
 
         {/* Header */}
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 shrink-0">
+        <div className="p-6 border-b border-[#ead7b8] flex justify-between items-center bg-[#fffaf2] shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-slate-800 rounded-xl">
+            <div className="p-2 bg-[#f4e6d0] rounded-xl">
               {step.icon}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">{step.title}</h2>
+              <h2 className="text-xl font-black text-[#293a38]">{step.title}</h2>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${step.category === 'basic' ? 'bg-blue-500/20 text-blue-400' :
-                  step.category === 'transaction' ? 'bg-emerald-500/20 text-emerald-400' :
-                    step.category === 'audit' ? 'bg-yellow-500/20 text-yellow-400' :
-                      'bg-purple-500/20 text-purple-400'
+                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${step.category === 'basic' ? 'bg-[#f8e8c8] text-[#a9643a]' :
+                  step.category === 'transaction' ? 'bg-[#dcefe7] text-[#2e8876]' :
+                    step.category === 'audit' ? 'bg-[#fff0f5] text-[#c94f78]' :
+                      'bg-[#f4e6d0] text-[#8a6744]'
                   }`}>
                   {step.category === 'basic' ? '基礎教學' :
                     step.category === 'transaction' ? '交易操作' :
                       step.category === 'audit' ? '財務檢核' : '進階概念'}
                 </span>
-                <span className="text-slate-500 text-xs font-mono">STEP {currentStep + 1}/{steps.length}</span>
+                <span className="text-[#8a7867] text-xs font-mono">STEP {currentStep + 1}/{steps.length}</span>
               </div>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-full transition-colors"
+            className="p-2 text-[#8a7867] hover:text-[#293a38] hover:bg-[#f4e6d0] rounded-full transition-colors"
           >
             <X size={20} />
           </button>
@@ -512,7 +512,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
         <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col lg:flex-row gap-6 lg:gap-8 min-h-0">
           {/* Left Side: Content */}
           <div className={cn("space-y-4 sm:space-y-6 flex-1 transition-all duration-300", step.uiPreview ? "lg:max-w-[45%]" : "lg:max-w-[700px] mx-auto")}>
-            <div className="text-slate-300 leading-relaxed text-base sm:text-lg whitespace-pre-wrap">
+            <div className="text-[#5f5145] leading-relaxed text-base sm:text-lg whitespace-pre-wrap">
               {step.content}
             </div>
           </div>
@@ -520,7 +520,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
           {/* Right Side: UI Preview */}
           {step.uiPreview && (
             <div className="flex-[1.5] animate-in fade-in slide-in-from-right-4 duration-500 delay-200 min-w-0">
-              <div className="rounded-xl border border-slate-700/50 bg-slate-950/50 p-3 sm:p-6 shadow-inner overflow-hidden">
+              <div className="tutorial-warm-preview rounded-xl border border-[#ead7b8] bg-[#f4e6d0]/70 p-3 sm:p-6 shadow-inner overflow-hidden">
                 <div className="w-full flex justify-center">
                   <div className="w-full max-w-full sm:max-w-[450px]">
                     {step.uiPreview}
@@ -532,12 +532,12 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
         </div>
 
         {/* Footer */}
-        <div className="p-3 sm:p-5 border-t border-slate-800 bg-slate-900/50 flex justify-between items-center shrink-0 gap-2">
+        <div className="p-3 sm:p-5 border-t border-[#ead7b8] bg-[#fffaf2] flex justify-between items-center shrink-0 gap-2">
           <Button
             variant="secondary"
             onClick={prevStep}
             disabled={currentStep === 0}
-            className="text-slate-400 hover:text-white disabled:opacity-0 h-8 sm:h-9 px-2 sm:px-3 text-[11px] sm:text-sm whitespace-nowrap min-w-[70px] sm:min-w-[90px]"
+            className="bg-[#f4e6d0] text-[#6f6253] hover:bg-[#ead7b8] hover:text-[#293a38] disabled:opacity-0 h-8 sm:h-9 px-2 sm:px-3 text-[11px] sm:text-sm whitespace-nowrap min-w-[70px] sm:min-w-[90px]"
           >
             <ChevronLeft size={14} className="mr-0.5" /> 上一步
           </Button>
@@ -547,7 +547,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
               <Button
                 variant="secondary"
                 onClick={onClose}
-                className="text-slate-500 hover:text-white h-8 sm:h-9 px-2 sm:px-3 text-[11px] sm:text-sm whitespace-nowrap"
+                className="bg-[#f4e6d0] text-[#6f6253] hover:bg-[#ead7b8] hover:text-[#293a38] h-8 sm:h-9 px-2 sm:px-3 text-[11px] sm:text-sm whitespace-nowrap"
               >
                 跳過
               </Button>
@@ -556,7 +556,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
               <Button
                 variant="success"
                 onClick={nextStep}
-                className="px-3 sm:px-5 h-8 sm:h-9 text-[11px] sm:text-sm rounded-lg sm:rounded-xl font-bold shadow-lg shadow-blue-900/20 whitespace-nowrap min-w-[70px] sm:min-w-[90px]"
+                className="px-3 sm:px-5 h-8 sm:h-9 text-[11px] sm:text-sm rounded-lg sm:rounded-xl font-bold shadow-lg shadow-[#b9783d]/20 whitespace-nowrap min-w-[70px] sm:min-w-[90px]"
               >
                 下一步 <ChevronRight size={14} className="ml-0.5" />
               </Button>
@@ -564,7 +564,7 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({ isOpen, onClose, s
               <Button
                 variant="primary"
                 onClick={onClose}
-                className="px-3 sm:px-5 h-8 sm:h-9 text-[11px] sm:text-sm rounded-lg sm:rounded-xl font-bold shadow-lg shadow-emerald-900/20 whitespace-nowrap min-w-[90px] sm:min-w-[110px]"
+                className="px-3 sm:px-5 h-8 sm:h-9 text-[11px] sm:text-sm rounded-lg sm:rounded-xl font-bold shadow-lg shadow-[#2e8876]/20 whitespace-nowrap min-w-[90px] sm:min-w-[110px]"
               >
                 開始冒險 <CheckCircle2 size={14} className="ml-1" />
               </Button>

@@ -131,6 +131,7 @@ export const GameView: React.FC<{
     const [isBoardCardDrawerOpen, setIsBoardCardDrawerOpen] = useState(false);
     const [lastBoardCardKey, setLastBoardCardKey] = useState<string | null>(null);
     const [isBoardCardRevealed, setIsBoardCardRevealed] = useState(false);
+    const boardCardRevealInFlightRef = useRef<string | null>(null);
     const [handledBankPromptKeys, setHandledBankPromptKeys] = useState<string[]>([]);
     const [lastBankPromptKey, setLastBankPromptKey] = useState<string | null>(null);
     const [handledSchoolPromptKeys, setHandledSchoolPromptKeys] = useState<string[]>([]);
@@ -151,6 +152,7 @@ export const GameView: React.FC<{
     const [pendingHandledBoardCard, setPendingHandledBoardCard] = useState<{ key: string; card: BoardCardResult | null } | null>(null);
     const [pendingBoardStepAdvance, setPendingBoardStepAdvance] = useState<'hospital' | 'repair' | null>(null);
     const [pendingBoardLifelongRoll, setPendingBoardLifelongRoll] = useState<PromotionType | null>(null);
+    const [pendingCashEventRoll, setPendingCashEventRoll] = useState<PromotionType | null>(null);
     const [pendingMarketPurchaseCardId, setPendingMarketPurchaseCardId] = useState<string | null>(null);
     const [showHospitalRollModal, setShowHospitalRollModal] = useState(false);
     const [hospitalRollValue, setHospitalRollValue] = useState<number | null>(null);
@@ -340,6 +342,23 @@ export const GameView: React.FC<{
             } else if (result === 'pending') {
                 setPromotionType(type);
                 setShowPromotionModal(false);
+                setPendingCashEventRoll(type);
+                setBoardFinancialAction({
+                    kind: 'financial',
+                    label: '進入財務檢核',
+                    txData: {
+                        name: '升等考試報名費',
+                        amount: 1000,
+                        cashChange: -1000,
+                        source: 'cash',
+                        usage: 'expense',
+                        impacts: ['現金 -1,000', '教育進修支出 +1,000']
+                    },
+                    expectedEntries: [
+                        { category: 'Assets', name: '現金', direction: 'Decrease' }
+                    ]
+                });
+                setIsBoardFinancialCompleted(false);
             }
         }
     };
@@ -353,6 +372,27 @@ export const GameView: React.FC<{
         } else if (result === 'pending') {
             setPromotionType(type as PromotionType);
             setShowLifelongModal(false);
+            setPendingCashEventRoll(type as PromotionType);
+            setBoardFinancialAction({
+                kind: 'financial',
+                label: '進入財務檢核',
+                txData: {
+                    name: `終身學習報名費：${type}`,
+                    amount: cost,
+                    cashChange: -cost,
+                    source: 'cash',
+                    usage: 'expense',
+                    lifelongLearningPayload: {
+                        learningType: type as 'enhance_profession' | 'stock_ability' | 'real_estate_ability',
+                        requiredRoll: 1
+                    },
+                    impacts: [`現金 -${formatMoney(cost)}`, `終身學習支出 +${formatMoney(cost)}`]
+                },
+                expectedEntries: [
+                    { category: 'Assets', name: '現金', direction: 'Decrease' }
+                ]
+            });
+            setIsBoardFinancialCompleted(false);
         }
     };
 
@@ -760,17 +800,20 @@ export const GameView: React.FC<{
     };
 
     const handleBoardDiceAnimationComplete = (result: any) => {
+        const diceText = Array.isArray(result.dice) && result.dice.length > 1
+            ? `（${result.dice.join(' + ')} = ${result.total}）`
+            : `（${result.total}）`;
         setGameState(prev => ({
             ...prev,
             boardPosition: result.position,
             skipTurns: result.skipTurns,
-            lastBoardEvent: `擲出 ${result.total} 點，前進至第 ${result.position + 1} 格`,
+            lastBoardEvent: `擲出骰子 ${diceText} 點，前進至第 ${result.position + 1} 格`,
             pendingCardAction: result.detail
         }));
         if (result.detail) {
-            showAlert(`擲出 ${result.total} 點\n${result.detail}`, 'info', true);
+            showAlert(`擲出骰子 ${diceText} 點\n${result.detail}`, 'info', true);
         } else {
-            showAlert(`擲出 ${result.total} 點，已完成移動並同步地圖事件`, 'success');
+            showAlert(`擲出骰子 ${diceText} 點，已完成移動並同步地圖事件`, 'success');
         }
         setIsRollingBoardDice(false);
     };
@@ -786,18 +829,21 @@ export const GameView: React.FC<{
         setSelectedBoardSaleAssetIds([]);
     }, [activeBoardCardKey, lastBoardCardKey, canOpenNextBoardStep, isActiveBankPromptPending, isActiveSchoolPromptPending, hideAlert]);
 
+    const boardInvestmentKey = activeBoardCardAction?.kind === 'investment'
+        ? `${activeBoardCardKey}:${activeBoardCardAction.businessSymbol}`
+        : null;
+
     useEffect(() => {
         if (activeBoardCardAction?.kind !== 'investment') {
             setBoardInvestmentAmount(0);
             return;
         }
 
-        const affordableMax = Math.floor(gameState.cash / activeBoardCardAction.step) * activeBoardCardAction.step;
-        const seededAmount = affordableMax >= activeBoardCardAction.minAmount
-            ? Math.min(activeBoardCardAction.maxAmount, Math.max(activeBoardCardAction.defaultAmount, activeBoardCardAction.minAmount), affordableMax)
-            : activeBoardCardAction.minAmount;
-        setBoardInvestmentAmount(seededAmount);
-    }, [activeBoardCardAction, gameState.cash]);
+        setBoardInvestmentAmount(Math.min(
+            activeBoardCardAction.maxAmount,
+            Math.max(activeBoardCardAction.defaultAmount, activeBoardCardAction.minAmount)
+        ));
+    }, [boardInvestmentKey]);
 
     useEffect(() => {
         if (!activeSharedCardPrompt || activeSharedCardPrompt.kind !== 'investment') {
@@ -805,9 +851,9 @@ export const GameView: React.FC<{
             return;
         }
 
-        const maxAffordable = Math.floor(gameState.cash / 1000000) * 1000000;
-        setSharedInvestmentAmount(maxAffordable >= 1000000 ? 1000000 : 0);
-    }, [activeSharedCardPrompt, gameState.cash]);
+        const newsCard = NEWS_CARD_MAP[activeSharedCardPrompt.sourceCardId];
+        setSharedInvestmentAmount(newsCard?.type === 'large_enterprise' ? Math.min(newsCard.maxInvestment, 1000000) : 0);
+    }, [activeSharedCardPrompt?.id, activeSharedCardPrompt?.kind, activeSharedCardPrompt?.sourceCardId]);
 
     useEffect(() => {
         return () => {
@@ -1161,19 +1207,21 @@ export const GameView: React.FC<{
     };
 
     const handleBoardCardReveal = () => {
-        setIsBoardCardRevealed(true);
         if (boardState?.currentEvent?.id && activeBoardCard?.cardId) {
+            const cardKey = `${boardState.currentEvent.id}:${activeBoardCard.cardId}`;
+            if (boardCardRevealInFlightRef.current === cardKey || isBoardCardRevealed) return;
+            boardCardRevealInFlightRef.current = cardKey;
+
             void audioManager.unlock()
                 .then(() => audioManager.playOnce('card', `card:${boardState.currentEvent.id}:${activeBoardCard.cardId}`))
                 .catch(() => undefined);
-        }
-        if (boardState?.currentEvent?.id && activeBoardCard?.cardId) {
             const eventId = boardState.currentEvent.id;
             const cardId = activeBoardCard.cardId;
 
             void (async () => {
                 try {
                     await revealBoardCard(eventId, cardId);
+                    setIsBoardCardRevealed(true);
 
                     if (HAPPINESS_CARD_MAP[cardId]?.category === '家庭重要歷程') {
                         await openFamilyMilestoneJoinPrompt(eventId, cardId);
@@ -1204,6 +1252,10 @@ export const GameView: React.FC<{
                 } catch (err: any) {
                     console.error('翻開棋盤卡片失敗:', err);
                     showAlert(err?.message || '卡片同步失敗，請重新整理後再試一次', 'error');
+                } finally {
+                    if (boardCardRevealInFlightRef.current === cardKey) {
+                        boardCardRevealInFlightRef.current = null;
+                    }
                 }
             })();
         }
@@ -1305,12 +1357,19 @@ export const GameView: React.FC<{
         promptId: string,
         actionKey: string
     ) => {
-        const applied = handleTransactionSubmit(joinAction.txData);
+        const applied = handleTransactionSubmit({
+            ...joinAction.txData,
+            boardEventId: joinAction.txData.boardEventId || `family-join:${actionKey}`
+        });
         if (!applied) {
             return false;
         }
 
-        await clearPendingFamilyMilestoneJoinAction(promptId);
+        const cleared = await clearPendingFamilyMilestoneJoinAction(promptId);
+        if (!cleared) {
+            showAlert('家庭歷程結果已套用，但同步結案失敗，請重新整理後再試一次', 'error');
+            return false;
+        }
         setHandledFamilyJoinActionKeys(prev => prev.includes(actionKey) ? prev : [...prev, actionKey]);
         showAlert(`已同步完成家庭歷程，獲得 ${joinAction.points} 點幸福`, 'success');
         return true;
@@ -1427,7 +1486,11 @@ export const GameView: React.FC<{
         let handledBoardCard = true;
 
         if (familyJoinPromptId) {
-            await clearPendingFamilyMilestoneJoinAction(familyJoinPromptId);
+            const cleared = await clearPendingFamilyMilestoneJoinAction(familyJoinPromptId);
+            if (!cleared) {
+                showAlert('家庭歷程財務結果已套用，但同步結案失敗，請重新點擊關閉再試一次', 'error');
+                return;
+            }
         }
         if (pendingHandledBoardCard) {
             handledBoardCard = await markBoardCardHandled(pendingHandledBoardCard.key, pendingHandledBoardCard.card);
@@ -1466,6 +1529,13 @@ export const GameView: React.FC<{
             return;
         }
 
+        if (pendingCashEventRoll) {
+            setPromotionType(pendingCashEventRoll);
+            setPendingCashEventRoll(null);
+            setShowDiceModal(true);
+            return;
+        }
+
         if (shouldResumeBankFollowup) {
             hideAlert();
             setPaydayStep('followup');
@@ -1478,10 +1548,6 @@ export const GameView: React.FC<{
         if (cardAction.kind === 'choice') {
             const opt = cardAction.options.find(o => o.id === (isSelfUse ? 'self_use' : 'rental'));
             if (opt && opt.action.kind === 'financial') {
-                if ((gameState.cash + opt.action.txData.cashChange) < 0) {
-                    showAlert('現金不足，無法支付頭期款', 'error');
-                    return;
-                }
                 setPendingMarketPurchaseCardId(cardId);
                 setBoardFinancialAction(opt.action);
                 setIsBoardFinancialCompleted(false);
@@ -1491,10 +1557,6 @@ export const GameView: React.FC<{
         }
 
         if (cardAction.kind === 'financial' && !isSelfUse) {
-            if ((gameState.cash + cardAction.txData.cashChange) < 0) {
-                showAlert('現金不足，無法支付頭期款', 'error');
-                return;
-            }
             setPendingMarketPurchaseCardId(cardId);
             setBoardFinancialAction(cardAction);
             setIsBoardFinancialCompleted(false);
@@ -1531,9 +1593,11 @@ export const GameView: React.FC<{
         });
         if (!borrowed) return;
 
-        setShowForcedBoardPaymentModal(false);
-        setPendingForcedBoardPayment(null);
-        await applyResolvedBoardFinancialTx(pendingForcedBoardPayment);
+        const applied = await applyResolvedBoardFinancialTx(pendingForcedBoardPayment);
+        if (applied) {
+            setShowForcedBoardPaymentModal(false);
+            setPendingForcedBoardPayment(null);
+        }
     };
 
     const handleForcedBoardSellAssets = () => {
@@ -1562,9 +1626,10 @@ export const GameView: React.FC<{
         });
         if (!borrowed) return;
 
+        const applied = await applyResolvedBoardFinancialTx(pendingForcedBoardPayment);
+        if (!applied) return;
         setShowForcedBoardPaymentModal(false);
         setPendingForcedBoardPayment(null);
-        await applyResolvedBoardFinancialTx(pendingForcedBoardPayment);
         showAlert('現金不足，已強制計入強制負債並完成本回合事件', 'info');
     };
 
@@ -1587,7 +1652,12 @@ export const GameView: React.FC<{
         if (!activeBoardCardAction || activeBoardCardAction.kind !== 'investment') return;
 
         const investmentAction = activeBoardCardAction as BoardInvestmentAction;
-        const normalizedAmount = Math.floor(boardInvestmentAmount / investmentAction.step) * investmentAction.step;
+        const normalizedAmount = boardInvestmentAmount;
+
+        if (normalizedAmount % investmentAction.step !== 0) {
+            showAlert(`投資金額需以 ${formatMoney(investmentAction.step)} 為單位`, 'error');
+            return;
+        }
 
         if (normalizedAmount < investmentAction.minAmount) {
             showAlert(`投資金額至少需 ${formatMoney(investmentAction.minAmount)}`, 'error');
@@ -1596,11 +1666,6 @@ export const GameView: React.FC<{
 
         if (normalizedAmount > investmentAction.maxAmount) {
             showAlert(`投資金額不可超過 ${formatMoney(investmentAction.maxAmount)}`, 'error');
-            return;
-        }
-
-        if (normalizedAmount > gameState.cash) {
-            showAlert('現金不足，無法支付投資金額', 'error');
             return;
         }
 
@@ -1818,17 +1883,17 @@ export const GameView: React.FC<{
         if (!newsCard || newsCard.type !== 'large_enterprise') return;
 
         const step = 1000000;
-        const normalizedAmount = Math.floor(sharedInvestmentAmount / step) * step;
+        const normalizedAmount = sharedInvestmentAmount;
+        if (normalizedAmount % step !== 0) {
+            showAlert(`投資金額需以 ${formatMoney(step)} 為單位`, 'error');
+            return;
+        }
         if (normalizedAmount < step) {
             showAlert(`投資金額至少需 ${formatMoney(step)}`, 'error');
             return;
         }
         if (normalizedAmount > newsCard.maxInvestment) {
             showAlert(`投資金額不可超過 ${formatMoney(newsCard.maxInvestment)}`, 'error');
-            return;
-        }
-        if (normalizedAmount > gameState.cash) {
-            showAlert('現金不足，無法支付投資金額', 'error');
             return;
         }
         const monthlyIncome = (normalizedAmount / step) * newsCard.monthlyReturnPerMillion;
@@ -1967,12 +2032,17 @@ export const GameView: React.FC<{
         setIsSubmittingFamilyJoin(true);
 
         try {
-            await submitFamilyMilestoneJoinResponse({
+            const submitted = await submitFamilyMilestoneJoinResponse({
                 promptId,
                 status: passed ? 'passed' : 'failed',
                 roll,
                 cardId: activeFamilyJoinPrompt.sourceCardId
             });
+            if (!submitted) {
+                setFamilyJoinResult(null);
+                showAlert('家庭歷程回覆同步失敗，請重新送出', 'error');
+                return;
+            }
             setSubmittedFamilyJoinPromptIds(prev => prev.includes(promptId) ? prev : [...prev, promptId]);
             showAlert(
                 passed
@@ -1996,11 +2066,15 @@ export const GameView: React.FC<{
         if (!activeFamilyJoinPrompt || isSubmittingFamilyJoin || hasRespondedToFamilyJoin) return;
         setIsSubmittingFamilyJoin(true);
         try {
-            await submitFamilyMilestoneJoinResponse({
+            const submitted = await submitFamilyMilestoneJoinResponse({
                 promptId: activeFamilyJoinPrompt.id,
                 status: 'declined',
                 cardId: activeFamilyJoinPrompt.sourceCardId
             });
+            if (!submitted) {
+                showAlert('家庭歷程回覆同步失敗，請再試一次', 'error');
+                return;
+            }
             setSubmittedFamilyJoinPromptIds(prev => prev.includes(activeFamilyJoinPrompt.id) ? prev : [...prev, activeFamilyJoinPrompt.id]);
             closeFamilyJoinModal(activeFamilyJoinPrompt.id);
         } finally {
@@ -2013,7 +2087,11 @@ export const GameView: React.FC<{
 
         if (pendingFamilyJoinActionDefinition.kind !== 'choice') {
             if (!accepted) {
-                await clearPendingFamilyMilestoneJoinAction(pendingFamilyJoinAction.promptId);
+                const cleared = await clearPendingFamilyMilestoneJoinAction(pendingFamilyJoinAction.promptId);
+                if (!cleared) {
+                    showAlert('家庭歷程拒絕結果同步失敗，請再試一次', 'error');
+                    return;
+                }
                 setHandledFamilyJoinActionKeys(prev => prev.includes(activeFamilyJoinActionKey) ? prev : [...prev, activeFamilyJoinActionKey]);
             }
             return;
@@ -2033,7 +2111,11 @@ export const GameView: React.FC<{
             return;
         }
 
-        await clearPendingFamilyMilestoneJoinAction(pendingFamilyJoinAction.promptId);
+        const cleared = await clearPendingFamilyMilestoneJoinAction(pendingFamilyJoinAction.promptId);
+        if (!cleared) {
+            showAlert('家庭歷程結果同步失敗，請再試一次', 'error');
+            return;
+        }
         setHandledFamilyJoinActionKeys(prev => prev.includes(activeFamilyJoinActionKey) ? prev : [...prev, activeFamilyJoinActionKey]);
     };
 
@@ -2058,8 +2140,13 @@ export const GameView: React.FC<{
             }
 
             if (acceptOption?.action.kind === 'dismiss' || !acceptOption) {
-                void clearPendingFamilyMilestoneJoinAction(promptId);
-                setHandledFamilyJoinActionKeys(prev => prev.includes(activeFamilyJoinActionKey) ? prev : [...prev, activeFamilyJoinActionKey]);
+                void clearPendingFamilyMilestoneJoinAction(promptId).then(cleared => {
+                    if (!cleared) {
+                        showAlert('家庭歷程結果同步失敗，請再試一次', 'error');
+                        return;
+                    }
+                    setHandledFamilyJoinActionKeys(prev => prev.includes(activeFamilyJoinActionKey) ? prev : [...prev, activeFamilyJoinActionKey]);
+                });
             }
             return;
         }
@@ -2075,9 +2162,14 @@ export const GameView: React.FC<{
             return;
         }
 
-        void clearPendingFamilyMilestoneJoinAction(promptId);
-        setHandledFamilyJoinActionKeys(prev => prev.includes(activeFamilyJoinActionKey) ? prev : [...prev, activeFamilyJoinActionKey]);
-        showAlert('這張家庭歷程目前無法同步結算，已略過', 'info');
+        void clearPendingFamilyMilestoneJoinAction(promptId).then(cleared => {
+            if (!cleared) {
+                showAlert('家庭歷程結果同步失敗，請再試一次', 'error');
+                return;
+            }
+            setHandledFamilyJoinActionKeys(prev => prev.includes(activeFamilyJoinActionKey) ? prev : [...prev, activeFamilyJoinActionKey]);
+            showAlert('這張家庭歷程目前無法同步結算，已略過', 'info');
+        });
     }, [
         activeFamilyJoinActionKey,
         boardFinancialAction,
@@ -2115,7 +2207,7 @@ export const GameView: React.FC<{
     ]);
 
     return (
-        <div className="player-ui flex-1 flex flex-col overflow-hidden touch-none animate-in fade-in duration-500 pb-safe">
+        <div className="player-ui h-[100dvh] flex flex-col overflow-hidden animate-in fade-in duration-500">
             {showScoreView && (
                 <div className="fixed inset-0 z-[10000]">
                     <ScoreView
@@ -2130,28 +2222,37 @@ export const GameView: React.FC<{
             )}
             {/* Alert System */}
             {alertInfo && (
-                <div className={`fixed left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 shadow-xl flex items-center gap-3 animate-in zoom-in-95 duration-300 border backdrop-blur-md transition-all ${alertInfo.persist
-                    ? "top-1/2 -translate-y-1/2 w-[85vw] max-w-xs text-center flex-col py-6 rounded-2xl bg-slate-900/95 border-slate-700/50 shadow-2xl"
-                    : "bottom-32 w-max max-w-[90vw] flex-row rounded-full bg-slate-900/90 border-slate-700/50 shadow-lg"
-                    } ${alertInfo.type === 'error' ? 'border-rose-500/50' :
-                        alertInfo.type === 'success' ? 'border-emerald-500/50' :
-                            'border-slate-700/50'
+                <div className={`fixed left-1/2 z-[10070] -translate-x-1/2 border border-[#d8c29a] bg-[#fffaf2] text-[#293a38] animate-in zoom-in-95 duration-300 transition-all ${alertInfo.persist
+                    ? "top-1/2 w-[min(90vw,420px)] -translate-y-1/2 rounded-[24px] p-6 text-center shadow-[0_28px_80px_-32px_rgba(16,47,56,0.85)]"
+                    : "bottom-[calc(7.5rem+env(safe-area-inset-bottom,0px))] flex w-[min(90vw,520px)] items-center gap-3 rounded-2xl px-4 py-3 text-left shadow-[0_14px_32px_-18px_rgba(16,47,56,0.75)] sm:bottom-32"
                     }`}>
-                    <div className={`shrink-0 p-2 rounded-xl ${alertInfo.type === 'error' ? 'bg-rose-500/10 text-rose-400' :
-                        alertInfo.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' :
-                            'bg-blue-500/10 text-blue-400'
-                        }`}>
-                        {alertInfo.type === 'error' ? <AlertCircle size={20} /> : alertInfo.type === 'success' ? <CheckCircle2 size={20} /> : <Bell size={20} />}
-                    </div>
-                    <div className="flex flex-col gap-3 w-full">
-                        <span className={`font-bold leading-snug whitespace-pre-line tracking-tight text-white ${alertInfo.persist ? "text-lg" : "text-sm px-1"
+                    {alertInfo.persist ? (
+                        <div className="mb-4 flex items-center justify-center gap-2">
+                            <div className={`flex shrink-0 items-center justify-center rounded-xl p-2 ${alertInfo.type === 'error' ? 'bg-[#f5d9d0] text-[#b6544b]' :
+                                alertInfo.type === 'success' ? 'bg-[#d8e9e5] text-[#2e806d]' :
+                                    'bg-[#f4e6d0] text-[#2e6570]'
+                                }`}>
+                                {alertInfo.type === 'error' ? <AlertCircle size={20} /> : alertInfo.type === 'success' ? <CheckCircle2 size={20} /> : <Bell size={20} />}
+                            </div>
+                            <div className="text-[10px] font-black tracking-[0.2em] text-[#2e6570]">遊戲通知</div>
+                        </div>
+                    ) : (
+                        <div className={`flex shrink-0 items-center justify-center rounded-xl p-2 ${alertInfo.type === 'error' ? 'bg-[#f5d9d0] text-[#b6544b]' :
+                            alertInfo.type === 'success' ? 'bg-[#d8e9e5] text-[#2e806d]' :
+                                'bg-[#f4e6d0] text-[#2e6570]'
+                            }`}>
+                            {alertInfo.type === 'error' ? <AlertCircle size={20} /> : alertInfo.type === 'success' ? <CheckCircle2 size={20} /> : <Bell size={20} />}
+                        </div>
+                    )}
+                    <div className={`flex w-full min-w-0 flex-col gap-3 ${alertInfo.persist ? 'items-center' : 'items-start'}`}>
+                        <span className={`block max-w-full break-words whitespace-pre-line [overflow-wrap:anywhere] font-bold leading-snug tracking-tight text-[#293a38] ${alertInfo.persist ? "max-h-[min(48vh,360px)] overflow-y-auto text-lg" : "text-sm"
                             }`}>
                             {alertInfo.message}
                         </span>
                         {alertInfo.persist && (
                             <button
                                 onClick={hideAlert}
-                                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-black transition-all active:scale-95 shadow-lg shadow-blue-900/20 mt-1"
+                                className={`mt-1 w-full rounded-xl py-3 text-sm font-black text-white transition-all active:scale-95 ${alertInfo.type === 'error' ? 'bg-[#c9655a] hover:bg-[#b6544b]' : 'bg-[#2e6570] hover:bg-[#254f57]'}`}
                             >
                                 我知道了
                             </button>
@@ -2239,7 +2340,7 @@ export const GameView: React.FC<{
                             <div className="text-lg font-black text-[#5e432c]">{pendingFamilyJoinAcceptOption.action.kind === 'financial' ? pendingFamilyJoinAcceptOption.action.txData.name : '家庭歷程獎勵'}</div>
                             {pendingFamilyJoinAcceptOption.action.kind === 'financial' && (
                                 <div className="mt-2 space-y-1 text-sm font-bold text-[#8b6a48]">
-                                    {(pendingFamilyJoinAcceptOption.action.txData.impacts || []).map(impact => (
+                                    {(Array.isArray(pendingFamilyJoinAcceptOption.action.txData.impacts) ? pendingFamilyJoinAcceptOption.action.txData.impacts : []).map(impact => (
                                         <div key={impact}>{impact}</div>
                                     ))}
                                 </div>
@@ -2398,7 +2499,7 @@ export const GameView: React.FC<{
                             <div className="mt-6 rounded-3xl border border-[#e3bd78] bg-[#fff2d8] p-5">
                                 <div className="text-xs font-black tracking-[0.2em] text-[#8c5b2b]">你的月支出調整</div>
                                 <div className="mt-3 space-y-2 text-sm font-bold leading-relaxed text-[#76573a]">
-                                    {sharedCardLocalAction.txData.impacts.map(impact => (
+                                    {(Array.isArray(sharedCardLocalAction.txData.impacts) ? sharedCardLocalAction.txData.impacts : []).map(impact => (
                                         <div key={impact}>{impact}</div>
                                     ))}
                                 </div>
@@ -2694,10 +2795,6 @@ export const GameView: React.FC<{
                                 <div className="space-y-3">
                                     <div className="grid grid-cols-2 gap-3">
                                         {activeBoardCardAction.options.map(option => {
-                                            let isInsufficientCash = false;
-                                            if (option.action.kind === 'financial' && option.id !== 'reject') {
-                                                isInsufficientCash = (gameState.cash + option.action.txData.cashChange) < 0;
-                                            }
                                             return (
                                                 <button
                                                     key={option.id}
@@ -2730,17 +2827,14 @@ export const GameView: React.FC<{
                                                         setBoardFinancialAction(option.action);
                                                         setIsBoardFinancialCompleted(false);
                                                     }}
-                                                    disabled={isActiveBoardCardHandled || isInsufficientCash}
-                                                    title={isInsufficientCash ? '現金不足，無法支付頭期款' : undefined}
+                                                    disabled={isActiveBoardCardHandled}
                                                     className={`rounded-2xl py-3.5 text-sm font-black transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                                                         option.id === 'reject'
                                                             ? 'bg-slate-800 text-slate-200 hover:bg-slate-700'
                                                             : 'bg-emerald-600 text-white hover:bg-emerald-500'
                                                     }`}
                                                 >
-                                                    {isInsufficientCash
-                                                        ? `${option.label}（現金不足）`
-                                                        : (requiresOpportunityShareApproval && option.id === 'accept')
+                                                    {(requiresOpportunityShareApproval && option.id === 'accept')
                                                             ? (boardShareRequest?.status === 'pending' ? '等待主持人確認' : '送出分享確認')
                                                             : option.label}
                                                 </button>
@@ -2812,9 +2906,9 @@ export const GameView: React.FC<{
                                             onClick={handleBoardInvestmentConfirm}
                                             disabled={
                                                 isActiveBoardCardHandled ||
-                                                boardInvestmentAmount > gameState.cash ||
                                                 boardInvestmentAmount < activeBoardCardAction.minAmount ||
-                                                boardInvestmentAmount > activeBoardCardAction.maxAmount
+                                                boardInvestmentAmount > activeBoardCardAction.maxAmount ||
+                                                boardInvestmentAmount % activeBoardCardAction.step !== 0
                                             }
                                             className="rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
@@ -2943,6 +3037,7 @@ export const GameView: React.FC<{
                         }
                         setPendingHandledBoardCard(null);
                         setPendingBoardLifelongRoll(null);
+                        setPendingCashEventRoll(null);
                         if (pendingSharedCardCompletion) {
                             setVisibleSharedCardPromptId(pendingSharedCardCompletion.promptId);
                             setPendingSharedCardCompletion(null);
@@ -3070,13 +3165,14 @@ export const GameView: React.FC<{
                         selectedDream={gameState.selectedDream}
                         cash={gameState.cash}
                         salary={gameState.profession?.salary || 0}
+                        legacyLoans={gameState.loans}
                         assets={gameState.assets}
                         happiness={gameState.happiness}
                         currentRankLevel={gameState.currentRankLevel}
                         medicalInsuranceCount={gameState.medicalInsuranceCount}
                         marketPrices={gameState.marketPrices}
                         previousMarketPrices={gameState.previousMarketPrices}
-                        liabilities={gameState.liabilities.concat(gameState.loans > 0 ? [{ id: 'bank_loan', name: '信用貸款 (Legacy)', totalOwed: gameState.loans, monthlyPayment: gameState.loans * 0.1, type: '信用貸款' }] : [])}
+                        liabilities={gameState.liabilities}
                         happinessSubMode={happinessSubMode}
                         setHappinessSubMode={setHappinessSubMode}
                         onTransaction={handleTransaction}

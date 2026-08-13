@@ -237,7 +237,7 @@ const RoomContent: React.FC<{
     };
 
     return (
-        <div className="flex-1 flex flex-col p-6 animate-in fade-in duration-300 pt-safe pb-safe">
+        <div className="min-h-0 flex-1 overflow-y-auto flex flex-col p-6 animate-in fade-in duration-300 pt-safe pb-safe">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div>

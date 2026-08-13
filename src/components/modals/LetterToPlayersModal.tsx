@@ -65,7 +65,7 @@ export const LetterToPlayersModal: React.FC<LetterToPlayersModalProps> = ({ isOp
             </div>
 
             <p>
-              再次感謝您參與這場遊戲，同時也代替您感謝您自己，因為是您選擇了透過 <span className="text-yellow-500 font-bold">蜂富人生</span> 這個遊戲，來學習如何實現富足人生的財商智慧，相信您能運用這些智慧，讓您的人生更加豐富與幸福。
+              再次感謝您參與這場遊戲，同時也代替您感謝您自己，因為是您選擇了透過 <span className="text-yellow-500 font-bold">第二人生</span> 這個遊戲，來學習如何實現富足人生的財商智慧，相信您能運用這些智慧，讓您的人生更加豐富與幸福。
             </p>
 
             <div className="pt-8 flex flex-col items-end space-y-1">
@@ -73,7 +73,7 @@ export const LetterToPlayersModal: React.FC<LetterToPlayersModalProps> = ({ isOp
                 <Sparkles size={16} />
                 <span>給您最誠摯的祝福</span>
               </div>
-              <p className="text-white font-black text-lg">蜂富人生研發小組 <span className="text-slate-400 font-normal text-sm">敬上</span></p>
+              <p className="text-white font-black text-lg">第二人生研發小組 <span className="text-slate-400 font-normal text-sm">敬上</span></p>
             </div>
           </div>
         </div>

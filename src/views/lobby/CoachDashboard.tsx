@@ -1251,7 +1251,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                     date: '2026-03-01',
                     color: 'slate',
                     items: [
-                      '蜂富人生 HappinessFlow 正式上線',
+                      '第二人生 正式上線',
                       '基礎遊戲功能：創建房間、遊戲結算',
                       '用戶驗證與個人檔案',
                     ],

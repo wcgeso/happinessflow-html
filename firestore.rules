@@ -123,7 +123,11 @@ service cloud.firestore {
 
       function updatesOnlyOwnPublicProjection() {
         return !resource.data.diff(request.resource.data).affectedKeys().hasAny(['publicPlayerStates']) ||
-          request.resource.data.publicPlayerStates.diff(publicPlayerStates(resource.data)).affectedKeys().hasOnly([request.auth.uid]);
+          (
+            ('publicPlayerStates' in request.resource.data) &&
+            request.resource.data.publicPlayerStates is map &&
+            request.resource.data.publicPlayerStates.diff(publicPlayerStates(resource.data)).affectedKeys().hasOnly([request.auth.uid])
+          );
       }
 
       function validPromptResponseMutation() {

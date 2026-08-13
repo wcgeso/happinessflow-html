@@ -539,7 +539,7 @@ const CardStage: React.FC<{
 
   return (
     <div className="w-[min(1120px,calc(100vw-48px))] max-w-full">
-      <div className="relative h-[min(72vh,680px)] min-h-[420px] w-full overflow-hidden rounded-[32px] border-2 border-[#d8c29a] bg-[#f7f0e3] text-[#293a38] shadow-[0_32px_80px_-34px_rgba(0,0,0,0.9)]">
+      <div className={`relative ${isFamilyMilestoneCard ? 'h-[min(77vh,790px)] min-h-[500px]' : 'h-[min(72vh,680px)] min-h-[420px]'} w-full overflow-hidden rounded-[32px] border-2 border-[#d8c29a] bg-[#f7f0e3] text-[#293a38] shadow-[0_32px_80px_-34px_rgba(0,0,0,0.9)]`}>
         <div
           aria-hidden={!isRevealed}
           data-projection-card-content
@@ -598,12 +598,12 @@ const CardStage: React.FC<{
             </div>
           </section>
 
-          <section className="flex min-h-0 flex-col p-6 sm:p-9">
+          <section className={`flex min-h-0 flex-col ${isFamilyMilestoneCard ? 'p-4 sm:p-6' : 'p-6 sm:p-9'}`}>
             <div className="flex items-center justify-between gap-3 border-b border-[#d8c29a]/70 pb-4">
               <div className="text-lg font-black tracking-[0.16em]" style={{ color: theme.accent }}>事件資訊</div>
               <div className="text-base font-black tracking-[0.12em] text-[#7a7768]">卡片影響摘要</div>
             </div>
-            {!realEstateMetrics && <ImpactSummaryBar impacts={impacts} />}
+            {!realEstateMetrics && !isFamilyMilestoneCard && <ImpactSummaryBar impacts={impacts} />}
 
             <div className="mt-5 min-h-0 flex-1 overflow-y-auto pr-2 no-scrollbar">
               {realEstateMetrics && (
@@ -624,9 +624,9 @@ const CardStage: React.FC<{
               )}
 
               {isFamilyMilestoneCard ? (
-                <div className="rounded-[18px] border border-[#d8c29a] bg-white/70 p-4">
-                  <div className="mb-3 text-lg font-black tracking-[0.12em] text-[#53625d]">各階段影響</div>
-                  <div className="grid grid-cols-[minmax(0,1.55fr)_minmax(72px,0.75fr)_minmax(72px,0.8fr)] gap-3 border-b border-[#d8c29a] px-2 pb-2 text-sm font-black tracking-[0.1em] text-[#7a7768]">
+                <div className="min-h-0 rounded-[18px] border border-[#d8c29a] bg-white/70 p-3 sm:p-4">
+                  <div className="mb-2 text-base font-black tracking-[0.12em] text-[#53625d] sm:text-lg">各階段影響</div>
+                  <div className="grid grid-cols-[minmax(0,1.55fr)_minmax(72px,0.75fr)_minmax(72px,0.8fr)] gap-2 border-b border-[#d8c29a] px-2 pb-1.5 text-xs font-black tracking-[0.1em] text-[#7a7768] sm:gap-3 sm:pb-2 sm:text-sm">
                     <div>階段</div>
                     <div>花費</div>
                     <div>幸福值</div>
@@ -635,16 +635,11 @@ const CardStage: React.FC<{
                     {familyMilestoneStages.map((stage: any, index: number) => (
                       <div
                         key={`${card.cardId}_${stage.cardId}`}
-                        className={`grid grid-cols-[minmax(0,1.55fr)_minmax(72px,0.75fr)_minmax(72px,0.8fr)] items-center gap-3 px-4 py-3 ${stage.completed ? 'bg-[#eef8f0]' : index % 2 === 0 ? 'bg-[#fffdf8]' : 'bg-[#fff9f0]'}`}
+                        className={`grid grid-cols-[minmax(0,1.55fr)_minmax(72px,0.75fr)_minmax(72px,0.8fr)] items-center gap-2 px-3 py-2 text-sm sm:gap-3 sm:px-4 sm:py-2.5 sm:text-base ${stage.completed ? 'bg-[#eef8f0]' : index % 2 === 0 ? 'bg-[#fffdf8]' : 'bg-[#fff9f0]'}`}
                       >
-                        <div className="min-w-0">
-                          <div className="break-words text-base font-black leading-tight text-[#293a38]">{stage.label}</div>
-                          <div className={`mt-1 text-xs font-black ${stage.completed ? 'text-emerald-700' : stage.index === familyMilestoneStatus?.currentStageIndex ? 'text-amber-700' : 'text-[#9a8a76]'}`}>
-                            {stage.completed ? '已完成' : stage.index === familyMilestoneStatus?.currentStageIndex ? '目前階段' : '尚未開始'}
-                          </div>
-                        </div>
-                        <div className="break-words text-base font-black leading-tight text-[#7a5a37]">{stage.cost}</div>
-                        <div className="break-words text-base font-black leading-tight text-[#c02673]">+{stage.points}</div>
+                        <div className="min-w-0 break-words font-black leading-tight text-[#293a38]">{stage.label}</div>
+                        <div className="break-words font-black leading-tight text-[#7a5a37]">{stage.cost}</div>
+                        <div className="break-words font-black leading-tight text-[#c02673]">+{stage.points}</div>
                       </div>
                     ))}
                   </div>
@@ -1013,14 +1008,16 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
 
   if (room.status === 'finished') {
     return (
-      <div className="flex min-h-screen items-center justify-center overflow-y-auto bg-slate-950 p-4 text-white">
-        <SettlementView players={buildSettlementPlayers(room)} showPrivateRecap={false} />
+      <div className="h-[100dvh] overflow-y-auto overscroll-contain bg-[#f4e6d0] p-4 text-[#293a38]">
+        <div className="flex min-h-full items-center justify-center">
+          <SettlementView players={buildSettlementPlayers(room)} showPrivateRecap={false} />
+        </div>
       </div>
     );
   }
 
   const boardState = room.boardState;
-  const roomName = room.name || '蜂富人生';
+  const roomName = room.name || '第二人生';
   const currentTurnName = room.members.find(member => member.uid === boardState?.currentTurnUid)?.name || '尚未開始';
   const currentTurnPlayer = players.find(player => player.uid === boardState?.currentTurnUid) || null;
   const currentTurnIndex = boardState?.currentTurnUid ? boardState.turnOrder.indexOf(boardState.currentTurnUid) : -1;
@@ -1067,7 +1064,14 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const remainingMovementSteps = movement?.isActive
     ? getRemainingMovementSteps(room, movement.playerUid, animationNow)
     : 0;
-  const lastRollText = boardState?.lastRoll ? `${boardState.lastRoll.total} 點` : '尚未擲骰';
+  const lastRollDice = boardState?.lastRoll && Array.isArray(boardState.lastRoll.dice)
+    ? boardState.lastRoll.dice
+    : [];
+  const lastRollText = boardState?.lastRoll
+    ? lastRollDice.length > 1
+      ? `${lastRollDice.join(' + ')} = ${boardState.lastRoll.total} 點`
+      : `${boardState.lastRoll.total} 點`
+    : '尚未擲骰';
   const stageTitle = actionState.kind === 'moving'
     ? `${remainingMovementSteps} 步`
     : actionState.kind === 'event'
@@ -1076,7 +1080,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         ? `等待 ${actionState.waitingCount} 位玩家`
         : currentTurnName;
   const stageDetail = actionState.kind === 'moving'
-    ? `擲出 ${boardState?.lastRoll?.total ?? movement?.rollTotal ?? 0} 點，沿城市道路前進`
+    ? `擲出 ${lastRollText}，沿城市道路前進`
     : actionState.kind === 'event'
       ? `${boardState?.currentEvent?.playerName || currentTurnName} 正在處理事件`
       : actionState.label;
@@ -1301,11 +1305,11 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                   className="w-full max-w-[760px] rounded-[34px] border border-[#f0cf86]/42 bg-[#12343c]/92 px-10 py-8 text-center text-[#fff8e9] shadow-[0_28px_60px_-30px_rgba(0,0,0,0.88),inset_0_1px_0_rgba(255,255,255,0.14)]"
                   style={{ backgroundColor: 'rgba(18, 52, 60, 0.96)' }}
                 >
-                  <div className="text-[13px] font-black tracking-[0.24em] text-[#e8c37a]">{turnPositionLabel}</div>
-                  <div className={`${actionState.kind === 'moving' ? 'text-[78px]' : 'text-[38px]'} mt-3 line-clamp-2 font-black leading-tight`}>
+                  <div className="text-[22px] font-black tracking-[0.18em] text-[#e8c37a]">{turnPositionLabel}</div>
+                  <div className={`${actionState.kind === 'moving' ? 'text-[78px]' : 'text-[52px]'} mt-3 line-clamp-2 font-black leading-tight`}>
                     {stageTitle}
                   </div>
-                  <div className="mt-3 text-lg font-bold text-[#d9e7df]">{stageDetail}</div>
+                  <div className="mt-3 text-xl font-bold text-[#d9e7df]">{stageDetail}</div>
 
                   {actionState.kind === 'moving' ? (
                     <div className="mx-auto mt-7 h-3 w-[78%] overflow-hidden rounded-full bg-black/25">
@@ -1316,7 +1320,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                       />
                     </div>
                   ) : (
-                    <div className="mt-7 flex items-center justify-center gap-3 text-sm font-black text-[#f0d18f]">
+                    <div className="mt-7 flex items-center justify-center gap-3 text-lg font-black text-[#f0d18f]">
                       <span className="rounded-full bg-white/[0.07] px-4 py-2">上次骰點 {lastRollText}</span>
                       <span className="rounded-full bg-white/[0.07] px-4 py-2">{actionState.label}</span>
                     </div>
