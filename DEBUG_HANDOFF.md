@@ -1,5 +1,188 @@
 # DEBUG_HANDOFF
 
+## 2026-08-28 v2.7 系統更新日誌
+
+- 對外版本號更新為 `v2.7`。
+- 連線 presence 改由 Realtime Database 管理，每個分頁使用獨立連線節點與斷線自動清理，降低 Firestore 心跳寫入量。
+- 關閉分頁、重新開啟或重新登入可依未完成房間恢復；同帳號多分頁由最新分頁取得操作權，舊分頁改為唯讀。
+- 房間與玩家同步改以伺服器確認快照為準，避免舊快照覆蓋目前回合、事件與玩家資料；歷史與執行師診斷改為低頻或需要時讀取。
+- 驗證：`npm run typecheck`、source Vitest `180 passed / 22 skipped`、Firestore Rules `22/22`、`npm run build` 與 `git diff --check` 通過；建置僅有既有 Tailwind／chunk size 警告。
+- 已部署至 `happinessflow-online` production：`dpl_9hUhRaTZnzsYd4yoGTYfKZUXvt8c`，狀態 `READY`；正式網址 HTTP 200，production bundle 已確認包含 `v2.7`。
+- 6 位玩家＋1 位執行師的長時間實機用量驗收仍未宣稱完成。
+
+## 2026-08-28 線上遊戲連線與 Firebase 用量優化
+
+### 已執行
+
+- Firebase Auth 改用 `browserLocalPersistence`；關閉分頁、瀏覽器重開或重新登入時，可依帳號 `activeGame.roomId` 找回未完成房間。
+- Presence 改為 Realtime Database 每個分頁一個連線節點，使用 `onDisconnect().remove()` 與 `roomLastOnline` 保存最後離線時間；不再以 Firestore 30 秒 heartbeat 寫入。
+- 執行師玩家診斷改寫入 RTDB 暫時連線節點，避免診斷畫面更新消耗 Firestore 讀寫。
+- 房間監聽開啟 snapshot metadata；路由與自動修復只在 server snapshot 確認後執行，避免本機快取舊狀態觸發新局或事件切換。
+- 玩家自動同步移除同步前 `getDoc(player)` 預讀，只寫入玩家端擁有的欄位；棋盤位置、事件與 prompt 留給房間 transaction 維護。
+- 同帳號多分頁由最新分頁取得 `roomControllers/{roomId}/{uid}` 控制權，舊分頁的遊戲操作會被擋下並顯示唯讀提示。
+- 大廳／結算歷史改為一次性讀取，不在遊戲進行中持續監聽。
+- 本地 Firebase Emulator 新增 Realtime Database `9000` 設定，與 Firestore `8080` 一起測試。
+
+### 驗證
+
+- `npm run typecheck` 通過。
+- `npx vitest run src`：30 files、179 passed、22 skipped；新增 RTDB 最後離線時間測試通過。
+- Firestore Rules：既有 `127.0.0.1:8080` Emulator，22/22 passed；`npm run test:rules` 因 8080 已被既有 Emulator 佔用而未重啟，未終止該程序。
+- `npm run build` 通過；僅有既有 Tailwind ambiguous class 與 chunk size 警告。
+- `git diff --check` 通過。
+
+### 尚待實測
+
+- 需要在已啟動 RTDB Emulator 的本地環境，用 3 位玩家＋1 位執行師驗證關閉重開、重新登入、斷線重連、暫時離開、分頁接管及第二局初始化。
+- 需要用 6 位玩家＋1 位執行師完成 120 分鐘前後用量比較；目前沒有把本地 Emulator 數據宣稱為 Firebase 雲端帳單數據。
+
+## 2026-08-27 Firestore 讀寫量過高：第一階段修正
+
+### 確認原因
+
+- 目前雲端用量為約 50,053 次讀取、12,196 次寫入、13 次刪除；查詢讀取約 81.8%，寫入中約 3,889 次為 `UPDATE_NOOP`。
+- 30 秒 Firestore presence 心跳會被所有房間成員的 presence listener 放大，且 Firestore Rules 讀取房間文件確認資格也會增加讀取。
+- 玩家 `gameState` 防抖同步每次會先讀取再寫回整份玩家文件，沒有變更時仍可能送出更新。
+- 玩家 `player_sessions` 與執行師紀錄每分鐘重複保存，歷史 listener 又會讀取這些草稿更新。
+- 玩家診斷狀態以 150ms 延遲寫入，流程視窗切換會產生額外寫入。
+
+### 第一階段修正
+
+- 正式環境 presence 改為 RTDB 連線節點與 `onDisconnect()`；本地 Firestore Emulator 未配置 RTDB 時保留舊 presence fallback。
+- 玩家同步增加成功狀態指紋；未變更時略過讀取／寫入。
+- 玩家歷史草稿改為 10 分鐘一次，執行師移除每分鐘全員紀錄存檔；遊戲進行中停止歷史 listener，回到大廳／結算後恢復即時歷史。
+- 玩家診斷改為 2 秒合併且相同內容不寫入，錯誤仍立即記錄。
+
+### 未完成與驗證限制
+
+- `database.rules.json` 已加入並通過 RTDB Emulator 規則語法驗證，內容已對齊雲端現有 `roomConnections`／`roomControllers` 格式，但尚未發布至雲端；發布前仍需走正式部署流程。
+- 既有 `localhost:5183` 伺服器佔用 Playwright port，因此開房瀏覽器回歸未執行。
+- 下一次驗收需先部署並驗證 RTDB 規則，再以 6 位玩家＋1 位執行師連續 120 分鐘比較讀寫量；目標維持每局讀取 ≤15,000、寫入 ≤3,000、`UPDATE_NOOP` <5%。
+
+## 2026-08-27 家庭歷程修正執行結果
+
+- Branch：`dev`；工作樹：`.worktrees/dev`。
+- H011–H020、H043–H046 共 14 張家庭歷程觸發卡已確認共用同一套流程；五個階段仍由每位玩家自己的進度獨立決定。
+- 已補上 3 位玩家、兩位擲骰失敗、抽卡玩家完成階段二後一次結案的 Rules 回歸測試，以及五階段效果測試。
+- 驗證結果：source Vitest `176 passed / 22 skipped`；Firestore Rules `22 passed`；`npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- 已將 `.firebaserc` 預設目標修正為 `happinessflow-online`，並成功發布 `firestore.rules` 至該專案。
+- 前端已部署至 Vercel production：`dpl_FU3NULLdjc5NQcKphKivJb4Mce4u`；正式網址 HTTP 200、狀態 Ready。
+- 尚未使用三個真實帳號完整重播瀏覽器流程；雲端 Rules 與前端已同步，下一步應用新房間驗證首次按下財務檢核即可結案。
+
+## 2026-08-27 H011 家庭歷程階段二財務檢核權限拒絕
+
+### 錯誤現象
+
+- 抽卡玩家在家庭歷程階段二完成財務檢核後，顯示 `Missing or insufficient permissions.`。
+- 家庭歷程無法結束，重複按確認仍會重現。
+
+### 最小重現步驟
+
+1. 以抽卡玩家開啟家庭重要歷程並進入階段二。
+2. 其他目標玩家完成回覆，讓抽卡玩家成為最後需要完成動作的人。
+3. 抽卡玩家完成財務檢核並按「確認檢核答案」。
+
+### 目前錯誤訊息 / log
+
+- UI 顯示 `Missing or insufficient permissions.`。
+- `localhost:5183` 目前使用 `VITE_USE_EMULATOR=false`，實際連線至 `happinessflow-online` Cloud Firestore。
+
+### 根因假設
+
+- `completeFamilyMilestoneAction()` 原本在同一個 board transaction 內，同時更新來源玩家財務、將 `sourceActionCompleted` 設為 true，並清除已完成的家庭 prompt。
+- Firestore 規則的來源玩家結案條件只接受「交易前 `sourceActionCompleted` 已是 true」；另一個來源玩家更新條件只接受 prompt 仍存在、只改 `sourceActionCompleted`。
+- 因此來源玩家作為最後完成者時，程式送出的合法遊戲操作不符合任一規則分支，整筆 transaction 被拒絕。
+
+### 修正策略
+
+- 保留財務與來源玩家完成狀態的原子 transaction。
+- 來源玩家若是最後完成者，先提交 `sourceActionCompleted`，再用獨立且冪等的結案 command 清除 prompt 並推進事件；沿用既有規則，不放寬玩家直接清除未完成事件的權限。
+
+### 不准再重複的修法
+
+- 不用放寬通用玩家寫入權限來掩蓋家庭歷程結案問題。
+- 不在財務檢核 UI 增加固定延遲或重試迴圈。
+- 不把財務結果改回先寫本機、再等待同步的非原子流程。
+
+### 2026-08-27 全部家庭歷程檢查與修正範圍
+
+- 已確認 H011–H020、H043–H046 共 14 張卡都使用同一套家庭歷程流程；卡號是觸發卡，不直接代表五個階段。
+- 五個階段由每位玩家自己的 `completedHappinessEvents`／幸福清單決定，依序為約會、求婚、婚禮、第一個孩子、第二個孩子；不同玩家不得共用階段進度。
+- 保留兩段式安全流程：第一段原子套用玩家財務與 `sourceActionCompleted`，第二段以冪等 command 結案，避免第一次按下成功後需要第二次重送。
+- 已將 `permission-denied` 轉為中文可操作提示，並將 Firebase 預設部署專案改為 `happinessflow-online`；部署前必須先通過 Rules 驗收。
+- 已新增三位玩家、兩位擲骰失敗、抽卡玩家完成階段二後一次結案的回歸測試，以及五階段效果測試。
+
+## 2026-08-26 股市通知仍早於新聞卡翻牌
+
+### 錯誤現象
+
+- 新聞卡尚未翻開時，玩家先看到「股市行情已更新」通知。
+
+### 根因假設
+
+- `GameView` 已等待本機翻牌動畫完成才呼叫行情更新，但 `GameContext` 仍會直接監聽房間的 `marketUpdates`。
+- 其他裝置或延遲快照寫入行情後，`GameContext` 在公開 `currentCardReveal.isRevealed` 尚未成立時就顯示通知，繞過本機動畫 guard。
+
+### 最小驗證步驟
+
+1. 建立股市新聞卡事件，確認 `currentCardReveal.isRevealed === false` 時收到 `marketUpdates` 不顯示行情通知。
+2. 將同一張卡的 `currentCardReveal.isRevealed` 改為 `true`，確認同一筆行情只顯示一次。
+
+### 不准再重複的修法
+
+- 不新增固定延遲來猜測翻牌完成時間。
+- 不只在 `GameView` 補 guard 而忽略 `GameContext` 的共享行情通知來源。
+
+### 修正與驗證結果
+
+- `GameContext` 收到行情更新時，若目前是尚未揭示的股市新聞卡，先等待公開 `currentCardReveal.isRevealed`。
+- `GameView` 同時確認本機翻牌 transition 與遠端揭示狀態，兩者完成後才可寫入行情。
+- `src/context/GameContext.test.ts` 新增隱藏股市卡不顯示通知、翻牌後允許通知的回歸測試。
+- 聚焦測試 4/4、完整 source Vitest 170 passed／20 skipped、TypeScript、正式建置與 `git diff --check` 通過。
+
+## 2026-08-25 登入同步、幸福歷程、房市與卡片日誌
+
+### 錯誤現象
+
+- 登入與幸福歷程操作偶發顯示「玩家資料同步失敗」。
+- 股市卡片尚未完成翻牌動畫，行情更新提示已先出現。
+- 放棄購買的不動產偶發沒有進入房市。
+- 抽卡日誌偶發漏記，且只有 1～3 筆時無法展開完整卡片內容。
+- 經過維修廠會收費；已有汽車保險時沒有一般維修理賠入口。
+
+### 根因假設
+
+- 房間主文件快照直接取代 React room 狀態，會丟失由私人玩家文件 listener 合併的 `playerStates`；設定同步隨即判斷資料缺失並重寫，形成重複同步，幸福歷程也可能短暫讀不到自己的最新資料。
+- 股市更新只等待 `isBoardCardRevealed`，沒有等待 700ms 翻牌動畫真正結束。
+- 放棄不動產先結束卡片、再用第二個 transaction 上架房市；第二筆失敗時卡片已不可恢復。
+- 卡片結案沒有保證補寫當前卡片日誌；日誌只有 1～3 筆時，介面刻意隱藏完整紀錄按鈕。
+- `docs/gdd/REPAIR_SYSTEM.md` 明定經過或停留維修廠都要收費；`docs/gdd/INSURANCE_SYSTEM.md` 尚未定義一般保養是否可理賠，因此收費不是程式錯誤，理賠規則不可自行推定。
+
+### 最小驗證步驟
+
+1. 交錯送入房間主文件與私人玩家文件快照，確認主文件更新不再清掉 `playerStates`。
+2. 三位玩家同時完成家庭歷程，確認私人結果都保留、事件只推進一次且無同步錯誤。
+3. 翻開股市卡，確認行情更新只在翻牌 transition 完成後發生。
+4. 放棄不動產時，在同一 transaction 完成卡片結案與房市上架。
+5. 卡片結案補寫當前卡片日誌；僅一筆日誌也能切換完整資訊。
+
+### 不准再重複的修法
+
+- 不在登入頁或幸福歷程視窗增加重試 timeout 來遮蔽資料來源競態。
+- 不再把卡片結案與房市上架拆成兩次寫入。
+- 不以固定延遲猜測翻牌完成時間，使用既有 CSS transition 完成事件。
+- 未確認保險規則前，不擅自免除維修費或發放理賠。
+
+### 修正與驗證結果
+
+- 房間主文件更新會保留已 hydrate 的私人 `playerStates`；成功同步後會清除舊的同步失敗通知。
+- 家庭歷程玩家交易只讀寫自己的私人文件，不再嘗試讀取其他玩家而觸發 `permission-denied`；最後一位非抽卡玩家完成時，由執行師端以現有 transaction 冪等結案。
+- 股市行情更新改為等待卡片 `transform` transition 完成。
+- 放棄不動產的卡片結案與房市上架改為同一個 board transaction。
+- 一般卡片、家庭歷程與共享流程結案前都會冪等補寫當前卡片日誌；一筆日誌也可展開完整內容。
+- 聚焦測試 17/17、完整 source Vitest 163/163、Firestore Emulator rules 19/19、TypeScript、正式建置與差異格式檢查通過。
+- 尚未在真實 6 玩家＋1 執行師房間重播；維修廠保險理賠仍等待產品規則確認。
+
 ## 錯誤現象
 
 - 玩家完成職業、企業與夢想選擇並進入遊戲後，執行師監控區仍顯示「等待玩家進入遊戲」。
@@ -45,6 +228,40 @@
 
 - 不再只增加執行師端 React effect 依賴。
 - 在證明資料已寫入前，不再修改監控頁顯示條件。
+
+## 2026-08-21 線上多人交易與幸福歷程阻斷
+
+### 錯誤現象
+
+- 房市提示已售出但買家仍取得房屋。
+- 企業貸款、定存或幸福分享出現現金／資產／幸福點未完整入帳。
+- 幸福歷程完成後仍卡住、視窗消失或必須重新整理。
+- 執行師關房後重新開局可能卡在舊房間狀態。
+- 同一台執行師裝置直播與操作時，遊戲倒數可能落後實際時間。
+
+### 根因假設
+
+- `runRoomBoardMutation` 會把所有讀入的私有玩家狀態重新寫回，舊快照可能覆蓋另一個操作剛提交的資料。
+- 房市交易先更新本機財務，再另外移除市場物件，沒有原子交易保護。
+- 共用彈窗與幸福歷程仍有本機可見／關閉狀態，且幸福歷程完成依賴來源玩家端 effect。
+- 倒數由瀏覽器 `setInterval` 逐秒累減，受背景分頁與裝置負載影響。
+- 關房、建立新房及舊房監聽 callback 沒有明確的場次生命週期防護。
+
+### 最小驗證步驟
+
+1. 兩位玩家同時購買同一房屋，確認只有一位取得資產且另一位現金不變。
+2. 交易後立即推進棋盤事件，確認最新玩家私有資料不被舊快照覆寫。
+3. 幸福歷程讓來源玩家、最後一位參與玩家及執行師分別完成，確認只完成一次。
+4. 玩家重整／切換分頁後確認 prompt 仍可恢復，完成後不留下空白視窗。
+5. 執行師關房後立即建立新房，確認舊 listener 不會清除新房。
+6. 模擬瀏覽器背景五分鐘，確認計時以時間基準而不是 tick 次數計算。
+
+### 不准再重複的修法
+
+- 不再只在 GameView 增加 `setTimeout`、dismissed ID 或刷新後重新讀取的補丁。
+- 不再先修改本機財務，再以另一個 Firestore 寫入補救交易結果。
+- 不再讓來源玩家瀏覽器 effect 作為幸福歷程唯一收尾者。
+- 不再把只讀取的玩家狀態整批寫回 Firestore。
 
 ## 2026-07-14 登入與建立房間持續轉圈
 
@@ -605,3 +822,307 @@
 - 不准重複：不再放大骰面、不再更動 Z 軸深度，也不恢復會產生明顯缺角的 8px 以上圓角。
 - 驗證結果：已套用 4px 小圓角；型別檢查、骰面測試 1/1、差異檢查與正式建置通過。
 - 使用者希望再圓一些；下一個最小調整是 6px，仍低於曾產生明顯缺角的 8px，且不改動立方體幾何。
+
+## 2026-08-19 先行版封測 13 項流程阻斷問題
+
+### 根因假設
+
+- pending request 以玩家 UID 作為本機處理識別，導致同一玩家後續核准被當成舊請求；board share 也未完整綁定 boardEventId。
+- familyMilestoneJoinPrompt 允許抽卡玩家在參與者尚未完成時直接清除，且 GameView 的 family snapshot 在遠端 prompt 消失後仍可能被使用。
+- 共同行動目標名單在 transaction 外使用舊的 room.members 建立，造成離開玩家或漏同步玩家進入錯誤等待人數。
+- 骰子與 startup upgrade 的交易前置資料來自舊的本機 playerStates；店面收購公式將加價百分比誤當成最終百分比。
+- 房市移除使用舊快照 updateDoc 且吞掉錯誤；房屋保險一次送出全部物件，但規則是每棟一張保單。
+
+### 修正驗證要求
+
+- 同一玩家連續兩次分享核准、幸福歷程多玩家並發回覆、重整及切換分頁均必須維持同一 boardEventId。
+- family prompt 只有在 sourceActionCompleted 且所有符合資格玩家完成後才能結案。
+- C023-C026、雙骰、startup upgrade、房市競買與逐棟房屋保險需有回歸測試。
+
+### 已完成修正
+
+- 請求處理改用類型、玩家、事件、卡片與時間組成的執行鍵；故事分享與 board share 都綁定 boardEventId。
+- family prompt 不再允許未完成時由來源玩家清除；來源拒絕改為先標記 sourceActionCompleted，規則與 transaction 都要求所有回覆完成。
+- family snapshot 在遠端 prompt 消失或切換時清除；家庭視窗不再覆蓋房市、銀行及其他高優先流程。
+- 共同行動名單在 transaction 內從最新 members 建立並排除離開玩家。
+- 骰子與 startup upgrade 改讀 transaction 最新私人玩家狀態；C023-C026 店面收購改為原價加溢價。
+- 房市移除改用最新 transaction 並回報競買失敗；房屋保險改為逐棟、每棟每月 2,000。
+
+### 驗證結果
+
+- 核心單元測試 60/60 通過。
+- 完整 source Vitest 137/137 通過；`e2e/` 兩個 Playwright 檔案不應直接由 Vitest 收集，已知為測試命令設定問題。
+- Firestore emulator rules 15/15 通過。
+- `npm run typecheck`、`npm run build`、`git diff --check` 通過。
+
+## 2026-08-20 先行版封測 7 項登入與幸福歷程問題
+
+### 新增根因假設
+
+- Firebase Auth 預設使用跨分頁持久化，同一個 Chrome 使用者在第二、第三分頁登入不同帳號時，會讓先前分頁的 Firebase UID 一起切換；因此房間 prompt 看似從一個帳號轉移到另一個帳號。
+- `GameContext` 的本機狀態 hydrate ref 只在首次掛載後生效，UID 切換時可能沿用上一個帳號的 `completedHappinessEvents`、家庭階段與待同步資料。
+- 玩家私有狀態尚未完成 hydrate 時，GameContext 的防抖同步仍可能先寫入 rooms/{roomId}/players/{uid} 及 publicPlayerStates，帳號切換或成員資料尚未完成時會產生同步異常視窗。
+- 既有房間可能殘留 sourceEventId 與 currentEvent 不一致的 family/shared prompt；目前畫面雖部分阻擋顯示，但遠端殘留仍可能阻止下一回合。
+
+### 最小驗證步驟
+
+- 同一 Playwright browser context 建立三個 page，分別登入三個測試帳號，確認每頁 Firebase UID 與玩家名稱保持獨立。
+- 在 UID A 切換至 UID B 的單元測試中，確認本機遊戲狀態、session ref 與同步錯誤不會跨帳號保留。
+- 使用 Firestore Emulator 建立過期 family prompt，確認執行師恢復 transaction 只清除過期 prompt 與對應 pending action，不影響目前事件。
+- 以三個玩家並發回覆及並發家庭骰測試，確認 response 合併且只有完整條件成立後才推進事件。
+
+### 不准再重複的修法
+
+- 不再以 `localStorage` 的單一 Firebase Auth 持久化支援同一瀏覽器多帳號分頁測試。
+- 不再在 UID 尚未確認、私有玩家狀態尚未 hydrate 或目前玩家不是房間成員時執行 GameContext 自動同步。
+- 不再只清除 React 本機 family snapshot 而保留與目前事件不一致的遠端 prompt。
+
+### 2026-08-20 修正與驗證結果
+
+- Auth 改用 `browserSessionPersistence`，每個分頁各自保存登入狀態；登入、註冊及 redirect 初始化都等待 persistence 完成。
+- UID 變更時重置 GameContext 本機遊戲狀態、session、紀錄與提示；只有私有玩家狀態 hydrate 完成、仍是房間成員且 UID 未變更時才允許自動同步。
+- GameView 只接受與目前 `currentEvent`／`currentCard` 相符的 family/shared prompt；執行師恢復房間時，會以 transaction 清理過期 prompt、對應 pending action 與同事件 request。
+- 來源玩家的幸福歷程仍必須完成自己的動作，不能提前移除 prompt；多人回覆與並發擲骰仍由既有交易流程合併及判定。
+- 同一 browser context 的 3 個玩家分頁驗收通過；3 玩家建立房間、加入、準備、開始及投影回歸通過。
+- 完整 source Vitest：26 files、138 passed、15 rules tests skipped（另以 Firestore emulator 驗證 15/15）。
+- `npm run typecheck`、`npm run build`、`git diff --check` 通過。
+
+### 尚未涵蓋
+
+- 尚未用真實 3 個帳號完整重播全部 7 個封測情境；本次已驗證根因修正、分頁隔離、多人房間流程及規則測試，下一步應針對 H016／共享回覆／重整逐項做瀏覽器劇本回歸。
+
+## 2026-08-20 雙骰拋擲動畫黏成一體
+
+### 錯誤現象
+
+- 買車後選擇雙骰時，兩顆骰子共用同一個拋擲位移與旋轉，看起來像一個長方體翻滾。
+- 落地過程共用旋轉重設計時器，可能在 3.5 秒動畫結束前突然跳回觀看角度。
+
+### 最小重現步驟
+
+1. 進入玩家棋盤遊戲並確認持有汽車。
+2. 切換為雙骰，擲出權威結果，例如 `[2, 5]`。
+3. 觀察 3500ms 動畫期間兩顆骰子的位移、旋轉與落地結果。
+
+### 根因假設
+
+- `GameActions` 目前以單一 `diceControls` 綁定整個 `motion.button`；雙骰只是同一容器內並排兩個骰體，因此兩顆骰子沒有獨立的軌跡或旋轉。
+- 結果值在動畫開始前就寫入 `diceResults`，而共用落地計時器再重設整個容器，造成結果面與旋轉重設不同步。
+
+### 修正前最小驗證
+
+- 靜態檢查確認只有一個 `useAnimation()` 控制器，且 `motion.button` 直接承擔 `x/y/z/rotate/scale`。
+- 測試需證明雙骰有兩個獨立動畫節點、結果在第一次落地後固定、3500ms 只通知一次；單骰與擲骰失敗仍可操作。
+
+### 不准重複的修法
+
+- 不再以同一個動畫 controller 控制兩顆骰子。
+- 不再修改骰子面尺寸、`translateZ` 或購車／雙骰權威規則來掩蓋動畫問題。
+
+## 2026-08-20 幸福家庭歷程完成後結束回合被鎖住
+
+### 確認根因
+
+- 家庭歷程的 source action 與所有參與者動作完成後，Firestore prompt 已具備完整結案條件，但玩家端沒有像共享卡流程一樣自動呼叫既有 `dismissBoardCard()`。
+- `currentEvent` 因此仍保留在房間狀態；`getBoardActionAvailability()` 看到目前事件仍存在，正確阻擋「結束回合」。
+- 問題不是直接放寬回合按鈕，而是缺少「完成條件成立 → 清除目前事件」的狀態轉換。
+
+### 修正內容
+
+- 新增家庭歷程完成判斷，要求目前事件／卡片、抽卡玩家、source action 及所有參與者狀態全部一致且完成。
+- 抽卡玩家收到最後一個完成同步後，自動呼叫既有 `dismissBoardCard()`；加入事件級執行鎖，避免多人同步造成重複結案。
+- 保留「完成卡片」作為寫入失敗時的手動重試入口；未完成的參與者仍會維持等待狀態。
+
+### 驗證結果
+
+- 家庭／棋盤相關單元測試：56/56 通過。
+- Firestore 規則測試：15/15 通過；原本 npm wrapper 因 8080 已有既存 emulator 而無法啟動，改連線至該 emulator 後驗證成功。
+- `npm run typecheck`、`npm run build`、`git diff --check` 通過。
+
+### 尚未涵蓋
+
+- 尚未使用真實 3 個帳號重播「抽卡者最後完成」及「其他玩家最後完成」的瀏覽器流程；下一步是建立新房重播 H016/H011，確認遠端事件清除後結束回合按鈕恢復可用。
+
+## 2026-08-20 家庭歷程五階段個人進度修正
+
+### 確認根因
+
+- 其他玩家擲骰達到 4 點後，流程仍先等待 2.5 秒才關閉擲骰結果，造成參與選擇延遲或看似沒有觸發。
+- 待處理參與動作只保存卡片與事件，沒有保存該玩家當下的階段；重整或前一階段完成後，畫面會重新計算下一階段，因而顯示錯誤階段或要求重複完成。
+- 玩家端同步時以舊本機 pending action 回填遠端缺少的欄位，讓已完成／已清除的待處理動作再次出現。
+
+### 修正內容
+
+- 五個家庭階段仍依序處理，但每位玩家在 transaction 中從自己的最新玩家資料取得第一個未完成階段，並把 `stageProgressId` 固定寫入回覆與 pending action。
+- 擲骰通過後立即進入該玩家自己的參與選擇；未通過仍保留原本的結果提示時間。
+- 家庭階段 action resolver 使用保存的玩家階段快照，不再由抽卡玩家或目前畫面狀態推算；五階段皆完成時不再建立下一個參與 action。
+- 遠端玩家狀態視為權威來源，明確清除不存在的 `pendingFamilyMilestoneJoinAction`，避免舊本機資料復活。
+
+### 驗證結果
+
+- 家庭流程與 GameView 相關測試：55/55 通過。
+- Firestore rules emulator：15/15 通過。
+- `npm run typecheck`、`npm run build`、`git diff --check` 通過。
+
+### 尚未涵蓋
+
+- 尚未使用三個真實帳號重播「兩位玩家同時擲骰、各自不同階段、重整後繼續」的完整瀏覽器流程；下一步使用新房間驗證 H016 五階段與結束回合。
+
+## 2026-08-22 五項封測流程異常
+
+### 根因假設
+
+- 家庭歷程先由 `handleTransactionSubmit` 更新本機玩家資料，再以另一筆 Room transaction 標記 prompt 完成；最後一位玩家同時操作時，事件可能先推進，但私有玩家資料尚未寫入。
+- 家庭歷程現金檢查讀取本機 `gameState.cash`，與 Firestore 最新玩家文件不是同一個一致性邊界，可能出現交易已套用但提示仍判定現金不足。
+- 卡片結案可把分段移動恢復為 `movement.isActive`，但只有 `advanceBoardEventQueue` 會安排正式結算；`dismissBoardCard` 與家庭 prompt 自動結案缺少相同排程。
+- 不動產新聞卡在通用 `markBoardCardHandled` 中無條件呼叫 `abandonRealEstateCard`，導致抽卡玩家已購買後仍被上架。
+- 卡片日誌只依部分事件建立路徑寫入，翻牌交易沒有冪等補記。
+
+### 最小驗證步驟
+
+- 以最新玩家文件執行家庭歷程交易，驗證現金、幸福階段、prompt 完成與事件推進在同一 transaction 中提交。
+- 由一般卡片與家庭 prompt 兩種結案入口恢復分段移動，確認相同 command ID 只結算一次並繼續落點事件。
+- 驗證同一 `eventId + cardId` 多次翻牌只保留一筆日誌。
+- 驗證抽卡玩家購買不動產後不進房市，只有明確放棄才上架。
+
+### 不准再重複的修法
+
+- 不再以放寬結束回合按鈕掩蓋未結案的棋盤事件。
+- 不再讓家庭歷程先更新本機財務、再靠防抖同步補寫 Firestore。
+- 不再把房市上架放在無法辨識購買結果的通用關卡函式。
+
+### 修正與驗證結果
+
+- 家庭歷程接受／拒絕改由單一 Room transaction 讀取最新私有玩家文件，同時更新現金、幸福階段、pending action、prompt 與事件推進；現金不足會中止整筆交易。
+- 學校考試後抽卡加入最新事件驗證；所有 `movement.isActive` 由移動玩家依同一 command ID 自動結算。
+- 翻牌交易以 `eventId + cardId` 冪等補寫卡片日誌。
+- 抽卡玩家購買不動產改為原子交易並直接結案；通用卡片關閉不再自動上架，只有明確放棄才加入房市。
+- 相關測試 67/67、完整 source 159/159、Firestore Rules 19/19、型別檢查、正式建置與差異檢查通過。
+- 三玩家分頁帳號隔離及「執行師建立房間、3 玩家加入／設定、投影同步」Playwright 回歸通過。
+
+### 尚未涵蓋
+
+- 尚未建立 6 玩家同時完成家庭歷程、學校後續卡及不動產自購的完整瀏覽器自動化劇本；需用新測試房進行實際 6 人回歸。
+
+## 2026-08-26 四項跨場與交易一致性異常
+
+### 錯誤現象
+
+- 同一房間開始新局時，玩家可能跳過職業、目標事業與人生夢想選擇，並帶入上一局的幸福值。
+- 玩家放棄不動產新聞卡後，房屋未必進入房市。
+- 同一筆股市行情更新通知會在後續玩家操作後反覆跳出。
+- 玩家完成 N056-N058 創業貸款財務檢核後，現金、企業資產、貸款與利息可能未保留。
+
+### 根因假設
+
+- App 與 GameContext 只在寫回時檢查 `boardGameStartedAt`，讀取遠端玩家快照時仍會接受上一場資料；新局重設後若再收到舊快照，就會恢復 `isSetup` 與舊幸福值。
+- 房產卡抽屜右上角關閉會標記明確放棄，但卡片內容中的「關閉」直接呼叫一般結案，沒有帶入房市上架意圖。
+- `mergeAuthoritativePlayerState()` 以遠端完整覆蓋本機 `lastMarketUpdateTimestamp`；延遲快照可把已處理時間倒退，讓同一行情再次觸發。
+- 創業貸款先由 `handleTransactionSubmit()` 更新本機，再以另一筆 transaction 寫入待升級狀態與共享回覆；該 transaction 觸發的舊玩家快照會在防抖同步前覆蓋本機財務結果。
+
+### 最小驗證步驟
+
+- 將上一場 `boardGameStartedAt` 的完成玩家狀態送入新場 `room.startedAt`，確認 App 不視為可恢復存檔，GameContext 也不合併。
+- 從不動產卡片內按鈕與抽屜關閉兩條路徑放棄，確認兩者均由同一 transaction 上架且只保留一筆。
+- 先把本機行情已讀時間設為新值，再合併較舊遠端值，確認時間不會倒退；更大的遠端值仍可前進。
+- 三位玩家對同一創業貸款 prompt 送出接受，確認每人的財務、待升級狀態與回覆在單一 transaction 保留；同一玩家重送不得重複入帳。
+
+### 不准再重複的修法
+
+- 不以延遲、重試或第二次畫面重設掩蓋跨場快照污染。
+- 不再由各個房產關閉按鈕自行判斷上架，統一走既有明確放棄入口。
+- 不以關閉通知彈窗作為股市已讀權威，已讀時間必須維持單調遞增。
+- 不再讓創業貸款先改本機、再等待一般防抖同步補寫 Firestore。
+
+### 2026-08-26 修正與驗證結果
+
+- App 與 GameContext 都只接受 `boardGameStartedAt === room.startedAt` 的玩家存檔；不同場次會重新走「職業 → 目標事業 → 人生夢想」，初始幸福固定為 0，同一場重連仍可恢復。
+- 房產卡內容內的「關閉」與抽屜關閉統一走明確放棄入口；既有 transaction 會結案並用 Set 冪等上架，購買成功不會進房市。
+- 玩家快照合併時，`lastMarketUpdateTimestamp` 取本機與遠端較大值，舊快照不會讓同一行情通知復活。
+- N056-N058 接受流程改由 `completeStartupLoanAction()` 在單一 Room transaction 內讀取卡片規則，原子寫入現金、企業資產、企業貸款、利息、財務歷史、待升級狀態與共享回覆；`promptId + playerUid` 防止重複入帳。
+- 聚焦測試 66/66、完整 source Vitest 169 passed／20 rules skipped、Firestore Emulator 規則 20/20、TypeScript、production build 與 `git diff --check` 通過。
+- Firestore Emulator 另以三筆並行 transaction 驗證三位玩家結果皆保留且 prompt 只結束一次；規則權限仍由同檔 20 項測試獨立驗證。
+- Playwright 驗收通過：執行師建立房間、3 玩家同時完成三步選擇、共用大地圖同步，以及同瀏覽器多分頁帳號隔離，共 2/2 passed。
+- E2E 必須明確使用 `VITE_USE_EMULATOR=true`，且 Auth Emulator／seed／App 的 project ID 都需為 `happinessflow-online`；否則會錯連雲端或顯示找不到測試帳號。
+
+## 2026-08-26 五項遊戲與執行師功能修正
+
+### 根因確認
+
+- 家庭歷程抽卡者原本仍建立 `family_milestone` 執行師核准請求，造成抽卡者與執行師等待不同步。
+- 家庭財務檢核的交易失敗結果只用 boolean，現金不足、過期事件與同步失敗被混成同一個提示。
+- 執行師端把財務報表放在第二層 `overflow-y-auto` 容器，手機高度不足時上方區塊把報表壓縮或裁切。
+- 全體補助以 `financialSubsidy` 是否存在作一次性 guard，且所有玩家共用固定交易 ID。
+
+### 修正結果
+
+- 抽卡者接受／拒絕家庭歷程直接進入既有原子結算；一般故事分享仍保留執行師核准。舊 `family_milestone` 請求會從執行師待審核清單清除。
+- 家庭交易回傳 `applied`、`duplicate`、`requires_funding` 或 `failed`；以 transaction 的最新玩家現金判定，失敗時保留財務檢核答案。
+- 執行師選中玩家內容改為單一垂直捲動區，移除報表內層捲動；尚未同步或尚未完成初始選擇時顯示明確狀態。
+- 全體補助以房間內遞增 `sequence` 建立 `room:sequence` 交易 ID，可重複發放；遊戲結束仍拒絕，Firestore 規則也禁止跳號與玩家寫入。
+
+### 驗證
+
+- `npx vitest run src`：30 files、170 passed、20 skipped。
+- Firestore Emulator rules：20/20 passed；包含連續補助、跳號補助與玩家寫入拒絕。
+- `npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- Playwright 本地登入頁：390×844、1440×900 均載入成功，水平 `scrollWidth` 等於 viewport；未以已登入執行師帳號完成完整手機版互動回歸。
+- `npm run test:rules` 因既有 emulator 佔用 8080 無法接管，改連線該 emulator 完成同一組規則驗證。
+
+## 2026-08-26 3 玩家＋執行師 50 回合壓力測試阻斷
+
+### 實際結果
+
+- 本地 Emulator 測試完成 15／50 回合，Player1／Player2／Player3 各 5 回合。
+- 第 16 回合 Player1 卡片結案後，玩家端仍保留幸福卡事件視窗；執行師端顯示等待「卡片後續處理」。
+- 玩家端「結束回合」持續 disabled，title 為「請先完成目前的棋盤事件」，10 秒內無法推進，依計畫判定 P1 並停止測試。
+
+### 根因假設（尚未確認）
+
+- Firestore／房間 listener 曾讀到事件已清除的過渡狀態，但玩家端 `GameView`／卡片 drawer 隨後仍套用或保留舊的 active card snapshot，造成遠端狀態與可操作狀態分裂。
+- 目前尚不能判定是 listener 順序、卡片結案 transaction race 或前端 stale snapshot；不可用強制切回合或延遲掩蓋。
+
+### 證據與下一步
+
+- 報告：`docs/testing/BOARD_3P_50_TURN_STRESS_2026-08-26.md`
+- JSON：`e2e/report/board-50-turn-stress.json`
+- Trace：`test-results/board-50-turn-stress-3-位玩家＋1-位執行師完成-50-回合壓力測試-chromium/trace.zip`
+- 使用新房重現第 16 回合卡片結案路徑，逐筆比對房間事件、玩家頁 snapshot 與 drawer 關閉條件後再修正。
+
+## 2026-08-26 房市、家庭歷程、維修廠與共享卡片修正
+
+### 根因與修正
+
+- 房市購買意圖改為 `{ cardId, attemptId }`，交易 command ID 不再只綁玩家與卡號；現金不足不消耗指令，取消或失敗會清除意圖，避免後續 C053 等財務動作誤走房市購買。
+- 抽卡不動產交易增加卡號一致性檢查，房市交易以最新市場清單與最新私人現金完成；直接購買抽到的店面不會修改房市庫存。
+- 幸福歷程來源玩家的拒絕／完成改為等待 transaction 結果後才更新畫面，避免「已完成所有歷程」畫面停在本機狀態。
+- 兼職工作室升級新增 `completeStartupUpgradeAction()` 原子交易，從最新玩家資料一次更新企業、收入、貸款、歷史與待辦；同步失敗時保留升級流程並可重試。
+- 維修廠先顯示骰點與費用確認，再進入財務檢核；維持既有規則：有車經過／停留都收取骰點 × 2,000，停留另暫停一回合，未擅自加入一般保養理賠。
+- 共享卡片改以目前 Firestore prompt 判斷待回覆狀態；遇到其他財務流程時顯示待辦提醒，流程結束後自動開啟，不再依賴舊的本機 prompt 快照。
+
+### 驗證
+
+- `npx vitest run src`：30 files、171 passed、20 skipped。
+- `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npx vitest run src/test/roomPermissions.test.ts`：20/20 passed；8080 為既有本專案 emulator，未終止。
+- `npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- 本地瀏覽器冒煙：`http://127.0.0.1:5183/` 登入頁正常載入，版本 `v2.4`，console error 0；未以三個正式玩家與執行師完成完整多人互動回歸。
+- 本次未 commit、push 或部署；工作樹其他既有修改均保留。
+## 2026-08-30 共享卡片與幸福歷程重複競態
+
+### 已確認根因假設
+
+- C027／C028 的目標名單包含所有尚未離房玩家，完成條件不看 presence；失聯玩家若未主動離房，事件會永久等待，而且主持人沒有沿用 120 秒離線門檻的排除入口。
+- 幸福歷程由非來源玩家最後完成時，transaction 只載入最後完成者私有資料；既有結案函式若缺少來源／移動玩家狀態會回傳 `null`，因此只能等待房主之後的修復程序。
+
+### 最小反證與修正邊界
+
+- 先以目標名單與 Rules 測試證明：未達 120 秒不得排除，達門檻後主持人可將該玩家記為未參與，且不得改寫其他玩家私有資料。
+- 以非來源玩家作最後完成者、來源玩家仍有待續移動的 transaction 測試，要求同一筆寫入清除 prompt 並恢復棋盤，不依賴房主 listener。
+- 不加入延遲、不放寬玩家私有文件讀取權、不新增集合或 Cloud Function；若持久化 movement 已不足以安全恢復，停止並回報，而不是跨玩家讀取私有資料。
+
+### 2026-08-31 驗證結論
+
+- 假設成立：共享提示確實沒有失聯排除路徑；已復用 presence 120 秒門檻，僅房主能將尚未回覆者記為放棄，最後一人排除時同筆結案。
+- 假設成立：幸福歷程結案不應跨讀來源玩家私有資料；movement 已保存維修效果，現改用該持久化效果切段，非來源玩家最後完成也能原子恢復。
+- 最小測試通過：無來源玩家私有快照時，維修廠剩餘 movement 仍正確恢復；presence 門檻既有測試維持通過。
+- 3 玩家 Playwright 流程未執行到案例：本地依賴同時載入兩份 Playwright runner；連續兩次入口調整仍為同一阻斷後停止，未用延遲或繞過宣稱通過。

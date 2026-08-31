@@ -1,7 +1,7 @@
 import { REAL_ESTATE_TYPES } from '../constants';
 import { getHappinessMonthlyExpenseCategory, getMonthlyExpenseCategoryLabel, getOpportunityMonthlyExpenseCategory, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP, HAPPINESS_CARD_MAP } from '../constants/cards';
-import { AccountEntry, Asset, BatchSellItem, BoardState, GameState, Liability, SharedCardPrompt, TransactionData } from '../types';
-import { getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from './familyMilestones';
+import { AccountEntry, Asset, BatchSellItem, BoardState, FamilyMilestoneJoinPrompt, GameState, Liability, SharedCardPrompt, TransactionData } from '../types';
+import { FamilyMilestoneStage, getFamilyMilestoneStageByCardId, getFamilyMilestoneStatus } from './familyMilestones';
 import { getBusinessAssetLabel, getRealEstateAssetLabel } from './assetLabels';
 
 /**
@@ -10,62 +10,88 @@ import { getBusinessAssetLabel, getRealEstateAssetLabel } from './assetLabels';
  * 依 docs/gdd/CARD_SYSTEM.md Edge Cases 與 docs/gdd/FAMILY_SYSTEM.md 完成條件，
  * 只要仍有符合資格玩家未回覆，事件就不得結案。
  */
+type SharedPromptBoardState = Pick<BoardState, 'sharedCardPrompt' | 'familyMilestoneJoinPrompt'> &
+  Partial<Pick<BoardState, 'currentEvent' | 'currentCard'>>;
+
+export const isBoardPromptForCurrentEvent = (
+  prompt: Pick<FamilyMilestoneJoinPrompt | SharedCardPrompt, 'sourceEventId' | 'sourceCardId'> | null | undefined,
+  boardState: Partial<Pick<BoardState, 'currentEvent' | 'currentCard'>> | null | undefined
+) => !!prompt &&
+  prompt.sourceEventId === boardState?.currentEvent?.id &&
+  prompt.sourceCardId === boardState?.currentCard?.cardId;
+
 export const hasIncompleteSharedPrompts = (
-  boardState: Pick<BoardState, 'sharedCardPrompt' | 'familyMilestoneJoinPrompt'> | null | undefined
+  boardState: SharedPromptBoardState | null | undefined
 ): boolean => {
   if (!boardState) return false;
+  const hasEventContext = 'currentEvent' in boardState || 'currentCard' in boardState;
 
   const sharedPrompt = boardState.sharedCardPrompt;
-  if (sharedPrompt && !sharedPrompt.targetPlayerUids.every(uid => !!sharedPrompt.responses?.[uid])) {
+  if (sharedPrompt && (!hasEventContext || isBoardPromptForCurrentEvent(sharedPrompt, boardState)) &&
+    !sharedPrompt.targetPlayerUids.every(uid => !!sharedPrompt.responses?.[uid])) {
     return true;
   }
 
   const familyPrompt = boardState.familyMilestoneJoinPrompt;
-  if (familyPrompt && !familyPrompt.targetPlayerUids.every(uid => {
-    const response = familyPrompt.responses?.[uid];
-    if (!response) return false;
-    return response.status !== 'passed' || response.actionCompleted === true;
-  })) {
+  if (familyPrompt && (!hasEventContext || isBoardPromptForCurrentEvent(familyPrompt, boardState)) && (
+    !familyPrompt.targetPlayerUids.every(uid => {
+      const response = familyPrompt.responses?.[uid];
+      if (!response) return false;
+      return response.status !== 'passed' || response.actionCompleted === true;
+    }) || familyPrompt.sourceActionCompleted !== true
+  )) {
     return true;
   }
 
   return false;
 };
 
+export const isFamilyMilestoneReadyForSourceCompletion = (
+  boardState: SharedPromptBoardState | null | undefined,
+  playerUid: string | undefined
+): boolean => {
+  const prompt = boardState?.familyMilestoneJoinPrompt;
+  return !!prompt &&
+    !!playerUid &&
+    prompt.sourcePlayerUid === playerUid &&
+    boardState?.currentEvent?.playerUid === playerUid &&
+    isBoardPromptForCurrentEvent(prompt, boardState) &&
+    !hasIncompleteSharedPrompts(boardState);
+};
+
 export const isFamilyMilestoneSourceDismissal = (
-  boardState: Pick<BoardState, 'sharedCardPrompt' | 'familyMilestoneJoinPrompt'>,
+  boardState: SharedPromptBoardState,
   eventId: string,
   cardId: string,
   playerUid: string
 ): boolean => {
   const prompt = boardState.familyMilestoneJoinPrompt;
-  const sharedPrompt = boardState.sharedCardPrompt;
-  const hasIncompleteSharedPrompt = !!(
-    sharedPrompt && !sharedPrompt.targetPlayerUids.every(uid => !!sharedPrompt.responses?.[uid])
-  );
-
-  return !hasIncompleteSharedPrompt &&
+  return !hasIncompleteSharedPrompts(boardState) &&
     prompt?.sourceEventId === eventId &&
     prompt.sourceCardId === cardId &&
     prompt.sourcePlayerUid === playerUid;
 };
 
 export const shouldBlockBoardCardDismissal = (
-  boardState: Pick<BoardState, 'sharedCardPrompt' | 'familyMilestoneJoinPrompt'> | null | undefined,
+  boardState: SharedPromptBoardState | null | undefined,
   eventId: string | undefined,
   cardId: string | undefined,
   playerUid: string | undefined,
   isExplicitDismissal: boolean
 ): boolean => {
   if (!boardState || !hasIncompleteSharedPrompts(boardState)) return false;
-  if (!eventId || !cardId || !playerUid || !isExplicitDismissal) return true;
-  return !isFamilyMilestoneSourceDismissal(boardState, eventId, cardId, playerUid);
+  return true;
 };
 
 export const selectActiveSharedCardPrompt = (
   prompt: SharedCardPrompt | null | undefined,
   snapshot: SharedCardPrompt | null | undefined
-) => snapshot?.id === prompt?.id ? snapshot : prompt || null;
+) => {
+  if (!prompt) return null;
+  if (!snapshot || snapshot.id !== prompt.id) return prompt;
+  // 本機 snapshot 只保留動畫／暫存欄位；回覆與事件生命週期一律採用遠端資料。
+  return { ...snapshot, ...prompt, responses: prompt.responses };
+};
 
 export interface BoardAfterApply {
   drawCard?: 'happiness' | 'news';
@@ -199,11 +225,7 @@ const stockSymbolFromAssetName = (name: string) => extractAssetSymbol(name) || n
 const formatAmount = (value: number) => Math.abs(value).toLocaleString();
 
 const hasOwnedHouse = (assets: Asset[]) => assets.some(asset => asset.type === '不動產');
-const getRepairableHouses = (assets: Asset[]) => {
-  const houses = assets.filter(asset => asset.type === '不動產');
-  const rentals = houses.filter(asset => asset.isSelfUse === false);
-  return rentals.length > 0 ? rentals : houses;
-};
+const getRepairableHouses = (assets: Asset[]) => assets.filter(asset => asset.type === '不動產');
 const hasOwnedVehicle = (assets: Asset[]) => assets.some(asset => asset.type === '汽車' || asset.type === '飛行器');
 const hasInsuredVehicle = (assets: Asset[]) => assets.some(
   asset => (asset.type === '汽車' || asset.type === '飛行器') && asset.isInsured
@@ -353,7 +375,11 @@ export const getSharedOpportunityKind = (cardId: string): SharedCardPrompt['kind
   return null;
 };
 
-export const resolveBoardCardAction = (cardId: string, gameState: GameState): BoardCardActionDefinition => {
+export const resolveBoardCardAction = (
+  cardId: string,
+  gameState: GameState,
+  familyStageOverride?: FamilyMilestoneStage | null
+): BoardCardActionDefinition => {
   let happinessCard = HAPPINESS_CARD_MAP[cardId];
   if (happinessCard) {
     if (happinessCard.requiresChildCount && gameState.children < happinessCard.requiresChildCount) {
@@ -374,8 +400,12 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
     let familyStage = getFamilyMilestoneStageByCardId(happinessCard.id);
     if (happinessCard.category === '家庭重要歷程') {
       const familyStatus = getFamilyMilestoneStatus(gameState);
-      if (familyStatus.currentStageIndex !== -1 && familyStatus.currentStageIndex < familyStatus.stages.length) {
-        const stage = familyStatus.stages[familyStatus.currentStageIndex];
+      const stage = familyStageOverride || (
+        familyStatus.currentStageIndex !== -1 && familyStatus.currentStageIndex < familyStatus.stages.length
+          ? familyStatus.stages[familyStatus.currentStageIndex]
+          : null
+      );
+      if (stage) {
         const stageCard = HAPPINESS_CARD_MAP[stage.cardId];
         if (stageCard) {
           happinessCard = stageCard;
@@ -558,7 +588,7 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
         };
       }
 
-      const repairFee = (opportunityCard.cashLoss || 0) * uninsuredHouses.length;
+      const repairFee = opportunityCard.cashLoss || 0;
       return {
         kind: 'financial',
         label: '進入財務檢核',
@@ -568,7 +598,7 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
           cashChange: -repairFee,
           source: 'cash',
           usage: 'expense',
-          impacts: [`未投保房屋 ${uninsuredHouses.length} 間`, `現金 -${formatAmount(repairFee)}`]
+          impacts: [`未投保房屋 ${uninsuredHouses.length} 間，收取一次修繕費`, `現金 -${formatAmount(repairFee)}`]
         },
         expectedEntries: [{ category: 'Assets', name: '現金', direction: 'Decrease' }],
         afterApply: moveAfterApply
@@ -587,6 +617,34 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
               label: '關閉',
               action: { kind: 'dismiss' }
             }
+          ]
+        };
+      }
+
+      if (opportunityCard.id === 'C038') {
+        const vehicle = gameState.assets.find(asset => asset.type === '汽車' || asset.type === '飛行器');
+        const insured = !!vehicle?.isInsured;
+        const claimAmount = insured ? (opportunityCard.insurancePays || 400000) : 0;
+        return {
+          kind: 'financial',
+          label: '進入財務檢核',
+          txData: {
+            name: `機運卡：${opportunityCard.title}`,
+            amount: claimAmount,
+            cashChange: claimAmount,
+            source: insured ? 'income' : 'cash',
+            usage: 'cash',
+            boardFlow: 'vehicle-loss',
+            vehicleLossPayload: { assetId: vehicle?.id },
+            impacts: [
+              `移除汽車：${vehicle?.name || '汽車'}`,
+              '原汽車貸款保留不變',
+              ...(insured ? [`汽車保險理賠 +${formatAmount(claimAmount)}`] : ['未投保，不產生理賠'])
+            ]
+          },
+          expectedEntries: [
+            { category: 'Assets', name: '汽車', direction: 'Decrease' },
+            ...(insured ? [{ category: 'Assets', name: '現金', direction: 'Increase' } as AccountEntry] : [])
           ]
         };
       }
@@ -810,12 +868,12 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
         const candidates = gameState.assets.filter(asset => asset.type === '不動產' && realEstateKind(asset) === 'store');
         items = candidates.map(asset => {
           const percent = opportunityCard.purchasePercent || 0;
-          const price = Math.floor(asset.cost * (percent / 100));
+          const price = Math.floor(asset.cost * ((100 + percent) / 100));
           return buildAssetSaleCandidate(
             asset,
             price,
             gameState.liabilities,
-            `依店面總價 ${percent}% 收購，售價 ${formatAmount(price)}`
+            `依店面總價加價 ${percent}% 收購，售價 ${formatAmount(price)}`
           );
         });
         emptyNote = '你目前沒有可出售的店面資產。';
@@ -902,6 +960,7 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
             cashChange: cashDelta,
             source: cashDelta >= 0 ? 'income' : 'cash',
             usage: cashDelta >= 0 ? 'cash' : 'expense',
+            ...(opportunityCard.type === 'reward' && cashDelta > 0 ? { incomeMultiplierEligible: true } : {}),
             expensePayload,
             impacts: [
               ...(cashDelta !== 0 ? [`現金 ${cashDelta > 0 ? '+' : '-'}${Math.abs(cashDelta).toLocaleString()}`] : []),
@@ -911,7 +970,9 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
             ]
           },
           expectedEntries,
-          note: opportunityCard.insurancePays ? '若你要改用保險理賠，請改走保險流程。' : undefined,
+          note: opportunityCard.type === 'medical' && gameState.medicalInsuranceCount > 0
+            ? `卡片完成後可從醫療理賠按鈕申請 ${formatAmount(opportunityCard.insurancePays || 0)}。`
+            : undefined,
           ...((opportunityCard.drawCard || moveAfterApply) ? {
             afterApply: {
               ...(opportunityCard.drawCard ? { drawCard: opportunityCard.drawCard } : {}),
@@ -1046,6 +1107,7 @@ export const resolveBoardCardAction = (cardId: string, gameState: GameState): Bo
           cashChange: total,
           source: 'income',
           usage: 'cash',
+          incomeMultiplierEligible: true,
           impacts: [`現金 +${total.toLocaleString()}`]
         },
         expectedEntries: [{

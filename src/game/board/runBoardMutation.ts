@@ -1,7 +1,7 @@
 import { doc, runTransaction, serverTimestamp, type Firestore } from 'firebase/firestore';
 import { BoardState } from '../../types';
 import { cleanObject } from '../../utils/utils';
-import { toPublicPlayerState } from '../../utils/playerState';
+import { hasPublicPlayerStateChanged, toPublicPlayerState } from '../../utils/playerState';
 import { trackGameEvent } from '../../utils/telemetry';
 import { applyBoardCommand, requireBoardRevision } from './boardRevision';
 
@@ -14,6 +14,8 @@ const setNestedValue = (target: Record<string, any>, path: string[], value: unkn
 const getBoardCommandType = (commandId: string): string => commandId.split(':')[0] || 'unknown';
 
 export interface BoardRoomSnapshot {
+  hostId?: string;
+  members?: Array<{ uid: string; isLeft?: boolean }>;
   status?: 'waiting' | 'playing' | 'finished';
   isTimerPaused?: boolean;
   sessionId?: string;
@@ -29,9 +31,10 @@ export interface BoardRoomSnapshot {
     timestamp?: number;
   };
   publicPlayerStates?: Record<string, unknown>;
+  pendingRequests?: Record<string, { boardEventId?: string; type?: string }>;
 }
 
-export const runRoomBoardMutation = async <T, R extends BoardRoomSnapshot>(params: {
+export interface RunRoomBoardMutationParams<T, R extends BoardRoomSnapshot> {
   db: Firestore;
   roomId: string;
   commandId: string;
@@ -41,9 +44,12 @@ export const runRoomBoardMutation = async <T, R extends BoardRoomSnapshot>(param
   mutate: (latestRoom: R, boardState: BoardState) => {
     boardState: BoardState;
     roomPatch?: Record<string, unknown>;
+    commit?: boolean;
     result: T;
   };
-}): Promise<T> => {
+}
+
+export const runRoomBoardMutation = async <T, R extends BoardRoomSnapshot>(params: RunRoomBoardMutationParams<T, R>): Promise<T> => {
   const result = await runTransaction(params.db, async transaction => {
   const roomRef = doc(params.db, 'rooms', params.roomId);
   const snapshot = await transaction.get(roomRef);
@@ -73,13 +79,19 @@ export const runRoomBoardMutation = async <T, R extends BoardRoomSnapshot>(param
   if (params.expectedRevision !== undefined) requireBoardRevision(latestBoard, params.expectedRevision);
 
   const mutation = params.mutate(mutationRoom, latestBoard);
+  if (mutation.commit === false) return mutation.result;
   const committedBoard = applyBoardCommand(mutation.boardState, params.commandId).boardState as BoardState;
   const roomPatch = { ...(mutation.roomPatch || {}) } as Record<string, any>;
 
   if (usesPrivatePlayerStates) {
     const nextPlayerStates = { ...privatePlayerStates };
+    const changedPlayerStateUids = new Set<string>();
     if (roomPatch.playerStates && typeof roomPatch.playerStates === 'object') {
-      Object.assign(nextPlayerStates, roomPatch.playerStates);
+      Object.entries(roomPatch.playerStates as Record<string, unknown>).forEach(([uid, state]) => {
+        if (!state) return;
+        nextPlayerStates[uid] = state;
+        changedPlayerStateUids.add(uid);
+      });
       delete roomPatch.playerStates;
     }
 
@@ -91,13 +103,19 @@ export const runRoomBoardMutation = async <T, R extends BoardRoomSnapshot>(param
         nextPlayerStates[uid] = path.length === 0
           ? value
           : setNestedValue(nextPlayerStates[uid] || {}, path, value);
+        changedPlayerStateUids.add(uid);
         delete roomPatch[key];
       });
 
-    Object.entries(nextPlayerStates).forEach(([uid, state]) => {
+    changedPlayerStateUids.forEach(uid => {
+      const state = nextPlayerStates[uid];
       if (!state) return;
       transaction.set(doc(params.db, 'rooms', params.roomId, 'players', uid), cleanObject(state));
-      roomPatch[`publicPlayerStates.${uid}`] = toPublicPlayerState(uid, state);
+      const nextPublicState = toPublicPlayerState(uid, state);
+      const previousPublicState = latestRoom.publicPlayerStates?.[uid] as any;
+      if (hasPublicPlayerStateChanged(previousPublicState, nextPublicState)) {
+        roomPatch[`publicPlayerStates.${uid}`] = nextPublicState;
+      }
     });
   }
 

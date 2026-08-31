@@ -22,7 +22,7 @@ interface ScoreViewProps {
 
 export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onClose, isInline, showAchievements = false }) => {
     const { scoreResult: localScoreResult, setGameState, gameState } = useGame();
-    const { leaveRoom, room, playerStates } = useRoom();
+    const { leaveToLobby, room, playerStates } = useRoom();
     const settlementPlayers = React.useMemo(
         () => buildSettlementPlayers(room, playerStates),
         [room, playerStates]
@@ -37,7 +37,7 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
     const displayScoreResult = React.useMemo(() => {
         if (playerUid && playerStates[playerUid]) {
             const state = playerStates[playerUid];
-            const summary = calculateFinancialSummary(state);
+            const summary = calculateFinancialSummary(state, room?.financialAcceleration);
             return calculateScoreResult(state, summary);
         }
         return localScoreResult;
@@ -116,7 +116,7 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
         setUploadStatus('uploading');
 
         const playersData = Object.entries(playerStates).map(([uid, state]) => {
-            const summary = calculateFinancialSummary(state);
+            const summary = calculateFinancialSummary(state, room?.financialAcceleration);
             const result = calculateScoreResult(state, summary);
 
             // 確保 income 中包含 salary 欄位
@@ -229,7 +229,7 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
         setIsLeaving(true);
         try {
             // 1. 執行離開房間邏輯
-            await leaveRoom();
+            await leaveToLobby();
 
             // 2. 清理本地遊戲狀態，確保回到大廳時是乾淨的
             localStorage.removeItem('happiness_game_state');

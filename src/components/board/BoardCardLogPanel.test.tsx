@@ -53,4 +53,12 @@ describe('BoardCardLogPanel projection variant', () => {
     expect(screen.getByText('完整敘述1')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /查看完整紀錄/ })).not.toBeInTheDocument();
   });
+
+  it('allows one inline entry to reveal its full card information', () => {
+    render(<BoardCardLogPanel entries={entries.slice(0, 1)} variant="inline" />);
+
+    expect(screen.queryByText('完整敘述1')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '查看完整紀錄（1）' }));
+    expect(screen.getByText('完整敘述1')).toBeInTheDocument();
+  });
 });

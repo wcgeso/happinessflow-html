@@ -208,6 +208,9 @@ export const useTransactionLogic = ({
                     });
 
                 if (list.length === 0) { showError("請輸入買入張數"); return; }
+                if (list.some(item => !Number.isFinite(item.price) || item.price <= 0 || !Number.isInteger(item.qty) || item.qty < 1)) {
+                    showError("股票價格必須大於 0，張數必須為正整數"); return;
+                }
                 const total = list.reduce((s, i) => s + (i.price * i.qty), 0);
                 if (total > cash) { showError("現金不足"); return; }
                 const tickerNames = list.map(i => i.symbol).join(', ');
@@ -526,7 +529,7 @@ export const useTransactionLogic = ({
                     // 現金股利 = 持有張數 * 100 * 每股發放金額
                     return s + Math.floor((a.quantity || 0) * 100 * Number(v));
                 }, 0);
-                txData = { name: `領取股票現金股利`, amount: total, cashChange: total, source: 'income', usage: 'cash' };
+                txData = { name: `領取股票現金股利`, amount: total, cashChange: total, source: 'income', usage: 'cash', incomeMultiplierEligible: true };
                 impactList = [`現金 +${formatMoney(total)}`];
                 expectedEntries = [{ category: 'Assets', name: '現金', direction: 'Increase' }];
             } else {

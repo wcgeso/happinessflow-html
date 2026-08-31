@@ -1,5 +1,5 @@
-import React, { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
-import { GameProvider, useGame } from './context/GameContext';
+import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { GameProvider, isPlayerStateForBoardGame, useGame } from './context/GameContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RoomProvider, useRoom } from './context/RoomContext';
 import { VERSION_DISPLAY } from './constants/version';
@@ -372,8 +372,15 @@ const MainRouting = ({
     setPracticeRoomAutoOpen
 }: any) => {
     const { logout } = useAuth();
-    const { room, playerStatesHydrated } = useRoom();
+    const { room, playerStatesHydrated, roomSyncState } = useRoom();
     const [lastProcessedStartTime, setLastProcessedStartTime] = useState<number | null>(null);
+    const routingUserUidRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (routingUserUidRef.current === user?.uid) return;
+        routingUserUidRef.current = user?.uid || null;
+        setLastProcessedStartTime(null);
+    }, [user?.uid]);
 
 
     // 監聽房間狀態
@@ -400,6 +407,10 @@ const MainRouting = ({
             return;
         }
 
+        // 首次讀到的 IndexedDB/cache 快照只供畫面暫存，不能拿來決定新局、
+        // 恢復或切換流程；等 Firestore server snapshot 確認後再路由。
+        if (room.status === 'playing' && roomSyncState !== 'synced') return;
+
         console.log('App 路由監聽 - 角色:', user?.role, '房間狀態:', room.status, '當前視圖:', currentView);
 
         if (room.status === 'playing') {
@@ -407,7 +418,8 @@ const MainRouting = ({
 
             // 處理玩家重設狀態 (當偵測到新的開始時間戳時)
             // 如果玩家在雲端已經有狀態（斷線重連），則不應觸發重設
-            const hasCloudState = !isHost && playerStatesHydrated && room.playerStates && room.playerStates[user.uid];
+            const cloudState = !isHost && playerStatesHydrated ? room.playerStates?.[user.uid] : undefined;
+            const hasCloudState = isPlayerStateForBoardGame(cloudState, room.startedAt);
             const hasMatchingLocalState = gameState.boardGameStartedAt === room.startedAt &&
                 (!!gameState.selectionStep || gameState.isSetup);
             
@@ -504,7 +516,7 @@ const MainRouting = ({
                 } else if (hasCloudState) {
                     // 斷線重連：如果本地還沒同步雲端狀態，則從雲端恢復
                     console.log('斷線重連：從雲端恢復玩家狀態');
-                    const cloudState = room.playerStates[user.uid];
+                    const cloudState = room.playerStates![user.uid];
                     setGameState(cloudState);
                     setSessionMeta({
                         playerName: cloudState.playerName || user.name,
@@ -541,6 +553,7 @@ const MainRouting = ({
         user?.uid,
         user?.role,
         room?.status,
+        roomSyncState,
         room?.hostId,
         room?.startedAt,
         room?.playerStates,

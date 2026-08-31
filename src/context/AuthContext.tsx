@@ -10,7 +10,7 @@ import {
     getRedirectResult,
     GoogleAuthProvider,
 } from 'firebase/auth';
-import { auth, googleProvider, appleProvider, storage, db } from '../../services/firebase';
+import { auth, authPersistenceReady, googleProvider, appleProvider, storage, db } from '../../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { safeAsync } from '../utils/utils';
@@ -31,6 +31,7 @@ interface User {
     inviteCode?: string;
     referredBy?: string;
     effectiveCoachId?: string;
+    activeGame?: { roomId: string; joinedAt?: number | string };
 }
 
 export const isGM = (user: User | null): boolean => {
@@ -197,21 +198,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
         }
 
-        // Handle redirect result
-        const checkRedirect = async () => {
-            try {
-                const result = await safeAsync(getRedirectResult(auth));
-                if (result?.user) {
-                    // User signed in with redirect
-                    console.log('Redirect sign-in success');
-                }
-            } catch (error) {
-                console.error('Redirect sign-in error:', error);
-            }
-        };
-        checkRedirect();
+        let isMounted = true;
+        let unsubscribe = () => undefined;
 
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        const initializeAuth = async () => {
+            try {
+                await authPersistenceReady;
+                const result = await safeAsync(getRedirectResult(auth));
+                if (result?.user) console.log('Redirect sign-in success');
+            } catch (error) {
+                console.error('Auth persistence/redirect 初始化失敗:', error);
+            }
+
+            if (!isMounted) return;
+
+            unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
                 // 先設定基本資訊
                 const basicUserInfo: User = {
@@ -251,6 +252,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         }
                         if (data.referredBy) basicUserInfo.referredBy = data.referredBy;
                         if (data.effectiveCoachId) basicUserInfo.effectiveCoachId = data.effectiveCoachId;
+                        if (data.activeGame?.roomId) basicUserInfo.activeGame = {
+                            roomId: String(data.activeGame.roomId),
+                            joinedAt: data.activeGame.joinedAt
+                        };
                     } else {
                         // 如果 Firestore 還沒資料（例如透過 Google/Apple 第三方登入），自動建立初始資料
                         const isGM = firebaseUser.email?.toLowerCase() === 'gm0221@happinessflow.com';
@@ -278,14 +283,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else {
                 setUser(null);
             }
-            setIsLoadingAuth(false);
-        });
+                setIsLoadingAuth(false);
+            });
+        };
+        void initializeAuth();
 
-        return () => unsubscribe();
+        return () => {
+            isMounted = false;
+            unsubscribe();
+        };
     }, []);
 
     const login = async (email: string, password: string) => {
         try {
+            await authPersistenceReady;
             await safeAsync(signInWithEmailAndPassword(auth, email, password), null, (err) => { throw err; });
         } catch (error: any) {
             throw error;
@@ -294,6 +305,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const loginWithGoogle = async () => {
         try {
+            await authPersistenceReady;
             console.log('Attempting Google login with popup...');
             await safeAsync(signInWithPopup(auth, googleProvider), null, (err) => { throw err; });
         } catch (error: any) {
@@ -316,6 +328,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const loginWithApple = async () => {
         try {
+            await authPersistenceReady;
             console.log('Attempting Apple login with popup...');
             await safeAsync(signInWithPopup(auth, appleProvider), null, (err) => { throw err; });
         } catch (error: any) {
@@ -338,6 +351,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const register = async (email: string, password: string, playerName: string, refCode?: string) => {
         try {
+            await authPersistenceReady;
             const userCredential = await safeAsync(createUserWithEmailAndPassword(auth, email, password), null, (err) => { throw err; });
             if (!userCredential) return;
 

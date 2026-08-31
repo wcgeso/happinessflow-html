@@ -28,6 +28,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
   const [productType, setProductType] = useState<'insurance' | 'deposit' | 'car'>(initialProductType);
   const [depositAmount, setDepositAmount] = useState<number>(10000);
   const [carCashAmount, setCarCashAmount] = useState<number>(Math.min(Math.max(minCarDownPayment, 0), Math.min(cash, carPrice)));
+  const [carInputError, setCarInputError] = useState<string | null>(null);
 
   const insuranceCost = salary * 0.1;
   const hasCarAsset = assets.some(asset => asset.type === '汽車' || asset.type === '飛行器');
@@ -45,7 +46,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
     [allowedProductTypes]
   );
   const maxAffordableCarCash = Math.min(cash, carPrice);
-  const normalizedCarCash = Math.min(Math.max(carCashAmount, minCarDownPayment), maxAffordableCarCash);
+  const normalizedCarCash = Math.min(carPrice, Math.max(0, Number(carCashAmount) || 0));
   const carLoanAmount = carPrice - normalizedCarCash;
   const carLoanInterest = Math.floor(carLoanAmount * 0.005);
   const canAffordMinDownPayment = cash >= minCarDownPayment;
@@ -74,16 +75,16 @@ export const WealthView: React.FC<WealthViewProps> = ({
     });
   };
 
-  const handleBuyHouseInsurance = () => {
-    if (!canUseBankProducts || uninsuredHouses.length === 0) return;
+  const handleBuyHouseInsurance = (house: Asset) => {
+    if (!canUseBankProducts || house.isInsured) return;
     onTransaction({
-      name: `購買房屋保險（${uninsuredHouses.length} 間）`,
-      amount: 0,
+      name: `購買房屋保險（${house.name}）`,
+      amount: 2000,
       cashChange: 0,
       source: 'cash',
       usage: 'insurance',
       insuranceType: 'house',
-      insurancePayload: { targetAssetIds: uninsuredHouses.map(asset => asset.id) }
+      insurancePayload: { targetAssetIds: [house.id] }
     });
   };
 
@@ -150,7 +151,12 @@ export const WealthView: React.FC<WealthViewProps> = ({
     if (hasCarAsset) return;
     if (!canAffordMinDownPayment) return;
 
-    const cashPortion = Math.min(Math.max(carCashAmount, minCarDownPayment), maxAffordableCarCash);
+    const cashPortion = Number(carCashAmount);
+    if (!Number.isFinite(cashPortion) || cashPortion < minCarDownPayment || cashPortion > maxAffordableCarCash) {
+      setCarInputError(`自備款需介於 ${minCarDownPayment.toLocaleString()} 到 ${maxAffordableCarCash.toLocaleString()}`);
+      return;
+    }
+    setCarInputError(null);
     const loanPortion = carPrice - cashPortion;
 
     onTransaction({
@@ -261,14 +267,22 @@ export const WealthView: React.FC<WealthViewProps> = ({
                   </div>
                   <Shield size={20} className="text-amber-300" />
                 </div>
-                <button
-                  type="button"
-                  onClick={handleBuyHouseInsurance}
-                  disabled={!canUseBankProducts || uninsuredHouses.length === 0}
-                  className="mt-3 w-full rounded-xl bg-amber-500 px-3 py-2 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {uninsuredHouses.length === 0 ? '已全部投保' : '投保全部房屋'}
-                </button>
+                <div className="mt-3 space-y-2">
+                  {uninsuredHouses.length === 0 && <div className="rounded-xl bg-slate-900 px-3 py-2 text-center text-sm font-black text-slate-500">已全部投保</div>}
+                  {uninsuredHouses.map(house => (
+                    <div key={house.id} className="flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2">
+                      <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-200">{house.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleBuyHouseInsurance(house)}
+                        disabled={!canUseBankProducts}
+                        className="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        投保此房屋
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3 sm:p-4">
                 <div className="flex items-center justify-between gap-2">
@@ -342,7 +356,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
               disabled={!canUseBankProducts || depositAmount <= 0 || cash < depositAmount}
               className={`min-h-11 w-full rounded-xl py-2.5 text-sm font-black tracking-wide transition-all sm:rounded-2xl sm:py-4 sm:text-[16px] sm:tracking-widest ${
                 !canUseBankProducts || depositAmount <= 0 || cash < depositAmount
-                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  ? 'bg-[#ead6b9] text-[#765f47] cursor-not-allowed'
                   : 'bg-[#168269] text-white hover:bg-[#116c58]'
               }`}
             >
@@ -419,7 +433,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
                 <span className="text-sm font-bold text-slate-400 block">現金支付金額</span>
                 <div className="flex items-center gap-2 sm:gap-4">
                   <button
-                    onClick={() => setCarCashAmount(Math.max(minCarDownPayment, normalizedCarCash - 10000))}
+                    onClick={() => setCarCashAmount(Math.max(0, normalizedCarCash - 10000))}
                     disabled={hasCarAsset || !canAffordMinDownPayment}
                     className="h-11 w-11 shrink-0 rounded-xl border border-[#d8c29a] bg-[#f4e6d0] text-xl font-black text-[#765f47] hover:bg-[#ead7b8] disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
                   >
@@ -427,13 +441,16 @@ export const WealthView: React.FC<WealthViewProps> = ({
                   </button>
                   <input
                     type="number"
-                    value={normalizedCarCash || ''}
-                    onChange={(e) => setCarCashAmount(Math.max(minCarDownPayment, Math.min(carPrice, parseInt(e.target.value) || 0)))}
+                    value={carCashAmount || ''}
+                    onChange={(e) => {
+                      setCarInputError(null);
+                      setCarCashAmount(e.target.value === '' ? 0 : Number(e.target.value));
+                    }}
                     disabled={hasCarAsset || !canAffordMinDownPayment}
                     className="h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 text-center text-lg font-black tracking-wide text-white disabled:opacity-50 sm:h-12 sm:text-xl sm:tracking-wider"
                   />
                   <button
-                    onClick={() => setCarCashAmount(Math.min(maxAffordableCarCash, normalizedCarCash + 10000))}
+                    onClick={() => setCarCashAmount(Math.min(carPrice, normalizedCarCash + 10000))}
                     disabled={hasCarAsset || !canAffordMinDownPayment}
                     className="h-11 w-11 shrink-0 rounded-xl border border-[#d8c29a] bg-[#f4e6d0] text-xl font-black text-[#765f47] hover:bg-[#ead7b8] disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
                   >
@@ -445,6 +462,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
                     ? `可輸入 ${minCarDownPayment.toLocaleString()} 到 ${maxAffordableCarCash.toLocaleString()}，不足部分自動轉為汽車貸款。`
                     : `現金至少需達 ${minCarDownPayment.toLocaleString()} 才能購車。`}
                 </p>
+                {carInputError && <p className="text-xs font-bold text-rose-400">{carInputError}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-2 sm:gap-3">

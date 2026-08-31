@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { Ambulance, Car } from 'lucide-react';
+import { Ambulance } from 'lucide-react';
+import { OPPORTUNITY_CARD_MAP } from '../../constants/cards';
+import { PendingMedicalClaim } from '../../types';
 import { PlayerModalFrame } from '../common/PlayerModalFrame';
 
 interface MedicalClaimModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (type: 'medical' | 'aircraft') => void;
-    insuranceCount: number;
-    canClaimMedical: boolean;
-    hasInsuredAircraft: boolean;
+    onConfirm: (claimId: string) => void;
+    claims: PendingMedicalClaim[];
     formatMoney: (amount: number) => string;
     disabled?: boolean;
 }
@@ -17,25 +17,23 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
     isOpen,
     onClose,
     onConfirm,
-    insuranceCount,
-    canClaimMedical,
-    hasInsuredAircraft,
+    claims,
     formatMoney,
     disabled = false
 }) => {
-    const [claimType, setClaimType] = useState<'medical' | 'aircraft'>('medical');
+    const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
 
     if (!isOpen) return null;
 
-    const medicalClaimAmount = canClaimMedical ? insuranceCount * 50000 : 0;
-    const aircraftClaimAmount = hasInsuredAircraft ? 400000 : 0;
-    const currentClaimAmount = claimType === 'medical' ? medicalClaimAmount : aircraftClaimAmount;
+    const selectedClaim = claims.find(claim => claim.id === selectedClaimId) || claims[0];
+    const selectedCard = selectedClaim ? OPPORTUNITY_CARD_MAP[selectedClaim.sourceCardId] : null;
+    const claimAmount = selectedCard?.insurancePays || 0;
 
     return (
         <PlayerModalFrame
-            eyebrow="醫療與車輛保障"
-            title={claimType === 'medical' ? '醫療理賠申請' : '汽車理賠申請'}
-            description="確認目前保險狀態與可申請的理賠金額。"
+            eyebrow="醫療保障"
+            title="醫療理賠申請"
+            description="選擇已完成的醫療事件，進入財務檢核後申請固定理賠金。"
             accent="medical"
             layout="dialog"
             onClose={onClose}
@@ -47,58 +45,51 @@ export const MedicalClaimModal: React.FC<MedicalClaimModalProps> = ({
                     <button
                         type="button"
                         className="min-h-11 flex-1 rounded-xl bg-[#c9655a] px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#b6544b] disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() => onConfirm(claimType)}
-                        disabled={disabled || (claimType === 'medical' ? !canClaimMedical : !hasInsuredAircraft)}
+                        onClick={() => selectedClaim && onConfirm(selectedClaim.id)}
+                        disabled={disabled || !selectedClaim || selectedCard?.type !== 'medical' || claimAmount <= 0}
                     >
                         {disabled ? '遊戲已結算' : '確認申請'}
                     </button>
                 </div>
             )}
         >
-                <div className="mb-6 flex rounded-2xl border border-[#d8c29a] bg-[#f4e6d0] p-1">
-                    <button 
-                        onClick={() => setClaimType('medical')}
-                        className={`flex-1 rounded-xl py-2 text-xs font-black transition-all ${claimType === 'medical' ? 'bg-[#c9655a] text-white shadow-lg' : 'text-[#7a6958] hover:text-[#293a38]'}`}
-                    >
-                        醫療理賠
-                    </button>
-                    <button 
-                        onClick={() => setClaimType('aircraft')}
-                        className={`flex-1 rounded-xl py-2 text-xs font-black transition-all ${claimType === 'aircraft' ? 'bg-[#c9655a] text-white shadow-lg' : 'text-[#7a6958] hover:text-[#293a38]'}`}
-                    >
-                        汽車理賠
-                    </button>
-                </div>
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border-2 border-[#d8c29a] bg-[#f5d9d0] text-[#b6544b]">
+                <Ambulance size={40} />
+            </div>
 
-                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border-2 border-[#d8c29a] bg-[#f5d9d0] text-[#b6544b]">
-                    {claimType === 'medical' ? <Ambulance size={40} /> : <Car size={40} />}
+            {claims.length === 0 ? (
+                <div className="rounded-xl border border-[#e2b978] bg-[#fff2de] p-3 text-sm font-bold text-[#a9643a]">
+                    目前沒有可申請的醫療事件
                 </div>
-
+            ) : (
                 <div className="space-y-3">
-                    {claimType === 'medical' ? (
-                        <>
-                            <div className="flex justify-between rounded-xl border border-[#ead7b8] bg-[#fffaf2] p-3 text-sm font-bold text-[#7a6958]">
-                                <span>持有醫療保險張數:</span>
-                                <span className="font-black text-[#293a38]">{insuranceCount} 張</span>
-                            </div>
-                            {!canClaimMedical && insuranceCount > 0 && (
-                                <div className="rounded-xl border border-[#e2b978] bg-[#fff2de] p-3 text-sm font-bold text-[#a9643a]">目前沒有可理賠的醫療事件</div>
-                            )}
-                        </>
-                    ) : (
-                        <div className="flex justify-between rounded-xl border border-[#ead7b8] bg-[#fffaf2] p-3 text-sm font-bold text-[#7a6958]">
-                            <span>汽車保險狀態:</span>
-                            <span className={`${hasInsuredAircraft ? 'text-[#2e806d]' : 'text-[#b6544b]'} font-black`}>
-                                {hasInsuredAircraft ? '已投保' : '未投保'}
-                            </span>
-                        </div>
-                    )}
+                    <div className="text-sm font-black text-[#7a6958]">待申請事件（{claims.length}）</div>
+                    <div className="space-y-2">
+                        {claims.map(claim => {
+                            const card = OPPORTUNITY_CARD_MAP[claim.sourceCardId];
+                            const isSelected = selectedClaim?.id === claim.id;
+                            return (
+                                <button
+                                    key={claim.id}
+                                    type="button"
+                                    onClick={() => setSelectedClaimId(claim.id)}
+                                    className={`w-full rounded-xl border p-3 text-left transition ${isSelected ? 'border-[#c9655a] bg-[#f5d9d0]' : 'border-[#ead7b8] bg-[#fffaf2] hover:border-[#c9655a]'}`}
+                                >
+                                    <div className="flex items-center justify-between gap-3 text-sm font-black text-[#293a38]">
+                                        <span>{card?.title || claim.sourceCardId}</span>
+                                        <span className="text-[#2e806d]">{formatMoney(card?.insurancePays || 0)}</span>
+                                    </div>
+                                    <div className="mt-1 text-xs font-bold text-[#7a6958]">醫療保險理賠，需經財務檢核</div>
+                                </button>
+                            );
+                        })}
+                    </div>
                     <div className="flex justify-between rounded-xl border border-[#ead7b8] bg-[#fffaf2] p-3 text-sm font-bold text-[#7a6958]">
-                        <span>預計獲得理賠總額:</span>
-                        <span className="font-black text-[#2e806d]">{formatMoney(currentClaimAmount)}</span>
+                        <span>本次預計入帳:</span>
+                        <span className="font-black text-[#2e806d]">{formatMoney(claimAmount)}</span>
                     </div>
                 </div>
-
+            )}
         </PlayerModalFrame>
     );
 };

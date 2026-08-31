@@ -409,6 +409,10 @@ input[type='number'] {
   color: #fff !important;
 }
 
+.player-ui .player-banking-surface button[class~="text-white"] {
+  color: #fff !important;
+}
+
 .player-ui .player-card-actions [class~="bg-slate-700"],
 .player-ui .player-card-actions [class~="bg-slate-800"],
 .player-ui .player-card-actions [class~="bg-slate-900/60"],

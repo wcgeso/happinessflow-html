@@ -43,6 +43,9 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
                     <button type="button" onClick={onClose} className="min-h-11 w-full rounded-2xl border border-[#d8c29a] bg-[#f4e6d0] py-3 text-sm font-black text-[#7a6958] transition hover:bg-[#ead7b8]">
                         關閉
                     </button>
+                    <button type="button" onClick={onBack} className="min-h-11 w-full rounded-2xl border border-[#d8c29a] bg-[#fffaf2] py-3 text-sm font-black text-[#7a6958] transition hover:bg-[#f4e6d0]">
+                        上一步查看狀況
+                    </button>
                 </div>
             )}
         >

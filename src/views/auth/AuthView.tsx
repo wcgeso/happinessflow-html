@@ -46,6 +46,8 @@ export const AuthView: React.FC = () => {
                 return '此電子郵件已被註冊';
             case 'auth/operation-not-allowed':
                 return '此登入方式未啟用';
+            case 'auth/unauthorized-domain':
+                return '目前網址尚未加入 Google 登入授權網域，請通知管理員';
             case 'auth/weak-password':
                 return '密碼強度不足（至少 6 位數）';
             case 'auth/popup-closed-by-user':
@@ -211,23 +213,14 @@ export const AuthView: React.FC = () => {
                             {/* Gold glow */}
                             <div className="absolute inset-0 bg-amber-400/10 blur-3xl group-hover:bg-amber-400/20 transition-all duration-500 scale-110"></div>
                             <img 
-                                src="/logo.png?v=7" 
+                                src="/2ife透明.png?v=9"
                                 alt="第二人生"
                                 className="w-24 md:w-32 object-contain relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)] mx-auto mb-2"
                             />
-                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-100 to-amber-500 tracking-tight relative z-10 drop-shadow-[0_4px_24px_rgba(245,158,11,0.35)]">
-                                第二人生
-                            </h1>
                         </div>
 
-                    {/* English title & tagline */}
-                    <div className="flex items-center justify-center gap-2.5 mt-5">
-                        <div className="h-[1px] flex-1 max-w-[40px] bg-gradient-to-r from-transparent to-amber-500/50"></div>
-                        <span className="text-amber-400 font-black tracking-[0.3em] text-[10px] md:text-[11px] uppercase">第二人生</span>
-                        <div className="h-[1px] flex-1 max-w-[40px] bg-gradient-to-l from-transparent to-amber-500/50"></div>
-                    </div>
-
-                    <p className="text-amber-400/80 text-[11px] md:text-xs tracking-widest font-medium mt-1">財務是為了實現幸福的人生而服務</p>
+                    {/* Service tagline */}
+                    <p className="text-amber-400/80 text-[11px] md:text-xs tracking-widest font-medium mt-5">你的人生， <em>由你定義。</em></p>
                 </div>
 
                 <Card className="bg-slate-900/50 backdrop-blur-2xl border-white/[0.07] p-5 md:p-6 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.7)] relative overflow-hidden">

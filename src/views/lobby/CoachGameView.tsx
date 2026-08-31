@@ -41,9 +41,10 @@ import { flowLog } from '../../utils/flowLog';
 import { settleGame } from '../../game/settlement/settleGame';
 import { canSkipDisconnectedPlayer, isPresenceOnline } from '../../utils/presence';
 import { hasIncompleteSharedPrompts } from '../../utils/boardCardActions';
+import { CoachExpenseCategory, PlayerDiagnosticState } from '../../types';
 
 export const CoachGameView: React.FC = () => {
-    const { room, playerStates, presenceStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, adjustPlayerCash, adjustPlayerInvestmentIncome, updateRoomTimer, approveRequest, rejectRequest, skipDisconnectedTurn, repeatCurrentBoardEvent, setCoachNextTurn, clearCurrentBoardEvent, forceEndBoardTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
+    const { room, playerStates, presenceStates, playerDiagnostics, leaveRoom, closeRoom, finishRoomGame, updateMarket, adjustPlayerCash, adjustPlayerInvestmentIncome, adjustPlayerLiability, adjustPlayerExpense, updateFinancialAcceleration, grantFinancialSubsidyToAllPlayers, updateRoomTimer, approveRequest, rejectRequest, skipDisconnectedTurn, skipDisconnectedSharedPromptTarget, repeatCurrentBoardEvent, setCoachNextTurn, clearCurrentBoardEvent, forceEndBoardTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
     const { user } = useAuth();
 
     console.log('CoachGameView 渲染 - 房間:', room?.id, '狀態:', room?.status, '待審核數:', room?.pendingRequests ? Object.keys(room.pendingRequests).length : 0);
@@ -63,6 +64,15 @@ export const CoachGameView: React.FC = () => {
     const [isAdjustingCash, setIsAdjustingCash] = useState(false);
     const [incomeAdjustment, setIncomeAdjustment] = useState('10000');
     const [isAdjustingIncome, setIsAdjustingIncome] = useState(false);
+    const [liabilityOwedAdjustment, setLiabilityOwedAdjustment] = useState('0');
+    const [liabilityPaymentAdjustment, setLiabilityPaymentAdjustment] = useState('0');
+    const [selectedLiabilityId, setSelectedLiabilityId] = useState('');
+    const [expenseCategory, setExpenseCategory] = useState<CoachExpenseCategory>('basicLiving');
+    const [expenseAdjustment, setExpenseAdjustment] = useState('1000');
+    const [adjustmentReason, setAdjustmentReason] = useState('');
+    const [isAdjustingCorrection, setIsAdjustingCorrection] = useState(false);
+    const [subsidyAmount, setSubsidyAmount] = useState('10000');
+    const [isGrantingSubsidy, setIsGrantingSubsidy] = useState(false);
 
     // 檢查 localStorage 是否已有紀錄
     useEffect(() => {
@@ -104,24 +114,28 @@ export const CoachGameView: React.FC = () => {
     const [isRepeatingBoardEvent, setIsRepeatingBoardEvent] = useState(false);
     const [isTurnPickerOpen, setIsTurnPickerOpen] = useState(false);
 
-    // 當房間數據更新時，同步本地計時器狀態
+    const timerDeadlineRef = useRef<number | null>(null);
+
+    // 房間只保存計時基準；畫面秒數由各裝置自行計算，不再把每個 tick 寫回 Firestore。
     useEffect(() => {
-        if (room?.gameTimeLeft !== undefined) {
-            // 只有當差距較大時才強制同步，避免秒數跳動感
-            if (Math.abs(timeLeft - room.gameTimeLeft) > 2) {
-                setTimeLeft(room.gameTimeLeft);
-            }
+        if (!room) {
+            timerDeadlineRef.current = null;
+            return;
         }
-        if (room?.isTimerPaused !== undefined) {
-            setIsPaused(room.isTimerPaused);
+        setIsPaused(room.isTimerPaused ?? true);
+        if (room.isTimerPaused || room.timerEndsAtMs == null) {
+            timerDeadlineRef.current = null;
+            if (room.gameTimeLeft !== undefined) setTimeLeft(room.gameTimeLeft);
+            return;
         }
-    }, [room?.gameTimeLeft, room?.isTimerPaused]);
+        timerDeadlineRef.current = room.timerEndsAtMs;
+    }, [room?.id, room?.gameTimeLeft, room?.isTimerPaused, room?.timerEndsAtMs]);
 
     // 取得當前待審核的請求
     const pendingRequest = useMemo(() => {
         if (!room?.pendingRequests) return null;
         const requests = Object.values(room.pendingRequests)
-            .filter(r => r.status === 'pending')
+            .filter(r => r.status === 'pending' && r.type !== 'family_milestone')
             .sort((a, b) => a.timestamp - b.timestamp);
         
         if (requests.length > 0) {
@@ -132,34 +146,21 @@ export const CoachGameView: React.FC = () => {
     }, [room?.pendingRequests]);
 
     const pendingRequests = useMemo(() => Object.values(room?.pendingRequests || {})
-        .filter(request => request.status === 'pending')
+        .filter(request => request.status === 'pending' && request.type !== 'family_milestone')
         .sort((a, b) => a.timestamp - b.timestamp), [room?.pendingRequests]);
 
-    // 倒數計時邏輯：deps 只依賴 isPaused，不依賴 timeLeft——原本把 timeLeft
-    // 放進依賴陣列，但 timeLeft 本身每秒都會被這個 effect 自己的
-    // setInterval 改變，導致每秒都要 clearInterval 再重新 setInterval 一次，
-    // 純屬多餘的計時器churn。改成計時器自己在 callback 內判斷是否歸零，
-    // 歸零時自行 clearInterval，不需要依賴外部 timeLeft 值來決定要不要建立。
+    // 倒數只依照結束時間計算；背景分頁或執行師端高負載恢復後會直接跳到正確秒數。
     useEffect(() => {
-        if (isPaused) return;
+        if (!room || room.isTimerPaused || timerDeadlineRef.current == null) return;
 
-        const timer = setInterval(() => {
-            setTimeLeft(prev => {
-                if (prev <= 0) {
-                    clearInterval(timer);
-                    return 0;
-                }
-                const next = prev - 1;
-                // 每 10 秒向 Firestore 同步一次，或者當計時結束時同步
-                if (next % 10 === 0 || next === 0) {
-                    updateRoomTimer(next, isPaused);
-                }
-                return next;
-            });
-        }, 1000);
-
-        return () => clearInterval(timer);
-    }, [isPaused, updateRoomTimer]);
+        const updateDisplayedTime = () => {
+            const next = Math.max(0, Math.ceil((timerDeadlineRef.current! - Date.now()) / 1000));
+            setTimeLeft(next);
+        };
+        updateDisplayedTime();
+        const timer = window.setInterval(updateDisplayedTime, 1000);
+        return () => window.clearInterval(timer);
+    }, [room?.id, room?.isTimerPaused, room?.timerEndsAtMs]);
 
     // 遊戲時間到自動存檔邏輯
     const prevTimeLeftRef = useRef(timeLeft);
@@ -177,7 +178,7 @@ export const CoachGameView: React.FC = () => {
         try {
             // 開始計時並更新房間狀態
             setIsPaused(false);
-            await updateRoomTimer(timeLeft, false);
+            await updateRoomTimer(timeLeft, false, Date.now() + timeLeft * 1000);
             // 如果需要更新房間狀態為 playing
             if (room.status === 'waiting') {
                 const roomRef = doc(db, 'rooms', room.id);
@@ -200,21 +201,23 @@ export const CoachGameView: React.FC = () => {
     const handleOpenBoardProjection = () => {
         if (!room?.id) return;
         const url = `${window.location.origin}${window.location.pathname}?boardRoom=${room.id}`;
-        window.open(url, '_blank', 'noopener,noreferrer');
+        // 保留同源 opener，讓瀏覽器複製目前分頁的 sessionStorage，
+        // 地圖分頁即可沿用已登入的執行師 session，不必再次登入。
+        window.open(url, '_blank');
     };
 
     const handleToggleTimer = () => {
         if (timeLeft === 0) return; // 時間到不能再操作
         const newPaused = !isPaused;
         setIsPaused(newPaused);
-        updateRoomTimer(timeLeft, newPaused);
+        void updateRoomTimer(timeLeft, newPaused, newPaused ? null : Date.now() + timeLeft * 1000);
     };
 
     const handleAdjustTime = (seconds: number) => {
         if (timeLeft === 0) return; // 時間到不能再操作
         const newTime = Math.max(0, timeLeft + seconds);
         setTimeLeft(newTime);
-        updateRoomTimer(newTime, isPaused);
+        void updateRoomTimer(newTime, isPaused, isPaused ? null : Date.now() + newTime * 1000);
     };
 
     const handleResetTimer = () => {
@@ -222,7 +225,7 @@ export const CoachGameView: React.FC = () => {
         const defaultTime = (room?.duration || 60) * 60;
         setTimeLeft(defaultTime);
         setIsPaused(true);
-        updateRoomTimer(defaultTime, true);
+        void updateRoomTimer(defaultTime, true, null);
     };
 
     interface RoomPlayer {
@@ -413,7 +416,7 @@ export const CoachGameView: React.FC = () => {
             const state = freshStates[player.uid] || playerStates[player.uid];
             if (!state) return null;
 
-            const summary = calculateFinancialSummary(state);
+            const summary = calculateFinancialSummary(state, room?.financialAcceleration);
             const result = calculateScoreResult(state, summary);
 
             // 確保 income 中包含 salary 欄位
@@ -538,7 +541,8 @@ export const CoachGameView: React.FC = () => {
         }
     }, [room?.status, user?.uid, room?.hostId, uploadStatus]);
 
-    // 遊戲自動存檔邏輯：開始時存一次，之後每兩分鐘存一次
+    // 房間玩家文件已保存可恢復狀態；執行師紀錄只在開始與結算保存，避免
+    // 每分鐘重讀所有玩家並重寫整份歷史快照。
     useEffect(() => {
         if (!room || room.status !== 'playing' || user?.uid !== room.hostId) return;
 
@@ -552,13 +556,7 @@ export const CoachGameView: React.FC = () => {
             saveRecords(false, true);
         }
 
-        // 2. 每兩分鐘定時存檔
-        const interval = setInterval(() => {
-            console.log('[自動存檔] 兩分鐘定時存檔觸發');
-            saveRecords(false, true);
-        }, 60 * 1000);
-
-        return () => clearInterval(interval);
+        return undefined;
     }, [room?.status, room?.startedAt, user?.uid, room?.hostId]);
 
     // 當選擇玩家時，記錄審計日誌
@@ -596,6 +594,21 @@ export const CoachGameView: React.FC = () => {
     };
 
     const selectedPlayerState = selectedPlayerUid ? playerStates[selectedPlayerUid] : null;
+    const selectedPlayerDiagnostic: PlayerDiagnosticState | null = selectedPlayerUid ? playerDiagnostics[selectedPlayerUid] || null : null;
+    const selectedLiability = selectedPlayerState?.liabilities?.find(liability => liability.id === selectedLiabilityId) || null;
+
+    const formatDiagnosticTime = (value?: PlayerDiagnosticState['updatedAt']) => {
+        if (!value) return '尚未同步';
+        const timestamp = typeof value === 'object' && 'toMillis' in value ? value.toMillis() : value;
+        return new Date(timestamp).toLocaleTimeString('zh-TW');
+    };
+
+    useEffect(() => {
+        const firstLiabilityId = selectedPlayerState?.liabilities?.[0]?.id || '';
+        if (!selectedPlayerState?.liabilities?.some(liability => liability.id === selectedLiabilityId)) {
+            setSelectedLiabilityId(firstLiabilityId);
+        }
+    }, [selectedLiabilityId, selectedPlayerState]);
 
     const handleAdjustCash = async (direction: 1 | -1) => {
         if (!selectedPlayerUid) return;
@@ -633,11 +646,111 @@ export const CoachGameView: React.FC = () => {
         }
     };
 
+    const handleAdjustLiability = async () => {
+        if (!selectedPlayerUid || !selectedPlayerState) return;
+        const liabilityId = selectedLiabilityId || selectedPlayerState.liabilities?.[0]?.id;
+        if (!liabilityId) {
+            window.alert('此玩家目前沒有可調整的負債');
+            return;
+        }
+        const totalOwedDelta = Math.trunc(Number(liabilityOwedAdjustment));
+        const monthlyPaymentDelta = Math.trunc(Number(liabilityPaymentAdjustment));
+        if (!Number.isFinite(totalOwedDelta) || !Number.isFinite(monthlyPaymentDelta) || (totalOwedDelta === 0 && monthlyPaymentDelta === 0)) {
+            window.alert('請至少輸入一項負債調整金額');
+            return;
+        }
+        if (!adjustmentReason.trim()) {
+            window.alert('請填寫調整原因');
+            return;
+        }
+
+        setIsAdjustingCorrection(true);
+        try {
+            await adjustPlayerLiability(selectedPlayerUid, liabilityId, {
+                totalOwedDelta,
+                monthlyPaymentDelta,
+                reason: adjustmentReason
+            });
+            setLiabilityOwedAdjustment('0');
+            setLiabilityPaymentAdjustment('0');
+            window.alert('負債調整完成');
+        } catch (error: any) {
+            window.alert(error?.message || '負債調整失敗');
+        } finally {
+            setIsAdjustingCorrection(false);
+        }
+    };
+
+    const handleAdjustExpense = async (direction: 1 | -1) => {
+        if (!selectedPlayerUid) return;
+        const amount = Math.trunc(Number(expenseAdjustment));
+        if (!Number.isFinite(amount) || amount <= 0) {
+            window.alert('請輸入大於 0 的支出調整金額');
+            return;
+        }
+        if (!adjustmentReason.trim()) {
+            window.alert('請填寫調整原因');
+            return;
+        }
+
+        setIsAdjustingCorrection(true);
+        try {
+            await adjustPlayerExpense(selectedPlayerUid, expenseCategory, direction * amount, adjustmentReason);
+            window.alert('每月支出調整完成');
+        } catch (error: any) {
+            window.alert(error?.message || '每月支出調整失敗');
+        } finally {
+            setIsAdjustingCorrection(false);
+        }
+    };
+
+    const handleFinancialAccelerationChange = (multiplier: 1 | 1.5 | 2 | 3) => {
+        if (room?.status === 'finished' || room?.financialAcceleration?.multiplier === multiplier) return;
+        setGenericConfirm({
+            title: `切換全局收益倍率 ×${multiplier}`,
+            description: `確認後只影響下一筆及之後的收益，不回溯重算既有交易。全體玩家都會收到通知。`,
+            type: 'warning',
+            onConfirm: () => {
+                setGenericConfirm(null);
+                void updateFinancialAcceleration(multiplier).catch(error => window.alert(error?.message || '收益倍率更新失敗'));
+            }
+        });
+    };
+
+    const handleGrantFinancialSubsidy = () => {
+        if (room?.status === 'finished') return;
+        const amount = Math.trunc(Number(subsidyAmount));
+        if (!Number.isFinite(amount) || amount <= 0) {
+            window.alert('請輸入大於 0 的補助金額');
+            return;
+        }
+        setGenericConfirm({
+            title: '發放全體補助',
+            description: `將向所有尚未離場玩家各發放 ${amount.toLocaleString()}，這是第 ${(room?.financialSubsidy?.sequence || 0) + 1} 次補助，且不套用收益倍率。`,
+            type: 'info',
+            onConfirm: () => {
+                setGenericConfirm(null);
+                setIsGrantingSubsidy(true);
+                void grantFinancialSubsidyToAllPlayers(amount)
+                    .catch(error => window.alert(error?.message || '全體補助發放失敗'))
+                    .finally(() => setIsGrantingSubsidy(false));
+            }
+        });
+    };
+
     const handleSkipDisconnectedTurn = async (playerUid: string) => {
         try {
             await skipDisconnectedTurn(playerUid);
         } catch (error: any) {
             window.alert(error?.message || '目前不能跳過這位玩家的回合');
+        }
+    };
+
+    const handleSkipDisconnectedSharedPromptTarget = async (playerUid: string) => {
+        try {
+            await skipDisconnectedSharedPromptTarget(playerUid);
+        } catch (error: any) {
+            window.alert(error?.message || '目前不能排除這位失聯玩家');
         }
     };
 
@@ -710,8 +823,8 @@ export const CoachGameView: React.FC = () => {
     }, [players, playerStates]);
 
     const selectedPlayerSummary = useMemo(() => {
-        return selectedPlayerState ? calculateFinancialSummary(selectedPlayerState) : null;
-    }, [selectedPlayerState]);
+        return selectedPlayerState ? calculateFinancialSummary(selectedPlayerState, room?.financialAcceleration) : null;
+    }, [selectedPlayerState, room?.financialAcceleration]);
 
     const slideVariants = {
         enter: (direction: number) => ({
@@ -748,7 +861,7 @@ export const CoachGameView: React.FC = () => {
 
     const alerts = useMemo(() => {
         return Object.entries(playerStates).map(([uid, state]) => {
-            const summary = calculateFinancialSummary(state);
+            const summary = calculateFinancialSummary(state, room?.financialAcceleration);
             const player = players.find(p => p.uid === uid);
             if (summary.monthlyCashflow < 5000) {
                 return {
@@ -1038,7 +1151,7 @@ export const CoachGameView: React.FC = () => {
                                 {pendingRequests.slice(0, 3).map(request => (
                                     <div key={request.id} className="flex items-center justify-between gap-3 text-[10px]">
                                         <span className="truncate text-slate-300">{request.playerName}</span>
-                                        <span className="shrink-0 text-amber-300">{request.type === 'board_share' ? '卡片分享' : request.type === 'happiness' ? '幸福卡' : request.type}</span>
+                                        <span className="shrink-0 text-amber-300">{request.type === 'board_share' ? '卡片分享' : request.type === 'family_milestone' ? '家庭歷程' : request.type === 'happiness' ? '幸福卡' : request.type}</span>
                                     </div>
                                 ))}
                                 {pendingRequests.length > 3 && <div className="text-right text-[10px] text-slate-500">還有 {pendingRequests.length - 3} 筆</div>}
@@ -1422,6 +1535,17 @@ export const CoachGameView: React.FC = () => {
                                                                             跳過回合
                                                                         </button>
                                                                     )}
+                                                                    {room?.boardState?.sharedCardPrompt?.targetPlayerUids.includes(player.uid) &&
+                                                                        !room.boardState.sharedCardPrompt.responses?.[player.uid] &&
+                                                                        canSkipDisconnectedPlayer(presenceStates[player.uid]) && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => void handleSkipDisconnectedSharedPromptTarget(player.uid)}
+                                                                            className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-amber-300 hover:bg-amber-500/25"
+                                                                        >
+                                                                            排除共享等待
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1732,7 +1856,7 @@ export const CoachGameView: React.FC = () => {
                                             e.stopPropagation();
                                         }}
                                         onDragEnd={handlePlayerSwipe}
-                                        className="flex-1 flex flex-col overflow-hidden touch-pan-y"
+                                        className="flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-contain touch-pan-y"
                                     >
                                         <ScoreView
                                             playerName={selectedPlayer?.name || '執行師'}
@@ -1762,7 +1886,7 @@ export const CoachGameView: React.FC = () => {
                                             e.stopPropagation();
                                         }}
                                         onDragEnd={handlePlayerSwipe}
-                                        className="flex-1 flex flex-col overflow-hidden touch-pan-y"
+                                        className="flex-1 min-h-0 flex flex-col overflow-y-auto overscroll-contain touch-pan-y"
                                     >
                                         {/* Player Summary Banner */}
                                         <div className="p-6 bg-gradient-to-r from-slate-900 to-slate-950 border-b border-slate-800 flex items-center justify-between gap-6">
@@ -1879,8 +2003,220 @@ export const CoachGameView: React.FC = () => {
                                             </div>
                                         </div>
 
+                                        <section className="border-b border-slate-800 bg-slate-950/70 px-6 py-4">
+                                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                                <div>
+                                                    <div className="text-xs font-black text-amber-300">執行師財務修正</div>
+                                                    <div className="mt-1 text-[10px] font-bold text-slate-500">所有調整都會寫入玩家交易歷史，請填寫原因。</div>
+                                                </div>
+                                                <input
+                                                    value={adjustmentReason}
+                                                    onChange={event => setAdjustmentReason(event.target.value)}
+                                                    placeholder="調整原因（必填）"
+                                                    className="min-w-[220px] flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-bold text-white outline-none focus:border-amber-500"
+                                                    aria-label="執行師財務調整原因"
+                                                />
+                                            </div>
+                                            <div className="grid gap-4 lg:grid-cols-2">
+                                                <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3">
+                                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                                        <span className="text-xs font-black text-rose-200">調整既有負債</span>
+                                                        <select
+                                                            value={selectedLiabilityId}
+                                                            onChange={event => setSelectedLiabilityId(event.target.value)}
+                                                            disabled={!selectedPlayerState.liabilities?.length || isAdjustingCorrection}
+                                                            className="max-w-[190px] rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-bold text-white outline-none"
+                                                            aria-label="選擇要調整的負債"
+                                                        >
+                                                            {selectedPlayerState.liabilities?.length ? selectedPlayerState.liabilities.map(liability => (
+                                                                <option key={liability.id} value={liability.id}>{liability.name}</option>
+                                                            )) : <option value="">沒有負債</option>}
+                                                        </select>
+                                                    </div>
+                                                    <div className="mb-2 grid grid-cols-2 gap-2 text-[11px] font-bold text-slate-400">
+                                                        <span>本金：<b className="text-white">${Number(selectedLiability?.totalOwed || 0).toLocaleString()}</b></span>
+                                                        <span>每月還款：<b className="text-white">${Number(selectedLiability?.monthlyPayment || 0).toLocaleString()}</b></span>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <input
+                                                            type="number"
+                                                            step="1000"
+                                                            value={liabilityOwedAdjustment}
+                                                            onChange={event => setLiabilityOwedAdjustment(event.target.value)}
+                                                            disabled={!selectedLiability || isAdjustingCorrection}
+                                                            className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-right text-xs font-bold text-white outline-none focus:border-rose-400 disabled:opacity-50"
+                                                            aria-label="負債本金調整金額"
+                                                            placeholder="本金差額"
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            step="1000"
+                                                            value={liabilityPaymentAdjustment}
+                                                            onChange={event => setLiabilityPaymentAdjustment(event.target.value)}
+                                                            disabled={!selectedLiability || isAdjustingCorrection}
+                                                            className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-right text-xs font-bold text-white outline-none focus:border-rose-400 disabled:opacity-50"
+                                                            aria-label="每月還款調整金額"
+                                                            placeholder="還款差額"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => void handleAdjustLiability()}
+                                                        disabled={!selectedLiability || isAdjustingCorrection}
+                                                        className="mt-2 w-full rounded-lg border border-rose-500/30 px-3 py-1.5 text-xs font-black text-rose-200 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {isAdjustingCorrection ? '調整中…' : '套用負債調整'}
+                                                    </button>
+                                                </div>
+
+                                                <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
+                                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                                        <span className="text-xs font-black text-orange-200">調整每月支出</span>
+                                                        <select
+                                                            value={expenseCategory}
+                                                            onChange={event => setExpenseCategory(event.target.value as CoachExpenseCategory)}
+                                                            disabled={isAdjustingCorrection}
+                                                            className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-bold text-white outline-none"
+                                                            aria-label="選擇每月支出類別"
+                                                        >
+                                                            <option value="basicLiving">基本生活</option>
+                                                            <option value="transportEdu">交通教育</option>
+                                                            <option value="otherMedicalChild">其他醫療育兒</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="mb-2 text-[11px] font-bold text-slate-400">
+                                                        目前：<b className="text-white">${Number(selectedPlayerState.expenses?.[expenseCategory] || 0).toLocaleString()} / 月</b>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            step="1000"
+                                                            value={expenseAdjustment}
+                                                            onChange={event => setExpenseAdjustment(event.target.value)}
+                                                            disabled={isAdjustingCorrection}
+                                                            className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-right text-xs font-bold text-white outline-none focus:border-orange-400 disabled:opacity-50"
+                                                            aria-label="每月支出調整金額"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => void handleAdjustExpense(-1)}
+                                                            disabled={isAdjustingCorrection}
+                                                            className="rounded-lg border border-slate-600 px-2 py-1.5 text-xs font-black text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                                                        >
+                                                            - 減少
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => void handleAdjustExpense(1)}
+                                                            disabled={isAdjustingCorrection}
+                                                            className="rounded-lg border border-orange-500/30 px-2 py-1.5 text-xs font-black text-orange-200 hover:bg-orange-500/10 disabled:opacity-50"
+                                                        >
+                                                            + 增加
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        <section className="border-b border-slate-800 bg-slate-950/50 px-6 py-4">
+                                            <div className="mb-3 flex items-center justify-between">
+                                                <div>
+                                                    <div className="flex items-center gap-2 text-xs font-black text-cyan-300"><Activity size={14} /> 玩家診斷狀態</div>
+                                                    <div className="mt-1 text-[10px] font-bold text-slate-500">唯讀資訊，不會代替玩家操作。</div>
+                                                </div>
+                                                <span className={cn(
+                                                    'rounded-full px-2 py-1 text-[10px] font-black',
+                                                    selectedPlayerDiagnostic ? 'bg-emerald-500/10 text-emerald-300' : 'bg-slate-800 text-slate-500'
+                                                )}>
+                                                    {selectedPlayerDiagnostic ? `更新 ${formatDiagnosticTime(selectedPlayerDiagnostic.updatedAt)}` : '尚未同步'}
+                                                </span>
+                                            </div>
+                                            {selectedPlayerDiagnostic ? (
+                                                <div className="grid grid-cols-2 gap-2 text-[11px] font-bold text-slate-300 lg:grid-cols-4">
+                                                    <div className="rounded-lg bg-slate-900/80 p-2"><span className="text-slate-500">流程</span><div className="mt-1 text-cyan-200">{selectedPlayerDiagnostic.flow}</div></div>
+                                                    <div className="rounded-lg bg-slate-900/80 p-2"><span className="text-slate-500">畫面</span><div className="mt-1 text-cyan-200">{selectedPlayerDiagnostic.screen}</div></div>
+                                                    <div className="rounded-lg bg-slate-900/80 p-2"><span className="text-slate-500">等待動作</span><div className="mt-1 text-cyan-200">{selectedPlayerDiagnostic.pendingAction || '無'}</div></div>
+                                                    <div className="rounded-lg bg-slate-900/80 p-2"><span className="text-slate-500">事件</span><div className="mt-1 truncate text-cyan-200">{selectedPlayerDiagnostic.boardEventId || '無'}</div></div>
+                                                    {selectedPlayerDiagnostic.errorMessage && (
+                                                        <div className="col-span-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-2 text-rose-200 lg:col-span-4">
+                                                            最近錯誤：{selectedPlayerDiagnostic.errorMessage}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="rounded-lg bg-slate-900/60 p-3 text-xs font-bold text-slate-500">玩家進入遊戲後，流程切換或錯誤發生時會同步狀態。</div>
+                                            )}
+                                        </section>
+
+                                        <section className="border-b border-slate-800 bg-slate-950/80 px-6 py-4">
+                                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                                <div>
+                                                    <div className="text-xs font-black text-amber-300">全局財務加速器</div>
+                                                    <div className="mt-1 text-[10px] font-bold text-slate-500">
+                                                        目前收益 ×{room?.financialAcceleration?.multiplier || 1}
+                                                        {room?.financialAcceleration?.updatedByName && ` · ${room.financialAcceleration.updatedByName} 修改`}
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {([
+                                                        [1, '標準 ×1'],
+                                                        [1.5, '加速 ×1.5'],
+                                                        [2, '高速 ×2'],
+                                                        [3, '極速 ×3']
+                                                    ] as const).map(([multiplier, label]) => (
+                                                        <button
+                                                            key={multiplier}
+                                                            type="button"
+                                                            disabled={room?.status === 'finished' || room?.financialAcceleration?.multiplier === multiplier}
+                                                            onClick={() => handleFinancialAccelerationChange(multiplier)}
+                                                            className={cn(
+                                                                'rounded-lg border px-3 py-1.5 text-xs font-black transition-all disabled:cursor-not-allowed disabled:opacity-50',
+                                                                room?.financialAcceleration?.multiplier === multiplier
+                                                                    ? 'border-amber-400 bg-amber-400/20 text-amber-200'
+                                                                    : 'border-slate-700 text-slate-300 hover:border-amber-400 hover:text-amber-200'
+                                                            )}
+                                                        >
+                                                            {label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                                                <span className="text-xs font-black text-slate-400">全體補助</span>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    step="1000"
+                                                    value={subsidyAmount}
+                                                    onChange={event => setSubsidyAmount(event.target.value)}
+                                                    disabled={room?.status !== 'playing' || isGrantingSubsidy}
+                                                    className="w-28 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-right text-sm font-bold text-white outline-none focus:border-amber-500 disabled:opacity-50"
+                                                    aria-label="全體補助金額"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={handleGrantFinancialSubsidy}
+                                                    disabled={room?.status !== 'playing' || isGrantingSubsidy}
+                                                    className="rounded-lg border border-amber-500/40 px-3 py-1.5 text-xs font-black text-amber-200 hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    {isGrantingSubsidy ? '發放中…' : '發放給有效玩家'}
+                                                </button>
+                                                {room?.financialSubsidy?.sequence && (
+                                                    <span className="text-[10px] font-bold text-slate-500">
+                                                        最近第 {room.financialSubsidy.sequence} 次
+                                                    </span>
+                                                )}
+                                                {room?.financialAcceleration?.updatedAt && (
+                                                    <span className="text-[10px] font-bold text-slate-500">
+                                                        {new Date(room.financialAcceleration.updatedAt).toLocaleString('zh-TW')}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </section>
+
                                         <div
-                                            className="flex-1 overflow-y-auto p-6 custom-scrollbar touch-pan-y"
+                                            className="p-6 touch-pan-y"
                                             onPointerDown={(e) => {
                                                 // 確保在捲動內容時，如果偵測到橫向移動，不觸發拖拽
                                             }}
@@ -1913,6 +2249,7 @@ export const CoachGameView: React.FC = () => {
                                                     hideSummary={true}
                                                     showDashboard={true}
                                                     defaultShowDetails={true}
+                                                    financialAccelerationMultiplier={room?.financialAcceleration?.multiplier || 1}
                                                 />
                                             )}
                                         </div>
@@ -1933,7 +2270,7 @@ export const CoachGameView: React.FC = () => {
                                         className="flex-1 flex flex-col items-center justify-center gap-4 text-slate-500"
                                     >
                                         <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin" />
-                                        <p className="font-bold animate-pulse">等待玩家進入遊戲...</p>
+                                        <p className="font-bold animate-pulse">玩家資料同步中，請稍候...</p>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
@@ -2324,10 +2661,11 @@ export const CoachGameView: React.FC = () => {
                                                  pendingRequest.type === 'insurance' ? '保險理賠' :
                                                  pendingRequest.type === 'promotion' ? '升等考試' :
                                                  pendingRequest.type === 'lifelong' ? '終身學習' :
+                                                 pendingRequest.type === 'family_milestone' ? '家庭歷程核准' :
                                                  '新增幸福項目'}
                                                 {pendingRequest.insuranceType === 'medical' && ' (醫療)'}
                                                 {pendingRequest.insuranceType === 'aircraft' && ' (汽車)'}
-                                                {pendingRequest.type === 'happiness' && ` (${pendingRequest.happinessLabel})`}
+                                                {(pendingRequest.type === 'happiness' || pendingRequest.type === 'family_milestone') && ` (${pendingRequest.happinessLabel || '家庭重要歷程'})`}
                                                 {pendingRequest.type === 'board_share' && ` (${pendingRequest.shareLabel || pendingRequest.boardCardId || '卡片分享'})`}
                                                 {pendingRequest.type === 'lifelong' && pendingRequest.promotionType && ` (${
                                                     { 'enhance_profession': '職業能力', 'stock_ability': '股票投資', 'real_estate_ability': '不動產投資' }[pendingRequest.promotionType] || pendingRequest.promotionType
@@ -2336,15 +2674,15 @@ export const CoachGameView: React.FC = () => {
                                         </div>
                                         <div className="flex justify-between items-center pt-2">
                                             <span className="text-slate-400 font-medium text-lg">
-                                                {pendingRequest.type === 'happiness' ? '幸福點數' :
+                                                {pendingRequest.type === 'happiness' || pendingRequest.type === 'family_milestone' ? '幸福點數' :
                                                  pendingRequest.type === 'promotion' || pendingRequest.type === 'lifelong' ? '報名費用' :
                                                  '申請金額'}
                                             </span>
                                             <span className={cn(
                                                 "text-3xl font-black",
-                                                pendingRequest.type === 'happiness' ? "text-pink-400" : "text-emerald-400"
+                                                pendingRequest.type === 'happiness' || pendingRequest.type === 'family_milestone' ? "text-pink-400" : "text-emerald-400"
                                             )}>
-                                                {pendingRequest.type === 'happiness' ? `+${pendingRequest.amount}` : formatMoney(pendingRequest.amount)}
+                                                {pendingRequest.type === 'happiness' || pendingRequest.type === 'family_milestone' ? `+${pendingRequest.amount}` : formatMoney(pendingRequest.amount)}
                                             </span>
                                         </div>
                                     </div>

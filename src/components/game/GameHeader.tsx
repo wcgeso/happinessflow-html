@@ -39,7 +39,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
     isDevMode = false
 }) => {
     const { user } = useAuth();
-    const { room, playerStates, presenceStates } = useRoom();
+    const { room, playerStates, presenceStates, connectionState, isController } = useRoom();
     const [showSettings, setShowSettings] = useState(false);
     const [showRoomInfo, setShowRoomInfo] = useState(false);
     const [showDevSettings, setShowDevSettings] = useState(false);
@@ -246,7 +246,14 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                             {/* 下軌：財務自由 */}
                             <div className="flex flex-col gap-1">
                                 <div className="flex justify-between items-end">
-                                    <span className="text-[10px] sm:text-xs font-black text-[#2e806d] tracking-wider whitespace-nowrap">財務自由</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] sm:text-xs font-black text-[#2e806d] tracking-wider whitespace-nowrap">財務自由</span>
+                                        {(room?.financialAcceleration?.multiplier || 1) > 1 && (
+                                            <span className="rounded-full bg-[#e0f0e5] px-1.5 py-0.5 text-[9px] font-black text-[#168269]">
+                                                本局收益 ×{room?.financialAcceleration?.multiplier}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="flex items-baseline gap-1.5">
                                         <span className="text-[8.5px] xs:text-[10px] sm:text-[11px] text-[#8b7b68] font-mono whitespace-nowrap">
                                             {formatMoney(passiveIncome)} / {formatMoney(totalExpenses)}
@@ -357,6 +364,21 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                             </div>
                         </div>
                     </div>
+
+                    {room?.status === 'playing' && (connectionState !== 'online' || !isController) && (
+                        <div
+                            aria-live="polite"
+                            className="mt-2 rounded-2xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-center text-xs font-bold text-amber-800"
+                        >
+                            {!isController
+                                ? '此分頁為唯讀，請回到最新操作分頁'
+                                : connectionState === 'reconnecting'
+                                    ? '網路重新連線中，遊戲資料會自動恢復'
+                                    : connectionState === 'connecting'
+                                        ? '正在連線遊戲資料庫…'
+                                        : '目前離線，請確認網路連線'}
+                        </div>
+                    )}
 
                     {boardTurnInfo && (
                         <div

@@ -2,9 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import {
     doc,
     updateDoc,
-    onSnapshot,
+    getDocs,
     collection,
-    getDoc,
     query,
     where,
     orderBy,
@@ -12,10 +11,11 @@ import {
     serverTimestamp,
     writeBatch,
 } from 'firebase/firestore';
-import { db } from '../../services/firebase';
+import { auth, db } from '../../services/firebase';
 import { useAuth } from './AuthContext';
 import { useRoom } from './RoomContext';
-import { GameState, GameRecord, FinancialSummary, SharedExpenseEffect } from '../types';
+import { NEWS_CARD_MAP } from '../constants/cards';
+import { FinancialAccelerationState, GameState, GameRecord, FinancialSummary, SharedExpenseEffect } from '../types';
 import { calculateFinancialSummary, calculateScoreResult } from '../utils/gameUtils';
 import { cleanObject, safeAsync } from '../utils/utils';
 import { hasPublicPlayerStateChanged, toPublicPlayerState } from '../utils/playerState';
@@ -27,6 +27,7 @@ interface GameContextValue {
     gameHistory: GameRecord[];
     setGameHistory: React.Dispatch<React.SetStateAction<GameRecord[]>>;
     summary: FinancialSummary;
+    financialAcceleration: FinancialAccelerationState;
     scoreResult: { totalScore: number; details: any[] };
     alertInfo: { message: string; type: 'info' | 'error' | 'success'; persist?: boolean } | null;
     showAlert: (message: string, type?: 'info' | 'error' | 'success', persist?: boolean) => void;
@@ -39,9 +40,98 @@ interface GameContextValue {
 
 const GameContext = createContext<GameContextValue | undefined>(undefined);
 
+const createDefaultGameState = (): GameState => ({
+    profession: null,
+    selectedEnterprise: null,
+    selectedDream: null,
+    currentRankTitle: '',
+    currentRankLevel: 1,
+    cash: 0,
+    children: 0,
+    medicalInsuranceCount: 0,
+    assets: [],
+    liabilities: [],
+    loans: 0,
+    isSetup: false,
+    selectionStep: null,
+    history: [],
+    happiness: [],
+    happinessTotal: 0,
+    marketPrices: {},
+    previousMarketPrices: {},
+    lastPublishedCode: '',
+    abilities: {
+        stockAbilityCount: 0,
+        realEstateAbilityCount: 0,
+        professionAbilityCount: 0,
+    },
+    completedHappinessEvents: [],
+    pendingMedicalClaims: [],
+    playerName: '',
+    reportName: ''
+} as GameState);
+
+// 玩家端只同步自己擁有的設定與財務資料；棋盤位置、目前事件及待處理
+// prompt 由 RoomContext/交易 transaction 維護，避免舊畫面快照反寫回房間。
+const PLAYER_STATE_SYNC_FIELDS: Array<keyof GameState> = [
+    'profession', 'selectedEnterprise', 'selectedDream', 'expenses', 'income',
+    'currentRankTitle', 'currentRankLevel', 'cash', 'children', 'medicalInsuranceCount',
+    'assets', 'liabilities', 'loans', 'isSetup', 'selectionStep', 'selectionDraft',
+    'history', 'happiness', 'happinessTotal', 'marketPrices', 'previousMarketPrices',
+    'marketPriceHistory', 'lastPublishedCode', 'lastMarketUpdateTimestamp',
+    'lastSharedExpenseSyncedAt', 'lastSharedExpenseEventId', 'boardGameStartedAt',
+    'abilities', 'completedHappinessEvents', 'appliedBoardFinancialEventIds', 'pendingMedicalClaims',
+    'hasShownWinAnimation', 'playerName', 'reportName', 'sessionId'
+];
+
+const pickPlayerStateForSync = (state: GameState): Partial<GameState> => cleanObject(
+    Object.fromEntries(PLAYER_STATE_SYNC_FIELDS.map(field => [field, state[field]]))
+) as Partial<GameState>;
+
+export const mergeAuthoritativePlayerState = (previous: GameState, remote: GameState): GameState => ({
+    ...previous,
+    ...remote,
+    lastMarketUpdateTimestamp: Math.max(
+        previous.lastMarketUpdateTimestamp || 0,
+        remote.lastMarketUpdateTimestamp || 0
+    ),
+    pendingFamilyMilestoneJoinAction: remote.pendingFamilyMilestoneJoinAction,
+    pendingMedicalClaims: Array.isArray(remote.pendingMedicalClaims) ? remote.pendingMedicalClaims : (previous.pendingMedicalClaims || []),
+    assets: Array.isArray(remote.assets) ? remote.assets : (previous.assets || []),
+    liabilities: Array.isArray(remote.liabilities) ? remote.liabilities : (previous.liabilities || []),
+    history: Array.isArray(remote.history) ? remote.history : (previous.history || []),
+    happiness: Array.isArray(remote.happiness) ? remote.happiness : (previous.happiness || [])
+});
+
+export const isPlayerStateForBoardGame = (
+    state: GameState | null | undefined,
+    startedAt: number | null | undefined
+) => !!state && (!startedAt || state.boardGameStartedAt === startedAt);
+
+export const isHiddenStockNewsCard = (room: {
+    isBoardGame?: boolean;
+    boardState?: {
+        currentEvent?: { id?: string } | null;
+        currentCard?: { deck?: string; cardId?: string } | null;
+        currentCardReveal?: { eventId?: string; cardId?: string; isRevealed?: boolean } | null;
+    } | null;
+} | null | undefined) => {
+    const boardState = room?.boardState;
+    const card = boardState?.currentCard;
+    const reveal = boardState?.currentCardReveal;
+    return room?.isBoardGame === true &&
+        card?.deck === 'news' &&
+        !!card.cardId &&
+        NEWS_CARD_MAP[card.cardId]?.type === 'stock_price' &&
+        (!reveal ||
+            reveal.eventId !== boardState?.currentEvent?.id ||
+            reveal.cardId !== card.cardId ||
+            reveal.isRevealed !== true);
+};
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user } = useAuth();
-    const { room } = useRoom();
+    const { room, playerStatesHydrated, roomSyncState } = useRoom();
 
     // ─── Milestone 0.5: Adapter Wiring ───────────────────────────────────────
     // LegacyGameAdapter 就位，但所有 Feature Flags 為 false，
@@ -65,37 +155,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 依 user?.uid 觸發的 effect 處理。
     const getGameStateStorageKey = (uid: string) => `happiness_game_state_${uid}`;
 
-    const [gameState, setGameState] = useState<GameState>(() => {
-        return {
-            profession: null,
-            selectedEnterprise: null,
-            selectedDream: null,
-            currentRankTitle: '',
-            currentRankLevel: 1,
-            cash: 0,
-            children: 0,
-            medicalInsuranceCount: 0,
-            assets: [],
-            liabilities: [],
-            loans: 0,
-            isSetup: false,
-            selectionStep: null,
-            history: [],
-            happiness: [],
-            happinessTotal: 0,
-            marketPrices: {},
-            previousMarketPrices: {},
-            lastPublishedCode: '',
-            abilities: {
-                stockAbilityCount: 0,
-                realEstateAbilityCount: 0,
-                professionAbilityCount: 0,
-            },
-            completedHappinessEvents: [],
-            playerName: '',
-            reportName: ''
-        } as GameState;
-    });
+    const [gameState, setGameState] = useState<GameState>(createDefaultGameState);
 
     const [scoreRecords, setScoreRecords] = useState<GameRecord[]>([]);
     const [playerSessionRecords, setPlayerSessionRecords] = useState<GameRecord[]>([]);
@@ -103,6 +163,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const alertTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const sessionIdRef = useRef<string | null>(null);
     const saveToPlayerSessionsRef = useRef<((status: 'draft' | 'completed') => Promise<void>) | null>(null);
+    const lastSyncedPlayerStateHashRef = useRef<string | null>(null);
 
     // 清除 Alert Timeout
     useEffect(() => {
@@ -113,28 +174,43 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 帳號可用後，還原這個帳號自己專屬的本機存檔（只在還沒開始任何設定流程
     // 時還原一次，避免蓋掉使用者這個工作階段內已經產生的新狀態）。
-    const hasHydratedLocalStateRef = useRef(false);
+    const hydratedLocalStateUidRef = useRef<string | null>(null);
+    const [hydratedLocalStateUid, setHydratedLocalStateUid] = useState<string | null>(null);
     useEffect(() => {
-        if (!user?.uid || hasHydratedLocalStateRef.current) return;
-        hasHydratedLocalStateRef.current = true;
+        if (!user?.uid) {
+            hydratedLocalStateUidRef.current = null;
+            setHydratedLocalStateUid(null);
+            sessionIdRef.current = null;
+            lastSyncedPlayerStateHashRef.current = null;
+            setScoreRecords([]);
+            setPlayerSessionRecords([]);
+            setAlertInfo(null);
+            setGameState(createDefaultGameState());
+            return;
+        }
+        if (hydratedLocalStateUidRef.current === user.uid) return;
+        hydratedLocalStateUidRef.current = user.uid;
 
         const saved = localStorage.getItem(getGameStateStorageKey(user.uid));
-        if (!saved) return;
+        let nextState = createDefaultGameState();
         try {
-            const parsed = JSON.parse(saved) as GameState;
-            setGameState(prev => (prev.isSetup || prev.selectionStep ? prev : parsed));
+            if (saved) nextState = JSON.parse(saved) as GameState;
         } catch (e) {
             console.error('Failed to parse saved game state', e);
         }
+        sessionIdRef.current = null;
+        setAlertInfo(null);
+        setGameState(nextState);
+        setHydratedLocalStateUid(user.uid);
     }, [user?.uid]);
 
     // 自動保存到 localStorage（依帳號 uid 分開存放，避免同裝置換帳號互相汙染）
     useEffect(() => {
-        if (!user?.uid) return;
+        if (!user?.uid || hydratedLocalStateUid !== user.uid) return;
         if (gameState.isSetup || gameState.selectionStep) {
             localStorage.setItem(getGameStateStorageKey(user.uid), JSON.stringify(gameState));
         }
-    }, [gameState, user?.uid]);
+    }, [gameState, hydratedLocalStateUid, user?.uid]);
 
     // 生成 sessionId（遊戲開始時）
     useEffect(() => {
@@ -156,11 +232,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ? !!room?.playerStates?.[user.uid]
         : false;
     const roomPlayerState = user?.uid ? room?.playerStates?.[user.uid] : undefined;
+    const isRoomMember = !!(room?.members || []).some(member => member.uid === user?.uid);
 
     // 自動同步到房間文件 (供執行師監控)
     useEffect(() => {
         // 只要不是房主，且 (已完成初始設定 或 正在進行選擇步驟)，就同步狀態
-        if (!room?.id || !user || user.uid === room.hostId) return;
+        if (!room?.id || !user || user.uid === room.hostId || !isRoomMember || !playerStatesHydrated || roomSyncState !== 'synced') return;
         if (!gameState.isSetup && !gameState.selectionStep) return;
         // 防止跨場遊戲殘留狀態外洩（C2）：本地 gameState 必須是「為了目前這場
         // 房間遊戲（room.startedAt）而重設/建立的」才允許同步進 Firestore。
@@ -173,41 +250,45 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 初始財報與醫院事件會直接讀取房間玩家狀態，不能等待一般防抖同步。
         const insuranceChanged = roomMedicalInsuranceCount !== (gameState.medicalInsuranceCount || 0);
         const setupSyncPending = gameState.isSetup && (!roomPlayerIsSetup || !roomHasPlayerState);
+        const syncUid = user.uid;
+        const syncRoomId = room.id;
+        const persistedState = pickPlayerStateForSync(gameState);
+        const stateHash = JSON.stringify(persistedState);
+        const nextPublicState = toPublicPlayerState(syncUid, gameState);
+        const publicStateChanged = hasPublicPlayerStateChanged(room?.publicPlayerStates?.[syncUid], nextPublicState);
+        if (!insuranceChanged && !setupSyncPending && stateHash === lastSyncedPlayerStateHashRef.current && !publicStateChanged) {
+            return;
+        }
         const timeoutId = setTimeout(async () => {
-            const playerRef = doc(db, 'rooms', room.id, 'players', user.uid);
-            const roomRef = doc(db, 'rooms', room.id);
+            if (auth.currentUser?.uid !== syncUid) return;
+            const playerRef = doc(db, 'rooms', syncRoomId, 'players', syncUid);
+            const roomRef = doc(db, 'rooms', syncRoomId);
             try {
-                const playerSnap = await getDoc(playerRef);
-                const existingRoomState = playerSnap.exists() ? playerSnap.data() : undefined;
-                const roomHasNewerSharedExpense =
-                    (existingRoomState?.lastSharedExpenseSyncedAt || 0) > (gameState.lastSharedExpenseSyncedAt || 0);
-                const cleanedState = cleanObject({
-                    ...gameState,
-                    boardPosition: existingRoomState?.boardPosition ?? gameState.boardPosition,
-                    skipTurns: existingRoomState?.skipTurns ?? gameState.skipTurns,
-                    lastBoardEvent: existingRoomState?.lastBoardEvent ?? gameState.lastBoardEvent,
-                    pendingCardAction: existingRoomState?.pendingCardAction ?? gameState.pendingCardAction,
-                    bankServiceWindowActive: existingRoomState?.bankServiceWindowActive ?? gameState.bankServiceWindowActive,
-                    bankServiceGrantedAtEventId: existingRoomState?.bankServiceGrantedAtEventId ?? gameState.bankServiceGrantedAtEventId,
-                    pendingFamilyMilestoneJoinAction: existingRoomState?.pendingFamilyMilestoneJoinAction ?? gameState.pendingFamilyMilestoneJoinAction,
-                    ...(roomHasNewerSharedExpense ? {
-                        expenses: existingRoomState?.expenses ?? gameState.expenses,
-                        lastSharedExpenseSyncedAt: existingRoomState?.lastSharedExpenseSyncedAt
-                    } : {})
-                });
                 const batch = writeBatch(db);
-                batch.set(playerRef, cleanedState, { merge: true });
-                const nextPublicState = toPublicPlayerState(user.uid, cleanedState as GameState);
-                if (hasPublicPlayerStateChanged(room?.publicPlayerStates?.[user.uid], nextPublicState)) {
+                batch.set(playerRef, persistedState, { merge: true });
+                if (auth.currentUser?.uid !== syncUid) return;
+                const nextPublicState = toPublicPlayerState(syncUid, { ...gameState, ...persistedState } as GameState);
+                if (hasPublicPlayerStateChanged(room?.publicPlayerStates?.[syncUid], nextPublicState)) {
                     batch.update(roomRef, {
-                        [`publicPlayerStates.${user.uid}`]: nextPublicState
+                        [`publicPlayerStates.${syncUid}`]: nextPublicState
                     });
                 }
                 await batch.commit();
+                lastSyncedPlayerStateHashRef.current = stateHash;
+                setAlertInfo(current => current?.message.startsWith('玩家資料同步失敗') ? null : current);
             } catch (err: any) {
+                if (auth.currentUser?.uid !== syncUid || room?.id !== syncRoomId) return;
                 console.error('[GameContext] 同步玩家狀態失敗:', err);
+                const code = err?.code || 'unknown';
+                const reason = code === 'permission-denied'
+                    ? '房間權限或玩家資格已變更'
+                    : code === 'resource-exhausted'
+                        ? 'Firebase 額度不足'
+                        : code === 'unavailable' || code === 'deadline-exceeded'
+                            ? '網路或資料庫暫時無法連線'
+                            : err?.message || '資料格式或同步操作失敗';
                 setAlertInfo({
-                    message: `玩家資料同步失敗：${err?.message || '請重新整理後再試一次'}`,
+                    message: `玩家資料同步失敗（${code}）：${reason}。請確認連線後再試一次。`,
                     type: 'error',
                     persist: true
                 });
@@ -215,29 +296,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }, insuranceChanged || setupSyncPending ? 0 : 800);
 
         return () => clearTimeout(timeoutId);
-    }, [gameState, room?.id, room?.hostId, room?.startedAt, roomMedicalInsuranceCount, roomPlayerIsSetup, roomHasPlayerState, user?.uid, user?.role]);
+    }, [gameState, isRoomMember, playerStatesHydrated, roomSyncState, room?.id, room?.hostId, room?.members, room?.startedAt, roomMedicalInsuranceCount, roomPlayerIsSetup, roomHasPlayerState, user?.uid, user?.role]);
 
     // 房間私有狀態是多人遊戲中的權威來源。執行師調整玩家現金等操作會先
     // 寫入 rooms/{roomId}/players/{uid}，玩家端收到 RoomContext 快照後必須
     // 更新本地 gameState，否則下一次自動同步會把舊資料寫回去。
     useEffect(() => {
-        if (!room?.id || !user?.uid || user.uid === room.hostId || !roomPlayerState) return;
+        if (!room?.id || !user?.uid || user.uid === room.hostId || !roomPlayerState || roomSyncState !== 'synced') return;
+        if (!isPlayerStateForBoardGame(roomPlayerState, room.startedAt)) return;
+
+        lastSyncedPlayerStateHashRef.current = JSON.stringify(pickPlayerStateForSync(roomPlayerState));
 
         setGameState(prev => {
-            const synchronizedState = {
-                ...prev,
-                ...roomPlayerState,
-                assets: Array.isArray(roomPlayerState.assets) ? roomPlayerState.assets : (prev.assets || []),
-                liabilities: Array.isArray(roomPlayerState.liabilities) ? roomPlayerState.liabilities : (prev.liabilities || []),
-                history: Array.isArray(roomPlayerState.history) ? roomPlayerState.history : (prev.history || []),
-                happiness: Array.isArray(roomPlayerState.happiness) ? roomPlayerState.happiness : (prev.happiness || [])
-            };
+            const synchronizedState = mergeAuthoritativePlayerState(prev, roomPlayerState);
 
             return JSON.stringify(prev) === JSON.stringify(synchronizedState)
                 ? prev
                 : synchronizedState;
         });
-    }, [room?.id, room?.hostId, roomPlayerState, user?.uid]);
+    }, [room?.id, room?.hostId, room?.startedAt, roomPlayerState, roomSyncState, user?.uid]);
 
     const hideAlert = useCallback(() => {
         if (alertTimeoutRef.current) {
@@ -262,7 +339,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, []);
 
-    const summary = useMemo(() => calculateFinancialSummary(gameState), [gameState]);
+    const financialAcceleration: FinancialAccelerationState = room?.financialAcceleration || { multiplier: 1 };
+    const summary = useMemo(() => calculateFinancialSummary(gameState, financialAcceleration), [gameState, financialAcceleration]);
+
+    const seenAccelerationRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (!room?.id) {
+            seenAccelerationRef.current = null;
+            return;
+        }
+        const accelerationKey = `${room.id}:${financialAcceleration.updatedAt || 0}:${financialAcceleration.multiplier}`;
+        if (seenAccelerationRef.current === null) {
+            seenAccelerationRef.current = accelerationKey;
+            return;
+        }
+        if (seenAccelerationRef.current !== accelerationKey && user?.uid !== room.hostId) {
+            showAlert(`⚡ 本局收益倍率已調整為 ×${financialAcceleration.multiplier}，只影響後續收益`, 'info', true);
+        }
+        seenAccelerationRef.current = accelerationKey;
+    }, [room?.id, room?.hostId, financialAcceleration, user?.uid, showAlert]);
 
     const scoreResult = useMemo(() => {
         return calculateScoreResult(gameState, summary);
@@ -309,7 +404,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         saveToPlayerSessionsRef.current = saveToPlayerSessions;
     }, [saveToPlayerSessions]);
 
-    // 遊戲開始後立刻存一次，之後每 60 秒自動存檔草稿到 player_sessions
+    // 房間玩家文件是斷線恢復的權威來源；歷史草稿只做低頻備份。
     useEffect(() => {
         if (!gameState.isSetup || !user) return;
 
@@ -317,7 +412,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const interval = setInterval(() => {
             saveToPlayerSessionsRef.current?.('draft');
-        }, 60 * 1000);
+        }, 10 * 60 * 1000);
 
         return () => clearInterval(interval);
     }, [gameState.isSetup, user]);
@@ -394,19 +489,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [summary.passiveIncome, summary.totalExpenses, gameState.assets, gameState.isSetup, gameState.happiness]);
 
-    // 監聽執行師存入的官方紀錄 (score_records)
+    // 歷史資料不是遊戲中的即時狀態；遊戲進行中不查詢，回到大廳／結算
+    // 時只讀一次，避免歷史草稿更新觸發持續監聽。
     useEffect(() => {
         if (!user) {
             setScoreRecords([]);
             return;
         }
+        if (room?.status === 'playing') return;
 
         const q = query(
             collection(db, 'score_records', 'S1', 'records'),
             where('playerUids', 'array-contains', user.uid)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        void getDocs(q).then((snapshot) => {
             const records: GameRecord[] = [];
             snapshot.forEach((docSnap) => {
                 const data = docSnap.data();
@@ -451,34 +548,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             setScoreRecords(records);
-        }, (error) => {
+        }).catch((error) => {
             console.error("[GameContext] 獲取官方歷史紀錄失敗:", error);
         });
+    }, [room?.status, user]);
 
-        return () => unsubscribe();
-    }, [user]);
-
-    // 監聽玩家自存紀錄 (player_sessions)，排除已有官方紀錄的場次
+    // 玩家自存紀錄只在非遊戲狀態讀取一次；官方紀錄在 gameHistory 合併時優先。
     useEffect(() => {
         if (!user) {
             setPlayerSessionRecords([]);
             return;
         }
+        if (room?.status === 'playing') return;
 
         const q = query(
             collection(db, 'player_sessions', user.uid, 'records'),
             orderBy('updatedAt', 'desc')
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const coachRoomIds = new Set(scoreRecords.filter(r => r.roomId).map(r => r.roomId));
-
+        void getDocs(q).then((snapshot) => {
             const records: GameRecord[] = [];
             snapshot.forEach((docSnap) => {
                 const data = docSnap.data();
-                // 如果這場遊戲已有執行師的官方紀錄，跳過（避免重複）
-                if (data.roomId && coachRoomIds.has(data.roomId)) return;
-
                 records.push({
                     id: docSnap.id,
                     roomId: data.roomId,
@@ -502,12 +593,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             });
 
             setPlayerSessionRecords(records);
-        }, (error) => {
+        }).catch((error) => {
             console.error("[GameContext] 獲取玩家自存紀錄失敗:", error);
         });
-
-        return () => unsubscribe();
-    }, [user, scoreRecords]);
+    }, [room?.status, user]);
 
     const saveGameRecord = async (record: GameRecord) => {
         await saveToPlayerSessions('completed');
@@ -549,6 +638,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         const marketUpdate = room?.marketUpdates;
         if (!room?.id || user?.uid === room.hostId || !gameState.isSetup || !marketUpdate) return;
+        if (isHiddenStockNewsCard(room)) return;
         if (marketUpdate.timestamp <= (gameState.lastMarketUpdateTimestamp || 0)) return;
 
         const { updates, code, isBubble } = marketUpdate;
@@ -565,7 +655,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...prev,
             lastMarketUpdateTimestamp: marketUpdate.timestamp
         }));
-    }, [room?.id, room?.hostId, room?.marketUpdates, user?.uid, gameState.isSetup, gameState.lastMarketUpdateTimestamp, bubbleBurst, updateMarketPrices, showAlert]);
+    }, [room, user?.uid, gameState.isSetup, gameState.lastMarketUpdateTimestamp, bubbleBurst, updateMarketPrices, showAlert]);
 
     // 監聽共享棋盤支出效果（例如新聞卡「全體支出調整」）回灌到本地 gameState。
     // 事件本身只放在公開棋盤狀態，財務數字仍由每位玩家自己的私有文件保存。
@@ -594,7 +684,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 合併官方紀錄 + 玩家自存紀錄（官方優先，自存紀錄補充沒有官方紀錄的場次）
     const gameHistory = useMemo(() => {
-        return [...scoreRecords, ...playerSessionRecords]
+        const officialRoomIds = new Set(scoreRecords.map(record => record.roomId).filter(Boolean));
+        return [...scoreRecords, ...playerSessionRecords.filter(record => !record.roomId || !officialRoomIds.has(record.roomId))]
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [scoreRecords, playerSessionRecords]);
 
@@ -607,6 +698,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             gameHistory,
             setGameHistory,
             summary,
+            financialAcceleration,
             scoreResult,
             alertInfo,
             showAlert,

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { GameRecord, Transaction, Asset, TransactionData, HappinessItem, GameState } from '../types';
-import { formatMoney } from '../utils/gameUtils';
+import { formatMoney, getFinancialAccelerationMultiplier } from '../utils/gameUtils';
 import { extractAssetSymbol, getAssetDisplayLabel, getStockAssetLabel } from '../utils/assetLabels';
 import { getRemainingCreditCapacity } from '../utils/financialRules';
+import { OPPORTUNITY_CARD_MAP } from '../constants/cards';
 
 // Simple ID generator
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -17,11 +18,14 @@ const getLiabilityMonthlyPayment = (type: GameState['liabilities'][number]['type
 };
 
 export const useGameLogic = () => {
-    const { gameState, setGameState, gameHistory, setGameHistory, summary, scoreResult, alertInfo, showAlert, hideAlert, saveGameRecord } = useGame();
+    const { gameState, setGameState, gameHistory, setGameHistory, summary, financialAcceleration, scoreResult, alertInfo, showAlert, hideAlert, saveGameRecord } = useGame();
 
     const [happinessSubMode, setHappinessSubMode] = useState<'history' | 'pay' | 'inc_exp'>('history');
 
     const deriveTransactionLabels = (data: TransactionData) => {
+        if (data.medicalClaimId) {
+            return { sourceLabel: '保險理賠', usageLabel: '醫療理賠' };
+        }
         if (data.insuranceType) {
             return { sourceLabel: '生活支出', usageLabel: '保險投保' };
         }
@@ -612,11 +616,58 @@ export const useGameLogic = () => {
 
     const handleTransactionSubmit = (data: TransactionData) => {
         data = normalizeTransactionData(data);
+        if (data.stockList?.some(item => !Number.isFinite(item.price) || item.price <= 0 || !Number.isInteger(item.qty) || item.qty < 1)) {
+            showAlert('股票價格必須大於 0，張數必須為正整數', 'error');
+            return false;
+        }
+        if (data.stockList?.length) {
+            const stockTotal = data.stockList.reduce((sum, item) => sum + item.price * item.qty, 0);
+            const expectedCashChange = data.usage === 'asset' ? -stockTotal : stockTotal;
+            if (data.amount !== stockTotal || data.cashChange !== expectedCashChange) {
+                showAlert('股票交易金額不一致，請重新送出', 'error');
+                return false;
+            }
+        }
         // 事件級防重複套用（P1-05）：棋盤財務檢核流程若因 modal 重開、effect 重跑或
         // snapshot 延遲而重複呼叫，同一個 boardEventId 只會套用一次。
         if (data.boardEventId && gameState.appliedBoardFinancialEventIds?.includes(data.boardEventId)) {
             return true;
         }
+        if (data.pendingMedicalClaim) {
+            const claimCard = OPPORTUNITY_CARD_MAP[data.pendingMedicalClaim.sourceCardId];
+            if (
+                claimCard?.type !== 'medical' ||
+                !data.pendingMedicalClaim.sourceEventId ||
+                (claimCard.insurancePays || 0) <= 0
+            ) {
+                showAlert('待理賠事件資料無效', 'error');
+                return false;
+            }
+        }
+        if (data.medicalClaimId) {
+            const claim = gameState.pendingMedicalClaims?.find(item => item.id === data.medicalClaimId);
+            const claimCard = claim ? OPPORTUNITY_CARD_MAP[claim.sourceCardId] : null;
+            if (
+                !claim ||
+                claimCard?.type !== 'medical' ||
+                data.boardFlow !== 'insurance-claim' ||
+                data.boardEventId !== claim.id ||
+                data.source !== 'income' ||
+                data.usage !== 'cash' ||
+                data.amount !== claimCard.insurancePays ||
+                data.cashChange !== claimCard.insurancePays
+            ) {
+                showAlert('目前沒有可申請的醫療理賠事件', 'error');
+                return false;
+            }
+        }
+        const accelerationMultiplier = getFinancialAccelerationMultiplier(financialAcceleration);
+        const incomeMultiplierEligible = data.incomeMultiplierEligible === true && data.cashChange > 0;
+        const originalCashChange = data.cashChange;
+        const appliedMultiplier = incomeMultiplierEligible ? accelerationMultiplier : 1;
+        const effectiveCashChange = incomeMultiplierEligible
+            ? Math.round(data.cashChange * accelerationMultiplier)
+            : data.cashChange;
         const amount = Number(data.amount);
         if (isNaN(amount) || amount < 0) {
             showAlert('請輸入有效金額', 'error');
@@ -633,8 +684,8 @@ export const useGameLogic = () => {
                 return false;
             }
         }
-        if (data.cashChange < 0 && gameState.cash + data.cashChange < 0) {
-            showAlert(`現金不足，還差 ${formatMoney(Math.abs(gameState.cash + data.cashChange))}，請先周轉資金`, 'error');
+        if (effectiveCashChange < 0 && gameState.cash + effectiveCashChange < 0) {
+            showAlert(`現金不足，還差 ${formatMoney(Math.abs(gameState.cash + effectiveCashChange))}，請先周轉資金`, 'error');
             return false;
         }
         if (data.usage === 'liability' && data.liabilityId) {
@@ -676,7 +727,10 @@ export const useGameLogic = () => {
             }
         }
 
-        const storageData: any = { ...data };
+        const storageData: any = {
+            ...data,
+            ...(incomeMultiplierEligible ? { originalCashChange, appliedMultiplier, effectiveCashChange } : {})
+        };
 
         // Determine flowType if not provided
         let flowType: '生活' | '投資' | '融資' | '其它' = (data.flowType as any) || '其它';
@@ -701,6 +755,8 @@ export const useGameLogic = () => {
             finalSuccessMessage = `成功借貸 ${formatMoney(amount)}`;
         } else if (data.usage === 'expense_update' && data.expensePayload) {
             finalSuccessMessage = `成功${data.expensePayload.isIncrease ? '增加' : '減少'}月支出`;
+        } else if (data.medicalClaimId) {
+            finalSuccessMessage = `醫療理賠已入帳 ${formatMoney(amount)}`;
         } else if (data.usage === 'cash' && data.source === 'income') {
             finalSuccessMessage = data.stockList ? '成功賣出股票' : '成功賣出資產';
         } else if (data.usage === 'stock_update') {
@@ -713,7 +769,7 @@ export const useGameLogic = () => {
 
         setGameState(prev => {
             let newState = { ...prev };
-            newState.cash += data.cashChange;
+            newState.cash += effectiveCashChange;
 
             if (data.usage === 'asset') {
                 if (data.stockList && data.stockList.length > 0) {
@@ -1005,6 +1061,17 @@ export const useGameLogic = () => {
                 }
             }
 
+            if (data.pendingMedicalClaim) {
+                const existingClaims = newState.pendingMedicalClaims || [];
+                if (!existingClaims.some(claim => claim.id === data.pendingMedicalClaim?.id)) {
+                    newState.pendingMedicalClaims = [...existingClaims, data.pendingMedicalClaim];
+                }
+            }
+            if (data.medicalClaimId) {
+                newState.pendingMedicalClaims = (newState.pendingMedicalClaims || [])
+                    .filter(claim => claim.id !== data.medicalClaimId);
+            }
+
             const { sourceLabel, usageLabel } = deriveTransactionLabels(data);
             const newTx: Transaction = {
                 id: generateId(),
@@ -1013,10 +1080,15 @@ export const useGameLogic = () => {
                 amount: amount,
                 sourceLabel,
                 usageLabel,
-                cashChange: data.cashChange,
+                cashChange: effectiveCashChange,
                 balance: newState.cash,
                 details: JSON.stringify(storageData),
-                flowType: flowType
+                flowType: flowType,
+                ...(incomeMultiplierEligible ? {
+                    incomeMultiplierEligible: true,
+                    originalAmount: originalCashChange,
+                    appliedMultiplier
+                } : {})
             };
             newState.history = [...newState.history, newTx];
 
@@ -1073,68 +1145,6 @@ export const useGameLogic = () => {
                 : '已支付月結餘',
             'success'
         );
-    };
-
-    const confirmMedicalClaim = () => {
-        const claimAmount = (gameState.medicalInsuranceCount || 0) * 50000;
-        if (claimAmount <= 0) {
-            showAlert('沒有可用的醫療保險', 'error');
-            return;
-        }
-
-        executeMedicalClaim(claimAmount);
-    };
-
-    const executeMedicalClaim = (claimAmount: number) => {
-        setGameState(prev => {
-            const newState = { ...prev, cash: prev.cash + claimAmount };
-            const newTx: Transaction = {
-                id: generateId(),
-                timestamp: Date.now(),
-                name: '醫療保險理賠',
-                amount: claimAmount,
-                sourceLabel: '收入',
-                usageLabel: '保險理賠',
-                cashChange: claimAmount,
-                balance: newState.cash,
-                flowType: '生活'
-            };
-            newState.history = [...newState.history, newTx];
-            return newState;
-        });
-        showAlert(`申請成功！獲得理賠 ${formatMoney(claimAmount)}`, 'success');
-    };
-
-    const confirmAircraftClaim = () => {
-        const hasInsuredAircraft = gameState.assets.some(a => (a.type === '汽車' || a.type === '飛行器') && a.isInsured);
-        if (!hasInsuredAircraft) {
-            showAlert('沒有已投保的汽車', 'error');
-            return;
-        }
-
-        const claimAmount = 400000; // 汽車理賠為 500,000 的 80%
-
-        executeAircraftClaim(claimAmount);
-    };
-
-    const executeAircraftClaim = (claimAmount: number) => {
-        setGameState(prev => {
-            const newState = { ...prev, cash: prev.cash + claimAmount };
-            const newTx: Transaction = {
-                id: generateId(),
-                timestamp: Date.now(),
-                name: '汽車保險理賠',
-                amount: claimAmount,
-                sourceLabel: '收入',
-                usageLabel: '保險理賠',
-                cashChange: claimAmount,
-                balance: newState.cash,
-                flowType: '生活'
-            };
-            newState.history = [...newState.history, newTx];
-            return newState;
-        });
-        showAlert(`申請成功！獲得理賠 ${formatMoney(claimAmount)}`, 'success');
     };
 
     const handleToggleHappiness = (id: string, checked?: boolean) => {
@@ -1442,10 +1452,6 @@ export const useGameLogic = () => {
         handleTransactionSubmit,
         handlePaydayConfirm,
         executePayday,
-        confirmMedicalClaim,
-        executeMedicalClaim,
-        confirmAircraftClaim,
-        executeAircraftClaim,
         handleToggleHappiness,
         handleAddHappinessItem,
         executeAddHappinessItem,

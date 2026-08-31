@@ -1,10 +1,126 @@
 # 第二人生 P0 Integration Handoff
 
+## 2026-08-30 v2.8 系統更新日誌與版本號
+
+- 對外版本號更新為 `v2.8`；執行師端系統更新日誌置頂醫療理賠按鈕與 C035–C043 保險行為修正。
+- `package.json` 維持既有 `0.0.0`，版本顯示仍由 `src/constants/version.ts` 的 `BASE_VERSION` 管理。
+- 驗證：`npm run typecheck`、`npx vitest run src`（31 files、199 passed、23 skipped）、Firestore Rules `23/23`、`npm run build`、`git diff --check` 通過。
+- 已部署至 `2ife` production：`dpl_AvLn7EDxj7tGs44NNa9dfwVQMjdf`，狀態 `READY`；正式網址 `https://2ife.vercel.app`，HTTP 200。
+- 依使用者確認，已永久刪除舊 Vercel 專案 `happinessflow-online` 及其 deployments；舊網址回應 HTTP 404，`2ife.vercel.app` 回應 HTTP 200。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`
+- 測試結果：typecheck、Vitest 31 files／199 passed／23 skipped、production build、git diff check 通過；既有 Rules 專測 23/23
+- 目前風險：尚未以真實帳號確認正式站 v2.8 日誌內容與完整多人理賠流程。
+- 下一個最安全任務：在 `https://2ife.vercel.app` 以測試帳號確認登入、執行師日誌與 C036 理賠流程。
+
+## 2026-08-29 房市規則修訂版與 11 項異常修正
+
+- 目前分支：`dev`（`15caa41`）；保留工作樹原有未提交修改，未執行 reset、clean 或覆寫其他既有變更。
+- 房市交易改為所有仍在進行中的有效成員可購買；交易以 Firestore transaction 先成功者得標，Rules 僅允許移除一個既有物件、更新自己的公開摘要、revision 與 command ledger，禁止新增物件、多重移除、改回合或改他人資料。
+- 房市 transaction 會重新驗證物件、房屋條件、最新現金與貸款資料；售出或條件過期不提交 revision／command／空白事件，UI 只停用被點擊物件並刷新房市。財務流程改用明確 `boardFlow`，不再從殘留狀態猜測來源。
+- 工作室升級改為佇列，逐筆經銀行處理；升級收益為骰點 × 10,000，保留職業薪資，結果確認後才完成流程。汽車自備款可清空／輸入，確認時才驗證上下限。
+- C038 改為同一筆原子處理：移除汽車、幸福值、投保理賠；原車貸保持不變，並以 command ID 防止重送。醫療保險維持抵免醫藥費、略過第二次骰子與付款檢核、仍暫停一回合；維修廠維持持車者經過或停留均收費。
+- 玩家卡片抽屜補上完整敘述與效果，修正手機遮罩與捲動；共享卡片被暫時阻擋後沿用重新顯示流程。
+- 驗證：`npm run typecheck` 通過；source Vitest `30 passed / 1 skipped`、`184 passed / 23 skipped`；Firestore Rules 直接連線測試 `23/23`；`npm run build` 與 `git diff --check` 通過。建置仍有既有 Tailwind ambiguous class、dynamic import 與 chunk size 警告。
+- `npm run test:rules` 未能重啟本地 Emulator，因既有 Java 程序已佔用 `8080/9150`；未終止該程序，改用現有 Emulator 的 Rules 專測完成驗證。
+- 尚未完成 3／6 位玩家的真實多人瀏覽器競買、同物件競爭、不同物件並購與重整／網路重送驗收；下一個最安全任務是啟動隔離的多人 E2E 環境逐項執行上述驗收。
+
+## 2026-08-28 v2.7 系統更新日誌
+
+- 對外版本號更新為 `v2.7`。
+- 連線 presence 改由 Realtime Database 管理，每個分頁使用獨立連線節點與斷線自動清理，降低 Firestore 心跳寫入量。
+- 關閉分頁、重新開啟或重新登入可依未完成房間恢復；同帳號多分頁由最新分頁取得操作權，舊分頁改為唯讀。
+- 房間與玩家同步改以伺服器確認快照為準，避免舊快照覆蓋目前回合、事件與玩家資料；歷史與執行師診斷改為低頻或需要時讀取。
+- 驗證：`npm run typecheck`、source Vitest `180 passed / 22 skipped`、Firestore Rules `22/22`、`npm run build` 與 `git diff --check` 通過；建置僅有既有 Tailwind／chunk size 警告。
+- 已部署至 `happinessflow-online` production：`dpl_9hUhRaTZnzsYd4yoGTYfKZUXvt8c`，狀態 `READY`；正式網址 HTTP 200，production bundle 已確認包含 `v2.7`。
+- 6 位玩家＋1 位執行師的長時間實機用量驗收仍未宣稱完成。
+
+## 2026-08-28 Firebase 連線與用量優化執行結果
+
+- 目前分支：`dev`；保留工作樹所有既有未提交修改。
+- Auth 改為 `browserLocalPersistence`，並以使用者文件 `activeGame.roomId` 支援關閉重開／重新登入恢復未完成房間；遊戲中暫時離開只離開畫面、不移除座位。
+- Presence 改為既有 RTDB：每個分頁建立 `roomConnections/{roomId}/{uid}/{clientId}`，斷線自動移除，`roomLastOnline` 保存最後離線時間；移除 Firestore heartbeat fallback。
+- 玩家診斷改為 RTDB 暫時節點；Firestore room snapshot 使用 metadata，只有 server snapshot 才執行路由、成員清理與過期移動修復。
+- 玩家同步移除同步前預讀，改為欄位白名單 merge；避免用舊 UI 快照回寫棋盤事件、位置與 prompt。
+- 新增同帳號分頁控制權：最新分頁 claim，舊分頁的 board mutation 與主要直接寫入會被唯讀 guard 擋下。
+- 大廳／結算歷史改一次性 `getDocs`，遊戲進行中不持續監聽；本地 Firebase Emulator 新增 RTDB `9000`。
+- 驗證：`npm run typecheck` 通過；source Vitest `179 passed / 22 skipped`；Firestore Rules 既有 Emulator `22/22`；`npm run build`、`git diff --check` 通過。
+- `npm run test:rules` 因既有 Firestore Emulator 佔用 8080 無法重啟；改以 `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npx vitest run src/test/roomPermissions.test.ts` 完成，未終止既有程序。
+- 尚未完成真實瀏覽器多人重連與 6+1、120 分鐘用量驗收；不能以本地 Emulator 數據直接代表 Firebase 雲端帳單。
+
+## 2026-08-27 Firestore 用量優化第一階段
+
+- 在 `dev` 工作樹保留既有未提交修改，完成 presence、同步、存檔、歷史讀取與診斷寫入的低成本優化。
+- 正式環境 presence 改用既有 Realtime Database `roomConnections/{roomId}/{uid}/{clientId}` 連線節點與 `onDisconnect()`；Firestore Emulator 未配置 RTDB 時保留 Firestore fallback。
+- 玩家狀態同步加入成功版本指紋，內容未變更時跳過讀取與回寫；玩家歷史草稿改為每 10 分鐘備份，執行師紀錄移除每分鐘全員重存。
+- 歷史紀錄在遊戲進行中停止監聽，回到大廳／結算後恢復；診斷狀態改為 2 秒合併且相同內容不重送。交易、revision、command ID 與房間玩家文件權威來源不變。
+- 新增與現有雲端格式一致的 `database.rules.json` 與 Firebase RTDB 設定；規則尚未直接發布，需由後續部署流程確認後發布。
+- 驗證：`npm run typecheck`、`npx vitest run src`（30 files、179 passed、22 skipped）、既有 Firestore Rules 直接連線測試（22/22）、RTDB Emulator 規則啟動驗證、`npm run build`、`git diff --check` 通過。
+- E2E 開房測試未執行：既有 `localhost:5183` 伺服器佔用 Playwright 需要的 port；未終止該程序。
+
+## 2026-08-27 N058 創業貸款文案
+
+- N058 說明改為先開設兼職工作室，再以該工作室申請創業貸款。
+- 補充 5,000H 投入、600,000H 貸款、每月 3,000H 本利支出、經過銀行擲骰升級及升級後效果。
+- 大地圖與共享卡片皆沿用 N058 `description` 欄位，因此會同步使用新文案。
+- N057 文案保持原樣，避免相同格式卡片被誤改。
+- 驗證：N058 文案回歸測試 5/5、`npm run typecheck`、`git diff --check` 通過；本次未部署。
+
+## 2026-08-27 家庭歷程共用流程修正執行結果
+
+- 目前分支：`dev`；保留工作樹內其他既有未提交修改。
+- 已確認 14 張家庭歷程觸發卡共用同一套流程，五個家庭階段依各玩家自己的進度獨立推進。
+- 已補上「3 位玩家、兩位擲骰失敗、抽卡玩家完成階段二後首次按下即結案」回歸測試與五階段效果測試。
+- 驗證：source Vitest `176 passed / 22 skipped`、Firestore Rules `22 passed`、`npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- `.firebaserc` 預設 Firebase 專案已改為 `happinessflow-online`；新的 `firestore.rules` 已發布至正式專案。
+- Vercel production 已部署並 Ready：`dpl_FU3NULLdjc5NQcKphKivJb4Mce4u`，網址 `https://happinessflow-online.vercel.app`，HTTP 200。
+- 尚未完成三個真實帳號的瀏覽器回歸；部署後需用新房間驗證 H014／階段二第一次按下財務檢核即可完成，不需第二次點擊。
+
+## 2026-08-27 家庭歷程階段二權限拒絕修正
+
+- 修正抽卡玩家作為最後完成者時，財務檢核 transaction 同時更新玩家財務、來源完成狀態與清除家庭 prompt，卻不符合既有 Firestore 規則的問題。
+- 改為先以原子 board transaction 提交自己的財務與 `sourceActionCompleted`，再以 `family-complete:{promptId}:{uid}` 冪等 command 清除 prompt 並推進事件；重試不會重複扣款。
+- 新增 Firestore 規則回歸測試，涵蓋來源玩家先完成自身動作、再結束家庭事件。
+- 驗證：source Vitest 171 passed／21 skipped；Firestore rules 21 passed；`npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- `npm run test:rules` 因既存 Firestore Emulator 已占用 8080 無法重新啟動；已使用現有 8080 執行同一規則測試。
+- 尚未進行真實多帳號瀏覽器回歸；本次未 commit、push 或部署。
+
 ## Current branch
 
-- Branch: `本地開發環境260714`
-- Worktree: `.claude/worktrees/260712`
-- Original worktrees were left untouched.
+- Branch: `dev`
+- Worktree: `.worktrees/dev`
+- Existing uncommitted changes were preserved.
+
+## 2026-08-22 system changelog
+
+- Updated the coach-facing v2.3 system update log with the new liability adjustment, monthly expense adjustment, and read-only player diagnostics features.
+- Kept the public app version at `v2.3`; no deployment or version bump was requested.
+
+## 2026-08-21 coach correction and player diagnostics
+
+- Added coach-only transactional adjustment for an existing liability's principal and monthly payment, plus persistent monthly expense adjustments for the three existing expense categories.
+- Every correction requires a reason and appends before/after values to the player's existing transaction history; negative values and zero-principal/nonzero-payment states are blocked.
+- Added read-only `rooms/{roomId}/diagnostics/{playerUid}` status for player flow, screen, event, pending action, and recent error. Players publish only on flow/error changes; coaches can read, but cannot control the player.
+- Added Firestore rules and regression coverage for diagnostic ownership, financial adjustment pure helpers, invalid negative values, liability removal, and expense category updates.
+- Validation: `npx vitest run src` passed 155 tests (29 files, 1 skipped); Firestore Emulator rules suite passed 19 tests; `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Deliberately deferred: real-time screen sharing, remote control, arbitrary loan creation, and one-time expense deduction.
+
+## 2026-08-19 changelog
+
+- Updated the displayed app version and coach changelog to `v2.2`.
+- Added the new 2ife transparent login logo and removed the duplicate login title text.
+- Documented the family-milestone flow repair: stage persistence after reload, first-roll gating, coach approval, and duplicate-operation protection.
+- Deployed the current `dev` worktree to `https://happinessflow-online.vercel.app/` as production deployment `dpl_3FspX42pyrDYHXizcy1h3BzHyPWi`.
+
+## 2026-08-20 family milestone auto-completion
+
+- Fixed the missing transition after the drawing player and all family-milestone participants finish: the source client now automatically retries the existing `dismissBoardCard()` flow when the active Firestore prompt is complete.
+- The completion predicate requires the matching current event/card, the source player, completed source action, and every target response/action; incomplete prompts still block the turn.
+- Kept the `完成卡片` button as a manual retry for write failures and added an event-level in-flight guard against duplicate dismissal.
+- Validation: family/board focused tests 56/56, Firestore rules 15/15, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Known risk: real three-account browser replay for both last-source and last-target completion remains pending.
 
 ## Completed P0 work
 
@@ -541,3 +657,244 @@
 - Added `重複目前事件` to re-trigger the current board event for the player, with a confirmation warning and guards for active movement/shared prompts.
 - Added `選擇下一回合` to let the coach choose an active player after the current flow is clear.
 - Validation: `npm run typecheck`, `npx vitest run src/context/RoomContext.test.ts src/test/roomPermissions.test.ts src/views/board/boardProjectionStatus.test.ts` (6 passed; rules suite skipped), and `git diff --check` passed.
+
+## H016 family milestone recovery and approval
+
+- Persisted the source stage and source-action completion inside `familyMilestoneJoinPrompt`, so a pending H016 event no longer recalculates to the next stage after reload.
+- Family join dice now chooses one authoritative result before animation, blocks rapid duplicate submissions, and excludes members marked as left from the waiting list.
+- Added the existing `pendingRequests` approval path for source-player family milestone acceptance; coach approval is required before financial checking.
+- Validation: `npm run typecheck`, `npm test -- --run src` (26 files, 131 passed; 15 rules tests skipped in the default run), `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npx vitest run src/test/roomPermissions.test.ts` (15 passed), `npm run build`, browser smoke load, and `git diff --check` passed.
+- Known risk: existing rooms created before this change have no persisted source-stage snapshot; validate new H016 rooms first, then add a recovery command if legacy-room migration is required.
+
+## 2026-08-19 13-item封測流程修正
+
+- Request processing now uses an event-scoped execution key instead of treating the player UID as the processed key. Story and board-share requests carry `boardEventId`.
+- Family milestone prompts remain authoritative until source completion and every eligible participant response is complete. Stale family snapshots are discarded when the remote prompt disappears or changes.
+- Shared target UIDs are calculated inside board transactions from the latest active room members; left players are excluded.
+- Dice entitlement and startup-upgrade state read the latest private player document in the transaction. Store acquisition cards use `100 + purchasePercent` pricing.
+- Market listings use latest-snapshot transactions and return an explicit conflict result. House insurance is now purchased one property per policy at 2,000 monthly.
+- Validation: source unit tests 137 passed, Firestore rules emulator 15 passed, `npm run typecheck`, `npm run build`, and `git diff --check` passed. Plain full Vitest still collects Playwright files under `e2e/` and reports two pre-existing harness failures.
+
+## 2026-08-20 7-item登入與幸福歷程同步修正
+
+- Auth now uses `browserSessionPersistence`, so separate browser tabs can keep separate test accounts. Login, registration, and redirect initialization wait for the persistence promise.
+- GameContext resets local game/session state on UID changes and blocks automatic player sync until the private state is hydrated, the user is still a room member, and the auth UID is unchanged.
+- GameView rejects family/shared prompts whose event or card does not match the current board event. Coach room recovery transactionally removes stale prompts, matching pending actions, and same-event pending requests.
+- Family source actions remain authoritative until the source player and every eligible participant complete; stale local snapshots cannot close or replace a newer remote event.
+- Validation: same browser context with three player tabs passed; existing 3-player room join/setup/start/projection regression passed; source Vitest 138 passed with 15 rules tests skipped in the default run; Firestore emulator rules 15/15 passed; `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Remaining risk: all seven reported scenarios were not replayed end-to-end with real user actions in this pass; next safest task is browser regression for H016 approval, shared responses, refresh, and concurrent dice.
+
+## 2026-08-20 雙骰拋擲動畫優化
+
+- `GameActions` now keeps the roll button fixed and gives each die its own Framer Motion controller, lateral trajectory, rotation direction, height, and bounce.
+- Double rolls land side by side without changing dice rules, authoritative totals, movement distance, `translateZ` geometry, or the 3500ms board synchronization delay.
+- Result faces stay on the placeholder while the dice are airborne and are fixed only at the first landing; the landing controller stops before the idle rotation is applied, preventing a second rotation jump.
+- Added `GameActions` regression coverage for two dice, one die, 3500ms single completion, and recovery after a failed roll.
+- Validation: focused tests 5/5, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Browser login was available at localhost, but an authenticated game room was not available for a final desktop/mobile visual replay; use a fresh room for the final visual check.
+
+## 2026-08-20 family milestone per-player stage progression
+
+- Fixed the family milestone rule so every player independently advances through the five ordered stages; the drawing player can choose directly, while other players must roll at least 4 before choosing to participate.
+- Persisted the qualifying participant's own `stageProgressId` in the transaction response and pending action, so a later reload or source-player update cannot switch that participant to another player's stage.
+- Passed rolls now close the dice result immediately and expose the participant choice. Failed rolls retain the existing result feedback delay.
+- Remote private state is authoritative: a missing pending action is cleared locally instead of being resurrected from stale state. No pending action is created after all five stages are complete.
+- Validation: focused tests 55/55 passed, Firestore rules emulator 15/15 passed, `npm run typecheck`, `npm run build`, and `git diff --check` passed.
+- Known risk: no real three-account browser replay was performed for concurrent rolls plus refresh; use a fresh room for the final H016 regression.
+
+## 2026-08-20 財務加速器第一版
+
+- `rooms/{roomId}.financialAcceleration` 成為房間唯一倍率來源，支援 `×1／×1.5／×2／×3`；舊房間與未設定房間自動使用 `×1`。
+- 月結、理財收入、薪資、定存、企業／兼職收入、租金與財務自由摘要套用倍率，支出與資產價值不放大。
+- 一次性現金收益改用 `incomeMultiplierEligible` 明確標記；借款、出售、理賠、退款與全體補助不套用。交易紀錄保存原始金額、倍率與實際入帳金額。
+- 執行師端新增倍率確認、最後修改者／時間、一次性全體補助；補助使用房間交易鎖定，每位有效玩家只入帳一次，遊戲結束後拒絕修改。
+- 玩家端只顯示目前倍率與通知，沒有修改入口；財務報表明細與歷史／現金流紀錄同步顯示加速後數值。
+- Firestore 規則新增倍率與補助的執行師限定欄位驗證。
+- 驗證：`npx vitest run src`（28 files、150 passed、17 skipped）、`FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npx vitest run src/test/roomPermissions.test.ts`（17/17 passed）、`npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- 注意：`npm test -- --run` 仍會誤收集 `e2e/` 的 Playwright 檔案；`npm run test:rules` 因 8080 已有既存 emulator 而無法接管，改連線該 emulator 完成規則驗證。
+- 下一步：建立新測試房，用執行師與至少兩個玩家實際驗收切換倍率、月結、股利／卡片獎勵與全體補助後重整／重連。
+
+## 2026-08-21 切回雲端 Firebase 與 production 部署
+
+- `dev/.env.local` 已改為 `VITE_USE_EMULATOR=false`；本地 Vite 重啟後會使用 `happinessflow-online` 的雲端 Firebase，不再連接本地 Firestore/Auth Emulator。
+- Production deployment `dpl_9vfnEyho56HgDt2356C1zTpgaTJT` 已部署至 `happinessflow-online.vercel.app`，狀態 Ready。
+- 驗證：正式網址 HTTP 200、頁面標題為「第二人生」、首頁無 Vite error overlay 且沒有瀏覽器 console error。
+- 本機 Firestore emulator 仍可能由既有測試程序監聽 8080，但目前應用程式設定不會使用它；Auth emulator 已停止。
+
+## 2026-08-21 v2.3 更新與 production 部署
+
+- 對外版本號更新為 `v2.3`，執行師端系統更新日誌新增本次多人同步、交易一致性、幸福歷程恢復、計時器與房間生命週期修正內容。
+- 驗證：`npm run typecheck`、`npm run build`、`git diff --check` 通過；正式站登入頁顯示 `V2.3`，HTTP 200，無 Vite error overlay 或瀏覽器 console error。
+- Production deployment `dpl_BhShNqZhH6ZLNpzYFSJ1WUiXwZ5h` 已部署至 `happinessflow-online.vercel.app`，狀態 Ready。
+
+## 2026-08-21 線上測試 10 項異常修正
+
+- `runRoomBoardMutation` 不再把讀取到但未變更的玩家私有資料整份寫回，避免企業貸款、定存、幸福點與其他財務結果被舊快照覆蓋。
+- 房市購買改為同一個 Firestore board transaction 同時確認庫存、建立資產／貸款／幸福項目／交易紀錄並移除公告物件；多人競買只有第一筆成功。
+- 企業升級待辦只更新 `pendingStartupUpgradeAction` 欄位，不再以舊玩家快照覆蓋剛完成的企業貸款；板卡財務操作加入事件級 operation key。
+- 幸福歷程的來源完成、參與者回覆與最後結案統一依最新房間資料判定；最後完成者可結清 prompt，舊事件的本機快照／pending action 不會覆蓋新事件。
+- 倒數改存開始時間基準，畫面自行計算秒數，停止每 10 秒寫入 Firestore；房間監聽加入切房／關房 token，避免上一局快照干擾下一局。
+- 玩家同步錯誤保留 Firebase code 與原因，並在 UID、房間或成員資格已變更時忽略舊請求，便於判斷登入同步問題。
+- Firestore 規則新增家庭歷程最後參與者結案與執行師財務設定的最小權限條件；沒有放寬一般玩家跨玩家財務寫入。
+
+### Validation
+
+- `npx vitest run src`：28 files、151 passed、18 skipped。
+- `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npx vitest run src/test/roomPermissions.test.ts`：18/18 passed。
+- `npx vitest run src/context/RoomContext.test.ts src/utils/boardCardActions.test.ts src/utils/gameUtils.test.ts src/test/roomPermissions.test.ts`：59 passed、18 skipped。
+- `npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- `npm run test:rules` 未接管 8080，原因是本機已有 Firestore emulator；改連線該 emulator 驗證規則成功。未宣稱已完成真實 6 位玩家加執行師的雲端瀏覽器回歸。
+
+### Next safest task
+
+- 使用新測試房完成 6 位玩家＋1 位執行師的瀏覽器回歸：企業貸款、定存月結、房市競買、幸福歷程最後一位完成、重新整理／重連與執行師開下一局。
+
+## 2026-08-22 五項封測流程修正
+
+- 家庭歷程五階段改由 Firestore transaction 以最新私有玩家資料原子結算，現金、幸福、prompt 完成與事件推進不再分兩次同步；重送使用事件級 command ID 防重複。
+- 求婚等現金階段改由交易回傳 `applied／duplicate／insufficient／stale_event`，成功後不會再由舊本機現金顯示錯誤不足提示。
+- 學校考試後抽幸福卡會驗證最新學校事件；所有事件結案恢復的分段移動統一由遠端 `movement.isActive` 安排冪等結算。
+- 卡片翻牌會以 `eventId + cardId` 冪等補寫日誌；抽卡玩家自購不動產則在同一交易完成玩家財務與卡片結案，只有明確放棄才上架房市。
+- 驗證：focused 67/67、source Vitest 159 passed／19 rules skipped、Firestore emulator rules 19/19、`npm run typecheck`、`npm run build`、`git diff --check` 通過；3 玩家帳號隔離與房間加入／設定／投影 Playwright 回歸通過。
+- 未驗證：尚未有 6 玩家同時參與上述五種情境的瀏覽器自動化；下一步使用新房進行 6 玩家＋1 執行師人工回歸。
+
+## 2026-08-25 六項封測同步與卡片流程修正
+
+- Production deployment `dpl_FkgCYHqmK1rcCVDeezKMskwif9Uy` 已部署至 `happinessflow-online.vercel.app`，狀態 Ready；正式網址 HTTP 200、標題為「第二人生」，production bundle 已確認包含 2026-08-25 的 v2.3 更新日誌。
+- 執行師端 `v2.3` 系統更新日誌日期更新為 2026-08-25，加入登入同步、家庭歷程權限、股市翻牌、房市上架與完整卡片日誌等對外說明。
+- 房間共享快照不再清掉私人玩家狀態，避免登入完成後被反覆判定為缺少玩家資料；同步恢復成功時會清除舊的「玩家資料同步失敗」提示。
+- 家庭歷程的一般玩家 transaction 只讀取自己的私人玩家文件，修正多人操作時因跨玩家讀取遭 Firestore 拒絕的同步失敗。若最後完成者不是移動玩家，執行師 listener 會以既有 transaction 冪等推進事件。
+- 股市行情與更新通知改在玩家卡片翻面動畫完成後才生效，不再提前揭露卡片類型。
+- 放棄不動產改為在同一個卡片結案 transaction 上架房市，移除結案後第二次寫入造成的漏上架窗口。
+- 卡片結案會冪等補記當前卡片；投影與玩家日誌即使只有 1～3 筆，也可展開卡片說明與完整效果。
+- 維修廠經過／停留收費符合已核准的 `REPAIR_SYSTEM.md`。現有保險規格未定義一般保養理賠，本次未擅自免除費用或發放理賠。
+- 驗證：聚焦測試 17/17、source Vitest 163/163（另 19 項 rules 測試於一般 run 跳過）、既有 Firestore Emulator rules 19/19、`npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- 下一步：以新房進行 6 玩家＋1 執行師回歸，重播登入、多人家庭歷程最後完成者、股市翻牌、放棄房屋與卡片日誌；另由產品決定汽車保險是否涵蓋一般維修廠保養費。
+
+## 2026-08-26 四項跨場與交易一致性修正
+
+- 新局玩家存檔改以 `boardGameStartedAt` 對齊 `room.startedAt`；舊局快照不能跳過三步選擇或帶入幸福值，同場重連仍可恢復。
+- 不動產卡所有玩家主動關閉都走明確放棄 transaction，上架房市冪等去重；購買成功維持不入房市。
+- 股市通知已讀時間改為單調遞增，延遲玩家快照不能讓同一行情重複通知。
+- N056-N058 創業貸款改為單一 Firestore transaction 原子建立現金、企業資產、貸款、利息、歷史、待升級狀態與共享回覆；重送不重複入帳。
+- 驗證：聚焦 66/66、source Vitest 169 passed、Firestore Emulator rules 20/20、三玩家並行貸款交易、TypeScript、production build、`git diff --check` 及 Playwright 多人開局 2/2 通過。
+- 保留既有 Firestore 集合與狀態邊界，未新增服務、套件、集合、延遲重試；本次未 commit、push 或部署。
+- 下一步：用新房進行 6 玩家＋1 執行師人工回歸，重播同房第二局、兩種房產放棄入口、連續兩張股市卡及 N056-N058 接受／重整／經過銀行升級。
+
+## 2026-08-26 股市新聞卡揭示順序修正
+
+- `GameContext` 不再在股市新聞卡的公開 `currentCardReveal.isRevealed` 尚未成立時顯示行情通知；避免其他裝置的共享行情寫入繞過玩家翻牌流程。
+- `GameView` 同時確認本機翻牌 transition 與遠端揭示狀態，兩者完成後才套用行情。
+- 驗證：`npx vitest run src/context/GameContext.test.ts` 4/4、完整 source Vitest 170 passed／20 skipped、`npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- 本次未 commit、push 或部署；目前工作樹仍保留既有未提交修改。
+
+## 2026-08-26 五項遊戲與執行師功能修正
+
+- 家庭歷程抽卡者不再送出執行師核准請求；接受直接進入財務檢核，拒絕直接完成，普通故事分享仍走原核准流程。
+- 家庭結算改用最新 Firestore 玩家資料並回傳 `applied／duplicate／requires_funding／failed`；現金不足才開啟周轉，過期事件與同步錯誤顯示具體原因，檢核答案可保留重試。
+- 執行師玩家監控改為單一垂直捲動容器，移除財務報表內層捲動；未同步與未完成初始選擇都有明確狀態。
+- 全體補助移除一次性限制，使用遞增 `sequence` 與 `房間＋sequence` 交易 ID；執行師可重複發放，遊戲結束與非執行師仍受限。
+
+### Validation
+
+- `npx vitest run src`：30 files、170 passed、20 skipped。
+- Firestore Emulator rules：20/20 passed；連續補助、跳號與玩家權限案例通過。
+- `npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- Playwright 本地頁面 smoke：390×844 與 1440×900 無水平溢出；未宣稱已完成登入後執行師手機版完整互動回歸。
+- 未 commit、push 或部署；工作樹既有未提交修改均保留。
+
+## 2026-08-26 3P＋執行師 50 回合壓力測試
+
+- 新增 `e2e/board-50-turn-stress.spec.ts` 與 `docs/testing/BOARD_3P_50_TURN_STRESS_2026-08-26.md`。
+- 修正測試啟動器避免誤接既有預覽服務，Playwright 改用 repo 內 `playwright/test` runner，並保留既有未提交功能修改。
+- 本地前置檢查通過：typecheck、source Vitest 170 passed／20 skipped、build、替代 8081 Firestore Rules 20／20。
+- 壓力測試實際完成 15／50 回合；第 16 回合發生 P1：卡片結案後玩家端仍顯示事件視窗，結束回合 disabled。已保存 JSON、trace 與失敗截圖。
+- 因本地 P1，未執行正式站 3 回合冒煙測試、結算與第二局初始化；未 commit、push 或部署。
+
+## 2026-08-26 七項封測問題修正
+
+- 房市購買改用 `{ cardId, attemptId }` 與最新 Firestore 市場／玩家現金驗證；現金不足不消耗指令，直接購買抽到的不動產不會影響房市其他物件。
+- 幸福歷程來源玩家的拒絕／完成等待原子結算結果，完成畫面不再只停留在本機狀態。
+- 兼職工作室升級改由 `completeStartupUpgradeAction()` 單一 transaction 更新企業、收入、貸款、歷史與待辦，失敗保留流程可重試。
+- 維修廠新增費用確認視窗；共享卡片改採遠端 prompt，其他流程進行中會保留待辦並提醒，完成後自動顯示。
+- 驗證：source Vitest 171 passed／20 skipped、Firestore rules 20/20、typecheck、build、git diff --check；本地登入頁瀏覽器 smoke 通過且 console error 0。
+- 本次未 commit、push 或部署；完整 3 玩家＋執行師多人回歸仍待新房驗證。
+
+## 2026-08-27 v2.5 production 部署
+
+- 已將 `dev` 工作樹的 `v2.5` 部署至 `happinessflow-online` production。
+- Deployment：`dpl_7H4T7arFqD73Q5mVykuS1Js9C6yq`，狀態 `READY`。
+- 正式網址 HTTP 200，production bundle 已確認包含 `v2.5`。
+- 新增 `.vercelignore` 排除本機測試報告與暫存檔，避免超過 Vercel 上傳限制；未刪除任何檔案。
+
+## 2026-08-27 開啟地圖免重複登入修正
+
+- 根因：地圖按鈕以 `noopener,noreferrer` 開啟新分頁，阻止瀏覽器複製同源 `sessionStorage`，而 Firebase 使用分頁隔離的登入持久化，因此新地圖分頁被視為未登入。
+- 修正：移除該開啟限制，讓同源地圖分頁沿用執行師登入 session；玩家不同分頁的帳號隔離設定不變。
+- 驗證：`npm run typecheck`、`npm run build`、`git diff --check` 通過；建置僅有既有 Tailwind／chunk size 警告。
+- 尚待：使用實際執行師帳號按「開啟地圖」完成新分頁登入延續與地圖同步回歸。
+
+## 2026-08-27 幸福歷程失敗結果顯示修正
+
+- 家庭歷程同步參與者擲骰未達門檻時，移除 2.5 秒自動關閉計時器。
+- 失敗結果會保留在參與視窗，並改由玩家按「關閉」後才離開；成功、略過與同步失敗重試流程維持原行為。
+- 驗證：`npx vitest run src`（171 passed／20 skipped）、`npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- 尚待：以實際多人房驗證失敗結果停留、手動關閉及其他玩家同步不受影響。
+
+## 2026-08-27 版本與系統更新日誌
+
+- 對外版本號更新為 `v2.5`。
+- 執行師端系統更新日誌新增房市交易、幸福家庭歷程、兼職工作室升級、維修廠確認與共享卡片同步修正說明。
+- 驗證：`npm run typecheck`、`npm run build` 與 `git diff --check` 通過；建置僅有既有 Tailwind／chunk size 警告。
+- 本次未 commit、push 或部署；完整 3 玩家＋執行師多人回歸仍待新房驗證。
+
+## 2026-08-27 N058 文案顯示路徑修正
+
+- 根因：大地圖在抽卡玩家私有資料尚未載入時直接使用房間內已保存的舊卡片描述；共享卡片事件則只顯示固定的簡短說明。
+- 修正：新聞卡顯示一律依 `cardId` 從卡片 schema hydration；共享卡片事件同步顯示同一份完整文案。N058 現在明確說明先開設兼職工作室，再以該工作室申請創業貸款。
+- 驗證：`npx vitest run src/utils/boardCardDisplay.test.ts src/test/cardCompletionCoverage.test.ts` 8/8、`npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- 本次未 commit、push 或部署；本地 Vite 服務會透過 HMR 套用修改。
+
+## 2026-08-28 v2.6 系統更新日誌與 production 部署
+
+- 對外版本號更新為 `v2.6`；執行師端新增 v2.6 系統更新日誌，僅記錄目前程式與自動化測試已有依據的改善。
+- 本地驗證：`npm run typecheck`、`npx vitest run src`（30 files、179 passed、22 skipped）、Firestore Rules（既有 Emulator，22/22）、`npm run build`、`git diff --check` 通過。
+- `npm run test:rules` 因既有 Firestore Emulator 佔用 8080 無法重新啟動；改以 `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npx vitest run src/test/roomPermissions.test.ts` 完成驗證，未終止既有程序。
+- 已部署至 `happinessflow-online` production：`dpl_7vXSHRbcELHmM1fk2xBpARMGZUQ9`，狀態 `READY`；正式網址 HTTP 200，登入頁 DOM 顯示 `v2.6`，production bundle 已確認包含 `v2.6`。
+- 保留工作樹既有未提交修改；未修改 `package.json` 的 `0.0.0`。
+
+## 2026-08-29 醫療理賠按鈕與機運卡修正
+
+- 根因：理賠按鈕只依賴目前仍開啟的棋盤卡片與事件 ID；C036 食物中毒完成付款、卡片關閉後，當前事件消失，因此彈窗判定為沒有可理賠事件。
+- C035／C036／C037 完成醫療費財務檢核且有醫療保險時，會以 `pendingMedicalClaims` 保存待理賠事件；理賠按鈕可在之後重新開啟、重整後仍顯示，並以卡片固定理賠金額進入財務檢核。
+- 待理賠事件以玩家狀態白名單同步，理賠交易使用 `insurance-claim`、卡片事件 ID 與既有 `appliedBoardFinancialEventIds` 防止重送；成功後移除待理賠事件。遊戲結算後按鈕保持不可申請。
+- 移除舊的即時醫療／汽車理賠直接改本地現金路徑。C038 維持汽車移除、幸福值、原車貸與理賠的原子處理；C039／C040 投保時由保險支付維修費，不再出現錯誤汽車理賠分頁；C041／C042／C043 全部投保免付，含未投保房屋時每張卡只收一次固定修繕費。
+- 理賠彈窗現在列出所有待申請醫療事件，C036 顯示固定 50,000H，不再以醫療保險張數乘算；財務檢核成功訊息與歷史標籤改為醫療保險理賠。
+- 驗證：`npm run typecheck` 通過；source Vitest `31 files、199 passed／23 skipped`；Firestore Rules 直接連線測試 `23/23`；`npm run build` 與 `git diff --check` 通過。建置仍有既有 Tailwind ambiguous class、dynamic import 與 chunk size 警告。
+- 本次未修改 Firestore Rules，未新增 Firebase 服務、集合或套件；未執行 reset、clean、commit、push 或部署。真實 3／6 玩家瀏覽器理賠流程仍待新房人工回歸。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/types.ts`、`src/context/GameContext.tsx`、`src/context/GameContext.test.ts`、`src/hooks/useGameLogic.ts`、`src/views/game/GameView.tsx`、`src/components/modals/MedicalClaimModal.tsx`、`src/components/modals/MedicalClaimModal.test.tsx`、`src/utils/boardCardActions.ts`、`src/utils/boardCardActions.test.ts`
+- 測試結果：typecheck 通過；Vitest 31 files／199 passed／23 skipped；Firestore Rules 23/23；production build 通過；`git diff --check` 通過
+- 目前風險：尚未以實際 3／6 玩家瀏覽器重播 C036 重整、連點、理賠財務檢核與 C038–C043 多玩家情境；本地測試未驗證雲端部署環境。
+- 下一個最安全任務：使用隔離新房完成單玩家 C035–C043 理賠回歸，再以 3／6 玩家重播同卡競爭與重整流程；確認後才考慮部署。
+
+## 2026-08-31 v2.9 十一項異常修正與 production 部署
+
+- Firebase Auth 已加入並讀回確認 `2ife.vercel.app`；登入錯誤新增 `auth/unauthorized-domain` 明確訊息。正式站 Google Auth iframe 已以新網域初始化，無新 unauthorized-domain console error。
+- 股票 UI、舊交易表單與交易套用入口都拒絕零／非有限價格、非正整數張數及總額不一致交易。
+- `BoardFinancialFlow` 新增 `manual-bank`；一般銀行交易完成後不再結案目前卡片。定存／保險選項參照固定，N055 可先進信用貸款再回到共享投資提示。
+- 學校視窗返回或關閉後可再次開啟；選擇頁移除外層 `touch-none`，保留原生水平捲動容器。
+- 共享卡片沿用 120 秒 presence 門檻供房主排除失聯回覆；幸福歷程改用持久化 movement effects 原子恢復，不跨讀其他玩家私有資料。
+- 結束回合新增提交中、防連點、耗時 telemetry 與 10 秒同步提示；既有 command ID 冪等邏輯不變。
+- Firestore Rules 已發布至 `happinessflow-online`；Vercel production deployment `dpl_BcUaHXkPbzRE5J8ssrnAW8X6TCRc` READY，alias 為 `https://2ife.vercel.app/`，正式站顯示 v2.9、HTTP 200、console error 0。
+- 驗證：source Vitest 32 passed／1 skipped（201 passed、23 skipped）；Firestore Rules 23/23；TypeScript、production build、`git diff --check` 通過。新增針對性測試 31/31 通過。
+- 未完成：3 玩家 Playwright 受本地重複 Playwright runner 阻斷，6 玩家腳本與帳號尚不存在；因此未宣稱 3／6 玩家完整瀏覽器競買通過。已修正 E2E 臨時設定的 RTDB Rules 絕對路徑，未保留無效 runner 入口修改。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/types.ts`、`src/context/RoomContext.tsx`、`src/context/RoomContext.test.ts`、`src/views/game/GameView.tsx`、`src/views/lobby/CoachGameView.tsx`、`src/components/banking/BankingAppModal.tsx`、`src/components/banking/BrokerView.tsx`、`src/components/banking/BrokerView.test.tsx`、`src/components/common/SelectionCarousel.tsx`、`src/components/game/GameActions.tsx`、`src/components/game/GameActions.test.tsx`、`src/components/modals/PromotionModal.tsx`、`src/hooks/useGameLogic.ts`、`src/hooks/useTransactionLogic.ts`、`src/views/auth/AuthView.tsx`、`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`、`scripts/e2e/run.mjs`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：Vitest 201 passed／23 skipped；Rules 23/23；TypeScript、production build、diff check；正式站 HTTP 200、v2.9、console error 0
+- 目前風險：3／6 玩家完整瀏覽器競買與登入後手機選擇頁實機滑動尚未閉環；Google 帳號選擇器在 in-app browser 以 Auth iframe 初始化，但未代替使用者完成帳號登入
+- 下一個最安全任務：先統一 Playwright runner 依賴，再新增 6 玩家 seed 與同屋／異屋競買案例，使用隔離 emulator 完成 3／6 玩家回歸

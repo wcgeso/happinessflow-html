@@ -25,8 +25,19 @@ export const getCardNarrative = (description: string | undefined, effectLines: s
   return narrative.join('').trim() || normalized;
 };
 
-export const hydrateBoardCardResult = (card: BoardCardResult | null, gameState: GameState): BoardCardResult | null => {
+export const hydrateBoardCardResult = (card: BoardCardResult | null, gameState?: GameState | null): BoardCardResult | null => {
   if (!card) return null;
+
+  const newsMeta = buildNewsCardMetaFromSchema(card.cardId);
+  if (newsMeta) {
+    return {
+      ...card,
+      title: newsMeta.title,
+      subtitle: newsMeta.subtitle,
+      description: newsMeta.description,
+      effectLines: newsMeta.effectLines
+    };
+  }
 
   const happinessMeta = buildHappinessCardMetaFromSchema(card.cardId, gameState);
   if (happinessMeta) {
@@ -37,17 +48,6 @@ export const hydrateBoardCardResult = (card: BoardCardResult | null, gameState: 
       description: happinessMeta.description,
       familyMilestoneStatus: happinessMeta.familyMilestoneStatus,
       effectLines: happinessMeta.effectLines
-    };
-  }
-
-  const newsMeta = buildNewsCardMetaFromSchema(card.cardId);
-  if (newsMeta) {
-    return {
-      ...card,
-      title: newsMeta.title,
-      subtitle: newsMeta.subtitle,
-      description: newsMeta.description,
-      effectLines: newsMeta.effectLines
     };
   }
 

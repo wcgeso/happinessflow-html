@@ -86,6 +86,15 @@ describe('160 card completion coverage', () => {
     expect(buildHappinessCardMetaFromSchema('H013')?.title).toBe('幸福家庭的重要歷程');
   });
 
+  it('explains that N058 starts with a studio before taking the startup loan', () => {
+    const description = buildNewsCardMetaFromSchema('N058')?.description || '';
+
+    expect(description).toContain('先開設一間兼職工作室');
+    expect(description).toContain('以這間工作室申請創業貸款');
+    expect(description).toContain('600,000H');
+    expect(description).toContain('經過銀行');
+  });
+
   it('resolves every card to a completable action with a representative player state', () => {
     const state = coverageGameState();
 

@@ -9,6 +9,7 @@ interface BoardCardDrawerProps {
     isOpen: boolean;
     isRevealed: boolean;
     onReveal: () => void;
+    onRevealAnimationComplete?: () => void;
     onClose: () => void;
     actionArea?: React.ReactNode;
     closeDisabled?: boolean;
@@ -43,6 +44,7 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
     isOpen,
     isRevealed,
     onReveal,
+    onRevealAnimationComplete,
     onClose,
     actionArea,
     closeDisabled = false
@@ -85,7 +87,7 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
     }
 
     return (
-        <div className="fixed inset-x-0 bottom-0 z-[10002] flex justify-center">
+        <div className="fixed inset-0 z-[10002] flex items-end justify-center">
             <div
                 className={`absolute inset-0 bg-[#102f38]/72 transition-opacity duration-700 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={effectiveCloseDisabled ? undefined : onClose}
@@ -122,6 +124,9 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
                         >
                             <div
                                 className="relative h-full w-full"
+                                onTransitionEnd={(event) => {
+                                    if (isRevealed && event.propertyName === 'transform') onRevealAnimationComplete?.();
+                                }}
                                 style={{
                                     transformStyle: 'preserve-3d',
                                     transform: isRevealed ? 'rotateY(180deg)' : 'rotateY(0deg)',
@@ -197,6 +202,26 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
                                 </div>
                             </div>
                         </div>
+
+                        {isRevealed && (presentation.description || presentation.effectLines.length > 0) && (
+                            <div className="mt-4 space-y-3 rounded-2xl border border-[#d8c29a] bg-[#fffaf2]/95 p-4 text-left shadow-inner">
+                                {presentation.description && (
+                                    <p className="whitespace-pre-line break-words text-sm font-bold leading-relaxed text-[#765f47]">
+                                        {presentation.description}
+                                    </p>
+                                )}
+                                {presentation.effectLines.length > 0 && (
+                                    <div className="space-y-2 border-t border-[#ead7b8] pt-3">
+                                        <div className="text-[11px] font-black tracking-[0.18em] text-[#a9643a]">卡片效果</div>
+                                        {presentation.effectLines.map((line, index) => (
+                                            <div key={`${line}_${index}`} className="break-words text-sm font-bold leading-relaxed text-[#2e6570]">
+                                                {line}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* 3. ACTION AREA (Sticky Footer) */}

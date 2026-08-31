@@ -20,6 +20,7 @@ interface GameActionsProps {
     hasRolledBoardDice?: boolean;
     isBoardTurn?: boolean;
     isRollingBoardDice?: boolean;
+    isEndingTurn?: boolean;
     hasCar?: boolean;
     disabled?: boolean;
 }
@@ -41,15 +42,19 @@ export const GameActions: React.FC<GameActionsProps> = ({
     hasRolledBoardDice = false,
     isBoardTurn = false,
     isRollingBoardDice = false,
+    isEndingTurn = false,
     hasCar = false,
     disabled = false,
 }) => {
-    const diceControls = useAnimation();
+    const leftDiceControls = useAnimation();
+    const rightDiceControls = useAnimation();
+    const diceControls = [leftDiceControls, rightDiceControls];
     const [isAnimating, setIsAnimating] = useState(false);
     const [diceResults, setDiceResults] = useState<number[]>([]);
     const [selectedDiceCount, setSelectedDiceCount] = useState<1 | 2>(hasCar ? 2 : 1);
     const landingFaceTimerRef = useRef<NodeJS.Timeout | null>(null);
     const animationCompleteTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const animationCompletionCalledRef = useRef(false);
     const DICE_ROLL_DURATION_MS = 3500;
     const DICE_RESULT_REVEAL_MS = 850;
     const idleDiceRotation = { rotateX: -18, rotateY: 22, rotateZ: 0 };
@@ -85,7 +90,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
             top: others[3]
         };
     };
-    const isActive = isBoardTurn && canRoll && !isRollingBoardDice && !disabled;
+    const isActive = isBoardTurn && canRoll && !isRollingBoardDice && !isAnimating && !disabled;
     const shouldShowEndTurn = !!(onEndTurn && hasRolledBoardDice && !isRollingBoardDice);
     const visibleBlockReason = shouldShowEndTurn ? endTurnBlockReason : rollBlockReason;
     const isVisualActive = isActive || isAnimating;
@@ -161,12 +166,14 @@ export const GameActions: React.FC<GameActionsProps> = ({
                 clearTimeout(animationCompleteTimerRef.current);
                 animationCompleteTimerRef.current = null;
             }
-            diceControls.stop(); // 停止所有進行中的動畫(包含延遲消失)
-            diceControls.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, ...idleDiceRotation });
+            diceControls.forEach(control => {
+                control.stop(); // 停止所有進行中的動畫(包含延遲消失)
+                control.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, ...idleDiceRotation });
+            });
             setIsAnimating(false);
             setDiceResults([]);
         }
-    }, [isRollingBoardDice, diceControls]);
+    }, [isRollingBoardDice, leftDiceControls, rightDiceControls]);
 
     useEffect(() => {
         return () => {
@@ -175,18 +182,23 @@ export const GameActions: React.FC<GameActionsProps> = ({
         };
     }, []);
 
-    const showResultWhenLanded = () => {
+    const showResultWhenLanded = (results: number[]) => {
         if (landingFaceTimerRef.current) clearTimeout(landingFaceTimerRef.current);
         landingFaceTimerRef.current = setTimeout(() => {
-            diceControls.set(idleDiceRotation);
+            setDiceResults(results);
+            diceControls.forEach(control => {
+                // 首次落地後停止旋轉，再固定結果面；不讓後半段動畫把骰面重新帶走。
+                control.stop();
+                control.set(idleDiceRotation);
+            });
             landingFaceTimerRef.current = null;
         }, DICE_RESULT_REVEAL_MS);
     };
 
-    const getRollingRotation = (spinSeed: number) => {
-        const spinX = (Math.floor(Math.random() * 2) + 2) * 360;
-        const spinY = (Math.floor(Math.random() * 2) + 2) * 360;
-        const spinZ = spinSeed + (Math.random() * 180 + 180);
+    const getRollingRotation = (spinSeed: number, direction: -1 | 1) => {
+        const spinX = (Math.floor(Math.random() * 2) + 2) * 360 * direction;
+        const spinY = (Math.floor(Math.random() * 2) + 2) * 360 * (direction === -1 ? 0.72 : -0.9);
+        const spinZ = (spinSeed + (Math.random() * 180 + 180)) * direction;
 
         return {
             rotateX: [0, spinX * 0.35, spinX, spinX * 1.08, 0, 0, 0, 0, 0],
@@ -199,7 +211,15 @@ export const GameActions: React.FC<GameActionsProps> = ({
         const faces = getDiceFaces(result);
         const faceBase = "absolute inset-0 flex items-center justify-center overflow-hidden rounded-[6px]";
         return (
-            <div key={`die-${index}`} className="relative h-[52px] w-[52px] sm:h-[64px] sm:w-[64px]" style={{ transformStyle: 'preserve-3d' }}>
+            <motion.div
+                key={`die-${index}`}
+                data-testid="board-die"
+                data-die-value={result}
+                className="relative h-[52px] w-[52px] sm:h-[64px] sm:w-[64px]"
+                animate={diceControls[index]}
+                initial={{ x: 0, y: 0, z: 0, scale: 1, opacity: 1, ...idleDiceRotation }}
+                style={{ transformStyle: 'preserve-3d' }}
+            >
                 <div className="absolute inset-0 h-full w-full" style={{ transformStyle: 'preserve-3d' }}>
                     <div className={`absolute inset-0 ${coreBg}`} style={{ transform: 'translateZ(0)' }} />
                     <div className={`${faceBase} ${faceBg}`} style={{ transform: `translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.front)}</div>
@@ -209,7 +229,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                     <div className={`${faceBase} ${faceBg} brightness-[.65]`} style={{ transform: `rotateX(90deg) translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.bottom)}</div>
                     <div className={`${faceBase} ${faceBg} brightness-110`} style={{ transform: `rotateX(-90deg) translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.top)}</div>
                 </div>
-            </div>
+            </motion.div>
         );
     };
 
@@ -234,32 +254,65 @@ export const GameActions: React.FC<GameActionsProps> = ({
         const actualDice = Array.isArray(rollResult.dice) && rollResult.dice.length > 0
             ? rollResult.dice
             : [rollResult.total];
-        setDiceResults(actualDice);
-        showResultWhenLanded();
-
+        const isDoubleRoll = actualDice.length > 1;
         const targetX = (Math.random() - 0.5) * 150;
-        const apexY = -250;
-        const landY = -100;
-        const rollingRotation = getRollingRotation(360);
+        const rollAnimations = actualDice.slice(0, 2).map((_, index) => {
+            const direction = index === 0 ? -1 : 1;
+            const landingX = isDoubleRoll ? direction * 24 : targetX;
+            const launchX = isDoubleRoll ? direction * 52 : targetX;
+            const apexY = isDoubleRoll
+                ? (index === 0 ? -238 : -266)
+                : -250;
+            const bounceY = isDoubleRoll
+                ? (index === 0 ? -34 : -24)
+                : -40;
+            const rotation = getRollingRotation(360 + index * 115, direction as -1 | 1);
 
-        diceControls.start({
-            x: [0, targetX * 0.5, targetX, targetX * 1.05, targetX, targetX * 1.02, targetX, targetX, targetX],
-            y: [0, apexY, landY, landY - 40, landY, landY - 15, landY, landY, landY],
-            z: [0, -100, -300, -300, -300, -300, -300, -300, -300],
-            scale: [1, 1.2, 0.58, 0.5, 0.58, 0.52, 0.5, 0.5, 0.5],
-            ...rollingRotation,
-            transition: {
-                duration: DICE_ROLL_DURATION_MS / 1000,
-                times: [0, 0.12, 0.22, 0.3, 0.35, 0.42, 0.5, 0.88, 1],
-                ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn", "linear", "easeInOut"]
+            return diceControls[index].start({
+                x: [0, launchX * 0.5, launchX, landingX + direction * 10, landingX, landingX + direction * 5, landingX, landingX, landingX],
+                y: [0, apexY, -100, -100 + bounceY, -100, -100 + Math.round(bounceY * 0.4), -100, -100, -100],
+                z: [0, -100 - index * 30, -300 - index * 35, -300 - index * 35, -300 - index * 35, -300 - index * 35, -300 - index * 35, -300 - index * 35, -300 - index * 35],
+                scale: [1, 1.2, 0.58, 0.5, 0.58, 0.52, 0.5, 0.5, 0.5],
+                ...rotation,
+                transition: {
+                    duration: DICE_ROLL_DURATION_MS / 1000,
+                    times: [0, 0.1, 0.18, 0.24, 0.3, 0.36, 0.42, 0.88, 1],
+                    ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn", "linear", "easeInOut"]
+                }
+            });
+        });
+
+        setDiceResults([]);
+        showResultWhenLanded(actualDice.slice(0, 2));
+        animationCompletionCalledRef.current = false;
+
+        const completeAnimation = () => {
+            if (animationCompletionCalledRef.current) return;
+            animationCompletionCalledRef.current = true;
+            onRollAnimationComplete?.(rollResult);
+            animationCompleteTimerRef.current = null;
+        };
+
+        void Promise.all(rollAnimations).catch(() => {
+            if (animationCompleteTimerRef.current) {
+                clearTimeout(animationCompleteTimerRef.current);
+                animationCompleteTimerRef.current = null;
             }
+            if (landingFaceTimerRef.current) {
+                clearTimeout(landingFaceTimerRef.current);
+                landingFaceTimerRef.current = null;
+            }
+            diceControls.forEach(control => {
+                control.stop();
+                control.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, ...idleDiceRotation });
+            });
+            setDiceResults([]);
+            setIsAnimating(false);
+            completeAnimation();
         });
 
         animationCompleteTimerRef.current = setTimeout(() => {
-            if (onRollAnimationComplete) {
-                onRollAnimationComplete(rollResult);
-            }
-            animationCompleteTimerRef.current = null;
+            completeAnimation();
         }, DICE_ROLL_DURATION_MS);
     };
 
@@ -305,7 +358,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                             shouldShowEndTurn ? (
                             <button
                                 onClick={onEndTurn}
-                                disabled={disabled || !canEndTurn}
+                                disabled={disabled || !canEndTurn || isEndingTurn}
                                 aria-label="結束回合"
                                 className={`group relative flex flex-col items-center gap-2 ${(disabled || !canEndTurn) ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
                                 title={!isBoardTurn ? '尚未輪到你' : (canEndTurn ? '結束回合，換下一位玩家' : '請先完成目前的棋盤事件')}
@@ -313,7 +366,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                 <div className="flex h-[52px] w-[52px] items-center justify-center rounded-[14px] border-2 border-[#d8c29a] bg-gradient-to-br from-[#d6a94e] to-[#a9643a] text-white shadow-[0_12px_24px_-10px_rgba(169,100,58,0.55)] transition-all duration-300 group-enabled:hover:-translate-y-1 group-enabled:hover:scale-105 group-active:scale-95 sm:h-[64px] sm:w-[64px] sm:rounded-[18px]">
                                     <CheckCircle2 size={26} strokeWidth={2.5} className="sm:hidden" /><CheckCircle2 size={32} strokeWidth={2.5} className="hidden sm:block" />
                                 </div>
-                                <span className="text-[11px] font-black uppercase tracking-widest text-[#f0c85c] drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">結束回合</span>
+                                <span className="text-[11px] font-black uppercase tracking-widest text-[#f0c85c] drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">{isEndingTurn ? '提交中' : '結束回合'}</span>
                             </button>
                             ) : (
                             <div className="relative flex flex-col items-center gap-2">
@@ -327,19 +380,16 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                     />
                                 )}
 
-                                <motion.button
-                                    animate={diceControls}
-                                    initial={{ x: 0, y: 0, z: 0, scale: 1, opacity: 1, ...idleDiceRotation }}
-                                    whileHover={isActive ? { scale: 1.05 } : {}}
-                                    whileTap={isActive ? { scale: 0.95 } : {}}
+                                <button
+                                    type="button"
                                     onClick={handleDiceClick}
                                     aria-label={isRollingBoardDice ? '骰子同步中' : (isBoardTurn ? `擲骰子${hasCar ? `，目前選擇${selectedDiceCount}顆` : ''}` : '尚未輪到你擲骰子')}
-                                    style={{ touchAction: "manipulation", transformStyle: "preserve-3d" }}
-                                    className={`relative z-10 min-h-[52px] sm:min-h-[64px] ${!isVisualActive ? 'opacity-100 cursor-not-allowed' : 'cursor-pointer'}`}
+                                    style={{ touchAction: "manipulation" }}
+                                    className={`relative z-10 min-h-[52px] sm:min-h-[64px] transition-transform duration-200 ${isActive ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-not-allowed'} ${!isVisualActive ? 'opacity-100' : ''}`}
                                     title={!isBoardTurn ? "尚未輪到你" : (isRollingBoardDice ? "同步中..." : `點擊拋擲 (${hasCar ? `${selectedDiceCount}顆` : '1顆'})`)}
                                 >
-                                    <div className={`relative flex items-center justify-center gap-2 ${visibleDiceCount === 2 ? 'w-[112px] sm:w-[136px]' : 'w-[52px] sm:w-[64px]'}`} style={{ transformStyle: 'preserve-3d' }}>
-	                                        {(diceResults.length > 0 ? diceResults : Array.from({ length: selectedDiceCount }, () => 5)).map(renderDie)}
+                                    <div className={`relative flex items-center justify-center gap-2 ${visibleDiceCount === 2 ? 'w-[112px] sm:w-[136px]' : 'w-[52px] sm:w-[64px]'}`}>
+                                        {(diceResults.length > 0 ? diceResults : Array.from({ length: selectedDiceCount }, () => 5)).map(renderDie)}
 
 	                                        {hasCar && isVisualActive && (
                                             <div
@@ -365,7 +415,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
 	                                    </div>
                                         )}
                                     </div>
-                                </motion.button>
+                                </button>
                                 <span className={`text-[11px] font-black uppercase tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] transition-colors ${
                                     isActive ? 'text-[#fffaf2]' : 'text-[#b9aa98]'
                                 }`}>

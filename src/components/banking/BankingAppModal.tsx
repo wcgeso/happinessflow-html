@@ -6,6 +6,9 @@ import { getStockAssetLabel } from '../../utils/assetLabels';
 import { BrokerView } from './BrokerView';
 import { BankingView } from './BankingView';
 import { WealthView } from './WealthView';
+
+const BANK_WEALTH_PRODUCT_TYPES: Array<'insurance' | 'deposit'> = ['insurance', 'deposit'];
+const VEHICLE_PRODUCT_TYPES: Array<'car'> = ['car'];
 import { useRoom } from '../../context/RoomContext';
 import { extractAssetSymbol } from '../../utils/assetLabels';
 
@@ -358,7 +361,7 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
                 medicalInsuranceCount={medicalInsuranceCount}
                 assets={assets}
                 initialProductType={initialWealthProductType}
-                allowedProductTypes={['insurance', 'deposit']}
+                allowedProductTypes={BANK_WEALTH_PRODUCT_TYPES}
                 canUseBankProducts={canUseBankProducts}
                 onTransaction={(data) => onTransaction(normalizeTransactionForGame(data))}
               />
@@ -370,7 +373,7 @@ export const BankingAppModal: React.FC<BankingAppModalProps> = ({
                 medicalInsuranceCount={medicalInsuranceCount}
                 assets={assets}
                 initialProductType="car"
-                allowedProductTypes={['car']}
+                allowedProductTypes={VEHICLE_PRODUCT_TYPES}
                 canUseBankProducts={canUseBankProducts}
                 onTransaction={(data) => onTransaction(normalizeTransactionForGame(data))}
               />

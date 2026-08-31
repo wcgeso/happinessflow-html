@@ -97,7 +97,7 @@ export const SelectionCarousel: React.FC<SelectionCarouselProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-950 flex flex-col overflow-hidden animate-in fade-in duration-500 z-50 touch-none pt-safe">
+        <div className="fixed inset-0 bg-slate-950 flex flex-col overflow-hidden animate-in fade-in duration-500 z-50 pt-safe">
             {/* Header */}
             <div className="relative shrink-0 px-6 py-4 md:py-6 border-b border-slate-800/50 flex items-center justify-between bg-slate-900/80 backdrop-blur-md z-50">
                 <div className="flex flex-col gap-0.5">

@@ -10,7 +10,7 @@ interface BizUpgradeModalProps {
     isOpen: boolean;
     onClose: () => void;
     asset: Asset;
-    onUpgrade: (diceRoll: number) => void;
+    onUpgrade: (diceRoll: number) => Promise<boolean> | boolean;
 }
 
 export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClose, asset, onUpgrade }) => {
@@ -18,6 +18,8 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
     const [dice1Value, setDice1Value] = useState(1);
     const [dice2Value, setDice2Value] = useState(1);
     const [isEligible, setIsEligible] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [upgradeFailed, setUpgradeFailed] = useState(false);
 
     if (!isOpen) return null;
 
@@ -35,12 +37,19 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
     };
 
     const handleStartRoll2 = () => {
+        if (isSubmitting) return;
         setStep('rolling2');
-        setTimeout(() => {
+        setUpgradeFailed(false);
+        setTimeout(async () => {
             const val = Math.floor(Math.random() * 6) + 1;
             setDice2Value(val);
-            onUpgrade(val);
-            setStep('result2');
+            setIsSubmitting(true);
+            try {
+                setUpgradeFailed(!(await onUpgrade(val)));
+                setStep('result2');
+            } finally {
+                setIsSubmitting(false);
+            }
         }, 2000);
     };
 
@@ -55,6 +64,7 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
                 {/* Close Button */}
                 <button
                     onClick={onClose}
+                    disabled={isSubmitting}
                     className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors z-10"
                 >
                     <X size={24} />
@@ -128,10 +138,19 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
                                 <DiceFace value={dice2Value} rolling={step === 'rolling2'} size="lg" />
                                 {step === 'result2' && (
                                     <div className="flex flex-col items-center gap-2 animate-in zoom-in duration-300">
-                                        <div className="text-xl font-black text-emerald-400">升級成功！</div>
-                                        <div className="text-sm text-slate-300 font-bold">
-                                            企業收入增加 +{formatMoney(dice2Value * 10000)}
-                                        </div>
+                                        {upgradeFailed ? (
+                                            <>
+                                                <div className="text-xl font-black text-rose-400">升級同步失敗</div>
+                                                <div className="text-sm text-slate-300 font-bold">資料未完成更新，請重新擲第二骰。</div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="text-xl font-black text-emerald-400">升級成功！</div>
+                                                <div className="text-sm text-slate-300 font-bold">
+                                                    企業收入增加 +{formatMoney(dice2Value * 10000)}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -166,10 +185,11 @@ export const BizUpgradeModal: React.FC<BizUpgradeModalProps> = ({ isOpen, onClos
                         )}
                         {step === 'result2' && (
                             <Button
-                                onClick={handleClose}
-                                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-2xl shadow-lg shadow-emerald-900/40 transition-all active:scale-95"
+                                onClick={upgradeFailed ? handleStartRoll2 : handleClose}
+                                disabled={isSubmitting}
+                                className={`w-full py-4 ${upgradeFailed ? 'bg-rose-600 hover:bg-rose-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white font-black text-lg rounded-2xl shadow-lg shadow-emerald-900/40 transition-all active:scale-95 disabled:opacity-60`}
                             >
-                                太棒了！
+                                {isSubmitting ? '同步中...' : upgradeFailed ? '重新擲第二骰' : '太棒了！'}
                             </Button>
                         )}
                     </div>

@@ -1035,9 +1035,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const currentPlayerState = boardState?.currentEvent?.playerUid
     ? room.playerStates?.[boardState.currentEvent.playerUid] || null
     : null;
-  const currentCard = currentPlayerState
-    ? hydrateBoardCardResult(boardState?.currentCard || null, currentPlayerState)
-    : boardState?.currentCard || null;
+  const currentCard = hydrateBoardCardResult(boardState?.currentCard || null, currentPlayerState);
   const revealState = boardState?.currentCardReveal;
   const isCardRevealed = !!(
     currentCard &&

@@ -35,4 +35,40 @@ describe('calculateFinancialSummary', () => {
         expect(summary.passiveIncome).toBe(7000);
         expect(summary.totalIncome).toBe(37000);
     });
+
+    it('applies room acceleration to income but not expenses', () => {
+        const state = {
+            profession: { salary: 40000, expenses: { basicLiving: 18000, transportEdu: 0, otherMedicalChild: 0 } },
+            income: {},
+            expenses: {},
+            assets: [],
+            liabilities: [],
+            cash: 0,
+            loans: 0,
+            currentRankLevel: 1,
+            medicalInsuranceCount: 0,
+            abilities: {}
+        } as any;
+
+        expect(calculateFinancialSummary(state, 1.5).monthlyCashflow).toBe(40000);
+        expect(calculateFinancialSummary(state, 2).monthlyCashflow).toBe(60000);
+        expect(calculateFinancialSummary(state, 3).monthlyCashflow).toBe(100000);
+    });
+
+    it('defaults legacy rooms to x1', () => {
+        const state = {
+            profession: { salary: 40000, expenses: { basicLiving: 18000, transportEdu: 0, otherMedicalChild: 0 } },
+            income: {},
+            expenses: {},
+            assets: [],
+            liabilities: [],
+            cash: 0,
+            loans: 0,
+            currentRankLevel: 1,
+            medicalInsuranceCount: 0,
+            abilities: {}
+        } as any;
+
+        expect(calculateFinancialSummary(state).monthlyCashflow).toBe(20000);
+    });
 });

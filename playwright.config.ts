@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from 'playwright/test';
 
 // Local-only board-multiplayer acceptance suite. Requires the Firebase Auth
 // + Firestore emulators to already be running (see `npm run e2e`, which
@@ -33,7 +33,9 @@ export default defineConfig({
     // race.
     command: 'npx vite build --mode e2e && npx vite preview --port 5183 --strictPort',
     url: 'http://localhost:5183',
-    reuseExistingServer: !process.env.CI,
+    // Always use the server started for this emulator run. Reusing an older
+    // preview can silently point the browser at a stale Firebase endpoint.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

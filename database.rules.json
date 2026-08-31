@@ -1,0 +1,46 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "roomConnections": {
+      "$presenceKey": {
+        ".read": "auth != null",
+        "$uid": {
+          "$clientId": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.val() === null || (newData.hasChildren(['uid', 'status', 'sessionId', 'lastSeenAt']) && newData.child('uid').val() === auth.uid && (newData.child('status').val() === 'online' || newData.child('status').val() === 'offline'))"
+          }
+        }
+      }
+    },
+    "roomLastOnline": {
+      "$roomId": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.val() === null || newData.isNumber()"
+        }
+      }
+    },
+    "roomDiagnostics": {
+      "$roomId": {
+        "$uid": {
+          "$clientId": {
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.val() === null || newData.hasChildren(['uid', 'updatedAt'])"
+          }
+        }
+      }
+    },
+    "roomControllers": {
+      "$presenceKey": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['clientId', 'claimedAt'])"
+        }
+      }
+    }
+  }
+}

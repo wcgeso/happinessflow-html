@@ -63,6 +63,11 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTra
                                                         {tx.sourceLabel} → {tx.usageLabel}
                                                     </div>
                                                     <div className="text-slate-200 font-bold text-xs leading-relaxed break-words" title={tx.name}>{tx.name}</div>
+                                                    {tx.incomeMultiplierEligible && tx.originalAmount !== undefined && tx.appliedMultiplier && tx.appliedMultiplier > 1 && (
+                                                        <div className="text-[10px] font-bold text-amber-300">
+                                                            {formatMoney(tx.originalAmount)} ×{tx.appliedMultiplier}＝{formatMoney(tx.cashChange)}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className={`px-2 py-3 text-right font-mono font-bold whitespace-nowrap ${tx.cashChange > 0 ? 'text-emerald-400' : tx.cashChange < 0 ? 'text-rose-400' : 'text-slate-400'

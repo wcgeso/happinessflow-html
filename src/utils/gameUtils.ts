@@ -1,6 +1,11 @@
-import { Asset, HappinessItem, Enterprise, Dream, GameState, FinancialSummary } from '../types';
+import { Asset, HappinessItem, Enterprise, Dream, FinancialAccelerationState, FinancialSummary, GameState } from '../types';
 
-export const calculateFinancialSummary = (gameState: GameState): FinancialSummary => {
+export const getFinancialAccelerationMultiplier = (state?: FinancialAccelerationState | number) => {
+    const multiplier = typeof state === 'number' ? state : state?.multiplier;
+    return multiplier === 1.5 || multiplier === 2 || multiplier === 3 ? multiplier : 1;
+};
+
+export const calculateFinancialSummary = (gameState: GameState, acceleration?: FinancialAccelerationState | number): FinancialSummary => {
     if (!gameState.profession) return { totalIncome: 0, totalExpenses: 0, monthlyCashflow: 0, passiveIncome: 0, totalAssets: 0, totalLiabilities: 0, payday: 0 };
 
     const assets = gameState.assets || [];
@@ -9,7 +14,8 @@ export const calculateFinancialSummary = (gameState: GameState): FinancialSummar
     const expenses = gameState.expenses || {};
 
     // 1. 理財收入（資產收益 + 執行師手動調整）
-    const passiveIncome = (Number(income.investment) || 0) + assets.reduce((sum, a) => {
+    const multiplier = getFinancialAccelerationMultiplier(acceleration);
+    const basePassiveIncome = (Number(income.investment) || 0) + assets.reduce((sum, a) => {
         let incomeVal = Number(a.cashflow) || 0;
         // 投資不動產的能力加成
         if (a.type === '不動產' && !a.isSelfUse && (gameState.abilities?.realEstateAbilityCount || 0) > 0) {
@@ -25,7 +31,9 @@ export const calculateFinancialSummary = (gameState: GameState): FinancialSummar
         return sum + (Number(v) || 0);
     }, 0);
 
-    const totalIncome = (gameState.profession.salary || 0) + passiveIncome + dynamicIncome;
+    const totalBaseIncome = (gameState.profession.salary || 0) + basePassiveIncome + dynamicIncome;
+    const totalIncome = Math.round(totalBaseIncome * multiplier);
+    const passiveIncome = Math.round(basePassiveIncome * multiplier);
 
     // 3. 支出計算
     // A. 負債利息

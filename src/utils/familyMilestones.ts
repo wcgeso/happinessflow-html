@@ -1,4 +1,4 @@
-import { GameState } from '../types';
+import { GameState, Transaction } from '../types';
 
 export interface FamilyMilestoneStage {
   cardId: string;
@@ -115,4 +115,82 @@ export const getFamilyMilestoneStatus = (gameState: GameState) => {
 
 export const getFamilyMilestoneStageByCardId = (cardId: string) => {
   return FAMILY_MILESTONE_STAGES.find(stage => stage.cardId === cardId) || null;
+};
+
+export const getFamilyMilestoneStageByProgressId = (progressId?: string | null) => {
+  return progressId
+    ? FAMILY_MILESTONE_STAGES.find(stage => stage.progressId === progressId) || null
+    : null;
+};
+
+export type FamilyMilestoneApplyResult =
+  | { status: 'applied'; state: GameState }
+  | { status: 'duplicate'; state: GameState }
+  | { status: 'insufficient'; state: GameState; shortfall: number };
+
+/** Apply one fixed family stage to the latest persisted player state. */
+export const applyFamilyMilestoneStage = (
+  state: GameState,
+  stage: FamilyMilestoneStage,
+  operationId: string,
+  timestamp = Date.now()
+): FamilyMilestoneApplyResult => {
+  if (
+    state.appliedBoardFinancialEventIds?.includes(operationId) ||
+    (state.completedHappinessEvents || []).includes(stage.progressId) ||
+    (state.happiness || []).some(item => item.id === stage.happinessId && item.checked)
+  ) {
+    return { status: 'duplicate', state };
+  }
+
+  const cashCost = stage.cashCostAmount || 0;
+  const cash = Number(state.cash) || 0;
+  if (cash < cashCost) {
+    return { status: 'insufficient', state, shortfall: cashCost - cash };
+  }
+
+  const happiness = (state.happiness || []).some(item => item.id === stage.happinessId)
+    ? state.happiness.map(item => item.id === stage.happinessId ? { ...item, checked: true } : item)
+    : [...(state.happiness || []), {
+        id: stage.happinessId,
+        label: stage.label.replace(/^\d+\.\s*/, ''),
+        points: stage.happinessPointsValue,
+        checked: true
+      }];
+  const cashChange = -cashCost;
+  const nextCash = cash + cashChange;
+  const transaction: Transaction = {
+    id: operationId,
+    timestamp,
+    name: `幸福支出：${stage.label.replace(/^\d+\.\s*/, '')}`,
+    amount: cashCost || (stage.monthlyExpenseIncreaseAmount || 0),
+    sourceLabel: cashCost ? '現金' : '收入',
+    usageLabel: '幸福事件',
+    cashChange,
+    balance: nextCash,
+    details: JSON.stringify({
+      boardEventId: operationId,
+      usage: 'happiness_event',
+      familyStageProgressId: stage.progressId
+    }),
+    flowType: '生活'
+  };
+
+  const nextState: GameState = {
+    ...state,
+    cash: nextCash,
+    expenses: stage.monthlyExpenseIncreaseAmount
+      ? {
+          ...state.expenses,
+          otherMedicalChild: (state.expenses?.otherMedicalChild || 0) + stage.monthlyExpenseIncreaseAmount
+        }
+      : state.expenses,
+    happiness,
+    happinessTotal: happiness.reduce((sum, item) => sum + (item.checked ? item.points : 0), 0),
+    completedHappinessEvents: Array.from(new Set([...(state.completedHappinessEvents || []), stage.progressId])),
+    appliedBoardFinancialEventIds: [...(state.appliedBoardFinancialEventIds || []), operationId],
+    history: [...(state.history || []), transaction]
+  };
+
+  return { status: 'applied', state: nextState };
 };

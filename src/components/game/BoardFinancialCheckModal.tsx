@@ -4,11 +4,19 @@ import { AccountCategory, AccountEntry, ChangeDirection, TransactionData } from 
 import { FinancialCheckBoard } from '../transaction/FinancialCheckBoard';
 import { Button } from '../ui/ui';
 
+export interface BoardFinancialApplyStatus {
+  status: 'applied' | 'duplicate' | 'requires_funding' | 'failed';
+  shortfall?: number;
+  message?: string;
+}
+
+export type BoardFinancialApplyResult = boolean | void | BoardFinancialApplyStatus;
+
 interface BoardFinancialCheckModalProps {
   title: string;
   txData: TransactionData;
   expectedEntries: AccountEntry[];
-  onApply: (txData: TransactionData) => Promise<boolean | void> | boolean | void;
+  onApply: (txData: TransactionData) => Promise<BoardFinancialApplyResult> | BoardFinancialApplyResult;
   onClose: () => void;
   isCompleted?: boolean;
 }
@@ -258,13 +266,27 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
     setIsApplying(true);
     try {
       const result = await onApply(txData);
+      if (typeof result === 'object' && result !== null && 'status' in result) {
+        if (result.status === 'applied' || result.status === 'duplicate') {
+          setIsApplied(true);
+          return;
+        }
+        setIsVerified(false);
+        setErrorPopup({
+          title: result.status === 'requires_funding' ? '現金不足，需要周轉' : '交易無法完成',
+          lines: result.status === 'requires_funding'
+            ? [`現金不足，還差 ${(result.shortfall || 0).toLocaleString()}。完成周轉後可保留目前答案重新確認。`]
+            : [result.message || '交易同步失敗，請檢查事件狀態與網路後重試。']
+        });
+        return;
+      }
       if (result !== false) {
         setIsApplied(true);
       } else {
         setIsVerified(false);
         setErrorPopup({
           title: '交易尚未正式完成',
-          lines: ['請先排除現金不足或前一步流程阻塞後再重新檢核。']
+          lines: ['交易未完成，請檢查目前事件狀態或網路後重試。']
         });
       }
     } finally {

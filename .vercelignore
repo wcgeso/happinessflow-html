@@ -1,0 +1,13 @@
+# Local dependencies and generated build output
+node_modules
+dist
+.vercel
+
+# Local browser test artifacts (not application assets)
+test-results
+playwright-report
+.playwright-cli
+output/playwright
+
+# Local environment files
+.env*

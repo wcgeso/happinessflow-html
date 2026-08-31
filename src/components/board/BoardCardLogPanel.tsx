@@ -88,7 +88,7 @@ export const BoardCardLogPanel: React.FC<BoardCardLogPanelProps> = ({ entries, o
           )}
         </div>
 
-        {entries.length > 3 && (
+        {entries.length > 0 && (
           <button
             type="button"
             onClick={() => setShowAllEntries(current => !current)}
@@ -119,7 +119,7 @@ export const BoardCardLogPanel: React.FC<BoardCardLogPanelProps> = ({ entries, o
             關閉
           </button>
         ) : variant === 'inline' ? (
-          entries.length > 3 ? (
+          entries.length > 0 ? (
             <button
               type="button"
               onClick={() => setShowAllEntries(current => !current)}

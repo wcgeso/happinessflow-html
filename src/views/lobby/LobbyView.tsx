@@ -575,7 +575,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               <div className="flex items-center justify-center gap-2 mb-3">
                 <div className="h-[1px] w-5 bg-gradient-to-r from-transparent to-amber-500/40"></div>
                 <span className="text-amber-500/80 font-bold tracking-[0.25em] text-[10px] md:text-xs uppercase">
-                  {viewMode === 'gm' ? '遊戲管理' : '幸福理財桌遊'}
+                  {viewMode === 'gm' ? '遊戲管理' : '人生策略模擬遊戲'}
                 </span>
               <div className="h-[1px] w-5 bg-gradient-to-l from-transparent to-amber-500/40"></div>
             </div>

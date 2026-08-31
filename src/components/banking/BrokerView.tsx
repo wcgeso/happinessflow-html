@@ -77,9 +77,10 @@ export const BrokerView: React.FC<BrokerViewProps> = ({ cash, assets, marketPric
   );
 
   const totalTradeAmount = tradeItems.reduce((sum, item) => sum + item.total, 0);
+  const hasInvalidTrade = tradeItems.some(item => !Number.isFinite(item.price) || item.price <= 0 || !Number.isInteger(item.qty) || item.qty < 1);
   const hasOverSell = mode === 'sell' && tradeItems.some(item => item.qty > (holdingsBySymbol[item.symbol] || 0));
   const cannotAffordBuy = mode === 'buy' && totalTradeAmount > cash;
-  const canSubmit = tradeItems.length > 0 && !hasOverSell && !cannotAffordBuy;
+  const canSubmit = tradeItems.length > 0 && !hasInvalidTrade && !hasOverSell && !cannotAffordBuy;
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -264,9 +265,11 @@ export const BrokerView: React.FC<BrokerViewProps> = ({ cash, assets, marketPric
           {mode === 'buy' ? '購買' : '出售'}
         </button>
       </div>
-      {(cannotAffordBuy || hasOverSell) && (
+      {(hasInvalidTrade || cannotAffordBuy || hasOverSell) && (
         <div className="text-xs font-bold text-amber-300">
-          {cannotAffordBuy
+          {hasInvalidTrade
+            ? '股票價格尚未同步，暫時不能交易'
+            : cannotAffordBuy
             ? '現金不足，請減少買進張數後再送出。'
             : '賣出張數超過持有數量，請修正後再送出。'}
         </div>

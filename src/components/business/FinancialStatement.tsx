@@ -26,6 +26,7 @@ interface FinancialStatementProps {
   navPosition?: 'fixed' | 'inline';
   showCardLogTab?: boolean;
   cardLogEntries?: BoardCardLogEntry[];
+  financialAccelerationMultiplier?: number;
 }
 
 const formatMoney = (amount: number, isMasked?: boolean) => {
@@ -98,6 +99,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   navPosition = 'fixed',
   showCardLogTab = false,
   cardLogEntries = [],
+  financialAccelerationMultiplier = 1,
 }) => {
   const [view, setView] = useState<'financial' | 'cashflow' | 'history' | 'cardLog'>('financial');
   const [isIncomeOpen, setIsIncomeOpen] = useState(defaultShowDetails);
@@ -298,7 +300,14 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
             <section className="bg-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 shadow-2xl overflow-hidden relative">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-1">財務摘要</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-1">財務摘要</h3>
+                    {financialAccelerationMultiplier > 1 && (
+                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-black text-emerald-300">
+                        本局收益 ×{financialAccelerationMultiplier}
+                      </span>
+                    )}
+                  </div>
                   {gameState.reportName && <p className="text-[10px] text-emerald-500 font-bold">{gameState.reportName}</p>}
                 </div>
                 <button
@@ -363,14 +372,14 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                         <TAccountItem
                           label="工作收入"
                           subLabel="(穩固的收入才是幸福人生的基礎)"
-                          value={gameState.profession?.salary || 0}
+                          value={Math.round((gameState.profession?.salary || 0) * financialAccelerationMultiplier)}
                           color="text-emerald-400"
                           isMasked={isMasked}
                         />
                         <div className="pt-2 border-t border-slate-800/50 space-y-2">
                           <div className="text-xs text-slate-400 leading-tight break-all whitespace-nowrap text-left">理財收入</div>
                           {(Number(gameState.income?.investment) || 0) > 0 && (
-                            <TAccountSubItem label="執行師調整" value={Number(gameState.income?.investment) || 0} isMasked={isMasked} />
+                            <TAccountSubItem label="執行師調整" value={Math.round((Number(gameState.income?.investment) || 0) * financialAccelerationMultiplier)} isMasked={isMasked} />
                           )}
                           {cds.length > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
@@ -378,13 +387,13 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                                 <span>定存利息</span>
                                 <span className="text-slate-500 font-normal lowercase">(利息1%)</span>
                               </div>
-                              {cds.map(cd => <TAccountSubItem key={cd.id} label={getAssetDisplayName(cd)} value={cd.cashflow} isMasked={isMasked} />)}
+                              {cds.map(cd => <TAccountSubItem key={cd.id} label={getAssetDisplayName(cd)} value={Math.round(cd.cashflow * financialAccelerationMultiplier)} isMasked={isMasked} />)}
                             </div>
                           )}
                           {businesses.length > 0 && (
                             <div className="space-y-1.5 pt-2 border-t border-slate-800/50">
                               <div className="text-[9px] font-black uppercase tracking-widest text-purple-300">企業收益</div>
-                              {businesses.map(b => <TAccountSubItem key={b.id} label={getAssetDisplayName(b)} value={b.cashflow} isMasked={isMasked} />)}
+                              {businesses.map(b => <TAccountSubItem key={b.id} label={getAssetDisplayName(b)} value={Math.round(b.cashflow * financialAccelerationMultiplier)} isMasked={isMasked} />)}
                             </div>
                           )}
                           {realEstate.length > 0 && (
@@ -399,6 +408,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
                                 if (hasBonus) {
                                   income += 10000 * abilityCount;
                                 }
+                                income = Math.round(income * financialAccelerationMultiplier);
                                 return (
                                   <TAccountSubItem key={r.id} label={
                                     <div className="flex flex-col">

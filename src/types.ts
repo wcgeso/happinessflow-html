@@ -92,6 +92,27 @@ export interface Transaction {
   details?: string; // New: for listing sub-details
   flowType?: '生活' | '投資' | '融資' | '其它'; // New: for cash flow classification
   boardEventId?: string; // 棋盤事件 ID，用於財務檢核流程的事件級防重複套用
+  incomeMultiplierEligible?: boolean; // 明確標記可套用房間收益倍率的一次性收入
+  originalAmount?: number; // 套用倍率前的金額
+  appliedMultiplier?: number; // 實際入帳時使用的倍率
+}
+
+export type FinancialAccelerationMultiplier = 1 | 1.5 | 2 | 3;
+
+export interface FinancialAccelerationState {
+  multiplier: FinancialAccelerationMultiplier;
+  updatedAt?: number;
+  updatedByUid?: string;
+  updatedByName?: string;
+}
+
+export interface FinancialSubsidyState {
+  sequence: number;
+  amount: number;
+  grantedAt: number;
+  grantedByUid: string;
+  grantedByName?: string;
+  playerUids: string[];
 }
 
 export interface HappinessItem {
@@ -253,6 +274,7 @@ export interface FamilyMilestoneJoinResponse {
   // A passed roll only grants the option to join. The response is complete
   // after the player accepts or declines the resulting card action.
   actionCompleted?: boolean;
+  stageProgressId?: string;
   roll?: number;
   respondedAt: number;
 }
@@ -263,6 +285,8 @@ export interface FamilyMilestoneJoinPrompt {
   sourceCardId: string;
   sourcePlayerUid: string;
   sourcePlayerName: string;
+  sourceStageProgressId?: string;
+  sourceActionCompleted?: boolean;
   requiredRoll: number;
   targetPlayerUids: string[];
   responses: Record<string, FamilyMilestoneJoinResponse>;
@@ -369,7 +393,24 @@ export interface PresenceState {
   uid: string;
   status: PresenceStatus;
   sessionId: string;
+  source?: 'firestore' | 'realtime';
   lastSeenAt?: number | { toMillis: () => number };
+}
+
+export type CoachExpenseCategory = 'basicLiving' | 'transportEdu' | 'otherMedicalChild';
+
+export interface PlayerDiagnosticState {
+  uid: string;
+  sessionId: string;
+  flow: string;
+  screen: string;
+  activeModal?: string | null;
+  boardEventId?: string | null;
+  cardId?: string | null;
+  pendingAction?: string | null;
+  errorMessage?: string | null;
+  errorAt?: number | null;
+  updatedAt?: number | { toMillis: () => number };
 }
 
 export interface GameState {
@@ -411,6 +452,7 @@ export interface GameState {
   abilities: GameAbilities;
   completedHappinessEvents: string[];
   appliedBoardFinancialEventIds?: string[];
+  pendingMedicalClaims?: PendingMedicalClaim[];
   hasShownWinAnimation?: boolean;
   playerName?: string;
   reportName?: string;
@@ -425,11 +467,23 @@ export interface GameState {
     promptId: string;
     cardId: string;
     sourcePlayerUid: string;
+    stageProgressId?: string;
   };
   pendingStartupUpgradeAction?: {
     cardId: string;
     symbol: string;
   };
+  pendingStartupUpgradeActions?: Array<{
+    cardId: string;
+    symbol: string;
+  }>;
+}
+
+export interface PendingMedicalClaim {
+  id: string;
+  sourceEventId: string;
+  sourceCardId: string;
+  createdAt: number;
 }
 
 export interface PublicPlayerState {
@@ -554,6 +608,18 @@ export type UsageType =
   | 'loan'
   | 'loan_repayment'
   | 'forced_debt';
+
+export type BoardFinancialFlow =
+  | 'manual-bank'
+  | 'board-card'
+  | 'family-milestone'
+  | 'shared-card'
+  | 'startup-loan'
+  | 'real-estate-market'
+  | 'hospital'
+  | 'repair'
+  | 'vehicle-loss'
+  | 'insurance-claim';
 // Keep legacy '飛行器' for old transaction payloads; new UI should use '汽車'.
 export type AssetType = '股票' | '不動產' | '企業' | '定存' | '保險' | '飛行器' | '汽車' | '目標企業' | '心儀夢想' | '現金';
 
@@ -629,6 +695,7 @@ export interface TransactionData {
   };
   impacts?: string[];
   flowType?: '經營' | '投資' | '籌資' | '其它';
+  incomeMultiplierEligible?: boolean;
   assetChange?: {
     action: 'add' | 'remove';
     asset: {
@@ -661,6 +728,12 @@ export interface TransactionData {
     currentPrice: number;
   };
   boardEventId?: string; // 棋盤事件 ID，用於財務檢核流程的事件級防重複套用
+  boardFlow?: BoardFinancialFlow;
+  medicalClaimId?: string;
+  pendingMedicalClaim?: PendingMedicalClaim;
+  vehicleLossPayload?: {
+    assetId?: string;
+  };
 }
 
 export interface Achievement {

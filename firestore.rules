@@ -55,11 +55,11 @@ service cloud.firestore {
       }
 
       function canReadRoom(data) {
-        return isHost(data) || isCoach() ||
+        return isHost(data) ||
+          (isMember(data) && (!('playerStates' in data) || data.playerStates.size() == 0)) ||
           (data.status == 'waiting' &&
             (!('playerStates' in data) || data.playerStates.size() == 0)) ||
-          (isMember(data) &&
-            (!('playerStates' in data) || data.playerStates.size() == 0));
+          isCoach();
       }
 
       function immutableIdentity() {
@@ -130,16 +130,50 @@ service cloud.firestore {
           );
       }
 
+      function updatesFinancialAcceleration() {
+        return (isHost(resource.data) || isCoach()) &&
+          changedOnly(['financialAcceleration']) &&
+          ('financialAcceleration' in request.resource.data) &&
+          request.resource.data.financialAcceleration is map &&
+          (
+            request.resource.data.financialAcceleration.multiplier == 1 ||
+            request.resource.data.financialAcceleration.multiplier == 1.5 ||
+            request.resource.data.financialAcceleration.multiplier == 2 ||
+            request.resource.data.financialAcceleration.multiplier == 3
+          ) &&
+          request.resource.data.financialAcceleration.updatedByUid == request.auth.uid;
+      }
+
+      function previousSubsidySequence() {
+        return ('financialSubsidy' in resource.data &&
+          resource.data.financialSubsidy is map &&
+          'sequence' in resource.data.financialSubsidy &&
+          resource.data.financialSubsidy.sequence is number)
+          ? resource.data.financialSubsidy.sequence
+          : 0;
+      }
+
+      function updatesFinancialSubsidy() {
+        return (isHost(resource.data) || isCoach()) &&
+          changedOnly(['financialSubsidy']) &&
+          ('financialSubsidy' in request.resource.data) &&
+          request.resource.data.financialSubsidy is map &&
+          request.resource.data.financialSubsidy.amount > 0 &&
+          request.resource.data.financialSubsidy.grantedByUid == request.auth.uid &&
+          request.resource.data.financialSubsidy.playerUids is list &&
+          request.resource.data.financialSubsidy.sequence is number &&
+          request.resource.data.financialSubsidy.sequence == previousSubsidySequence() + 1;
+      }
+
       function validPromptResponseMutation() {
         return (
           ('familyMilestoneJoinPrompt' in resource.data.boardState) &&
           resource.data.boardState.familyMilestoneJoinPrompt is map &&
           (
-            !('familyMilestoneJoinPrompt' in request.resource.data.boardState) ||
-            (request.resource.data.boardState.familyMilestoneJoinPrompt is map &&
+            request.resource.data.boardState.familyMilestoneJoinPrompt is map &&
               request.resource.data.boardState.familyMilestoneJoinPrompt.responses.diff(
                 resource.data.boardState.familyMilestoneJoinPrompt.responses
-              ).affectedKeys().hasOnly([request.auth.uid]))
+              ).affectedKeys().hasOnly([request.auth.uid])
           )
         ) || (
           ('sharedCardPrompt' in resource.data.boardState) &&
@@ -167,9 +201,36 @@ service cloud.firestore {
           resource.data.boardState.familyMilestoneJoinPrompt is map &&
           resource.data.boardState.familyMilestoneJoinPrompt.sourcePlayerUid == request.auth.uid &&
           resource.data.boardState.familyMilestoneJoinPrompt.sourceEventId == resource.data.boardState.currentEvent.id &&
+          resource.data.boardState.familyMilestoneJoinPrompt.sourceActionCompleted == true &&
+          resource.data.boardState.familyMilestoneJoinPrompt.responses.keys().size() ==
+            resource.data.boardState.familyMilestoneJoinPrompt.targetPlayerUids.size() &&
           (!('familyMilestoneJoinPrompt' in request.resource.data.boardState) ||
             request.resource.data.boardState.familyMilestoneJoinPrompt == null) &&
           (!('sharedCardPrompt' in resource.data.boardState) || resource.data.boardState.sharedCardPrompt == null);
+      }
+
+      function completesFamilyPromptFromParticipant() {
+        return resource.data.boardState.currentEvent is map &&
+          resource.data.boardState.familyMilestoneJoinPrompt is map &&
+          resource.data.boardState.familyMilestoneJoinPrompt.sourceEventId == resource.data.boardState.currentEvent.id &&
+          request.auth.uid in resource.data.boardState.familyMilestoneJoinPrompt.targetPlayerUids &&
+          resource.data.boardState.familyMilestoneJoinPrompt.sourceActionCompleted == true &&
+          resource.data.boardState.familyMilestoneJoinPrompt.responses.keys().size() ==
+            resource.data.boardState.familyMilestoneJoinPrompt.targetPlayerUids.size() &&
+          (!('familyMilestoneJoinPrompt' in request.resource.data.boardState) ||
+            request.resource.data.boardState.familyMilestoneJoinPrompt == null) &&
+          (!('sharedCardPrompt' in resource.data.boardState) || resource.data.boardState.sharedCardPrompt == null);
+      }
+
+      function updatesOwnFamilySourceAction() {
+        return resource.data.boardState.currentTurnUid == request.auth.uid &&
+          resource.data.boardState.familyMilestoneJoinPrompt is map &&
+          resource.data.boardState.familyMilestoneJoinPrompt.sourcePlayerUid == request.auth.uid &&
+          request.resource.data.boardState.familyMilestoneJoinPrompt is map &&
+          request.resource.data.boardState.familyMilestoneJoinPrompt.sourceActionCompleted == true &&
+          request.resource.data.boardState.familyMilestoneJoinPrompt.diff(
+            resource.data.boardState.familyMilestoneJoinPrompt
+          ).affectedKeys().hasOnly(['sourceActionCompleted']);
       }
 
       function validBoardCommand() {
@@ -179,6 +240,8 @@ service cloud.firestore {
               (!('familyMilestoneJoinPrompt' in resource.data.boardState) || resource.data.boardState.familyMilestoneJoinPrompt == null) &&
               (!('sharedCardPrompt' in resource.data.boardState) || resource.data.boardState.sharedCardPrompt == null)) ||
             completesOwnFamilySourceEvent() ||
+            completesFamilyPromptFromParticipant() ||
+            updatesOwnFamilySourceAction() ||
             (('familyMilestoneJoinPrompt' in resource.data.boardState) &&
               resource.data.boardState.familyMilestoneJoinPrompt is map &&
               request.auth.uid in resource.data.boardState.familyMilestoneJoinPrompt.targetPlayerUids &&
@@ -193,6 +256,31 @@ service cloud.firestore {
           request.resource.data.boardState.processedCommandIds is list &&
           request.resource.data.boardState.processedCommandIds.size() <= 100 &&
           request.resource.data.boardState.processedCommandIds != resource.data.boardState.processedCommandIds &&
+          updatesOnlyOwnPublicProjection();
+      }
+
+      function updatesRealEstateMarketPurchase() {
+        return signedIn() &&
+          resource.data.status == 'playing' &&
+          hasMemberList(resource.data) &&
+          request.auth.uid in resource.data.memberUids &&
+          changedOnly(['boardState', 'publicPlayerStates']) &&
+          resource.data.boardState.realEstateMarket is list &&
+          request.resource.data.boardState.realEstateMarket is list &&
+          request.resource.data.boardState.diff(resource.data.boardState).affectedKeys()
+            .hasOnly(['realEstateMarket', 'revision', 'processedCommandIds', 'updatedAt']) &&
+          request.resource.data.boardState.realEstateMarket.size() == resource.data.boardState.realEstateMarket.size() - 1 &&
+          resource.data.boardState.realEstateMarket.hasAll(request.resource.data.boardState.realEstateMarket) &&
+          request.resource.data.boardState.revision == resource.data.boardState.revision + 1 &&
+          request.resource.data.boardState.processedCommandIds is list &&
+          request.resource.data.boardState.processedCommandIds.size() <= 100 &&
+          request.resource.data.boardState.processedCommandIds != resource.data.boardState.processedCommandIds &&
+          (
+            (resource.data.boardState.processedCommandIds.size() < 100 &&
+              request.resource.data.boardState.processedCommandIds.size() == resource.data.boardState.processedCommandIds.size() + 1) ||
+            (resource.data.boardState.processedCommandIds.size() == 100 &&
+              request.resource.data.boardState.processedCommandIds.size() == 100)
+          ) &&
           updatesOnlyOwnPublicProjection();
       }
 
@@ -260,14 +348,22 @@ service cloud.firestore {
         (!exists(/databases/$(database)/documents/rooms/$(roomId)) || canReadRoom(resource.data));
 
       allow update: if signedIn() && immutableIdentity() && (
-        isHost(resource.data) ||
+        (isHost(resource.data) && (
+          (!('financialSubsidy' in resource.data) && !('financialSubsidy' in request.resource.data)) ||
+          (('financialSubsidy' in resource.data) &&
+            ('financialSubsidy' in request.resource.data) &&
+            request.resource.data.financialSubsidy == resource.data.financialSubsidy)
+        )) ||
         joinsSelf() ||
         leavesSelf() ||
         updatesOwnPlayerState() ||
         updatesOwnPublicPlayerState() ||
+        updatesFinancialAcceleration() ||
+        updatesFinancialSubsidy() ||
         submitsOwnRequest() ||
         clearsOwnRequest() ||
         validBoardCommand() ||
+        updatesRealEstateMarketPurchase() ||
         skipsDisconnectedTurn() ||
         updatesBoardNoticeOnly() ||
         updatesOwnBoardPromptResponse()
@@ -295,8 +391,8 @@ service cloud.firestore {
             (isRoomMember() || roomData().status == 'waiting');
         }
 
-        allow read: if isRoomCoach() || canReadOwnWaitingState();
-        allow create, update: if isRoomCoach() || (isRoomMember() && request.auth.uid == playerUid);
+        allow read: if canReadOwnWaitingState() || isRoomCoach();
+        allow create, update: if (isRoomMember() && request.auth.uid == playerUid) || isRoomCoach();
         allow delete: if isRoomCoach();
       }
 
@@ -329,6 +425,46 @@ service cloud.firestore {
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'status', 'sessionId', 'lastSeenAt']) &&
           validPresence();
         allow delete: if isRoomCoach() || (isRoomMember() && request.auth.uid == presenceUid);
+      }
+
+      match /diagnostics/{diagnosticUid} {
+        function roomData() {
+          return get(/databases/$(database)/documents/rooms/$(roomId)).data;
+        }
+
+        function isRoomMember() {
+          return signedIn() && roomData().memberUids is list && request.auth.uid in roomData().memberUids;
+        }
+
+        function isRoomCoach() {
+          return signedIn() && (
+            roomData().hostId == request.auth.uid ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm']
+          );
+        }
+
+        function validDiagnostic() {
+          return request.resource.data.keys().hasOnly([
+              'uid', 'sessionId', 'flow', 'screen', 'activeModal', 'boardEventId',
+              'cardId', 'pendingAction', 'errorMessage', 'errorAt', 'updatedAt'
+            ]) &&
+            request.resource.data.uid == diagnosticUid &&
+            request.resource.data.sessionId is string &&
+            request.resource.data.flow is string &&
+            request.resource.data.screen is string &&
+            request.resource.data.updatedAt is timestamp &&
+            (!('activeModal' in request.resource.data) || request.resource.data.activeModal == null || request.resource.data.activeModal is string) &&
+            (!('boardEventId' in request.resource.data) || request.resource.data.boardEventId == null || request.resource.data.boardEventId is string) &&
+            (!('cardId' in request.resource.data) || request.resource.data.cardId == null || request.resource.data.cardId is string) &&
+            (!('pendingAction' in request.resource.data) || request.resource.data.pendingAction == null || request.resource.data.pendingAction is string) &&
+            (!('errorMessage' in request.resource.data) || request.resource.data.errorMessage == null || request.resource.data.errorMessage is string) &&
+            (!('errorAt' in request.resource.data) || request.resource.data.errorAt == null || request.resource.data.errorAt is number);
+        }
+
+        allow read: if isRoomCoach();
+        allow create: if isRoomMember() && request.auth.uid == diagnosticUid && validDiagnostic();
+        allow update: if isRoomMember() && request.auth.uid == diagnosticUid && validDiagnostic();
+        allow delete: if isRoomCoach() || (isRoomMember() && request.auth.uid == diagnosticUid);
       }
 
       match /events/{eventId} {

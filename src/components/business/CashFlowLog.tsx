@@ -23,11 +23,13 @@ export const CashFlowLog: React.FC<CashFlowLogProps> = ({ history }) => {
                 cashChange: tx.cashChange,
                 balance: newBalance,
                 timestamp: tx.timestamp,
-                flowType: tx.flowType
+                flowType: tx.flowType,
+                originalAmount: tx.originalAmount,
+                appliedMultiplier: tx.appliedMultiplier
             });
 
             return acc;
-        }, [] as { round: number; name: string; cashChange: number; balance: number; timestamp: number; flowType?: string }[]);
+        }, [] as { round: number; name: string; cashChange: number; balance: number; timestamp: number; flowType?: string; originalAmount?: number; appliedMultiplier?: number }[]);
 
     return (
         <div className="space-y-4 animate-in fade-in duration-300">
@@ -67,6 +69,11 @@ export const CashFlowLog: React.FC<CashFlowLogProps> = ({ history }) => {
                                             <div className={`text-[10px] font-bold whitespace-nowrap ${item.cashChange > 0 ? 'text-emerald-400' : item.cashChange < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
                                                 {item.cashChange > 0 ? '+' : ''}{formatMoney(item.cashChange)}
                                             </div>
+                                            {item.originalAmount !== undefined && item.appliedMultiplier && item.appliedMultiplier > 1 && (
+                                                <div className="text-[10px] font-bold text-amber-300">
+                                                    {formatMoney(item.originalAmount)} ×{item.appliedMultiplier}＝{formatMoney(item.cashChange)}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-2 py-3 text-right align-top">
                                             <div className="flex flex-col items-end gap-1.5">

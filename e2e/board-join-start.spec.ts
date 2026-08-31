@@ -221,3 +221,22 @@ test('coach creates a board room, 3 players join + set up, display syncs', async
   }
 
 });
+
+test('keeps different player accounts isolated in separate tabs', async ({ browser }) => {
+  await seedAccounts();
+
+  const context = await browser.newContext();
+  const pages: Page[] = [];
+  for (const player of PLAYERS) {
+    const page = await context.newPage();
+    await login(page, player.email, player.password);
+    await expect(page.getByText(player.name, { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+    pages.push(page);
+  }
+
+  for (const [index, player] of PLAYERS.entries()) {
+    await expect(pages[index].getByText(player.name, { exact: true }).first()).toBeVisible();
+  }
+
+  await context.close();
+});
