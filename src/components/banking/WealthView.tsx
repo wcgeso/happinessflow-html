@@ -26,7 +26,8 @@ export const WealthView: React.FC<WealthViewProps> = ({
   const carPrice = 600000;
   const minCarDownPayment = Math.floor(carPrice * 0.2);
   const [productType, setProductType] = useState<'insurance' | 'deposit' | 'car'>(initialProductType);
-  const [depositAmount, setDepositAmount] = useState<number>(10000);
+  const [depositUnits, setDepositUnits] = useState<number>(1);
+  const [depositWithdrawUnits, setDepositWithdrawUnits] = useState<Record<string, number>>({});
   const [carCashAmount, setCarCashAmount] = useState<number>(Math.min(Math.max(minCarDownPayment, 0), Math.min(cash, carPrice)));
   const [carInputError, setCarInputError] = useState<string | null>(null);
 
@@ -41,6 +42,9 @@ export const WealthView: React.FC<WealthViewProps> = ({
     () => assets.filter(asset => asset.type === '定存' && asset.cost > 0),
     [assets]
   );
+  const depositUnit = 10000;
+  const depositAmount = depositUnits * depositUnit;
+  const maxDepositUnits = Math.floor(Math.max(0, cash) / depositUnit);
   const availableProductTypes = useMemo(
     () => allowedProductTypes.length > 0 ? allowedProductTypes : ['insurance', 'deposit', 'car'],
     [allowedProductTypes]
@@ -102,7 +106,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
   };
 
   const handleBuyDeposit = () => {
-    if (!canUseBankProducts || depositAmount <= 0) return;
+    if (!canUseBankProducts || depositUnits < 1 || depositAmount > cash) return;
     onTransaction({
       name: `定存 ${depositAmount.toLocaleString()}`,
       amount: depositAmount,
@@ -120,14 +124,16 @@ export const WealthView: React.FC<WealthViewProps> = ({
         }
       }
     });
-    setDepositAmount(10000);
+    setDepositUnits(1);
   };
 
-  const handleWithdrawDeposit = (asset: Asset) => {
-    const withdrawAmount = asset.cost || asset.value || 0;
-    if (withdrawAmount <= 0) return;
+  const handleWithdrawDeposit = (asset: Asset, units: number) => {
+    const depositBalance = asset.cost || asset.value || 0;
+    const withdrawAmount = units * 10000;
+    if (depositBalance <= 0 || !Number.isInteger(units) || units <= 0 || withdrawAmount > depositBalance) return;
 
     onTransaction({
+      commandId: `deposit-withdrawal:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
       name: `解約定存 ${withdrawAmount.toLocaleString()}`,
       amount: withdrawAmount,
       cashChange: withdrawAmount,
@@ -160,6 +166,7 @@ export const WealthView: React.FC<WealthViewProps> = ({
     const loanPortion = carPrice - cashPortion;
 
     onTransaction({
+      commandId: `car-purchase:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
       name: '買入汽車（增加一顆骰子）',
       amount: carPrice,
       cashChange: -cashPortion,
@@ -324,20 +331,28 @@ export const WealthView: React.FC<WealthViewProps> = ({
               </div>
               
               <div className="space-y-3">
-                <span className="text-sm font-bold text-slate-400 block">輸入定存金額</span>
+                <span className="text-sm font-bold text-slate-400 block">輸入定存金額（萬元）</span>
                 <div className="flex items-center gap-2 sm:gap-4">
                   <button 
-                    onClick={() => setDepositAmount(Math.max(10000, depositAmount - 10000))}
+                    onClick={() => setDepositUnits(Math.max(1, depositUnits - 1))}
                     className="h-11 w-11 shrink-0 rounded-xl border border-[#d8c29a] bg-[#f4e6d0] text-xl font-black text-[#765f47] hover:bg-[#ead7b8] sm:h-12 sm:w-12"
                   >-</button>
                   <input
                     type="number"
-                    value={depositAmount || ''}
-                    onChange={(e) => setDepositAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                    aria-label="定存金額（萬元）"
+                    min={1}
+                    max={maxDepositUnits || undefined}
+                    step={1}
+                    value={depositUnits || ''}
+                    onChange={(e) => {
+                      const nextUnits = Number.parseInt(e.target.value, 10);
+                      setDepositUnits(Number.isFinite(nextUnits) ? Math.min(maxDepositUnits || 1, Math.max(1, nextUnits)) : 1);
+                    }}
                     className="h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 text-center text-lg font-black tracking-wide text-white sm:h-12 sm:text-xl sm:tracking-wider"
                   />
                   <button 
-                    onClick={() => setDepositAmount(Math.min(cash, depositAmount + 10000))}
+                    onClick={() => setDepositUnits(Math.min(maxDepositUnits, depositUnits + 1))}
+                    disabled={maxDepositUnits <= depositUnits}
                     className="h-11 w-11 shrink-0 rounded-xl border border-[#d8c29a] bg-[#f4e6d0] text-xl font-black text-[#765f47] hover:bg-[#ead7b8] sm:h-12 sm:w-12"
                   >+</button>
                 </div>
@@ -353,9 +368,9 @@ export const WealthView: React.FC<WealthViewProps> = ({
 
             <button
               onClick={handleBuyDeposit}
-              disabled={!canUseBankProducts || depositAmount <= 0 || cash < depositAmount}
+              disabled={!canUseBankProducts || depositUnits < 1 || depositAmount > cash}
               className={`min-h-11 w-full rounded-xl py-2.5 text-sm font-black tracking-wide transition-all sm:rounded-2xl sm:py-4 sm:text-[16px] sm:tracking-widest ${
-                !canUseBankProducts || depositAmount <= 0 || cash < depositAmount
+                !canUseBankProducts || depositUnits < 1 || depositAmount > cash
                   ? 'bg-[#ead6b9] text-[#765f47] cursor-not-allowed'
                   : 'bg-[#168269] text-white hover:bg-[#116c58]'
               }`}
@@ -374,21 +389,75 @@ export const WealthView: React.FC<WealthViewProps> = ({
                     目前沒有可解約的定存
                   </div>
                 ) : (
-                  depositAssets.map(asset => (
+                  depositAssets.map(asset => {
+                    const depositBalance = asset.cost || asset.value || 0;
+                    const maxWithdrawUnits = Math.floor(depositBalance / 10000);
+                    const selectedWithdrawUnits = Math.min(
+                      maxWithdrawUnits,
+                      Math.max(1, depositWithdrawUnits[asset.id] || maxWithdrawUnits)
+                    );
+
+                    return (
                     <div key={asset.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-4">
                       <div>
-                        <div className="text-sm font-black text-white">定存 {asset.cost.toLocaleString()}</div>
-                        <div className="mt-1 text-xs font-bold text-slate-500">每月利息 +${Math.floor((asset.cost || 0) * 0.01).toLocaleString()}</div>
+                        <div className="text-sm font-black text-white">定存 {depositBalance.toLocaleString()}</div>
+                        <div className="mt-1 text-xs font-bold text-slate-500">每月利息 +${Math.floor(depositBalance * 0.01).toLocaleString()}</div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleWithdrawDeposit(asset)}
-                        className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-amber-400"
-                      >
-                        解約
-                      </button>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-400">解約（萬元）</span>
+                          <button
+                            type="button"
+                            aria-label="減少解約金額"
+                            onClick={() => setDepositWithdrawUnits(prev => ({
+                              ...prev,
+                              [asset.id]: Math.max(1, selectedWithdrawUnits - 1)
+                            }))}
+                            disabled={maxWithdrawUnits <= 1}
+                            className="h-8 w-8 rounded-lg border border-slate-600 bg-slate-800 text-base font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min={1}
+                            max={maxWithdrawUnits}
+                            step={1}
+                            value={selectedWithdrawUnits}
+                            onChange={(event) => {
+                              const nextUnits = Number.parseInt(event.target.value, 10);
+                              setDepositWithdrawUnits(prev => ({
+                                ...prev,
+                                [asset.id]: Number.isFinite(nextUnits) ? Math.min(maxWithdrawUnits, Math.max(1, nextUnits)) : 1
+                              }));
+                            }}
+                            className="h-8 w-16 rounded-lg border border-slate-600 bg-slate-950 text-center text-sm font-black text-white"
+                          />
+                          <button
+                            type="button"
+                            aria-label="增加解約金額"
+                            onClick={() => setDepositWithdrawUnits(prev => ({
+                              ...prev,
+                              [asset.id]: Math.min(maxWithdrawUnits, selectedWithdrawUnits + 1)
+                            }))}
+                            disabled={maxWithdrawUnits <= 1}
+                            className="h-8 w-8 rounded-lg border border-slate-600 bg-slate-800 text-base font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleWithdrawDeposit(asset, selectedWithdrawUnits)}
+                          disabled={maxWithdrawUnits < 1}
+                          className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          解約 {selectedWithdrawUnits.toLocaleString()} 萬
+                        </button>
+                      </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -440,11 +509,15 @@ export const WealthView: React.FC<WealthViewProps> = ({
                     -
                   </button>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
                     value={carCashAmount || ''}
                     onChange={(e) => {
                       setCarInputError(null);
-                      setCarCashAmount(e.target.value === '' ? 0 : Number(e.target.value));
+                      const digits = e.target.value.replace(/[^0-9]/g, '');
+                      setCarCashAmount(digits === '' ? 0 : Number(digits));
                     }}
                     disabled={hasCarAsset || !canAffordMinDownPayment}
                     className="h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 text-center text-lg font-black tracking-wide text-white disabled:opacity-50 sm:h-12 sm:text-xl sm:tracking-wider"
@@ -466,14 +539,14 @@ export const WealthView: React.FC<WealthViewProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 sm:rounded-2xl sm:p-4">
-                  <div className="text-sm font-bold text-slate-400">現金支出</div>
-                  <div className="mt-1 truncate text-lg font-black text-rose-400 sm:mt-2 sm:text-2xl">-${normalizedCarCash.toLocaleString()}</div>
+                <div className="rounded-xl border border-[#e7b9b8] bg-[#fff1f0] p-3 sm:rounded-2xl sm:p-4">
+                  <div className="text-sm font-bold text-[#704c4d]">現金支出</div>
+                  <div className="mt-1 truncate text-lg font-black text-[#a6324e] sm:mt-2 sm:text-2xl">-${normalizedCarCash.toLocaleString()}</div>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 sm:rounded-2xl sm:p-4">
-                  <div className="text-sm font-bold text-slate-400">汽車貸款</div>
-                  <div className="mt-1 truncate text-lg font-black text-amber-300 sm:mt-2 sm:text-2xl">${carLoanAmount.toLocaleString()}</div>
-                  <div className="mt-1 text-xs font-medium text-slate-500">每月利息 +${carLoanInterest.toLocaleString()}</div>
+                <div className="rounded-xl border border-[#e5c894] bg-[#fff5df] p-3 sm:rounded-2xl sm:p-4">
+                  <div className="text-sm font-bold text-[#6e563c]">汽車貸款</div>
+                  <div className="mt-1 truncate text-lg font-black text-[#795120] sm:mt-2 sm:text-2xl">${carLoanAmount.toLocaleString()}</div>
+                  <div className="mt-1 text-xs font-medium text-[#766858]">每月利息 +${carLoanInterest.toLocaleString()}</div>
                 </div>
               </div>
             </div>

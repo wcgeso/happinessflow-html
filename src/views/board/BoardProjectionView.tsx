@@ -1,16 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Activity, GraduationCap, Heart, HeartCrack, Landmark, Newspaper, ScrollText, Sparkles, TrendingDown, TrendingUp, Volume2, VolumeX, Wrench } from 'lucide-react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { Activity, GraduationCap, Heart, HeartCrack, Landmark, Music2, Newspaper, ScrollText, Sparkles, TrendingDown, TrendingUp, Volume2, VolumeX, Wrench } from 'lucide-react';
+import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
 import SafeImage from '../../components/common/SafeImage';
 import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
+import { DicePresentationOverlay } from '../../components/board/DicePresentationOverlay';
 import { STOCK_NAMES } from '../../constants';
 import { BOARD_SQUARES } from '../../constants/board';
 import { NEWS_CARD_MAP, normalizeCardCopy } from '../../constants/cards';
 import { Room } from '../../context/RoomContext';
 import { BoardCardLogEntry, BoardCardResult, BoardEventLog, BoardSquare, SkippedTurnNotice } from '../../types';
 import { getCardNarrative, hydrateBoardCardResult } from '../../utils/boardCardDisplay';
+import { isBoardPromptForCurrentEvent } from '../../utils/boardCardActions';
 import { FAMILY_MILESTONE_STAGES } from '../../utils/familyMilestones';
 import { SettlementView } from '../../components/game/SettlementView';
 import { buildSettlementPlayers } from '../../utils/settlement';
@@ -31,7 +33,9 @@ const FIT_ZOOM_FALLBACK = 0.62;
 const VIEWPORT_PADDING_X = 64;
 const VIEWPORT_PADDING_TOP = 80;
 const VIEWPORT_PADDING_BOTTOM = 32;
-const BOARD_MOVEMENT_TICK_MS = 80;
+// 投影幕只需跟上每一步的移動，不需要每 80ms 重繪整個棋盤。
+// 160ms 仍有足夠的動畫取樣，並把移動期間的 React 重繪量減半。
+const BOARD_MOVEMENT_TICK_MS = 160;
 const SKIPPED_TURN_NOTICE_MS = 2600;
 
 const playProjectionCue = (cue: AudioCue, eventId: string) => {
@@ -478,7 +482,8 @@ const CardStage: React.FC<{
     photoScale?: string;
   } | null;
   statusLabel?: string;
-}> = ({ card, isRevealed, drawerName, drawerPlayer, statusLabel }) => {
+  reserveFamilyDock?: boolean;
+}> = ({ card, isRevealed, drawerName, drawerPlayer, statusLabel, reserveFamilyDock = false }) => {
   const prefersReducedMotion = useReducedMotion();
   if (!card) return null;
 
@@ -515,6 +520,7 @@ const CardStage: React.FC<{
         { label: '月淨收益', value: `${realEstateCard.netRentIncome > 0 ? '+' : ''}${realEstateCard.netRentIncome.toLocaleString()}`, className: '' }
       ]
     : null;
+  const isRealEstateCard = !!realEstateMetrics;
   const { impacts, rest: remainingEffectLines } = parseImpactLines(normalizedEffectLines);
   const stockSymbolCount = STOCK_SYMBOL_COLUMNS.flat().length;
   const stockPriceLineCount = remainingEffectLines.filter(line =>
@@ -536,10 +542,24 @@ const CardStage: React.FC<{
   const stockSummaryCaption = isStockCard ? sentenceEffectLines.filter(Boolean).join(' ') : '';
   const playerForToken = drawerPlayer || { name: drawerName || '玩家' };
   const cardTitle = isFamilyMilestoneCard ? '幸福家庭的重要歷程' : card.title;
+  const familyDockSafeHeight = 'calc(100dvh - clamp(280px, 30dvh, 360px) - 2rem)';
+  const standardDockSafeHeight = 'calc(100dvh - clamp(190px, 22dvh, 260px) - 2rem)';
+  const cardViewportHeight = reserveFamilyDock ? familyDockSafeHeight : standardDockSafeHeight;
+  const preferredCardHeight = isFamilyMilestoneCard
+    ? '70vh, 720px'
+    : isRealEstateCard
+      ? '80vh, 760px'
+      : '72vh, 680px';
 
   return (
     <div className="w-[min(1120px,calc(100vw-48px))] max-w-full">
-      <div className={`relative ${isFamilyMilestoneCard ? 'h-[min(77vh,790px)] min-h-[500px]' : 'h-[min(72vh,680px)] min-h-[420px]'} w-full overflow-hidden rounded-[32px] border-2 border-[#d8c29a] bg-[#f7f0e3] text-[#293a38] shadow-[0_32px_80px_-34px_rgba(0,0,0,0.9)]`}>
+      <div
+        className="relative min-h-0 w-full overflow-hidden rounded-[32px] border-2 border-[#d8c29a] bg-[#f7f0e3] text-[#293a38] shadow-[0_32px_80px_-34px_rgba(0,0,0,0.9)]"
+        style={{
+          height: `min(${preferredCardHeight}, ${cardViewportHeight})`,
+          maxHeight: cardViewportHeight
+        }}
+      >
         <div
           aria-hidden={!isRevealed}
           data-projection-card-content
@@ -598,20 +618,20 @@ const CardStage: React.FC<{
             </div>
           </section>
 
-          <section className={`flex min-h-0 flex-col ${isFamilyMilestoneCard ? 'p-4 sm:p-6' : 'p-6 sm:p-9'}`}>
-            <div className="flex items-center justify-between gap-3 border-b border-[#d8c29a]/70 pb-4">
-              <div className="text-lg font-black tracking-[0.16em]" style={{ color: theme.accent }}>事件資訊</div>
-              <div className="text-base font-black tracking-[0.12em] text-[#7a7768]">卡片影響摘要</div>
+          <section className={`flex min-h-0 flex-col overflow-hidden ${isFamilyMilestoneCard ? 'p-3 sm:p-4' : isRealEstateCard ? 'p-5 sm:p-7' : 'p-6 sm:p-9'}`}>
+            <div className={`flex items-center justify-between gap-3 border-b border-[#d8c29a]/70 ${isFamilyMilestoneCard ? 'pb-2 sm:pb-3' : 'pb-4'}`}>
+              <div className="text-lg font-black tracking-[0.16em]" style={{ color: theme.accent }}>{isFamilyMilestoneCard ? '家庭歷程五階段' : '事件資訊'}</div>
+              {!isFamilyMilestoneCard && <div className="text-base font-black tracking-[0.12em] text-[#7a7768]">卡片影響摘要</div>}
             </div>
             {!realEstateMetrics && !isFamilyMilestoneCard && <ImpactSummaryBar impacts={impacts} />}
 
-            <div className="mt-5 min-h-0 flex-1 overflow-y-auto pr-2 no-scrollbar">
+            <div className={`min-h-0 flex-1 overflow-y-auto pr-2 no-scrollbar ${isFamilyMilestoneCard ? 'mt-3' : isRealEstateCard ? 'mt-4' : 'mt-5'}`}>
               {realEstateMetrics && (
                 <div className="grid grid-cols-2 gap-1.5">
                   {realEstateMetrics.map(metric => (
-                    <div key={metric.label} className={`rounded-[14px] border border-[#d8c29a] bg-white/70 px-3 py-2 ${metric.className}`}>
+                    <div key={metric.label} className={`rounded-[14px] border border-[#d8c29a] bg-white/70 px-3 py-1.5 sm:px-4 sm:py-2 ${metric.className}`}>
                       <div className="text-xs font-black tracking-[0.08em] text-[#7a7768]">{metric.label}</div>
-                      <div className="break-words text-[clamp(1.35rem,2.6vw,1.8rem)] font-black leading-tight text-[#293a38]">{metric.value}</div>
+                      <div className="break-words text-[clamp(1.2rem,2.4vw,1.65rem)] font-black leading-tight text-[#293a38]">{metric.value}</div>
                     </div>
                   ))}
                 </div>
@@ -624,9 +644,8 @@ const CardStage: React.FC<{
               )}
 
               {isFamilyMilestoneCard ? (
-                <div className="min-h-0 rounded-[18px] border border-[#d8c29a] bg-white/70 p-3 sm:p-4">
-                  <div className="mb-2 text-base font-black tracking-[0.12em] text-[#53625d] sm:text-lg">各階段影響</div>
-                  <div className="grid grid-cols-[minmax(0,1.55fr)_minmax(72px,0.75fr)_minmax(72px,0.8fr)] gap-2 border-b border-[#d8c29a] px-2 pb-1.5 text-xs font-black tracking-[0.1em] text-[#7a7768] sm:gap-3 sm:pb-2 sm:text-sm">
+                <div className="min-h-0 rounded-[18px] border border-[#d8c29a] bg-white/70 p-2 sm:p-3">
+                  <div className="grid grid-cols-[minmax(0,1.55fr)_minmax(72px,0.75fr)_minmax(72px,0.8fr)] gap-2 border-b border-[#d8c29a] px-2 pb-1 text-xs font-black tracking-[0.1em] text-[#7a7768] sm:gap-3 sm:pb-1.5 sm:text-sm">
                     <div>階段</div>
                     <div>花費</div>
                     <div>幸福值</div>
@@ -635,7 +654,7 @@ const CardStage: React.FC<{
                     {familyMilestoneStages.map((stage: any, index: number) => (
                       <div
                         key={`${card.cardId}_${stage.cardId}`}
-                        className={`grid grid-cols-[minmax(0,1.55fr)_minmax(72px,0.75fr)_minmax(72px,0.8fr)] items-center gap-2 px-3 py-2 text-sm sm:gap-3 sm:px-4 sm:py-2.5 sm:text-base ${stage.completed ? 'bg-[#eef8f0]' : index % 2 === 0 ? 'bg-[#fffdf8]' : 'bg-[#fff9f0]'}`}
+                        className={`grid grid-cols-[minmax(0,1.55fr)_minmax(72px,0.75fr)_minmax(72px,0.8fr)] items-center gap-2 px-3 py-1 text-sm sm:gap-3 sm:px-4 sm:py-1.5 sm:text-sm ${stage.completed ? 'bg-[#eef8f0]' : index % 2 === 0 ? 'bg-[#fffdf8]' : 'bg-[#fff9f0]'}`}
                       >
                         <div className="min-w-0 break-words font-black leading-tight text-[#293a38]">{stage.label}</div>
                         <div className="break-words font-black leading-tight text-[#7a5a37]">{stage.cost}</div>
@@ -709,12 +728,13 @@ const CardStage: React.FC<{
 };
 
 export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }) => {
-  const [room, setRoom] = useState<Room | null>(null);
+  const [baseRoom, setRoom] = useState<Room | null>(null);
+  const [promptResponses, setPromptResponses] = useState<{ promptId: string; responses: Record<string, any> } | null>(null);
   const [syncState, setSyncState] = useState<'loading' | 'live' | 'missing' | 'error'>('loading');
   const [zoom, setZoom] = useState(FIT_ZOOM_FALLBACK);
   const [animationNow, setAnimationNow] = useState(() => Date.now());
   const [showBoardCardLog, setShowBoardCardLog] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(() => getAudioSettings().enabled);
+  const [audioSettings, setAudioSettingsState] = useState(() => getAudioSettings());
   const [visibleSkippedTurnNotice, setVisibleSkippedTurnNotice] = useState<SkippedTurnNotice | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const boardFrameRef = useRef<HTMLDivElement | null>(null);
@@ -735,6 +755,43 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     const vh = viewport.clientHeight - VIEWPORT_PADDING_TOP - VIEWPORT_PADDING_BOTTOM;
     return Math.min(vw / BOARD_WIDTH, vh / BOARD_HEIGHT);
   }, []);
+
+  // v2 rooms keep prompt replies in events/{promptId}/responses instead of the
+  // room document, so the projection must read them to show the dice results.
+  const activeSubcollectionPrompt = baseRoom?.boardState?.familyMilestoneJoinPrompt?.responseStorage === 'subcollection'
+    ? baseRoom.boardState.familyMilestoneJoinPrompt
+    : baseRoom?.boardState?.sharedCardPrompt?.responseStorage === 'subcollection'
+      ? baseRoom.boardState.sharedCardPrompt
+      : null;
+  const activeSubcollectionPromptId = activeSubcollectionPrompt?.id || null;
+  useEffect(() => {
+    setPromptResponses(null);
+    if (!activeSubcollectionPromptId) return;
+    return onSnapshot(
+      collection(db, 'rooms', roomCode, 'events', activeSubcollectionPromptId, 'responses'),
+      snapshot => setPromptResponses({
+        promptId: activeSubcollectionPromptId,
+        responses: Object.fromEntries(snapshot.docs.map(responseDoc => [responseDoc.id, responseDoc.data()]))
+      }),
+      error => console.error('大螢幕讀取家庭歷程回覆失敗:', error),
+    );
+  }, [roomCode, activeSubcollectionPromptId]);
+
+  const room = useMemo<Room | null>(() => {
+    if (!baseRoom?.boardState || !promptResponses || promptResponses.promptId !== activeSubcollectionPromptId) return baseRoom;
+    const key = baseRoom.boardState.familyMilestoneJoinPrompt?.id === promptResponses.promptId
+      ? 'familyMilestoneJoinPrompt'
+      : 'sharedCardPrompt';
+    const prompt = baseRoom.boardState[key] as any;
+    if (!prompt) return baseRoom;
+    return {
+      ...baseRoom,
+      boardState: {
+        ...baseRoom.boardState,
+        [key]: { ...prompt, responses: { ...(prompt.responses || {}), ...promptResponses.responses } }
+      }
+    } as Room;
+  }, [baseRoom, promptResponses, activeSubcollectionPromptId]);
 
   useEffect(() => {
     setSyncState('loading');
@@ -762,8 +819,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     };
     const syncMusic = (event: Event) => {
       audioManager.syncBackgroundMusic();
-      const enabled = (event as CustomEvent<{ enabled?: unknown }>).detail?.enabled;
-      setAudioEnabled(typeof enabled === 'boolean' ? enabled : getAudioSettings().enabled);
+      setAudioSettingsState((event as CustomEvent<ReturnType<typeof getAudioSettings>>).detail || getAudioSettings());
     };
 
     startMusic();
@@ -1047,6 +1103,22 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     ? room.members.find(member => member.uid === boardState.currentEvent?.playerUid)?.name || '玩家'
     : '玩家';
   const currentDrawerPlayer = players.find(player => player.uid === boardState?.currentEvent?.playerUid) || null;
+  const familyPrompt = boardState?.familyMilestoneJoinPrompt && isBoardPromptForCurrentEvent(boardState.familyMilestoneJoinPrompt, boardState)
+    ? boardState.familyMilestoneJoinPrompt
+    : null;
+  const familyParticipants = familyPrompt
+    ? Array.from(new Map([
+        {
+          uid: familyPrompt.sourcePlayerUid,
+          name: familyPrompt.sourcePlayerName || '玩家',
+          isSource: true
+        },
+        ...familyPrompt.targetPlayerUids.map(uid => ({
+          uid,
+          name: room.members.find(member => member.uid === uid)?.name || '玩家'
+        }))
+      ].map(participant => [participant.uid, participant])).values())
+    : [];
   const cardStatusLabel = currentCard
     ? getCardStatusLabel({
         isRevealed: isCardRevealed,
@@ -1120,20 +1192,27 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     setZoomAroundPoint(zoom < 1 ? 1 : computeFitZoom(), event.clientX, event.clientY);
   };
 
-  const handleAudioToggle = () => {
-    const next = setAudioSettings({ enabled: !audioEnabled });
-    setAudioEnabled(next.enabled);
-    if (!next.enabled) {
+  const handleMusicToggle = () => {
+    const next = setAudioSettings({ musicEnabled: !audioSettings.musicEnabled });
+    setAudioSettingsState(next);
+    if (!next.musicEnabled) {
       audioManager.syncBackgroundMusic();
       return;
     }
 
     void audioManager.unlock()
-      .then(() => {
-        audioManager.play('turn');
-        return audioManager.startBackgroundMusic();
-      })
+      .then(() => audioManager.startBackgroundMusic())
       .catch(() => undefined);
+  };
+
+  const handleSoundToggle = () => {
+    const next = setAudioSettings({ soundEnabled: !audioSettings.soundEnabled });
+    setAudioSettingsState(next);
+    if (next.soundEnabled) {
+      void audioManager.unlock()
+        .then(() => audioManager.play('turn'))
+        .catch(() => undefined);
+    }
   };
 
   return (
@@ -1174,6 +1253,13 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         </div>
       )}
 
+      <DicePresentationOverlay
+        events={room?.boardState?.diceEvents}
+        prefersReducedMotion={prefersReducedMotion}
+        familyPrompt={familyPrompt}
+        familyParticipants={familyParticipants}
+      />
+
       <div
         data-projection-hud
         onPointerDown={event => event.stopPropagation()}
@@ -1195,16 +1281,28 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         <div className="rounded-full border border-[#f0cf86]/30 bg-white/5 px-3 py-1.5 text-sm font-black text-[#f4d993]">{turnPositionLabel}</div>
         <div className="h-8 w-px bg-[#f0cf86]/25" />
         <div className="min-w-0 flex-1 truncate text-lg font-black">{actionState.label}</div>
-        <button
-          type="button"
-          onClick={handleAudioToggle}
-          aria-label={audioEnabled ? '關閉投影幕音效' : '啟用投影幕音效'}
-          aria-pressed={audioEnabled}
-          className="flex shrink-0 items-center gap-2 rounded-full border border-[#f0cf86]/55 bg-[#173943]/95 px-3 py-2 text-xs font-black text-[#fff8e9] shadow-[0_12px_24px_-18px_rgba(0,0,0,0.8)]"
-        >
-          {audioEnabled ? <Volume2 size={15} className="text-[#e8c37a]" /> : <VolumeX size={15} className="text-[#bfa879]" />}
-          <span>{audioEnabled ? '音效' : '啟用音效'}</span>
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={handleMusicToggle}
+            aria-label={audioSettings.musicEnabled ? '關閉背景音樂' : '啟用背景音樂'}
+            aria-pressed={audioSettings.musicEnabled}
+            className="flex items-center gap-2 rounded-full border border-[#f0cf86]/55 bg-[#173943]/95 px-3 py-2 text-xs font-black text-[#fff8e9] shadow-[0_12px_24px_-18px_rgba(0,0,0,0.8)]"
+          >
+            <Music2 size={15} className={audioSettings.musicEnabled ? 'text-[#e8c37a]' : 'text-[#bfa879]'} />
+            <span>音樂</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSoundToggle}
+            aria-label={audioSettings.soundEnabled ? '關閉遊戲音效' : '啟用遊戲音效'}
+            aria-pressed={audioSettings.soundEnabled}
+            className="flex items-center gap-2 rounded-full border border-[#f0cf86]/55 bg-[#173943]/95 px-3 py-2 text-xs font-black text-[#fff8e9] shadow-[0_12px_24px_-18px_rgba(0,0,0,0.8)]"
+          >
+            {audioSettings.soundEnabled ? <Volume2 size={15} className="text-[#e8c37a]" /> : <VolumeX size={15} className="text-[#bfa879]" />}
+            <span>音效</span>
+          </button>
+        </div>
         <div className="shrink-0 text-right text-[10px] font-black tracking-[0.14em] text-[#bfa879]">
           <div>{roomName}</div>
           <div>房號 {room.id}</div>
@@ -1464,7 +1562,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: prefersReducedMotion ? 0 : 0.3 }}
-            className="pointer-events-none fixed inset-0 z-[10020] flex items-center justify-center bg-[#091b21]/70 p-4 sm:p-8"
+            className={`pointer-events-none fixed inset-0 z-[10020] flex items-center justify-center bg-[#091b21]/70 p-4 ${familyPrompt?.id ? 'pb-[clamp(260px,30vh,360px)] sm:pb-[clamp(280px,30vh,360px)]' : 'pb-[clamp(170px,22vh,240px)] sm:pb-[clamp(190px,22vh,260px)]'}`}
           >
             <motion.div
               initial={prefersReducedMotion ? false : { y: 24, scale: 0.97 }}
@@ -1480,6 +1578,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                   drawerName={currentDrawerName}
                   drawerPlayer={currentDrawerPlayer}
                   statusLabel={cardStatusLabel}
+                  reserveFamilyDock={Boolean(familyPrompt?.id)}
                 />
               </div>
             </motion.div>

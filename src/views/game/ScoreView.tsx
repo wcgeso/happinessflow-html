@@ -4,7 +4,7 @@ import { useRoom } from '../../context/RoomContext';
 import { useAuth } from '../../context/AuthContext';
 import { Card } from '../../components/ui/ui';
 import { calculateFinancialSummary, calculateScoreResult } from '../../utils/gameUtils';
-import { Trophy, X, List, LogOut, Upload, CheckCircle2, AlertCircle, Check } from 'lucide-react';
+import { Trophy, List, LogOut, Upload, CheckCircle2, AlertCircle, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../services/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -277,7 +277,7 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
 
     if (isInline) {
         return (
-            <div className="h-full w-full touch-pan-y overflow-y-auto overscroll-contain bg-[#f4e6d0] text-[#293a38]">
+            <div className="h-full w-full touch-pan-y overflow-y-auto overscroll-contain no-scrollbar bg-[#f4e6d0] text-[#293a38]">
                 <SettlementView
                     players={settlementPlayers}
                     privateState={privateSettlementState}
@@ -400,15 +400,7 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
             )}
 
             <div className="mx-auto flex min-h-full w-full max-w-lg items-center py-4">
-                <Card className="relative flex max-h-[calc(100dvh-2rem)] w-full touch-pan-y flex-col overflow-y-auto overscroll-contain !border-[#d8c29a] !bg-[#fffaf2] text-[#293a38] shadow-[0_26px_60px_-28px_rgba(0,0,0,0.72)] animate-in zoom-in-95">
-                    {/* Close Button at Top Right */}
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 p-2 text-[#8a7867] hover:text-[#293a38] hover:bg-[#f4e6d0] rounded-full transition-all z-10"
-                    >
-                        <X size={24} />
-                    </button>
-
+                <Card className="relative flex max-h-[calc(100dvh-2rem)] w-full touch-pan-y flex-col overflow-y-auto overscroll-contain no-scrollbar !border-[#d8c29a] !bg-[#fffaf2] text-[#293a38] shadow-[0_26px_60px_-28px_rgba(0,0,0,0.72)] animate-in zoom-in-95">
                     <div className="shrink-0 p-6 bg-[#fffaf2] border-b border-[#d8c29a] text-center">
                         <Trophy size={40} className="mx-auto text-[#b9783d] mb-2" />
                         <h2 className="text-2xl font-black text-[#293a38]">遊戲評分</h2>
@@ -519,6 +511,16 @@ export const ScoreView: React.FC<ScoreViewProps> = ({ playerName, playerUid, onC
                                 )
                             )}
 
+                            {/* 離開遊戲：只離開本機畫面，不影響房主是否關閉房間 */}
+                            <button
+                                type="button"
+                                disabled={isLeaving}
+                                onClick={handleLeaveRoom}
+                                className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-[#d8c29a] bg-[#f4e6d0] text-[#76573a] font-black transition-all hover:bg-[#ead7b8] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <LogOut size={18} />
+                                <span>{isLeaving ? '正在離開...' : '離開遊戲'}</span>
+                            </button>
                         </div>
                     </div>
                 </Card>
