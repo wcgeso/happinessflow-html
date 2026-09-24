@@ -26,6 +26,7 @@ export interface HappinessCard {
   monthlyExpenseIncrease?: number;
   childrenIncrease?: number;
   requiresChildCount?: number;
+  requiresFamilyStage1?: boolean;
   requiresStorySharing?: boolean;
   otherPlayersCanJoin?: boolean;
   joinDiceMin?: number;
@@ -243,6 +244,7 @@ export const HAPPINESS_CARDS: HappinessCard[] = happinessRawCards.map(card => ({
   monthlyExpenseIncrease: asNullableNumber(card.amount?.monthlyExpenseIncrease ?? card.effects?.monthlyExpenseIncrease),
   childrenIncrease: asNullableNumber(card.effects?.childrenIncrease),
   requiresChildCount: hasRequirement(card, 'requires_child_count_1') ? 1 : undefined,
+  requiresFamilyStage1: hasRequirement(card, 'requires_family_milestone_stage_1_completed') || undefined,
   requiresStorySharing: hasRequirement(card, 'requires_story_sharing'),
   otherPlayersCanJoin: !!(card.multiplayer?.otherPlayersCanJoin || card.effects?.otherPlayersCanJoin),
   joinDiceMin: asNullableNumber(card.multiplier?.joinDiceMin),

@@ -20,6 +20,12 @@ export const isBoardPromptForCurrentEvent = (
   prompt.sourceEventId === boardState?.currentEvent?.id &&
   prompt.sourceCardId === boardState?.currentCard?.cardId;
 
+// 非抽卡玩家不一定持有抽卡者的 currentCard 投影；共享提示以事件 ID 為準。
+export const isBoardPromptVisibleForCurrentEvent = (
+  prompt: Pick<FamilyMilestoneJoinPrompt | SharedCardPrompt, 'sourceEventId'> | null | undefined,
+  boardState: Partial<Pick<BoardState, 'currentEvent'>> | null | undefined
+) => !!prompt && prompt.sourceEventId === boardState?.currentEvent?.id;
+
 export const hasIncompleteSharedPrompts = (
   boardState: SharedPromptBoardState | null | undefined
 ): boolean => {
@@ -37,6 +43,7 @@ export const hasIncompleteSharedPrompts = (
     !familyPrompt.targetPlayerUids.every(uid => {
       const response = familyPrompt.responses?.[uid];
       if (!response) return false;
+      if (response.presentationReadyAt && response.presentationReadyAt > Date.now()) return false;
       return response.status !== 'passed' || response.actionCompleted === true;
     }) || familyPrompt.sourceActionCompleted !== true
   )) {
@@ -382,11 +389,30 @@ export const resolveBoardCardAction = (
 ): BoardCardActionDefinition => {
   let happinessCard = HAPPINESS_CARD_MAP[cardId];
   if (happinessCard) {
-    if (happinessCard.requiresChildCount && gameState.children < happinessCard.requiresChildCount) {
+    const recordedChildCount = Math.max(0, Number(gameState.children) || 0);
+    const hasCompletedChildMilestone = (gameState.happiness || []).some(item =>
+      item.checked && (item.id === 'h_child1' || item.id === 'h_child2')
+    ) || (gameState.completedHappinessEvents || []).some(eventId => eventId === 'child1' || eventId === 'child2');
+    if (happinessCard.requiresChildCount && recordedChildCount < happinessCard.requiresChildCount && !hasCompletedChildMilestone) {
       return {
         kind: 'choice',
         label: '確認卡片',
         note: '你目前沒有孩子，這張卡本次無效果。',
+        options: [
+          {
+            id: 'dismiss',
+            label: '關閉',
+            action: { kind: 'dismiss' }
+          }
+        ]
+      };
+    }
+
+    if (happinessCard.requiresFamilyStage1 && !getFamilyMilestoneStatus(gameState).stages[0]?.completed) {
+      return {
+        kind: 'choice',
+        label: '確認卡片',
+        note: '你尚未完成第一次約會，這張卡本次無效果。',
         options: [
           {
             id: 'dismiss',
@@ -588,7 +614,8 @@ export const resolveBoardCardAction = (
         };
       }
 
-      const repairFee = opportunityCard.cashLoss || 0;
+      const repairFeePerHouse = opportunityCard.cashLoss || 0;
+      const repairFee = repairFeePerHouse * uninsuredHouses.length;
       return {
         kind: 'financial',
         label: '進入財務檢核',
@@ -598,7 +625,7 @@ export const resolveBoardCardAction = (
           cashChange: -repairFee,
           source: 'cash',
           usage: 'expense',
-          impacts: [`未投保房屋 ${uninsuredHouses.length} 間，收取一次修繕費`, `現金 -${formatAmount(repairFee)}`]
+          impacts: [`未投保房屋 ${uninsuredHouses.length} 間，每間修繕費 ${formatAmount(repairFeePerHouse)}`, `現金 -${formatAmount(repairFee)}`]
         },
         expectedEntries: [{ category: 'Assets', name: '現金', direction: 'Decrease' }],
         afterApply: moveAfterApply

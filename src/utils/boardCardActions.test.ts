@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { HAPPINESS_CARDS, OPPORTUNITY_CARDS } from '../constants/cards';
 import { FamilyMilestoneJoinPrompt, GameState, SharedCardPrompt } from '../types';
 import { getFamilyMilestoneStageByProgressId } from './familyMilestones';
-import { getSharedOpportunityKind, hasIncompleteSharedPrompts, isBoardPromptForCurrentEvent, isFamilyMilestoneReadyForSourceCompletion, isFamilyMilestoneSourceDismissal, isForcedBoardCard, resolveBoardCardAction, selectActiveSharedCardPrompt, shouldBlockBoardCardDismissal } from './boardCardActions';
+import { getSharedOpportunityKind, hasIncompleteSharedPrompts, isBoardPromptForCurrentEvent, isBoardPromptVisibleForCurrentEvent, isFamilyMilestoneReadyForSourceCompletion, isFamilyMilestoneSourceDismissal, isForcedBoardCard, resolveBoardCardAction, selectActiveSharedCardPrompt, shouldBlockBoardCardDismissal } from './boardCardActions';
 
 const createGameState = (overrides: Partial<GameState> = {}): GameState => ({
   profession: null,
@@ -94,6 +94,22 @@ describe('family milestone shared completion', () => {
 
     expect(hasIncompleteSharedPrompts({ familyMilestoneJoinPrompt: failedPrompt, sharedCardPrompt: null })).toBe(false);
     expect(hasIncompleteSharedPrompts({ familyMilestoneJoinPrompt: declinedPrompt, sharedCardPrompt: null })).toBe(false);
+  });
+
+  it('keeps the family prompt open until the shared dice presentation is ready', () => {
+    const prompt = createFamilyPrompt({
+      playerUid: 'joining-player',
+      playerName: '共享玩家',
+      status: 'failed',
+      actionCompleted: true,
+      roll: 2,
+      respondedAt: Date.now(),
+      presentationReadyAt: Date.now() + 10_000
+    });
+
+    expect(hasIncompleteSharedPrompts({ familyMilestoneJoinPrompt: prompt, sharedCardPrompt: null })).toBe(true);
+    prompt.responses['joining-player'].presentationReadyAt = Date.now() - 1;
+    expect(hasIncompleteSharedPrompts({ familyMilestoneJoinPrompt: prompt, sharedCardPrompt: null })).toBe(false);
   });
 
   it('keeps the source action incomplete until the source player finishes it', () => {
@@ -226,6 +242,13 @@ describe('family milestone shared completion', () => {
 
     expect(isBoardPromptForCurrentEvent(prompt, staleBoard)).toBe(false);
     expect(hasIncompleteSharedPrompts(staleBoard)).toBe(false);
+  });
+
+  it('shows a prompt without requiring the source card projection', () => {
+    const prompt = { sourceEventId: 'event-1', sourceCardId: 'N027' };
+
+    expect(isBoardPromptVisibleForCurrentEvent(prompt, { currentEvent: { id: 'event-1' } })).toBe(true);
+    expect(isBoardPromptVisibleForCurrentEvent(prompt, { currentEvent: { id: 'event-2' } })).toBe(false);
   });
 
   it('allows only the source player to dismiss their active family milestone prompt', () => {
@@ -418,15 +441,15 @@ describe('resolveBoardCardAction', () => {
 
     expect(action.kind).toBe('financial');
     if (action.kind !== 'financial') return;
-    expect(action.txData.amount).toBe(150000);
-    expect(action.txData.impacts).toContain('未投保房屋 2 間，收取一次修繕費');
+    expect(action.txData.amount).toBe(300000);
+    expect(action.txData.impacts).toContain('未投保房屋 2 間，每間修繕費 150,000');
   });
 
   it.each([
-    ['C041', 200000],
-    ['C042', 100000],
-    ['C043', 150000]
-  ])('%s charges one fixed repair fee for multiple uninsured houses', (cardId, fee) => {
+    ['C041', 400000],
+    ['C042', 200000],
+    ['C043', 300000]
+  ])('%s charges each uninsured house repair fee', (cardId, fee) => {
     const action = resolveBoardCardAction(cardId, createGameState({
       assets: [
         { id: 'house-1', name: '出租房 1', cost: 1000000, downPayment: 300000, cashflow: 10000, type: '不動產' },
@@ -437,6 +460,21 @@ describe('resolveBoardCardAction', () => {
     expect(action.kind).toBe('financial');
     if (action.kind !== 'financial') return;
     expect(action.txData.cashChange).toBe(-fee);
+  });
+
+  it('C041 charges 600,000 for three uninsured houses', () => {
+    const action = resolveBoardCardAction('C041', createGameState({
+      assets: [
+        { id: 'house-1', name: '出租房 1', cost: 1000000, type: '不動產' },
+        { id: 'house-2', name: '出租房 2', cost: 1000000, type: '不動產' },
+        { id: 'house-3', name: '出租房 3', cost: 1000000, type: '不動產' }
+      ]
+    }));
+
+    expect(action.kind).toBe('financial');
+    if (action.kind !== 'financial') return;
+    expect(action.txData.amount).toBe(600000);
+    expect(action.txData.cashChange).toBe(-600000);
   });
 
   it.each([
@@ -731,6 +769,15 @@ describe('resolveBoardCardAction', () => {
     expect(action.options[0]?.action.kind).toBe('financial');
   });
 
+  it('H026 keeps the accept flow when the child milestone is checked', () => {
+    const action = resolveBoardCardAction('H026', createGameState({
+      happiness: [{ id: 'h_child1', label: '擁有第一個孩子', points: 4, checked: true }]
+    }));
+    expect(action.kind).toBe('choice');
+    if (action.kind !== 'choice') return;
+    expect(action.options.map(option => option.id)).toEqual(['accept', 'reject']);
+  });
+
   it('N055 creates investment input flow', () => {
     const action = resolveBoardCardAction('N055', createGameState());
     expect(action.kind).toBe('investment');
@@ -826,5 +873,21 @@ describe('resolveBoardCardAction', () => {
   it('C051 and C053 are forced board cards', () => {
     expect(isForcedBoardCard('C051')).toBe(true);
     expect(isForcedBoardCard('C053')).toBe(true);
+  });
+});
+
+describe('H027 requires the first date', () => {
+  it('has no effect before the first date is completed', () => {
+    const action = resolveBoardCardAction('H027', createGameState());
+    expect(action.kind).toBe('choice');
+    if (action.kind !== 'choice') return;
+    expect(action.options.map(option => option.id)).toEqual(['dismiss']);
+  });
+
+  it('offers the surprise once the first date is completed', () => {
+    const action = resolveBoardCardAction('H027', createGameState({ completedHappinessEvents: ['date'] }));
+    expect(action.kind).toBe('choice');
+    if (action.kind !== 'choice') return;
+    expect(action.options.map(option => option.id)).toContain('accept');
   });
 });
