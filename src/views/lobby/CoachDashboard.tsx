@@ -7,6 +7,7 @@ import { useAuth, isGM } from '../../context/AuthContext';
 import SafeImage from '../../components/common/SafeImage';
 import { Button, Input } from '../../components/ui/ui';
 import { safeAsync } from '../../utils/utils';
+import { getPhotoPromotionConsentStatus } from '../../constants/photoPromotionConsent';
 import { handlePromotionToCoach } from '../../utils/referralUtils';
 
 interface CoachDashboardProps {
@@ -597,7 +598,10 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                       權限管理
                     </button>
                     <button
-                      onClick={() => setGmTab('users')}
+                      onClick={() => {
+                        setGmTab('users');
+                        void fetchStats();
+                      }}
                       className={`px-6 py-3 font-black text-sm uppercase tracking-wider transition-all ${gmTab === 'users' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-500 hover:text-slate-300'}`}
                     >
                       用戶列表
@@ -878,6 +882,20 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                     <>
                       {/* Users List Tab */}
                       <div className="space-y-6">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-black text-white">照片使用同意狀態</div>
+                            <div className="mt-1 text-[10px] font-bold text-slate-500">顯示目前同意書版本的最新選擇</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void fetchStats()}
+                            className="flex min-h-11 items-center gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-3 text-xs font-black text-indigo-300 transition-colors hover:bg-indigo-500/20"
+                          >
+                            <RefreshCw size={15} />
+                            重新整理
+                          </button>
+                        </div>
                         {/* Search and Sort */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                           <div className="md:col-span-2 space-y-2">
@@ -906,18 +924,19 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                           </div>
                         </div>
 
-                        {/* Users Table */}
-                        <div className="bg-slate-900/50 border border-slate-800/50 rounded-2xl overflow-hidden max-h-[600px] overflow-y-auto">
-                          <table className="w-full">
-                            <thead className="bg-slate-900/80 border-b border-slate-800/50 sticky top-0">
+                        {/* Users Table / Mobile Cards */}
+                        <div className="max-h-[600px] overflow-y-auto overflow-x-hidden rounded-2xl border border-slate-800/50 bg-slate-900/50 md:overflow-auto">
+                          <table className="block w-full md:table">
+                            <thead className="sticky top-0 hidden border-b border-slate-800/50 bg-slate-900/80 md:table-header-group">
                               <tr>
                                 <th className="px-4 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-wider">名稱</th>
                                 <th className="px-4 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-wider">信箱</th>
                                 <th className="px-4 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-wider">權限</th>
+                                <th className="px-4 py-3 text-center text-xs font-black text-slate-400 uppercase tracking-wider">照片使用同意</th>
                                 <th className="px-4 py-3 text-center text-xs font-black text-slate-400 uppercase tracking-wider">操作</th>
                               </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="grid gap-3 p-3 md:table-row-group md:p-0">
                               {allUsers
                                 .filter(u => {
                                   const filter = userSearchFilter.toLowerCase();
@@ -935,23 +954,52 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
                                 .map((user, idx) => {
                                   const roleLabel = user.title === '遊戲管理員' ? '管理員' : (user.role === 'coach' ? '執行師' : '玩家');
                                   const roleColor = user.title === '遊戲管理員' ? 'text-indigo-400' : (user.role === 'coach' ? 'text-amber-500' : 'text-slate-400');
+                                  const consentStatus = getPhotoPromotionConsentStatus(user.photoPromotionConsent);
+                                  const consentLabel = consentStatus === 'agreed'
+                                    ? '是'
+                                    : consentStatus === 'declined'
+                                      ? '否'
+                                      : consentStatus === 'outdated'
+                                        ? '待重新確認'
+                                        : '未填寫';
+                                  const consentColor = consentStatus === 'agreed'
+                                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                                    : consentStatus === 'declined'
+                                      ? 'border-rose-500/30 bg-rose-500/10 text-rose-400'
+                                      : consentStatus === 'outdated'
+                                        ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+                                        : 'border-slate-600/40 bg-slate-800/50 text-slate-400';
 
                                   return (
-                                    <tr key={user.id} className={`border-b border-slate-800/30 hover:bg-slate-800/30 transition-colors ${idx % 2 === 0 ? 'bg-slate-950/20' : ''}`}>
-                                      <td className="px-4 py-4 text-sm font-semibold text-white">{user.name || '未設定'}</td>
-                                      <td className="px-4 py-4 text-sm text-slate-400">{user.email || '無'}</td>
-                                      <td className="px-4 py-4 text-sm">
+                                    <tr key={user.id} className={`block rounded-2xl border border-slate-700/50 p-4 transition-colors hover:bg-slate-800/30 md:table-row md:rounded-none md:border-x-0 md:border-t-0 md:p-0 ${idx % 2 === 0 ? 'bg-slate-950/20' : 'bg-slate-900/30'}`}>
+                                      <td className="flex items-start justify-between gap-4 py-2 text-sm font-semibold text-white md:table-cell md:px-4 md:py-4">
+                                        <span className="shrink-0 text-xs font-black text-slate-500 md:hidden">名稱</span>
+                                        <span className="min-w-0 break-words text-right md:text-left">{user.name || '未設定'}</span>
+                                      </td>
+                                      <td className="flex items-start justify-between gap-4 py-2 text-sm text-slate-400 md:table-cell md:px-4 md:py-4">
+                                        <span className="shrink-0 text-xs font-black text-slate-500 md:hidden">信箱</span>
+                                        <span className="min-w-0 break-all text-right md:text-left">{user.email || '無'}</span>
+                                      </td>
+                                      <td className="flex items-center justify-between gap-4 py-2 text-sm md:table-cell md:px-4 md:py-4">
+                                        <span className="shrink-0 text-xs font-black text-slate-500 md:hidden">權限</span>
                                         <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-slate-800/50 border ${roleColor} border-current/20`}>
                                           {roleLabel}
                                         </span>
                                       </td>
-                                      <td className="px-4 py-4 text-center">
+                                      <td className="flex items-center justify-between gap-4 py-2 md:table-cell md:px-4 md:py-4 md:text-center">
+                                        <span className="shrink-0 text-xs font-black text-slate-500 md:hidden">照片使用同意</span>
+                                        <span className={`inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-black ${consentColor}`}>
+                                          {consentLabel}
+                                        </span>
+                                      </td>
+                                      <td className="flex items-center justify-between gap-4 pt-3 md:table-cell md:px-4 md:py-4 md:text-center">
+                                        <span className="shrink-0 text-xs font-black text-slate-500 md:hidden">操作</span>
                                         <button
                                           onClick={() => {
                                             setSearchEmail(user.email || user.id);
                                             setGmTab('manage');
                                           }}
-                                          className="px-3 py-1.5 text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-all active:scale-95"
+                                          className="min-h-11 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-black text-white transition-all hover:bg-indigo-500 active:scale-95 md:min-h-0 md:rounded-lg md:px-3 md:py-1.5"
                                         >
                                           編輯
                                         </button>
@@ -1110,6 +1158,235 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               </div>
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
+                  {
+                    version: 'v4.11',
+                    date: '2026-09-24',
+                    color: 'amber',
+                    items: [
+                      '修正家庭重要歷程其他玩家擲骰後回覆同步失敗，並在擲骰動畫結束前保持彈窗顯示，不再出現空白等待',
+                      '大螢幕補上讀取玩家回覆，家庭歷程與共享卡片的擲骰動畫可正確同步顯示；擲骰動畫縮短為 2.4 秒',
+                      '修正 N056～N058 創業貸款與共享出售資產在新房間因讀取權限而同步失敗的問題',
+                      '重新整理或重新登入後可恢復進行中的房間並顯示「繼續遊戲」；房間已結束或已關閉時直接回大廳',
+                      '遊戲評分移除右上角 X，新增「離開遊戲」按鈕並隱藏捲動條；房主關閉房間不會把停留在評分頁的玩家踢出',
+                      '汽車資產現金支付金額欄位只接受數字',
+                    ],
+                  },
+                  {
+                    version: 'v4.10',
+                    date: '2026-09-24',
+                    color: 'amber',
+                    items: [
+                      '修正重新開房與開始遊戲時可能載入上一場資料，讓新場次的玩家選擇、回合與計時器正確初始化',
+                      '改善單一分頁被誤判為唯讀、房間狀態異常返回大廳的情況',
+                      '修正 C012／C024 共享卡片放棄回覆的權限問題，玩家只提交自己的回覆',
+                      'N055 投資與共享卡片完成回覆改為同一筆交易，避免投資入帳後回覆失敗或重複扣款',
+                      '汽車購買不再限於本人回合，仍檢查房間資格、現金與單人限購',
+                    ],
+                  },
+                  {
+                    version: 'v4.9',
+                    date: '2026-09-21',
+                    color: 'amber',
+                    items: [
+                      '修正執行師開始遊戲後計時器未同步，避免玩家持續停留在無法擲骰的狀態',
+                      '開始／暫停計時器改以最新房間資料交易更新，避免分頁控制權短暫狀態造成靜默失敗',
+                      '等待房間啟動改走完整棋盤初始化流程，確保遊戲時間、回合與玩家操作同步開始',
+                      '新增遊戲命令、Firestore listener 到畫面可操作狀態的延遲追蹤，協助定位多人同步瓶頸',
+                      '完成 3 位及 6 位玩家本地 50 回合量測基準，記錄 transaction、重試、同步延遲與房間資料大小',
+                      '保留既有遊戲資料權威與交易冪等設計，未新增診斷資料集合或改變正式遊戲規則',
+                    ],
+                  },
+                  {
+                    version: 'v4.7',
+                    date: '2026-09-18',
+                    color: 'amber',
+                    items: [
+                      '直接幸福卡、保險、定存、股票、信貸、還款、定存解約與汽車購買改由棋盤交易一次完成',
+                      '財務命令改以最新玩家資料為準，重整、連點或重送不會重複扣款、建立資產或負債',
+                      '補上金融交易結果與 Firestore Rules 的自動化驗證，降低多人操作時的資料回溯與同步錯誤',
+                    ],
+                  },
+                  {
+                    version: 'v4.6',
+                    date: '2026-09-18',
+                    color: 'amber',
+                    items: [
+                      '修正開局選擇草稿與正式玩家資料互相覆蓋的競態，職業、企業與夢想確認後才寫入正式資料',
+                      '玩家私有資料同步不再與房間核心文件同時競爭，降低多人回合切換與財務資料延遲',
+                      '共享事件結案、回覆及房間維護交易加入版本衝突重試，避免短暫同步失敗中斷流程',
+                      '完成 3 位及 6 位玩家本地 50 回合壓力驗收，確認回合、卡片與結算狀態可正常完成',
+                    ],
+                  },
+                  {
+                    version: 'v4.5',
+                    date: '2026-09-17',
+                    color: 'amber',
+                    items: [
+                      '家庭歷程同步擲骰面板改為不透明深色底，提升大螢幕上的閱讀辨識度',
+                      '家庭歷程卡片新增底部安全空間與收合／展開功能，避免卡片內容被同步面板遮住',
+                    ],
+                  },
+                  {
+                    version: 'v4.4',
+                    date: '2026-09-16',
+                    color: 'amber',
+                    items: [
+                      '回合完成後，結束回合按鈕改為更明確的「完成，結束回合」提示並提高視覺辨識度',
+                      '玩家 10 秒未操作時顯示一次結束回合提醒，避免忘記交給下一位玩家',
+                    ],
+                  },
+                  {
+                    version: 'v4.3',
+                    date: '2026-09-16',
+                    color: 'emerald',
+                    items: [
+                      '職業、企業與夢想改為明確點選卡片，瀏覽選項時不會再自動跳選',
+                      '開始遊戲前新增三項選擇摘要確認，可逐項返回修改',
+                      '選擇結果以 Firestore 交易保存，避免舊分頁或舊快照覆蓋已確認設定',
+                    ],
+                  },
+                  {
+                    version: 'v4.2',
+                    date: '2026-09-14',
+                    color: 'emerald',
+                    items: [
+                      '整理註冊欄位規則：密碼至少 6 碼、Email 格式檢查、暱稱上限與字數提示一致',
+                      '註冊頁新增可選邀請碼輸入，並保留邀請連結自動帶入功能',
+                      '修正學校升等考試點擊「關閉」後未結案的問題；同步成功才進入下一個回合，失敗時可重試',
+                    ],
+                  },
+                  {
+                    version: 'v4.1',
+                    date: '2026-09-14',
+                    color: 'emerald',
+                    items: [
+                      '修正後段回合雙骰資格被舊玩家快照覆蓋的問題，擲骰時改以最新玩家資料判斷汽車資格',
+                      '修正持有 N056～N058 兼職工作室經過銀行時升級流程卡住的問題，並可從失效資產代號恢復正確工作室',
+                      '強化移動結算與銀行事件的私有玩家資料同步，避免回合後續流程讀到過期狀態',
+                    ],
+                  },
+                  {
+                    version: 'v4.0',
+                    date: '2026-09-12',
+                    color: 'emerald',
+                    items: [
+                      '修正幸福家庭歷程多人同時擲骰時的動畫與結案時序，最後一位玩家完成播放後才結束事件',
+                      '修正家庭歷程骰子展示計時器被即時同步快照中斷，避免大螢幕動畫持續擲骰或流程卡住',
+                      'C004 職業升等成功後改為交易內即時更新收入，玩家財務報表不再延遲入帳',
+                      'N056～N058 多間兼職工作室改為逐項排隊升級，未升級成功的工作室會繼續顯示處理',
+                      '優化房屋狀態轉換彈窗層級、捲動與文字對比，避免內容被遮蔽',
+                    ],
+                  },
+                  {
+                    version: 'v3.9',
+                    date: '2026-09-12',
+                    color: 'emerald',
+                    items: [
+                      '修正家庭重要歷程共享玩家按下「略過」時偶發顯示同步失敗的問題',
+                      '共享玩家回覆與家庭歷程結案改為分開交易，最後一位玩家也能正常完成流程',
+                      '強化家庭歷程回覆的重送防護，重新整理或重試不會重複回覆或提前結束事件',
+                      '修正結算後舊房間狀態殘留，建立下一局時會先確認並清理已結束房間',
+                      '合併棋盤移動結算排程，避免正式網路延遲造成重複等待與卡片延遲',
+                      '新增回合交接與房間同步延遲量測，並記錄 Firestore transaction 重試次數',
+                    ],
+                  },
+                  {
+                    version: 'v3.8',
+                    date: '2026-09-11',
+                    color: 'emerald',
+                    items: [
+                      '強化家庭歷程多人同步與骰點揭示時機，避免重複擲骰、略過失敗及手機端提前顯示結果',
+                      '修正 H026 孩子才藝活動資格，以及 C041～C043 依未投保房屋數量計算修繕費',
+                      '修正 N056～N058 經過銀行時企業升級第一骰無反應，並補上舊場次資料相容處理',
+                      '優化股票張數輸入；月現金流不足時現金維持為零，差額自動計入強制負債',
+                    ],
+                  },
+                  {
+                    version: 'v3.7',
+                    date: '2026-09-10',
+                    color: 'emerald',
+                    items: [
+                      '降低多人遊戲的 Firestore 無效寫入，沒有實際變更時不再消耗 revision 或寫入 command ID',
+                      '玩家同步改用 transaction 合併最新資料，避免舊快照覆蓋新的財務與遊戲結果',
+                      '翻牌、家庭歷程與共享事件改為原子建立，並強化過期提示清理與重送防護',
+                      '歷史紀錄初次只載入最近 20 筆，執行紀錄改為手動重新整理，減少常駐監聽讀取',
+                      '投影頁與測試流程完成隔離優化，提升多人同步穩定性與本地驗收可追蹤性',
+                    ],
+                  },
+                  {
+                    version: 'v3.6',
+                    date: '2026-09-09',
+                    color: 'emerald',
+                    items: [
+                      '降低長時間多人遊戲的 Firestore 用量，移除未使用的每次指令 revision 事件寫入',
+                      '停止執行師玩家診斷的背景同步，保留必要的在線狀態與斷線恢復功能',
+                      '限制玩家歷史與股票行情資料長度，並放寬工作階段備份間隔，避免玩家文件持續膨脹',
+                      '正式與 Preview build 強制使用雲端 Firebase，只有本機開發模式才會連接 Emulator',
+                    ],
+                  },
+                  {
+                    version: 'v3.5',
+                    date: '2026-09-08',
+                    color: 'emerald',
+                    items: [
+                      '優化玩家端擲骰按鈕：有汽車時只顯示一顆骰子主圖，右上角保留 x2 能力標示',
+                      '保留單骰／雙骰選擇與實際擲骰規則，改善手機版按鈕的清晰度與操作空間',
+                    ],
+                  },
+                  {
+                    version: 'v3.4',
+                    date: '2026-09-07',
+                    color: 'emerald',
+                    items: [
+                      '登入後新增照片與遊戲畫面推廣使用同意書，同意或不同意皆可正常參與遊戲',
+                      '同意選擇跨裝置保存，同一版本只詢問一次，並可從個人資料隨時修改',
+                      'GM 用戶列表新增照片使用同意狀態，方便辨識已同意、不同意與尚待確認的帳號',
+                      '優化 GM 用戶列表手機版排版，改以資訊卡完整顯示帳號、權限與同意狀態',
+                    ],
+                  },
+                  {
+                    version: 'v3.3',
+                    date: '2026-09-05',
+                    color: 'emerald',
+                    items: [
+                      '修正升等考試結果已同步至大螢幕，但玩家端仍停留在擲骰中的問題',
+                      '修正結束回合操作偶發未送出，完成事件後可依最新房間狀態立即切換下一位玩家',
+                      '修正「天有不測風雲」完成保險理賠後，仍無法正常結束回合的問題',
+                      '修正共享兼職工作室只有抽卡玩家生效，讓所有完成檢核的參與玩家都能正確入帳',
+                    ],
+                  },
+                  {
+                    version: 'v3.2',
+                    date: '2026-09-01',
+                    color: 'emerald',
+                    items: [
+                      '統一大螢幕骰子動畫、棋盤移動與玩家端結果顯示時機，避免骰點提前出現',
+                      '修正正常換回合及暫停玩家被跳過後，下一位玩家骰子按鈕仍被鎖定的問題',
+                      '提升大螢幕骰子彈窗辨識度，並改善玩家端骰子圖示的圓角與立體感',
+                    ],
+                  },
+                  {
+                    version: 'v3.1',
+                    date: '2026-09-01',
+                    color: 'emerald',
+                    items: [
+                      '骰子結果改由大螢幕統一顯示，所有玩家都能看見每次擲骰與結果',
+                      '棋盤移動、維修廠、醫院、家庭歷程、學校／終身學習與工作室升級共用同步骰點流程',
+                      '玩家端改為只需點擊擲骰，權威骰點由房間交易處理，避免各裝置結果不一致',
+                      '大螢幕依序播放骰點事件，重新整理或多人同時操作不會重複套用結果',
+                    ],
+                  },
+                  {
+                    version: 'v3.0',
+                    date: '2026-09-01',
+                    color: 'emerald',
+                    items: [
+                      '家庭歷程完成改為單一交易處理，抽卡玩家第一次確認即可同步完成財務、幸福結果與回合推進',
+                      '強化 H011、H013、H014 等家庭歷程卡的多人同步與結案權限，避免重複點擊造成流程卡住',
+                      '家庭歷程、卡片事件與交易操作加入冪等保護，重新整理或重送不會重複套用結果',
+                      '執行師新增卡片發送功能，可指定玩家觸發卡片並沿用正式翻牌、共享與結案流程',
+                    ],
+                  },
                   {
                     version: 'v2.9',
                     date: '2026-08-31',
