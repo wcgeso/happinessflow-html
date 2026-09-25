@@ -1159,6 +1159,15 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v4.12',
+                    date: '2026-09-25',
+                    color: 'amber',
+                    items: [
+                      '修正銀行信用貸款只入帳現金、財務報表卻沒有出現信用貸款負債與利息支出的問題；借款改為單一交易同時寫入現金、負債與紀錄',
+                      '修正幸福卡 H027（為伴侶準備驚喜）在尚未完成第一次約會時仍可使用的問題，未達條件時本卡無效果並可直接關閉',
+                    ],
+                  },
+                  {
                     version: 'v4.11',
                     date: '2026-09-24',
                     color: 'amber',

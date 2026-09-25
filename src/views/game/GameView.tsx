@@ -1804,8 +1804,13 @@ export const GameView: React.FC<{
                 return stockResult;
             }
             applied = stockResult.status === 'applied' || stockResult.status === 'duplicate';
-        } else if (room?.isBoardGame && resolvedTxData.usage === 'loan' && resolvedTxData.source === 'cash' && !resolvedTxData.fundingLoanAmount) {
-            const loanResult = await completeLoanBorrow(transactionData);
+        } else if (room?.isBoardGame && !resolvedTxData.fundingLoanAmount && (
+            (resolvedTxData.usage === 'loan' && resolvedTxData.source === 'cash') ||
+            // BankingAppModal 會把銀行借款轉成 source:'loan' / usage:'cash'；
+            // 以指令編號辨識，才會走伺服器交易，一次寫入現金、信用貸款負債與紀錄。
+            (resolvedTxData.usage === 'cash' && resolvedTxData.source === 'loan' && resolvedTxData.commandId?.startsWith('loan:'))
+        )) {
+            const loanResult = await completeLoanBorrow({ ...transactionData, source: 'cash', usage: 'loan' });
             if (loanResult.status === 'failed') {
                 showAlert(loanResult.message || '信用貸款同步失敗，請保留目前選擇後再試', 'error');
                 return loanResult;
