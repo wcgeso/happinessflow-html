@@ -1159,6 +1159,16 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v4.13',
+                    date: '2026-09-26',
+                    color: 'amber',
+                    items: [
+                      '修正玩家擲骰後先出現卡片、才顯示骰子點數的問題，卡片改為等擲骰動畫結束後再打開',
+                      '沒有汽車的玩家經過維修廠時，改為顯示「尚未擁有車輛，無需維修」並自動略過',
+                      '新增正式環境 50 回合、共享卡片自動化測試腳本，用於驗證翻牌同步、共享事件結案與同步延遲',
+                    ],
+                  },
+                  {
                     version: 'v4.12',
                     date: '2026-09-25',
                     color: 'amber',

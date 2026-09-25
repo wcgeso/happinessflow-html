@@ -212,6 +212,7 @@ export const GameView: React.FC<{
 
     const [promotionType, setPromotionType] = useState<PromotionType | null>(null);
     const [isRollingBoardDice, setIsRollingBoardDice] = useState(false);
+    const boardDiceFailsafeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isEndingTurn, setIsEndingTurn] = useState(false);
 
     useEffect(() => {
@@ -934,6 +935,12 @@ export const GameView: React.FC<{
             return null;
         }
         setIsRollingBoardDice(true);
+        // 保底：即使動畫完成回呼沒有觸發，也不能讓卡片與擲骰永遠被擋住。
+        if (boardDiceFailsafeTimeoutRef.current) clearTimeout(boardDiceFailsafeTimeoutRef.current);
+        boardDiceFailsafeTimeoutRef.current = setTimeout(() => {
+            setIsRollingBoardDice(false);
+            boardDiceFailsafeTimeoutRef.current = null;
+        }, DICE_PRESENTATION_DURATION_MS * 4);
         void audioManager.unlock().then(() => audioManager.play('dice'));
         try {
             const result = await rollBoardDice(diceCount);
@@ -990,6 +997,8 @@ export const GameView: React.FC<{
     useEffect(() => {
         if (!activeBoardCardKey || activeBoardCardKey === lastBoardCardKey) return;
         if (!canOpenNextBoardStep || isActiveBankPromptPending || isActiveSchoolPromptPending) return;
+        // 擲骰動畫結束後才顯示卡片，避免先看到卡片、才看到骰子點數。
+        if (isRollingBoardDice) return;
 
         setLastBoardCardKey(activeBoardCardKey);
         hideAlert();
@@ -997,7 +1006,7 @@ export const GameView: React.FC<{
         setIsBoardCardRevealed(false);
         setIsBoardCardRevealAnimationComplete(false);
         setSelectedBoardSaleAssetIds([]);
-    }, [activeBoardCardKey, lastBoardCardKey, canOpenNextBoardStep, isActiveBankPromptPending, isActiveSchoolPromptPending, hideAlert]);
+    }, [activeBoardCardKey, lastBoardCardKey, canOpenNextBoardStep, isActiveBankPromptPending, isActiveSchoolPromptPending, isRollingBoardDice, hideAlert]);
 
     const boardInvestmentKey = activeBoardCardAction?.kind === 'investment'
         ? `${activeBoardCardKey}:${activeBoardCardAction.businessSymbol}`
@@ -1356,12 +1365,13 @@ export const GameView: React.FC<{
         hideAlert();
 
         if (!repairHasCar) {
+            showAlert('尚未擁有車輛，無需維修', 'info');
             void advanceBoardEventQueue('repair');
             return;
         }
 
         setShowRepairConfirmationModal(true);
-    }, [activeRepairPromptKey, advanceBoardEventQueue, boardState?.currentEvent?.repairHasCar, canOpenNextBoardStep, hideAlert, lastRepairPromptKey]);
+    }, [activeRepairPromptKey, advanceBoardEventQueue, boardState?.currentEvent?.repairHasCar, canOpenNextBoardStep, hideAlert, lastRepairPromptKey, showAlert]);
 
     useEffect(() => {
         if (!pendingForcedBoardPayment || forcedBoardPaymentShortfall > 0) return;

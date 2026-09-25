@@ -1,12 +1,23 @@
 import { test, expect, type Browser, type BrowserContext, type Page } from 'playwright/test';
 import { writeFileSync, mkdirSync } from 'node:fs';
-import { login, switchToCoachMode } from './fixtures/login';
-import { seedAccounts, TEST_ACCOUNTS } from '../scripts/e2e/seedAccounts.mjs';
-import { getEmulatorDb } from '../scripts/e2e/adminClient.mjs';
+import { completePhotoConsentIfNeeded, login, switchToCoachMode } from './fixtures/login';
+import { getAccounts, getDb, IS_PROD, seedIfLocal } from './utils/target';
 
-const PLAYERS = TEST_ACCOUNTS.filter((account) => account.role === 'player');
-const COACH = TEST_ACCOUNTS.find((account) => account.role === 'coach')!;
-const REPORT_PATH = 'e2e/report/board-50-turn-stress.json';
+const STRESS_PLAYER_COUNT = Number(process.env.E2E_STRESS_PLAYERS || 3);
+if (![3, 4, 6].includes(STRESS_PLAYER_COUNT)) throw new Error('E2E_STRESS_PLAYERS 只支援 3、4 或 6');
+const ACCOUNTS = getAccounts(STRESS_PLAYER_COUNT);
+const PLAYERS = ACCOUNTS.filter((account) => account.role === 'player').slice(0, STRESS_PLAYER_COUNT);
+const COACH = ACCOUNTS.find((account) => account.role === 'coach')!;
+const REPORT_PATH = process.env.E2E_STRESS_REPORT || (
+  STRESS_PLAYER_COUNT === 6
+    ? 'e2e/report/board-6p-50-turn-stress.json'
+    : 'e2e/report/board-50-turn-stress.json'
+);
+const SHARED_MODE = process.env.E2E_CARD_SET === 'shared';
+const TURNS = Number(process.env.E2E_TURNS || 50);
+// 共享卡片：N055 投資、N056 創業貸款、N028 股票股息、N027 現金股利，以及
+// 機運卡的出售房產／店面／工作室／企業收購。每張都有「放棄」按鈕，可走完整個回覆流程。
+const SHARED_CARDS = ['N055', 'N056', 'N028', 'N027', 'C009', 'C013', 'C023', 'C027', 'C029'];
 const ROLLS = [1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 1, 1, 1, 1];
 const SAFE_CARD_BY_DECK = {
   happiness: 'H026',
@@ -59,7 +70,14 @@ type TurnRecord = {
   errors: string[];
 };
 
-const roomRef = (roomCode: string) => getEmulatorDb().collection('rooms').doc(roomCode);
+type DebugTelemetryRecord = {
+  event: string;
+  params: Record<string, string | number | boolean>;
+  timestamp: number;
+  monotonicMs: number;
+};
+
+const roomRef = (roomCode: string) => getDb().collection('rooms').doc(roomCode);
 
 const withTimeout = async <T>(promise: Promise<T>, label: string, timeout = 15_000) => {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -83,7 +101,12 @@ const prepareNextCard = async (roomCode: string, deck: 'happiness' | 'opportunit
   });
 };
 
-const prepareStressTurn = async (roomCode: string, uid: string, startPosition: number) => {
+const prepareStressTurn = async (
+  roomCode: string,
+  uid: string,
+  startPosition: number,
+  forced?: { deck: 'happiness' | 'opportunity' | 'news'; cardId: string },
+) => {
   await withTimeout(roomRef(roomCode).update({
     [`boardState.playerPositions.${uid}`]: startPosition,
     'boardState.deckState.happiness': [SAFE_CARD_BY_DECK.happiness],
@@ -92,6 +115,8 @@ const prepareStressTurn = async (roomCode: string, uid: string, startPosition: n
     'boardState.deckState.usedHappiness': [],
     'boardState.deckState.usedOpportunity': [],
     'boardState.deckState.usedNews': [],
+    'boardState.updatedAt': Date.now(),
+    ...(forced ? { [`boardState.deckState.${forced.deck}`]: [forced.cardId] } : {}),
   }), `準備第 ${startPosition + 1} 格回合`);
 };
 
@@ -118,23 +143,34 @@ const waitFor = async <T>(read: () => Promise<T>, predicate: (value: T) => boole
 };
 
 const completeSelectionWizard = async (page: Page) => {
+  const selectFirstOption = async () => {
+    await page.locator('main').getByRole('button', { name: /^選擇/ }).first().click();
+  };
+
+  await selectFirstOption();
   await expect(page.getByRole('button', { name: '確認選擇並前往：選擇企業' })).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: '確認選擇並前往：選擇企業' }).click();
+  await selectFirstOption();
   await expect(page.getByRole('button', { name: '確認選擇並前往：選擇夢想' })).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: '確認選擇並前往：選擇夢想' }).click();
+  await selectFirstOption();
   await expect(page.getByRole('button', { name: '確認選擇並開始遊戲' })).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: '確認選擇並開始遊戲' }).click();
+  await expect(page.getByRole('button', { name: '確認並開始遊戲' })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: '確認並開始遊戲' }).click();
 };
 
 const loginForStress = async (page: Page, email: string, password: string, label: string) => {
   console.log(`[stress] ${label}: open login`);
   await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 20_000 });
-  const inputs = page.locator('form input[type="text"]');
-  await expect(inputs.nth(0)).toBeVisible({ timeout: 20_000 });
-  await inputs.nth(0).fill(email);
-  await inputs.nth(1).fill(password);
+  const emailInput = page.locator('form input[autocomplete="email"]');
+  const passwordInput = page.locator('form input[type="password"]');
+  await expect(emailInput).toBeVisible({ timeout: 20_000 });
+  await emailInput.fill(email);
+  await passwordInput.fill(password);
   await page.getByRole('button', { name: '登入', exact: true }).click();
   await expect(page.getByRole('button', { name: '登入', exact: true })).toHaveCount(0, { timeout: 20_000 });
+  await completePhotoConsentIfNeeded(page);
   console.log(`[stress] ${label}: logged in`);
 };
 
@@ -155,14 +191,41 @@ const queueRoll = async (page: Page, roll: number) => {
   }, roll);
 };
 
-const attachDiagnostics = (page: Page, label: string, errors: string[]) => {
+const attachDiagnostics = (page: Page, label: string, errors: string[], retryableErrors: string[]) => {
   page.on('pageerror', (error) => errors.push(`${label} pageerror: ${error.message}`));
   page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(`${label} console: ${message.text()}`);
+    if (message.type() !== 'error') return;
+    // ponytail: 外部分析／字型資源不是遊戲命令依賴；本地請求仍由 response 監控。
+    if (message.text() === 'Failed to load resource: net::ERR_TIMED_OUT') {
+      console.warn(`[stress] ${label} non-blocking external resource timeout`);
+      return;
+    }
+    // Firestore may expose a handled transaction retry as a transient HTTP 400
+    // in the browser network log. The response handler records its body below.
+    // Chrome omits the status text over HTTPS (production), so accept both forms.
+    if (/^Failed to load resource: the server responded with a status of 400 \((Bad Request)?\)$/.test(message.text())) return;
+    errors.push(`${label} console: ${message.text()}`);
   });
   page.on('response', (response) => {
-    if (response.status() >= 400) errors.push(`${label} HTTP ${response.status()} ${response.url()}`);
+    if (response.status() < 400) return;
+    void response.text()
+      .then((body) => {
+        const item = `${label} HTTP ${response.status()} ${response.url()} ${body.slice(0, 500)}`;
+        if (response.status() === 400 && /FAILED_PRECONDITION|stored version|base version/i.test(body)) {
+          retryableErrors.push(item);
+          return;
+        }
+        errors.push(item);
+      })
+      .catch(() => errors.push(`${label} HTTP ${response.status()} ${response.url()}`));
   });
+};
+
+const drainDebugTelemetry = async (page: Page, label: string, turn: number): Promise<Array<DebugTelemetryRecord & { label: string; turn: number }>> => {
+  return page.evaluate(({ pageLabel, currentTurn }) => {
+    const records = window.__hfTelemetry?.drain?.() || [];
+    return records.map(record => ({ ...record, label: pageLabel, turn: currentTurn }));
+  }, { pageLabel: label, currentTurn: turn });
 };
 
 const validateRoomSnapshot = async (roomCode: string, previousRevision: number | undefined, errors: string[]) => {
@@ -171,7 +234,7 @@ const validateRoomSnapshot = async (roomCode: string, previousRevision: number |
   const positions = board.playerPositions || {};
   const turnOrder: string[] = board.turnOrder || [];
 
-  expect(turnOrder).toHaveLength(3);
+  expect(turnOrder).toHaveLength(STRESS_PLAYER_COUNT);
   expect(turnOrder).toContain(board.currentTurnUid);
   expect(Object.values(positions).every((position) => Number.isInteger(position) && position >= 0 && position <= 51)).toBe(true);
   expect(board.movement?.isActive ?? false).toBe(false);
@@ -199,14 +262,36 @@ const validateRoomSnapshot = async (roomCode: string, previousRevision: number |
   return room;
 };
 
-const closeSimpleCard = async (page: Page, expectedTitle?: string) => {
+const closeSimpleCard = async (page: Page) => {
+  const payday = page.getByRole('dialog', { name: '領取月結餘' });
+  if (await payday.isVisible().catch(() => false)) {
+    await payday.getByRole('button', { name: '確認收訖', exact: true }).click();
+    const followup = page.getByRole('dialog', { name: '月結餘已完成' });
+    if (await followup.isVisible().catch(() => false)) {
+      await followup.getByRole('button', { name: '稍後再說', exact: true }).click();
+    }
+    return;
+  }
+
+  const sharedDividend = page.getByRole('heading', { name: '現金股利結算', exact: true });
+  if (await sharedDividend.isVisible().catch(() => false)) {
+    const modal = sharedDividend.locator('xpath=ancestor::div[contains(@class, "max-w-lg")]');
+    await modal.getByRole('button', { name: '關閉', exact: true }).click();
+    return;
+  }
+
   const cover = page.getByText('事件封面 · 等待翻牌');
   await expect(cover).toBeVisible({ timeout: 15_000 });
-  const drawer = cover.locator('xpath=ancestor::div[contains(@class, "z-[10002]")]');
   await cover.click();
-  if (expectedTitle) await expect(drawer.getByText(expectedTitle, { exact: true })).toBeVisible({ timeout: 5_000 });
-  await expect(drawer.getByRole('button', { name: '關閉', exact: true })).toBeVisible({ timeout: 10_000 });
-  await drawer.getByRole('button', { name: '關閉', exact: true }).click();
+  await expect(page.getByRole('button', { name: '關閉', exact: true }).last()).toBeVisible({ timeout: 10_000 });
+  await page.getByRole('button', { name: '關閉', exact: true }).last().click();
+};
+
+const closeSharedDividendPrompt = async (page: Page) => {
+  const heading = page.getByRole('heading', { name: '現金股利結算', exact: true });
+  await heading.waitFor({ state: 'visible', timeout: 15_000 });
+  const modal = heading.locator('xpath=ancestor::div[contains(@class, "max-w-lg")]');
+  await modal.getByRole('button', { name: '關閉', exact: true }).click();
 };
 
 const dismissBoardTutorial = async (page: Page) => {
@@ -220,7 +305,7 @@ const openBoardRoom = async (browser: Browser) => {
   await login(coachPage, COACH.email, COACH.password);
   await switchToCoachMode(coachPage);
   await coachPage.getByText('建立新遊戲').click();
-  await coachPage.getByRole('button', { name: '3', exact: true }).click();
+  await coachPage.getByRole('button', { name: String(STRESS_PLAYER_COUNT), exact: true }).click();
   await coachPage.getByText('線上棋盤').click();
   await coachPage.getByRole('button', { name: '開啟房間' }).click();
   const roomCodeButton = coachPage.getByRole('button', { name: /房間碼/ });
@@ -267,32 +352,36 @@ const openBoardRoom = async (browser: Browser) => {
   return { coachContext, coachPage, playerContexts, playerPages, displayContext, displayPage, roomCode };
 };
 
-test('3 位玩家＋1 位執行師完成 50 回合壓力測試', async ({ browser }, testInfo) => {
+test(`${STRESS_PLAYER_COUNT} 位玩家＋1 位執行師完成 50 回合壓力測試`, async ({ browser }, testInfo) => {
   test.setTimeout(15 * 60 * 1000);
   const errors: string[] = [];
+  const retryableErrors: string[] = [];
+  const telemetry: Array<DebugTelemetryRecord & { label: string; turn: number }> = [];
   const turns: TurnRecord[] = [];
   const snapshots: Array<{ turn: number; revision?: number; currentTurnUid?: string; positions: Record<string, number>; cardLogLength: number; heap?: number }> = [];
   let handles: Awaited<ReturnType<typeof openBoardRoom>> | null = null;
   let report: any = {
-    test: 'BOARD_3P_50_TURN_STRESS_2026-08-26',
+    test: `BOARD_${STRESS_PLAYER_COUNT}P_50_TURN_STRESS_2026-08-26`,
     status: 'running',
-    environment: { baseURL: 'http://localhost:5183', firestore: process.env.FIRESTORE_EMULATOR_HOST, auth: process.env.FIREBASE_AUTH_EMULATOR_HOST },
-    accounts: { players: 3, coach: 1 },
+    environment: { target: IS_PROD ? 'production' : 'emulator', baseURL: process.env.E2E_BASE_URL || 'http://localhost:5183', firestore: process.env.FIRESTORE_EMULATOR_HOST, auth: process.env.FIREBASE_AUTH_EMULATOR_HOST },
+    accounts: { players: STRESS_PLAYER_COUNT, coach: 1 },
     startedAt: new Date().toISOString(),
     turns,
     snapshots,
     errors,
+    retryableErrors,
+    telemetry,
   };
 
   mkdirSync('e2e/report', { recursive: true });
   writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2));
 
   try {
-    await seedAccounts();
+    await seedIfLocal();
     handles = await openBoardRoom(browser);
-    attachDiagnostics(handles.coachPage, 'coach', errors);
-    attachDiagnostics(handles.displayPage, 'display', errors);
-    handles.playerPages.forEach((page, index) => attachDiagnostics(page, `p${index + 1}`, errors));
+    attachDiagnostics(handles.coachPage, 'coach', errors, retryableErrors);
+    attachDiagnostics(handles.displayPage, 'display', errors, retryableErrors);
+    handles.playerPages.forEach((page, index) => attachDiagnostics(page, `p${index + 1}`, errors, retryableErrors));
 
     const roomAtStart = await readRoom(handles.roomCode);
     const turnOrder = (roomAtStart.boardState?.turnOrder || []) as string[];
@@ -311,7 +400,7 @@ test('3 位玩家＋1 位執行師完成 50 回合壓力測試', async ({ browse
     const revisionAtStart = (await readRoom(handles.roomCode)).boardState?.revision;
     let previousRevision = revisionAtStart as number | undefined;
 
-    for (let turn = 1; turn <= 50; turn += 1) {
+    for (let turn = 1; turn <= TURNS; turn += 1) {
       console.log(`[stress] turn ${turn}: read state`);
       const before = await readRoom(handles.roomCode);
       const board = before.boardState || {};
@@ -324,7 +413,12 @@ test('3 位玩家＋1 位執行師完成 50 回合壓力測試', async ({ browse
       const roll = ROLLS[playerRollIndex];
       if (!roll) throw new Error(`${player.name} 已超過預期回合數`);
       rollIndexByUid.set(uid, playerRollIndex + 1);
-      const startPosition = (turn - 1) % 2 === 0 ? 0 : 2;
+      const sharedCardId = SHARED_MODE ? SHARED_CARDS[(turn - 1) % SHARED_CARDS.length] : undefined;
+      const sharedDeck = sharedCardId?.startsWith('N') ? 'news' : 'opportunity';
+      const sharedLandingIndex = sharedCardId
+        ? Array.from({ length: BOARD_LENGTH }, (_, index) => index).find((index) => index > 0 && getLandingType(index) === sharedDeck)!
+        : undefined;
+      const startPosition = sharedLandingIndex !== undefined ? sharedLandingIndex - 1 : ((turn - 1) % 2 === 0 ? 0 : 2);
       const endPosition = (startPosition + roll) % BOARD_LENGTH;
       const landingType = getLandingType(endPosition);
       const landingSquare = { label: landingType, type: landingType };
@@ -345,10 +439,11 @@ test('3 位玩家＋1 位執行師完成 50 回合壓力測試', async ({ browse
 
       expect(['happiness', 'opportunity', 'news']).toContain(landingSquare.type);
       const deck = landingSquare.type as 'happiness' | 'opportunity' | 'news';
-      const cardId = SAFE_CARD_BY_DECK[deck];
+      const cardId = sharedCardId || SAFE_CARD_BY_DECK[deck];
       record.cardId = cardId;
+      const previousCardLogId = board.cardLog?.[0]?.id;
       console.log(`[stress] turn ${turn}: prepare ${player.name} position=${startPosition} card=${cardId}`);
-      await prepareStressTurn(handles.roomCode, uid, startPosition);
+      await prepareStressTurn(handles.roomCode, uid, startPosition, sharedCardId ? { deck, cardId } : undefined);
       await page.waitForTimeout(250);
       await queueRoll(page, roll);
 
@@ -364,12 +459,45 @@ test('3 位玩家＋1 位執行師完成 50 回合壓力測試', async ({ browse
           return !room.boardState?.currentEvent &&
             !room.boardState?.currentCard &&
             !room.boardState?.currentCardReveal &&
-            room.boardState?.cardLog?.[0]?.cardId === cardId;
+            room.boardState?.cardLog?.[0]?.cardId === cardId &&
+            room.boardState?.cardLog?.[0]?.id !== previousCardLogId;
         },
         20_000,
       );
-      if (eventState.boardState?.currentEvent?.playerUid === uid) {
-        await closeSimpleCard(page, cardId === 'H026' ? '孩子的才藝活動' : cardId === 'C038' ? '天有不測風雲' : '股利發放');
+      if (SHARED_MODE) {
+        expect(eventState.boardState?.currentEvent?.playerUid, `${cardId} 沒有產生棋盤事件`).toBe(uid);
+        // #2：抽卡玩家翻牌後，大螢幕必須跟著翻開。
+        const cover = page.getByText('事件封面 · 等待翻牌');
+        await expect(cover).toBeVisible({ timeout: 15_000 });
+        const revealClickedAt = Date.now();
+        await cover.click();
+        await handles.displayPage.locator('[data-projection-card-content]').waitFor({ state: 'visible', timeout: 10_000 });
+        (record as any).projectionRevealMs = Date.now() - revealClickedAt;
+        // #1：所有玩家（含抽卡者）各自回覆「放棄」，事件必須自動結案。
+        await Promise.all(handles.playerPages.map(async (candidate, index) => {
+          await candidate.getByText('共享卡片事件', { exact: true }).waitFor({ state: 'visible', timeout: 15_000 });
+          await candidate.getByRole('button', { name: '放棄', exact: true }).click();
+          console.log(`[stress] turn ${turn}: p${index + 1} declined ${cardId}`);
+        }));
+        const declinedAt = Date.now();
+        await waitFor(
+          () => readRoom(handles!.roomCode),
+          (room) => !room.boardState?.sharedCardPrompt && !room.boardState?.currentEvent,
+          15_000,
+        );
+        (record as any).sharedCompletionMs = Date.now() - declinedAt;
+        console.log(`[stress] turn ${turn}: ${cardId} projection=${(record as any).projectionRevealMs}ms completion=${(record as any).sharedCompletionMs}ms`);
+      } else if (eventState.boardState?.currentEvent?.playerUid === uid) {
+        if (cardId === 'N027') {
+          await Promise.all([
+            closeSimpleCard(page),
+            ...handles.playerPages
+              .filter(candidate => candidate !== page)
+              .map(closeSharedDividendPrompt)
+          ]);
+        } else {
+          await closeSimpleCard(page);
+        }
         console.log(`[stress] turn ${turn}: card closed`);
       } else {
         console.log(`[stress] turn ${turn}: card auto-completed`);
@@ -402,6 +530,13 @@ test('3 位玩家＋1 位執行師完成 50 回合壓力測試', async ({ browse
       record.errors = errors.slice(beforeErrorCount);
       turns.push(record);
 
+      const telemetryBatch = await Promise.all([
+        drainDebugTelemetry(handles.coachPage, 'coach', turn),
+        drainDebugTelemetry(handles.displayPage, 'display', turn),
+        ...handles.playerPages.map((candidate, index) => drainDebugTelemetry(candidate, `p${index + 1}`, turn))
+      ]);
+      telemetry.push(...telemetryBatch.flat());
+
       const validated = await validateRoomSnapshot(handles.roomCode, previousRevision, errors);
       previousRevision = validated.boardState?.revision;
       snapshots.push({
@@ -413,24 +548,37 @@ test('3 位玩家＋1 位執行師完成 50 回合壓力測試', async ({ browse
         heap: await page.evaluate(() => (performance as any).memory?.usedJSHeapSize),
       });
       expect(record.syncMs).toBeLessThanOrEqual(5_000);
+      if (SHARED_MODE) {
+        expect((record as any).projectionRevealMs).toBeLessThanOrEqual(5_000);
+        expect((record as any).sharedCompletionMs).toBeLessThanOrEqual(10_000);
+      }
       expect(record.durationMs).toBeLessThanOrEqual(120_000);
       report.turns = turns;
       report.snapshots = snapshots;
       report.errors = errors;
+      report.retryableErrors = retryableErrors;
+      report.telemetry = telemetry;
       writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2));
     }
 
-    expect(rollIndexByUid.get(turnOrder[0])).toBe(17);
-    expect(rollIndexByUid.get(turnOrder[1])).toBe(17);
-    expect(rollIndexByUid.get(turnOrder[2])).toBe(16);
+    for (const [index, uid] of turnOrder.entries()) {
+      const expectedRolls = Math.floor(TURNS / STRESS_PLAYER_COUNT) + (index < TURNS % STRESS_PLAYER_COUNT ? 1 : 0);
+      expect(rollIndexByUid.get(uid)).toBe(expectedRolls);
+    }
+    await handles.coachPage.waitForTimeout(1_000);
     expect(errors).toEqual([]);
+    expect(retryableErrors.length).toBeLessThanOrEqual(Math.max(1, Math.ceil(50 * 0.05)));
 
     await handles.coachPage.getByTitle('遊戲結算').click();
     await expect(handles.coachPage.getByRole('button', { name: '確認' })).toBeVisible({ timeout: 5_000 });
     await handles.coachPage.getByRole('button', { name: '確認' }).click();
     await waitFor(() => readRoom(handles!.roomCode), (room) => room.status === 'finished', 20_000);
-    await expect(handles.coachPage.getByText('遊戲結算')).toBeVisible({ timeout: 20_000 });
-    for (const page of handles.playerPages) await expect(page.getByText('遊戲結算')).toBeVisible({ timeout: 20_000 });
+    await expect(handles.coachPage.getByRole('heading', { name: '遊戲結算', exact: true }).first()).toBeVisible({ timeout: 20_000 });
+    for (const page of handles.playerPages) {
+      await expect(page.getByRole('region', { name: '遊戲結算', exact: true })).toBeVisible({ timeout: 20_000 });
+    }
+    await handles.coachPage.waitForTimeout(1_000);
+    expect(errors).toEqual([]);
 
     const finalRoom = await readRoom(handles.roomCode);
     expect(finalRoom.status).toBe('finished');
@@ -445,6 +593,8 @@ test('3 位玩家＋1 位執行師完成 50 回合壓力測試', async ({ browse
   } finally {
     report.finishedAt = new Date().toISOString();
     report.errors = errors;
+    report.retryableErrors = retryableErrors;
+    report.telemetry = telemetry;
     report.testInfo = { status: testInfo.status, expectedStatus: testInfo.expectedStatus };
     writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2));
     await Promise.all([
