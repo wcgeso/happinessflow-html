@@ -1159,6 +1159,16 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v4.14',
+                    date: '2026-09-27',
+                    color: 'amber',
+                    items: [
+                      '財務交易改由伺服器統一結算：周轉借款、賣資產周轉、幸福卡與機運卡現金支出、醫院與維修費用、保險理賠、實現人生夢想，現金、資產、負債與紀錄在同一筆交易寫入，不再出現只入帳一半的情況',
+                      '修正執行師審核故事分享時，若玩家已先關閉卡片，審核彈窗會一直卡住的問題（過期請求自動清除）',
+                      '修正玩家清除審核請求時，因請求已被執行師刪除而被規則拒絕、造成流程停住的問題',
+                    ],
+                  },
+                  {
                     version: 'v4.13',
                     date: '2026-09-26',
                     color: 'amber',

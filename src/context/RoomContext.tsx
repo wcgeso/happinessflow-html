@@ -54,6 +54,7 @@ import { buildMovementEffects, describeMovementEffects } from '../game/board/mov
 import { appendDicePresentation, DICE_PRESENTATION_DURATION_MS, getFamilyDicePresentationReadyAt } from '../game/board/dicePresentation';
 import { isRetryableBoardTransactionError, runBoardTransactionWithRetry, runRoomBoardMutation as runRoomBoardMutationOnServer, type BoardRoomSnapshot, type RunRoomBoardMutationParams } from '../game/board/runBoardMutation';
 import { applyBoardCommand } from '../game/board/boardRevision';
+import { applyBoardTransaction, createSequentialIdGenerator } from '../game/finance/applyBoardTransaction';
 import { toPublicPlayerState } from '../utils/playerState';
 import { extractAssetSymbol, getBusinessAssetLabel, getRealEstateAssetLabel, getStockAssetLabel } from '../utils/assetLabels';
 import { canSkipDisconnectedPlayer, mapRealtimePresenceValue } from '../utils/presence';
@@ -2490,6 +2491,8 @@ interface RoomContextValue {
     completeDepositPurchase: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     completeStockTrade: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     completeLoanBorrow: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
+    /** 通用棋盤財務交易：以伺服器交易一次套用純函式 applyBoardTransaction。 */
+    completeBoardTransaction: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     completeLoanRepayment: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     completeDepositWithdrawal: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     completeCarPurchase: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
@@ -6174,6 +6177,96 @@ useEffect(() => {
         }
     };
 
+    /**
+     * 玩家私有財務資料的單一寫入入口：讀最新的私有狀態、由 `apply` 算出新狀態，
+     * 並在同一筆交易寫回。統一處理唯讀分頁、房間資格、重複指令與錯誤訊息。
+     */
+    const runPlayerFinancialCommand = async (params: {
+        commandId: string;
+        failureLabel: string;
+        apply: (
+            state: GameState,
+            latestRoom: Room
+        ) => { status: 'applied'; state: GameState }
+            | { status: 'duplicate' }
+            | { status: 'requires_funding'; shortfall?: number; message?: string }
+            | { status: 'failed'; message: string };
+    }): Promise<BoardFinancialMutationResult> => {
+        if (!canMutateCurrentRoom()) return { status: 'failed', message: '此分頁目前為唯讀' };
+        if (!room?.id || !room.isBoardGame || !user) return { status: 'failed', message: '目前沒有可用的棋盤房間' };
+
+        try {
+            return await runRoomBoardMutation<BoardFinancialMutationResult, Room>({
+                db,
+                roomId: room.id,
+                commandId: params.commandId,
+                playerStateUids: [user.uid],
+                forcePrivatePlayerStates: true,
+                onDuplicate: () => ({ status: 'duplicate' }),
+                mutate: (latestRoom, latestBoard) => {
+                    const currentState = latestRoom.playerStates?.[user.uid];
+                    if (!currentState) {
+                        return {
+                            boardState: latestBoard,
+                            commit: false,
+                            result: { status: 'failed', message: '玩家資料尚未同步完成，請稍後再試' }
+                        };
+                    }
+                    let outcome: ReturnType<typeof params.apply>;
+                    try {
+                        outcome = params.apply(currentState, latestRoom);
+                    } catch (error: any) {
+                        return {
+                            boardState: latestBoard,
+                            commit: false,
+                            result: { status: 'failed', message: error?.message || `${params.failureLabel}資料已更新，請重新操作` }
+                        };
+                    }
+                    if (outcome.status === 'applied') {
+                        return {
+                            boardState: latestBoard,
+                            roomPatch: { playerStates: { [user.uid]: outcome.state } },
+                            result: { status: 'applied' }
+                        };
+                    }
+                    return { boardState: latestBoard, commit: false, result: outcome };
+                }
+            });
+        } catch (error: any) {
+            const message = error?.code === 'permission-denied'
+                ? `${params.failureLabel}同步權限不足，請確認目前仍在這個房間`
+                : error?.code === 'unavailable' || error?.code === 'deadline-exceeded'
+                    ? '資料庫連線暫時不穩定，請保留目前選擇後再試一次'
+                    : error?.message || `${params.failureLabel}同步失敗，請再試一次`;
+            setError(message);
+            return { status: 'failed', message };
+        }
+    };
+
+    const completeBoardTransaction = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
+        const operationId = txData.boardEventId || txData.commandId;
+        if (!operationId) return { status: 'failed', message: '交易缺少識別碼，請重新操作' };
+        const commandId = `fin:${room?.sessionId || room?.id}:${user?.uid}:${operationId}`;
+        return runPlayerFinancialCommand({
+            commandId,
+            failureLabel: '財務交易',
+            apply: (state, latestRoom) => {
+                const result = applyBoardTransaction(state, txData, {
+                    now: Date.now(),
+                    generateId: createSequentialIdGenerator(commandId),
+                    financialAcceleration: latestRoom.financialAcceleration
+                });
+                if (result.status === 'error') {
+                    return result.code === 'insufficient_cash'
+                        ? { status: 'requires_funding', shortfall: result.shortfall, message: result.message }
+                        : { status: 'failed', message: result.message };
+                }
+                if (result.status === 'duplicate') return { status: 'duplicate' };
+                return { status: 'applied', state: result.state };
+            }
+        });
+    };
+
     const completeLoanBorrow = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
         if (!canMutateCurrentRoom()) return { status: 'failed', message: '此分頁目前為唯讀' };
         if (!room?.id || !room.isBoardGame || !user) return { status: 'failed', message: '目前沒有可用的棋盤房間' };
@@ -7768,6 +7861,7 @@ useEffect(() => {
             completeDepositPurchase,
             completeStockTrade,
             completeLoanBorrow,
+            completeBoardTransaction,
             completeLoanRepayment,
             completeDepositWithdrawal,
             completeCarPurchase,

@@ -159,8 +159,10 @@ export interface PreparedBoardTransaction {
   message: string;
 }
 
+export type BoardTransactionErrorCode = 'insufficient_cash' | 'credit_limit' | 'invalid';
+
 export type PrepareBoardTransactionResult =
-  | { status: 'error'; message: string }
+  | { status: 'error'; message: string; code: BoardTransactionErrorCode; shortfall?: number }
   | { status: 'duplicate' }
   | { status: 'ready'; prepared: PreparedBoardTransaction };
 
@@ -170,7 +172,11 @@ export const prepareBoardTransaction = (
   data: TransactionData,
   financialAcceleration: FinancialAccelerationInput
 ): PrepareBoardTransactionResult => {
-  const fail = (message: string): PrepareBoardTransactionResult => ({ status: 'error', message });
+  const fail = (
+    message: string,
+    code: BoardTransactionErrorCode = 'invalid',
+    shortfall?: number
+  ): PrepareBoardTransactionResult => ({ status: 'error', message, code, ...(shortfall !== undefined ? { shortfall } : {}) });
   data = normalizeTransactionData(data);
   if (data.stockList?.some(item => !Number.isFinite(item.price) || item.price <= 0 || !Number.isInteger(item.qty) || item.qty < 1)) {
       return fail('股票價格必須大於 0，張數必須為正整數');
@@ -243,7 +249,7 @@ export const prepareBoardTransaction = (
           state.loans
       );
       if (amount > remainingCredit) {
-          return fail(`超過信貸上限，剩餘可借 ${formatMoney(remainingCredit)}`);
+          return fail(`超過信貸上限，剩餘可借 ${formatMoney(remainingCredit)}`, 'credit_limit');
       }
   }
   if (fundingLoanAmount > 0) {
@@ -253,15 +259,15 @@ export const prepareBoardTransaction = (
           state.loans
       );
       if (fundingLoanAmount > remainingCredit) {
-          return fail(`超過信貸上限，剩餘可借 ${formatMoney(remainingCredit)}`);
+          return fail(`超過信貸上限，剩餘可借 ${formatMoney(remainingCredit)}`, 'credit_limit');
       }
   }
   if (effectiveCashChange < 0 && state.cash + effectiveCashChange < 0) {
-      return fail(`現金不足，還差 ${formatMoney(Math.abs(state.cash + effectiveCashChange))}，請先周轉資金`);
+      return fail(`現金不足，還差 ${formatMoney(Math.abs(state.cash + effectiveCashChange))}，請先周轉資金`, 'insufficient_cash', Math.abs(state.cash + effectiveCashChange));
   }
   if (data.usage === 'liability' && data.liabilityId) {
       if (amount > state.cash) {
-          return fail('現金不足，無法完成還款');
+          return fail('現金不足，無法完成還款', 'insufficient_cash', Math.max(0, amount - state.cash));
       }
 
       if (data.liabilityId === 'multiple_credit_loans') {
@@ -767,7 +773,7 @@ export const reduceBoardTransaction = (
 export type ApplyBoardTransactionResult =
   | { status: 'applied'; state: GameState; message: string }
   | { status: 'duplicate'; state: GameState }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string; code: BoardTransactionErrorCode; shortfall?: number };
 
 /** 驗證＋套用（伺服器交易使用）。 */
 export const applyBoardTransaction = (
@@ -782,5 +788,14 @@ export const applyBoardTransaction = (
     status: 'applied',
     state: reduceBoardTransaction(state, prepared.prepared, env),
     message: prepared.prepared.message
+  };
+};
+
+/** 由 commandId 衍生的循序 id：同一筆指令重試時產生相同的 id。 */
+export const createSequentialIdGenerator = (seed: string) => {
+  let counter = 0;
+  return () => {
+    counter += 1;
+    return `${seed}#${counter}`;
   };
 };

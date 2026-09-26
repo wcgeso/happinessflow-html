@@ -363,7 +363,7 @@ const completeFinancialCheck = async (page: Page) => {
   await verify.click();
   await expect(firstPopup).toBeVisible({ timeout: 5_000 });
 
-  const lines = await page.locator('li, [role="dialog"] p, [role="dialog"] div').allTextContents();
+  const lines = await page.locator('li, div:not(:has(*))').allTextContents();
   const entries = lines
     .map((line) => line.replace(/\s+/g, ' ').trim())
     .map((line) => line.match(/(?:^|[•\s]|應填寫：)(資產|負債|收入|支出)：(.+?)（(增加|減少)）$/))

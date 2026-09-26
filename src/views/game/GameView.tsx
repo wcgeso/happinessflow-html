@@ -48,6 +48,14 @@ export const isForcedPaymentFundingTransaction = (
     data: Pick<TransactionData, 'source' | 'usage' | 'cashChange'>
 ) => data.usage === 'cash' && data.cashChange > 0 && (data.source === 'income' || data.source === 'loan');
 
+// 伺服器交易需要穩定的識別碼：優先用棋盤事件 ID，其次是呼叫端提供的指令編號，
+// 都沒有時才為這一次操作產生一個新的編號。
+const ensureTransactionOperationId = <T extends { boardEventId?: string; commandId?: string }>(data: T): T => (
+    data.boardEventId || data.commandId
+        ? data
+        : { ...data, commandId: `tx:${typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}` }
+);
+
 const withBoardFlow = (action: BoardFinancialAction, boardFlow: BoardFinancialFlow): BoardFinancialAction => ({
     ...action,
     txData: { ...action.txData, boardFlow }
@@ -65,7 +73,7 @@ export const GameView: React.FC<{
 }> = ({ onFinishGame, isDevMode = false }) => {
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
+    const { room, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeBoardTransaction, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -301,10 +309,22 @@ export const GameView: React.FC<{
         }
     };
 
-    const handleTransaction = (data: any) => {
+    const handleTransaction = async (data: any) => {
         if (pendingForcedBoardPayment && isForcedPaymentFundingTransaction(data)) {
-            const applied = handleTransactionSubmit(data);
-            if (!applied) return;
+            // 共享／家庭歷程提示進行中時，房間文件只允許「回覆本人提示」的寫入，
+            // 這段情境（階段 2）仍暫用本機路徑，避免被規則拒絕。
+            const hasActiveBoardPrompt = !!(boardState?.sharedCardPrompt || boardState?.familyMilestoneJoinPrompt);
+            if (room?.isBoardGame && !hasActiveBoardPrompt) {
+                // 周轉（借款／賣資產）必須和其他財務寫入一樣走伺服器交易。
+                const fundingResult = await completeBoardTransaction(ensureTransactionOperationId(data));
+                if (fundingResult.status === 'failed' || fundingResult.status === 'requires_funding') {
+                    showAlert(fundingResult.message || '周轉同步失敗，請保留目前選擇後再試一次', 'error');
+                    return;
+                }
+            } else {
+                const applied = handleTransactionSubmit(data);
+                if (!applied) return;
+            }
 
             setShowTransactionModal(false);
             setTransactionQuickPreset(null);
@@ -1847,6 +1867,17 @@ export const GameView: React.FC<{
                 return carResult;
             }
             applied = carResult.status === 'applied' || carResult.status === 'duplicate';
+        } else if (room?.isBoardGame && resolvedTxData.boardFlow !== 'shared-card') {
+            // 其餘棋盤財務交易（卡片費用、醫院／維修、理賠、夢想等）用同一份純函式在伺服器
+            // 交易中套用，不再走本機同步。共享卡片（股利、全體支出）要與共享回覆同一筆交易，
+            // 留待階段 2 處理，暫時維持原路徑。
+            const boardTxResult = await completeBoardTransaction(ensureTransactionOperationId(transactionData));
+            if (boardTxResult.status === 'requires_funding') return boardTxResult;
+            if (boardTxResult.status === 'failed') {
+                showAlert(boardTxResult.message || '財務交易同步失敗，請保留目前選擇後再試', 'error');
+                return boardTxResult;
+            }
+            applied = boardTxResult.status === 'applied' || boardTxResult.status === 'duplicate';
         } else {
             applied = handleTransactionSubmit(transactionData);
         }
