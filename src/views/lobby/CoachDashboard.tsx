@@ -1159,6 +1159,15 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v4.15',
+                    date: '2026-09-27',
+                    color: 'amber',
+                    items: [
+                      '修正幸福家庭歷程卡在抽卡者先完成、其他玩家後擲骰時，事件不會結案、沒有「結束回合」按鈕的問題',
+                      '家庭歷程結案改為等骰子動畫播完後自動進行，不再因為回覆寫入當下動畫尚未結束而漏掉結案',
+                    ],
+                  },
+                  {
                     version: 'v4.14',
                     date: '2026-09-27',
                     color: 'amber',

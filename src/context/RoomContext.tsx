@@ -5086,6 +5086,7 @@ useEffect(() => {
 
         const isRoomCoach = room.hostId === user.uid || user.role === 'coach' || user.role === 'gm';
         const responsesRef = collection(db, 'rooms', room.id, 'events', prompt.id, 'responses');
+        let finalizeTimer: number | null = null;
         const handleResponses = (responses: Record<string, FamilyMilestoneJoinResponse>) => {
             setRoom(prev => {
                 if (!prev?.boardState?.familyMilestoneJoinPrompt || prev.boardState.familyMilestoneJoinPrompt.id !== prompt.id) return prev;
@@ -5107,15 +5108,24 @@ useEffect(() => {
                 };
             });
 
-            if (isRoomCoach) {
+            if (isRoomCoach && finalizeTimer === null) {
                 const mergedPrompt = { ...prompt, responses: { ...(prompt.responses || {}), ...responses } };
-                const mergedBoard = { ...room.boardState, familyMilestoneJoinPrompt: mergedPrompt };
-                if (mergedPrompt.sourceActionCompleted && !hasIncompleteSharedPrompts(mergedBoard)) {
+                // hasIncompleteSharedPrompts 會把「骰子動畫尚未播完」也算成未完成，導致在回覆剛寫入
+                // 的那一刻永遠不排程結案；這裡只判斷是否全部回覆並完成，再等動畫結束後結案。
+                const everyTargetDone = mergedPrompt.targetPlayerUids.every(uid => {
+                    const response = mergedPrompt.responses?.[uid];
+                    return !!response && (response.status !== 'passed' || response.actionCompleted === true);
+                });
+                if (mergedPrompt.sourceActionCompleted && everyTargetDone) {
                     const presentationReadyAt = Math.max(
+                        0,
                         ...mergedPrompt.targetPlayerUids.map(uid => mergedPrompt.responses?.[uid]?.presentationReadyAt || 0)
                     );
                     const delay = Math.max(0, presentationReadyAt - Date.now()) + 50;
-                    window.setTimeout(() => void finalizeFamilyMilestoneJoinPrompt(prompt.id), delay);
+                    finalizeTimer = window.setTimeout(() => {
+                        finalizeTimer = null;
+                        void finalizeFamilyMilestoneJoinPrompt(prompt.id);
+                    }, delay);
                 }
             }
         };
@@ -5124,18 +5134,22 @@ useEffect(() => {
             if (error.code === 'permission-denied') setError('家庭歷程回覆同步權限不足，請重新整理後再試一次');
         };
 
-        if (isRoomCoach) {
-            return onSnapshot(responsesRef, snapshot => {
+        const unsubscribe = isRoomCoach
+            ? onSnapshot(responsesRef, snapshot => {
                 handleResponses(Object.fromEntries(
                     snapshot.docs.map(responseDoc => [responseDoc.id, responseDoc.data() as FamilyMilestoneJoinResponse])
                 ));
+            }, handleError)
+            : onSnapshot(doc(db, 'rooms', room.id, 'events', prompt.id, 'responses', user.uid), snapshot => {
+                handleResponses(snapshot.exists() ? { [user.uid]: snapshot.data() as FamilyMilestoneJoinResponse } : {});
             }, handleError);
-        }
-
-        return onSnapshot(doc(db, 'rooms', room.id, 'events', prompt.id, 'responses', user.uid), snapshot => {
-            handleResponses(snapshot.exists() ? { [user.uid]: snapshot.data() as FamilyMilestoneJoinResponse } : {});
-        }, handleError);
-    }, [room?.id, room?.hostId, room?.syncSchemaVersion, room?.boardState?.familyMilestoneJoinPrompt?.id, room?.boardState?.familyMilestoneJoinPrompt?.responseStorage, user?.role, user?.uid, finalizeFamilyMilestoneJoinPrompt]);
+        return () => {
+            unsubscribe();
+            if (finalizeTimer !== null) window.clearTimeout(finalizeTimer);
+        };
+    // sourceActionCompleted 必須列入依賴：抽卡者先完成、參與者後回覆時，監聽器內的 prompt 若還是
+    // 建立當下的舊快照（sourceActionCompleted=false），就永遠不會結案，回合也無法結束。
+    }, [room?.id, room?.hostId, room?.syncSchemaVersion, room?.boardState?.familyMilestoneJoinPrompt?.id, room?.boardState?.familyMilestoneJoinPrompt?.responseStorage, room?.boardState?.familyMilestoneJoinPrompt?.sourceActionCompleted, user?.role, user?.uid, finalizeFamilyMilestoneJoinPrompt]);
 
     const familyJoinSubmitErrorRef = useRef('');
     const submitFamilyMilestoneJoinResponse = async (payload: {
