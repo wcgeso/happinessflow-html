@@ -2493,6 +2493,14 @@ interface RoomContextValue {
     completeLoanBorrow: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     /** 通用棋盤財務交易：以伺服器交易一次套用純函式 applyBoardTransaction。 */
     completeBoardTransaction: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
+    /** 只寫玩家私有文件（不動房間主文件）：共享／家庭歷程提示進行中，規則不允許一般房間交易時使用。 */
+    completePlayerOnlyTransaction: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
+    /** 共享卡片的財務結算（股利、股息、全體支出）：財務資料與本人回覆在同一筆交易寫入。 */
+    completeSharedTransactionAction: (
+        promptId: string,
+        txData: TransactionData,
+        responseMeta: { status: 'completed' | 'no_effect'; amount?: number; note?: string }
+    ) => Promise<BoardFinancialMutationResult>;
     completeLoanRepayment: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     completeDepositWithdrawal: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     completeCarPurchase: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
@@ -5867,6 +5875,136 @@ useEffect(() => {
         }
     };
 
+    const completePlayerOnlyTransaction = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
+        if (!canMutateCurrentRoom()) return { status: 'failed', message: '此分頁目前為唯讀' };
+        if (!room?.id || !room.isBoardGame || !user) return { status: 'failed', message: '目前沒有可用的棋盤房間' };
+        const operationId = txData.boardEventId || txData.commandId;
+        if (!operationId) return { status: 'failed', message: '交易缺少識別碼，請重新操作' };
+
+        const commandId = `fin-player:${room.sessionId || room.id}:${user.uid}:${operationId}`;
+        try {
+            return await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
+                const playerRef = doc(db, 'rooms', room.id, 'players', user.uid);
+                const roomRef = doc(db, 'rooms', room.id);
+                const [playerSnapshot, roomSnapshot] = await Promise.all([transaction.get(playerRef), transaction.get(roomRef)]);
+                if (!roomSnapshot.exists()) return { status: 'failed' as const, message: '房間不存在或已關閉' };
+                if (!playerSnapshot.exists()) return { status: 'failed' as const, message: '玩家資料尚未同步完成，請稍後再試' };
+
+                const latestRoom = roomSnapshot.data() as Room;
+                // 沒有房間指令編號可防重送，改以 boardEventId 記錄在玩家資料的 appliedBoardFinancialEventIds。
+                const result = applyBoardTransaction(
+                    playerSnapshot.data() as GameState,
+                    { ...txData, boardEventId: operationId },
+                    {
+                        now: Date.now(),
+                        generateId: createSequentialIdGenerator(commandId),
+                        financialAcceleration: latestRoom.financialAcceleration
+                    }
+                );
+                if (result.status === 'error') {
+                    return result.code === 'insufficient_cash'
+                        ? { status: 'requires_funding' as const, shortfall: result.shortfall, message: result.message }
+                        : { status: 'failed' as const, message: result.message };
+                }
+                if (result.status === 'duplicate') return { status: 'duplicate' as const };
+                transaction.set(playerRef, cleanObject(result.state));
+                return { status: 'applied' as const };
+            }));
+        } catch (error: any) {
+            const message = error?.code === 'permission-denied'
+                ? '財務同步權限不足，請確認目前仍在這個房間'
+                : error?.code === 'unavailable' || error?.code === 'deadline-exceeded'
+                    ? '資料庫連線暫時不穩定，請保留目前選擇後再試一次'
+                    : error?.message || '財務交易同步失敗，請再試一次';
+            setError(message);
+            return { status: 'failed', message };
+        }
+    };
+
+    const completeSharedTransactionAction = async (
+        promptId: string,
+        txData: TransactionData,
+        responseMeta: { status: 'completed' | 'no_effect'; amount?: number; note?: string }
+    ): Promise<BoardFinancialMutationResult> => {
+        if (!canMutateCurrentRoom()) return { status: 'failed', message: '此分頁目前為唯讀' };
+        if (!room?.id || !room.isBoardGame || !user) return { status: 'failed', message: '目前沒有可用的棋盤房間' };
+
+        const commandId = `shared-tx:${promptId}:${user.uid}`;
+        const sharedKinds: SharedCardPrompt['kind'][] = ['cash_dividend', 'stock_dividend', 'expense_adjustment'];
+        try {
+            return await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
+                const roomRef = doc(db, 'rooms', room.id);
+                const playerRef = doc(db, 'rooms', room.id, 'players', user.uid);
+                const roomSnapshot = await transaction.get(roomRef);
+                if (!roomSnapshot.exists()) return { status: 'failed' as const, message: '房間不存在或已關閉' };
+
+                const latestRoom = roomSnapshot.data() as Room;
+                const prompt = latestRoom.boardState?.sharedCardPrompt;
+                const playerSnapshot = await transaction.get(playerRef);
+                const responseRef = doc(db, 'rooms', room.id, 'events', promptId, 'responses', user.uid);
+                const responseSnapshot = prompt?.responseStorage === 'subcollection'
+                    ? await transaction.get(responseRef)
+                    : null;
+                if (responseSnapshot?.exists()) return { status: 'duplicate' as const };
+                if (latestRoom.status !== 'playing' || latestRoom.sessionId !== room.sessionId ||
+                    !prompt || prompt.id !== promptId || !sharedKinds.includes(prompt.kind) ||
+                    !prompt.targetPlayerUids.includes(user.uid)) {
+                    return { status: 'failed' as const, message: '共享卡片事件已更新，請重新開啟卡片' };
+                }
+                if (prompt.responses?.[user.uid]) return { status: 'duplicate' as const };
+
+                const currentState = playerSnapshot.exists()
+                    ? playerSnapshot.data() as GameState
+                    : latestRoom.playerStates?.[user.uid];
+                if (!currentState) return { status: 'failed' as const, message: '玩家資料尚未同步完成，請稍後再試' };
+
+                // 財務結算與共享回覆同一筆：任何一邊失敗整筆不生效。
+                const result = applyBoardTransaction(
+                    currentState,
+                    { ...txData, boardEventId: txData.boardEventId || commandId },
+                    {
+                        now: Date.now(),
+                        generateId: createSequentialIdGenerator(commandId),
+                        financialAcceleration: latestRoom.financialAcceleration
+                    }
+                );
+                if (result.status === 'error') {
+                    return result.code === 'insufficient_cash'
+                        ? { status: 'requires_funding' as const, shortfall: result.shortfall, message: result.message }
+                        : { status: 'failed' as const, message: result.message };
+                }
+
+                const response = cleanObject({
+                    promptId, playerUid: user.uid,
+                    playerName: latestRoom.members.find(member => member.uid === user.uid)?.name || user.name || '玩家',
+                    status: responseMeta.status, amount: responseMeta.amount, note: responseMeta.note,
+                    respondedAt: Date.now(), commandId
+                });
+                if (prompt.responseStorage === 'subcollection') {
+                    transaction.set(responseRef, response);
+                } else {
+                    const fallback = buildSharedPromptResponseFallback(
+                        latestRoom, promptId, user.uid, response as SharedCardPromptResponse, commandId
+                    );
+                    if (fallback.status !== 'applied' || !fallback.boardState) {
+                        return { status: 'failed' as const, message: '共享卡片事件已更新，請重新開啟卡片' };
+                    }
+                    transaction.update(roomRef, { boardState: fallback.boardState });
+                }
+                if (result.status === 'applied') transaction.set(playerRef, cleanObject(result.state));
+                return { status: result.status };
+            }));
+        } catch (error: any) {
+            const message = error?.code === 'permission-denied'
+                ? '共享卡片同步權限不足，請確認目前仍在這個房間'
+                : error?.code === 'unavailable' || error?.code === 'deadline-exceeded'
+                    ? '資料庫連線暫時不穩定，請保留目前選擇後再試一次'
+                    : error?.message || '共享卡片同步失敗，請再試一次';
+            setError(message);
+            return { status: 'failed', message };
+        }
+    };
+
     const completeStartupLoanAction = async (promptId: string): Promise<boolean> => {
         if (!canMutateCurrentRoom()) return false;
         if (!room?.id || !room.isBoardGame || !user) return false;
@@ -7876,6 +8014,8 @@ useEffect(() => {
             completeStockTrade,
             completeLoanBorrow,
             completeBoardTransaction,
+            completePlayerOnlyTransaction,
+            completeSharedTransactionAction,
             completeLoanRepayment,
             completeDepositWithdrawal,
             completeCarPurchase,

@@ -212,6 +212,11 @@ const createRoom = async (browser: Browser) => {
       if (message.type() === 'error' && !/permission_denied/.test(message.text())) {
         console.log(`[card-matrix] ${player.name} console.error: ${message.text().replace(/\s+/g, ' ').slice(0, 900)}`);
       }
+      if (message.text().includes('共享卡片彈窗被擋住')) {
+        void Promise.all(message.args().map((arg) => arg.jsonValue().catch(() => null))).then((values) => {
+          console.log(`[card-matrix] ${player.name} BLOCKED-SHARED-MODAL ${JSON.stringify(values).slice(0, 600)}`);
+        });
+      }
     });
     page.on('pageerror', (error) => console.log(`[card-matrix] ${player.name} pageerror: ${error.message}`));
     page.on('response', (response) => {
@@ -414,6 +419,7 @@ const clickPrimaryCardAction = async (page: Page) => {
     '確認交易內容',
     '進入財務流程',
     '前往交易',
+    '開始結算',
     /^(接受|參與|購買|申請|辦理|執行|套用|完成|出售|投入|確認)/,
   ]);
   return clicked;
@@ -512,6 +518,17 @@ const saveEvidence = async (handles: Awaited<ReturnType<typeof createRoom>>, car
   const snapshotFile = path.join(folder, 'room-snapshot.json');
   writeFileSync(snapshotFile, JSON.stringify(snapshot, null, 2));
   paths.push(snapshotFile);
+  // 共享提示的回覆存在子集合，房間快照看不到；連同各玩家頁面文字一起保存，方便判斷卡在誰。
+  const promptId = snapshot?.boardState?.sharedCardPrompt?.id || snapshot?.boardState?.familyMilestoneJoinPrompt?.id;
+  const extra: Record<string, unknown> = {};
+  if (promptId) {
+    const responses = await roomRef(handles.roomCode).collection('events').doc(promptId).collection('responses').get().catch(() => null);
+    extra.responses = responses ? responses.docs.map((doc) => ({ id: doc.id, ...doc.data() })) : null;
+  }
+  extra.pageText = await Promise.all(pages.map((page) => page.locator('body').innerText().then((text) => text.slice(0, 1500)).catch(() => '')));
+  const extraFile = path.join(folder, 'extra.json');
+  writeFileSync(extraFile, JSON.stringify(extra, null, 2));
+  paths.push(extraFile);
   return paths;
 };
 
@@ -541,9 +558,12 @@ test('3 位玩家＋1 位執行師逐張測試 160 張卡片（本地 Emulator�
   mkdirSync(EVIDENCE_ROOT, { recursive: true });
   const allCards = readCardDefinitions();
   const requestedCardLimit = Number.parseInt(process.env.CARD_MATRIX_LIMIT || '', 10);
-  const cards = Number.isFinite(requestedCardLimit) && requestedCardLimit > 0
-    ? allCards.slice(0, requestedCardLimit)
-    : allCards;
+  const requestedIds = (process.env.CARD_MATRIX_IDS || '').split(',').map((id) => id.trim()).filter(Boolean);
+  const cards = requestedIds.length
+    ? allCards.filter((card) => requestedIds.includes(card.id))
+    : Number.isFinite(requestedCardLimit) && requestedCardLimit > 0
+      ? allCards.slice(0, requestedCardLimit)
+      : allCards;
   const results: CardResult[] = [];
   const report: any = {
     test: 'BOARD_3P_ALL_160_CARDS_LOCAL_2026-09-01',

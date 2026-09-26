@@ -1159,6 +1159,16 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v4.16',
+                    date: '2026-09-27',
+                    color: 'amber',
+                    items: [
+                      '共享卡片財務結算改為單一交易：現金股利、股票股息、全體月支出調整，財務結果與本人回覆同時寫入，不再出現入帳成功但回覆遺失或相反的情況',
+                      '共享／家庭歷程提示進行中的周轉借款與賣資產，改為只寫玩家自己的資料，不再走本機同步',
+                      '修正共享卡片彈窗偶發不出現的問題：上一張共享卡片殘留的「待完成」狀態不再擋住下一張卡片的彈窗（包含抽卡者翻牌後沒有彈窗）',
+                    ],
+                  },
+                  {
                     version: 'v4.15',
                     date: '2026-09-27',
                     color: 'amber',

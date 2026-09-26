@@ -73,7 +73,7 @@ export const GameView: React.FC<{
 }> = ({ onFinishGame, isDevMode = false }) => {
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeBoardTransaction, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
+    const { room, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeBoardTransaction, completePlayerOnlyTransaction, completeSharedTransactionAction, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -312,11 +312,14 @@ export const GameView: React.FC<{
     const handleTransaction = async (data: any) => {
         if (pendingForcedBoardPayment && isForcedPaymentFundingTransaction(data)) {
             // 共享／家庭歷程提示進行中時，房間文件只允許「回覆本人提示」的寫入，
-            // 這段情境（階段 2）仍暫用本機路徑，避免被規則拒絕。
+            // 所以周轉只寫玩家私有文件；沒有提示時走完整的房間交易。
             const hasActiveBoardPrompt = !!(boardState?.sharedCardPrompt || boardState?.familyMilestoneJoinPrompt);
-            if (room?.isBoardGame && !hasActiveBoardPrompt) {
+            if (room?.isBoardGame) {
                 // 周轉（借款／賣資產）必須和其他財務寫入一樣走伺服器交易。
-                const fundingResult = await completeBoardTransaction(ensureTransactionOperationId(data));
+                const fundingTx = ensureTransactionOperationId(data);
+                const fundingResult = hasActiveBoardPrompt
+                    ? await completePlayerOnlyTransaction(fundingTx)
+                    : await completeBoardTransaction(fundingTx);
                 if (fundingResult.status === 'failed' || fundingResult.status === 'requires_funding') {
                     showAlert(fundingResult.message || '周轉同步失敗，請保留目前選擇後再試一次', 'error');
                     return;
@@ -752,7 +755,8 @@ export const GameView: React.FC<{
     );
     const isSharedCardPromptBlocked = !!(
         boardFinancialAction ||
-        pendingSharedCardCompletion ||
+        // 只有「目前這張」共享卡片的待完成狀態才擋住彈窗；上一張卡片殘留的狀態不能擋下一張。
+        (pendingSharedCardCompletion && pendingSharedCardCompletion.promptId === activeSharedCardPrompt?.id) ||
         showTransactionModal ||
         showRealEstateMarketModal ||
         showBizUpgradeModal ||
@@ -763,6 +767,13 @@ export const GameView: React.FC<{
         showDiceModal ||
         showHospitalRollModal
     );
+    // 抽卡者完成財務檢核後，若其他玩家還沒回覆，待完成狀態會留著等全部回覆；事件換成下一張
+    // 共享卡片時必須清掉，否則會一直擋住新卡片的彈窗（抽卡者「翻牌後沒有彈窗」的原因）。
+    useEffect(() => {
+        if (!pendingSharedCardCompletion || boardFinancialAction) return;
+        if (activeSharedCardPrompt?.id === pendingSharedCardCompletion.promptId) return;
+        setPendingSharedCardCompletion(null);
+    }, [pendingSharedCardCompletion, boardFinancialAction, activeSharedCardPrompt?.id]);
     const hasPendingSharedCardPrompt = !!(
         activeSharedCardPrompt &&
         isSharedCardTarget &&
@@ -1867,6 +1878,24 @@ export const GameView: React.FC<{
                 return carResult;
             }
             applied = carResult.status === 'applied' || carResult.status === 'duplicate';
+        } else if (room?.isBoardGame && resolvedTxData.boardFlow === 'shared-card' && pendingSharedCardCompletion) {
+            // 共享股利／股息／全體支出：財務結算與本人的共享回覆放進同一筆交易。
+            const sharedTxResult = await completeSharedTransactionAction(
+                pendingSharedCardCompletion.promptId,
+                ensureTransactionOperationId(transactionData),
+                {
+                    status: pendingSharedCardCompletion.status === 'no_effect' ? 'no_effect' : 'completed',
+                    amount: pendingSharedCardCompletion.amount,
+                    note: pendingSharedCardCompletion.note
+                }
+            );
+            if (sharedTxResult.status === 'requires_funding') return sharedTxResult;
+            if (sharedTxResult.status === 'failed') {
+                showAlert(sharedTxResult.message || '共享卡片結算同步失敗，請保留目前選擇後再試', 'error');
+                return sharedTxResult;
+            }
+            applied = sharedTxResult.status === 'applied' || sharedTxResult.status === 'duplicate';
+            sharedResponseCommitted = true;
         } else if (room?.isBoardGame && resolvedTxData.boardFlow !== 'shared-card') {
             // 其餘棋盤財務交易（卡片費用、醫院／維修、理賠、夢想等）用同一份純函式在伺服器
             // 交易中套用，不再走本機同步。共享卡片（股利、全體支出）要與共享回覆同一筆交易，
