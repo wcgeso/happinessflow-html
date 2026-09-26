@@ -16,22 +16,22 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
   ],
   use: {
+    // 任何單一步驟卡住都要盡快失敗，不能讓整個測試無限等待。
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000,
     baseURL: 'http://localhost:5183',
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    trace: process.env.E2E_NO_ARTIFACTS === 'true' ? 'off' : 'retain-on-failure',
+    screenshot: process.env.E2E_NO_ARTIFACTS === 'true' ? 'off' : 'only-on-failure',
+    video: process.env.E2E_NO_ARTIFACTS === 'true' ? 'off' : 'retain-on-failure',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
-    // Uses a production preview build rather than the dev server: with 5
-    // concurrent browser contexts (coach/display/3 players) hammering the
-    // dev server's on-demand module transform, Vite intermittently returns
-    // 400s for chunk requests and silently drops a player's state update.
-    // The prebuilt static preview server has no such per-request transform
-    // race.
-    command: 'npx vite build --mode e2e && npx vite preview --port 5183 --strictPort',
+    // Emulator mode is intentionally DEV-only in services/firebase.ts. Keep
+    // this server in Vite DEV mode so the E2E process uses its isolated
+    // Auth/Firestore/RTDB emulators instead of the cloud project.
+    command: 'npm run dev -- --host 127.0.0.1 --port 5183 --strictPort',
     url: 'http://localhost:5183',
     // Always use the server started for this emulator run. Reusing an older
     // preview can silently point the browser at a stale Firebase endpoint.

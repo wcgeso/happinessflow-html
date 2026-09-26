@@ -7245,7 +7245,10 @@ useEffect(() => {
                             latestBoard.currentEvent?.id !== latestRequest.boardEventId ||
                             latestBoard.currentCard?.cardId !== latestRequest.boardCardId
                         ) {
-                            throw new Error('幸福分享事件已更新，請重新整理');
+                            // 玩家在審核前已關閉卡片或事件已換卡：這筆請求已失效。改標為拒絕，
+                            // 讓執行師端的審核彈窗自動消失，否則「同意」永遠失敗、彈窗卡住整個畫面。
+                            transaction.update(requestRef, { status: 'rejected' });
+                            return 'stale' as const;
                         }
                         if (!playerSnapshot.exists()) throw new Error('找不到玩家資料');
                         const applied = applyApprovedHappinessStory(
@@ -7258,6 +7261,10 @@ useEffect(() => {
                         }
                         transaction.update(requestRef, { status: 'approved' });
                     })));
+                    if (result === 'stale') {
+                        setError('這筆分享請求對應的卡片事件已結束，已自動清除');
+                        return false;
+                    }
                     return result !== null;
                 }
                 const result = await safeAsync(updateDoc(requestRef, { status: 'approved' }));
@@ -7343,8 +7350,16 @@ useEffect(() => {
         if (!room) return false;
         try {
             if (isPendingRequestDocumentId(requestId)) {
-                const result = await safeAsync(deleteDoc(doc(db, 'rooms', room.id, 'pendingRequests', requestId)));
-                return result !== null;
+                try {
+                    await deleteDoc(doc(db, 'rooms', room.id, 'pendingRequests', requestId));
+                } catch (deleteError: any) {
+                    // 執行師處理完會先刪除請求；Rules 對「已不存在的文件」的刪除會回
+                    // permission-denied（resource 為 null）。請求已不在就等同清除完成，
+                    // 不能因此讓玩家端的審核後續流程停住。
+                    if (deleteError?.code === 'permission-denied') return true;
+                    throw deleteError;
+                }
+                return true;
             }
             const roomRef = doc(db, 'rooms', room.id);
             const result = await safeAsync(updateDoc(roomRef, {
