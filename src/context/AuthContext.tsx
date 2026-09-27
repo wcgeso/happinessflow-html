@@ -12,9 +12,16 @@ import {
 } from 'firebase/auth';
 import { auth, authPersistenceReady, googleProvider, appleProvider, storage, db } from '../../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { safeAsync } from '../utils/utils';
 import { generateInviteCode, findUserByInviteCode, computeEffectiveCoachId } from '../utils/referralUtils';
+import {
+    PHOTO_PROMOTION_CONSENT_VERSION,
+    normalizePhotoPromotionConsent,
+    type PhotoPromotionConsent,
+    type PhotoPromotionConsentChoice,
+} from '../constants/photoPromotionConsent';
+import { debugLog } from '../utils/debugLog';
 
 interface User {
     uid: string;
@@ -32,6 +39,7 @@ interface User {
     referredBy?: string;
     effectiveCoachId?: string;
     activeGame?: { roomId: string; joinedAt?: number | string };
+    photoPromotionConsent?: PhotoPromotionConsent;
 }
 
 export const isGM = (user: User | null): boolean => {
@@ -182,6 +190,7 @@ interface AuthContextValue {
     register: (email: string, password: string, playerName: string, refCode?: string) => Promise<void>;
     bindReferral: (inviteCode: string) => Promise<{ success: boolean; referrerName?: string; error?: string }>;
     updateUserProfile: (name?: string, photoURL?: string, photoPosition?: string, photoScale?: string) => Promise<void>;
+    updatePhotoPromotionConsent: (choice: PhotoPromotionConsentChoice) => Promise<void>;
     uploadAvatar: (file: File) => Promise<string>;
     logout: () => Promise<void>;
 }
@@ -205,7 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
                 await authPersistenceReady;
                 const result = await safeAsync(getRedirectResult(auth));
-                if (result?.user) console.log('Redirect sign-in success');
+                if (result?.user) debugLog('Redirect sign-in success');
             } catch (error) {
                 console.error('Auth persistence/redirect 初始化失敗:', error);
             }
@@ -256,6 +265,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             roomId: String(data.activeGame.roomId),
                             joinedAt: data.activeGame.joinedAt
                         };
+                        basicUserInfo.photoPromotionConsent = normalizePhotoPromotionConsent(data.photoPromotionConsent);
                     } else {
                         // 如果 Firestore 還沒資料（例如透過 Google/Apple 第三方登入），自動建立初始資料
                         const isGM = firebaseUser.email?.toLowerCase() === 'gm0221@happinessflow.com';
@@ -306,7 +316,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loginWithGoogle = async () => {
         try {
             await authPersistenceReady;
-            console.log('Attempting Google login with popup...');
+            debugLog('Attempting Google login with popup...');
             await safeAsync(signInWithPopup(auth, googleProvider), null, (err) => { throw err; });
         } catch (error: any) {
             console.error('Google Popup Error:', error.code, error.message);
@@ -314,7 +324,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Fallback to redirect if popup is blocked or fails
             if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
                 try {
-                    console.log('Popup blocked, falling back to redirect...');
+                    debugLog('Popup blocked, falling back to redirect...');
                     await safeAsync(signInWithRedirect(auth, googleProvider), null, (err) => { throw err; });
                 } catch (redirectError: any) {
                     console.error('Google Redirect Error:', redirectError);
@@ -329,7 +339,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loginWithApple = async () => {
         try {
             await authPersistenceReady;
-            console.log('Attempting Apple login with popup...');
+            debugLog('Attempting Apple login with popup...');
             await safeAsync(signInWithPopup(auth, appleProvider), null, (err) => { throw err; });
         } catch (error: any) {
             console.error('Apple Popup Error:', error.code, error.message);
@@ -337,7 +347,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Fallback to redirect if popup is blocked or fails
             if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
                 try {
-                    console.log('Popup blocked, falling back to redirect...');
+                    debugLog('Popup blocked, falling back to redirect...');
                     await safeAsync(signInWithRedirect(auth, appleProvider), null, (err) => { throw err; });
                 } catch (redirectError: any) {
                     console.error('Apple Redirect Error:', redirectError);
@@ -474,6 +484,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const updatePhotoPromotionConsent = async (choice: PhotoPromotionConsentChoice) => {
+        if (!auth.currentUser) throw new Error('請先登入後再儲存同意選擇');
+
+        await setDoc(doc(db, 'users', auth.currentUser.uid), {
+            photoPromotionConsent: {
+                choice,
+                documentVersion: PHOTO_PROMOTION_CONSENT_VERSION,
+                respondedAt: serverTimestamp(),
+            },
+        }, { merge: true });
+
+        setUser(prev => prev ? {
+            ...prev,
+            photoPromotionConsent: {
+                choice,
+                documentVersion: PHOTO_PROMOTION_CONSENT_VERSION,
+                respondedAt: new Date().toISOString(),
+            },
+        } : prev);
+    };
+
     const uploadAvatar = async (file: File): Promise<string> => {
         if (!auth.currentUser) throw new Error('未登入');
         
@@ -521,6 +552,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         bindReferral,
         updateUserProfile,
+        updatePhotoPromotionConsent,
         uploadAvatar,
         logout
     };

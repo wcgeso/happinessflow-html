@@ -7,9 +7,10 @@ import {
     query,
     where,
     orderBy,
+    limit,
     setDoc,
+    runTransaction,
     serverTimestamp,
-    writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from '../../services/firebase';
 import { useAuth } from './AuthContext';
@@ -20,10 +21,19 @@ import { calculateFinancialSummary, calculateScoreResult } from '../utils/gameUt
 import { cleanObject, safeAsync } from '../utils/utils';
 import { hasPublicPlayerStateChanged, toPublicPlayerState } from '../utils/playerState';
 import { globalGameCoreEngine, CommandGateway, LegacyGameAdapter } from '../game';
+import { runBoardTransactionWithRetry } from '../game/board/runBoardMutation';
+import { createDefaultGameState, normalizeGameState } from '../utils/gameState';
+import { trackGameEvent } from '../utils/telemetry';
+import { debugLog } from '../utils/debugLog';
+
+export { createDefaultGameState, normalizeGameState } from '../utils/gameState';
+
+export const HISTORY_PAGE_SIZE = 20;
 
 interface GameContextValue {
     gameState: GameState;
     setGameState: React.Dispatch<React.SetStateAction<GameState>>;
+    completePlayerSetup: (state: GameState) => Promise<void>;
     gameHistory: GameRecord[];
     setGameHistory: React.Dispatch<React.SetStateAction<GameRecord[]>>;
     summary: FinancialSummary;
@@ -33,43 +43,13 @@ interface GameContextValue {
     showAlert: (message: string, type?: 'info' | 'error' | 'success', persist?: boolean) => void;
     hideAlert: () => void;
     saveGameRecord: (record: GameRecord) => Promise<void>;
+    requestImmediatePlayerSync: () => void;
     updateMarketPrices: (updates: Record<string, number>, code: string) => void;
     bubbleBurst: (code: string) => void;
     sessionId: string | null;
 }
 
 const GameContext = createContext<GameContextValue | undefined>(undefined);
-
-const createDefaultGameState = (): GameState => ({
-    profession: null,
-    selectedEnterprise: null,
-    selectedDream: null,
-    currentRankTitle: '',
-    currentRankLevel: 1,
-    cash: 0,
-    children: 0,
-    medicalInsuranceCount: 0,
-    assets: [],
-    liabilities: [],
-    loans: 0,
-    isSetup: false,
-    selectionStep: null,
-    history: [],
-    happiness: [],
-    happinessTotal: 0,
-    marketPrices: {},
-    previousMarketPrices: {},
-    lastPublishedCode: '',
-    abilities: {
-        stockAbilityCount: 0,
-        realEstateAbilityCount: 0,
-        professionAbilityCount: 0,
-    },
-    completedHappinessEvents: [],
-    pendingMedicalClaims: [],
-    playerName: '',
-    reportName: ''
-} as GameState);
 
 // 玩家端只同步自己擁有的設定與財務資料；棋盤位置、目前事件及待處理
 // prompt 由 RoomContext/交易 transaction 維護，避免舊畫面快照反寫回房間。
@@ -88,7 +68,49 @@ const pickPlayerStateForSync = (state: GameState): Partial<GameState> => cleanOb
     Object.fromEntries(PLAYER_STATE_SYNC_FIELDS.map(field => [field, state[field]]))
 ) as Partial<GameState>;
 
-export const mergeAuthoritativePlayerState = (previous: GameState, remote: GameState): GameState => ({
+export const limitPlayerSyncHistory = (state: Partial<GameState>): Partial<GameState> => cleanObject({
+    ...state,
+    history: Array.isArray(state.history) ? state.history.slice(-100) : state.history,
+    appliedBoardFinancialEventIds: Array.isArray(state.appliedBoardFinancialEventIds)
+        ? state.appliedBoardFinancialEventIds.slice(-200)
+        : state.appliedBoardFinancialEventIds,
+    marketPriceHistory: state.marketPriceHistory
+        ? Object.fromEntries(Object.entries(state.marketPriceHistory).map(([symbol, points]) => [
+            symbol,
+            Array.isArray(points) ? points.slice(-100) : points
+        ]))
+        : state.marketPriceHistory
+}) as Partial<GameState>;
+
+const serializedValue = (value: unknown) => JSON.stringify(value);
+
+export const getChangedPlayerStateFields = (
+    baseline: Partial<GameState> | null | undefined,
+    desired: Partial<GameState>
+): Partial<GameState> => Object.fromEntries(
+    PLAYER_STATE_SYNC_FIELDS
+        .filter(field => serializedValue(baseline?.[field]) !== serializedValue(desired[field]))
+        .map(field => [field, desired[field]])
+) as Partial<GameState>;
+
+/**
+ * Keep authoritative transaction results when a delayed local snapshot tries
+ * to write an older value back to the private player document.
+ */
+export const getSafePlayerStatePatch = (
+    baseline: Partial<GameState> | null | undefined,
+    latest: Partial<GameState>,
+    desired: Partial<GameState>
+): Partial<GameState> => {
+    const localPatch = getChangedPlayerStateFields(baseline, desired);
+    return Object.fromEntries(
+        Object.entries(localPatch).filter(([field]) =>
+            serializedValue(latest[field as keyof GameState]) === serializedValue(baseline?.[field as keyof GameState])
+        )
+    ) as Partial<GameState>;
+};
+
+export const mergeAuthoritativePlayerState = (previous: GameState, remote: GameState): GameState => normalizeGameState({
     ...previous,
     ...remote,
     lastMarketUpdateTimestamp: Math.max(
@@ -107,6 +129,35 @@ export const isPlayerStateForBoardGame = (
     state: GameState | null | undefined,
     startedAt: number | null | undefined
 ) => !!state && (!startedAt || state.boardGameStartedAt === startedAt);
+
+/**
+ * A board command owns the room transition while a card/movement is active.
+ * Delay the legacy private-state bridge until that command has settled so a
+ * stale local snapshot cannot compete with the board transaction.
+ */
+export const shouldDeferPlayerStateSync = (room: {
+    isBoardGame?: boolean;
+    status?: string;
+    boardState?: {
+        movement?: { isActive?: boolean } | null;
+        currentEvent?: unknown;
+        currentCard?: unknown;
+        currentCardReveal?: unknown;
+        pendingEvents?: unknown[];
+        familyMilestoneJoinPrompt?: unknown;
+        sharedCardPrompt?: unknown;
+    } | null;
+} | null | undefined) => {
+    if (!room?.isBoardGame || room.status !== 'playing') return false;
+    const boardState = room.boardState;
+    return !!boardState?.movement?.isActive ||
+        !!boardState?.currentEvent ||
+        !!boardState?.currentCard ||
+        !!boardState?.currentCardReveal ||
+        (boardState?.pendingEvents?.length || 0) > 0 ||
+        !!boardState?.familyMilestoneJoinPrompt ||
+        !!boardState?.sharedCardPrompt;
+};
 
 export const isHiddenStockNewsCard = (room: {
     isBoardGame?: boolean;
@@ -143,17 +194,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // DEV only：確認 Adapter 接線成功（所有 flags = false，不接管任何行為）
     useEffect(() => {
         if (import.meta.env.DEV) {
-            console.debug('[GameContext] coreGameAdapter ready:', coreGameAdapter.isReady());
+            debugLog('[GameContext] coreGameAdapter ready:', coreGameAdapter.isReady());
         }
     }, [coreGameAdapter]);
     // ─────────────────────────────────────────────────────────────────────────
-
-    // localStorage 的還原鍵值必須帶帳號 uid 才能還原，避免同一台裝置換帳號
-    // 登入時，把上一個帳號的財務資料誤還原成新登入者的 gameState（見稽核
-    // 報告 C2）。useState 初始化時 useAuth() 的 user 通常還沒 hydrate 完成
-    // （Firebase Auth 是非同步的），所以這裡先給預設值，實際還原交給下面
-    // 依 user?.uid 觸發的 effect 處理。
-    const getGameStateStorageKey = (uid: string) => `happiness_game_state_${uid}`;
 
     const [gameState, setGameState] = useState<GameState>(createDefaultGameState);
 
@@ -164,6 +208,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const sessionIdRef = useRef<string | null>(null);
     const saveToPlayerSessionsRef = useRef<((status: 'draft' | 'completed') => Promise<void>) | null>(null);
     const lastSyncedPlayerStateHashRef = useRef<string | null>(null);
+    const lastAuthoritativePlayerStateRef = useRef<GameState | null>(null);
+    const pendingLocalPlayerPatchRef = useRef<Partial<GameState>>({});
+    const lastImmediateSyncRequestRef = useRef(0);
+    const [immediateSyncRequest, setImmediateSyncRequest] = useState(0);
+
+    const requestImmediatePlayerSync = useCallback(() => {
+        setImmediateSyncRequest(request => request + 1);
+    }, []);
 
     // 清除 Alert Timeout
     useEffect(() => {
@@ -172,16 +224,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, []);
 
-    // 帳號可用後，還原這個帳號自己專屬的本機存檔（只在還沒開始任何設定流程
-    // 時還原一次，避免蓋掉使用者這個工作階段內已經產生的新狀態）。
+    // 每次登入都從乾淨的本機狀態開始；正式遊戲資料由 Firestore 私有玩家文件恢復。
     const hydratedLocalStateUidRef = useRef<string | null>(null);
-    const [hydratedLocalStateUid, setHydratedLocalStateUid] = useState<string | null>(null);
     useEffect(() => {
         if (!user?.uid) {
             hydratedLocalStateUidRef.current = null;
-            setHydratedLocalStateUid(null);
             sessionIdRef.current = null;
             lastSyncedPlayerStateHashRef.current = null;
+            lastAuthoritativePlayerStateRef.current = null;
+            pendingLocalPlayerPatchRef.current = {};
             setScoreRecords([]);
             setPlayerSessionRecords([]);
             setAlertInfo(null);
@@ -191,26 +242,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (hydratedLocalStateUidRef.current === user.uid) return;
         hydratedLocalStateUidRef.current = user.uid;
 
-        const saved = localStorage.getItem(getGameStateStorageKey(user.uid));
-        let nextState = createDefaultGameState();
-        try {
-            if (saved) nextState = JSON.parse(saved) as GameState;
-        } catch (e) {
-            console.error('Failed to parse saved game state', e);
-        }
         sessionIdRef.current = null;
         setAlertInfo(null);
-        setGameState(nextState);
-        setHydratedLocalStateUid(user.uid);
+        setGameState(createDefaultGameState());
     }, [user?.uid]);
-
-    // 自動保存到 localStorage（依帳號 uid 分開存放，避免同裝置換帳號互相汙染）
-    useEffect(() => {
-        if (!user?.uid || hydratedLocalStateUid !== user.uid) return;
-        if (gameState.isSetup || gameState.selectionStep) {
-            localStorage.setItem(getGameStateStorageKey(user.uid), JSON.stringify(gameState));
-        }
-    }, [gameState, hydratedLocalStateUid, user?.uid]);
 
     // 生成 sessionId（遊戲開始時）
     useEffect(() => {
@@ -236,9 +271,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 自動同步到房間文件 (供執行師監控)
     useEffect(() => {
-        // 只要不是房主，且 (已完成初始設定 或 正在進行選擇步驟)，就同步狀態
+        // 選擇畫面內容只是本機草稿；正式選擇由 completePlayerSetup() 原子提交，
+        // 不要讓草稿同步與執行師開始新局時的玩家文件重建互相競爭。
         if (!room?.id || !user || user.uid === room.hostId || !isRoomMember || !playerStatesHydrated || roomSyncState !== 'synced') return;
-        if (!gameState.isSetup && !gameState.selectionStep) return;
+        if (!gameState.isSetup) return;
+        if (shouldDeferPlayerStateSync(room)) return;
         // 防止跨場遊戲殘留狀態外洩（C2）：本地 gameState 必須是「為了目前這場
         // 房間遊戲（room.startedAt）而重設/建立的」才允許同步進 Firestore。
         // 玩家剛加入新房間、但本地還殘留上一場遊戲的 gameState（尚未被
@@ -252,30 +289,80 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const setupSyncPending = gameState.isSetup && (!roomPlayerIsSetup || !roomHasPlayerState);
         const syncUid = user.uid;
         const syncRoomId = room.id;
-        const persistedState = pickPlayerStateForSync(gameState);
+        const persistedState = limitPlayerSyncHistory(pickPlayerStateForSync(gameState));
         const stateHash = JSON.stringify(persistedState);
-        const nextPublicState = toPublicPlayerState(syncUid, gameState);
-        const publicStateChanged = hasPublicPlayerStateChanged(room?.publicPlayerStates?.[syncUid], nextPublicState);
-        if (!insuranceChanged && !setupSyncPending && stateHash === lastSyncedPlayerStateHashRef.current && !publicStateChanged) {
+        const baselineState = lastAuthoritativePlayerStateRef.current || roomPlayerState || null;
+        const localPatch = getChangedPlayerStateFields(baselineState, persistedState);
+        if (Object.keys(localPatch).length > 0) {
+            pendingLocalPlayerPatchRef.current = {
+                ...pendingLocalPlayerPatchRef.current,
+                ...localPatch
+            };
+        }
+        // Remote-only snapshots must not start another player transaction. This
+        // is the common source of pointless reads while other players act.
+        if (!insuranceChanged && !setupSyncPending && Object.keys(localPatch).length === 0) {
             return;
         }
+        if (!insuranceChanged && !setupSyncPending && stateHash === lastSyncedPlayerStateHashRef.current) {
+            return;
+        }
+        const shouldSyncImmediately = immediateSyncRequest > lastImmediateSyncRequestRef.current;
+        if (shouldSyncImmediately) lastImmediateSyncRequestRef.current = immediateSyncRequest;
         const timeoutId = setTimeout(async () => {
             if (auth.currentUser?.uid !== syncUid) return;
             const playerRef = doc(db, 'rooms', syncRoomId, 'players', syncUid);
             const roomRef = doc(db, 'rooms', syncRoomId);
+            const syncStartedAt = performance.now();
+            let safePatchFields: string[] = [];
             try {
-                const batch = writeBatch(db);
-                batch.set(playerRef, persistedState, { merge: true });
-                if (auth.currentUser?.uid !== syncUid) return;
-                const nextPublicState = toPublicPlayerState(syncUid, { ...gameState, ...persistedState } as GameState);
-                if (hasPublicPlayerStateChanged(room?.publicPlayerStates?.[syncUid], nextPublicState)) {
-                    batch.update(roomRef, {
-                        [`publicPlayerStates.${syncUid}`]: nextPublicState
-                    });
+                const nextState = await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
+                    // 相容同步只交易玩家自己的文件；讀取整個房間會讓每次回合／卡片
+                    // 更新都和這條非權威同步互相競爭。新局開始時玩家文件會被刪除重建，
+                    // 因此用 boardGameStartedAt 驗證場次，避免舊局資料寫回新局。
+                    const playerSnapshot = await transaction.get(playerRef);
+                    if (!playerSnapshot.exists()) return null;
+                    const latestState = (playerSnapshot.exists() ? playerSnapshot.data() : {}) as GameState;
+                    if (latestState.boardGameStartedAt && persistedState.boardGameStartedAt !== latestState.boardGameStartedAt) {
+                        throw new Error('目前場次已更新，請重新整理後再同步');
+                    }
+                    const baseline = baselineState || latestState;
+                    const safePatch = getSafePlayerStatePatch(baseline, latestState, persistedState);
+                    safePatchFields = Object.keys(safePatch);
+                    const committedState = { ...latestState, ...safePatch } as GameState;
+                    if (Object.keys(safePatch).length > 0) {
+                        transaction.set(playerRef, cleanObject(committedState), { merge: true });
+                    }
+                    return committedState;
+                }));
+                if (!nextState) return;
+                lastAuthoritativePlayerStateRef.current = nextState;
+                lastSyncedPlayerStateHashRef.current = JSON.stringify(limitPlayerSyncHistory(pickPlayerStateForSync(nextState)));
+                Object.keys(localPatch).forEach(field => {
+                    const key = field as keyof GameState;
+                    if (serializedValue(pendingLocalPlayerPatchRef.current[key]) === serializedValue(persistedState[key])) {
+                        delete pendingLocalPlayerPatchRef.current[key];
+                    }
+                });
+                setGameState(prev => mergeAuthoritativePlayerState(prev, nextState));
+                const nextPublicState = toPublicPlayerState(syncUid, nextState);
+                if (room?.status === 'playing' && hasPublicPlayerStateChanged(room.publicPlayerStates?.[syncUid], nextPublicState)) {
+                    // 公開摘要是執行師投影，不應讓它把玩家交易綁回房間 transaction；
+                    // 權威玩家資料已先成功寫入，摘要失敗可由下一次同步補上。
+                    await safeAsync(
+                        updateDoc(roomRef, { [`publicPlayerStates.${syncUid}`]: nextPublicState }),
+                        null,
+                        error => console.error('[GameContext] 更新玩家公開摘要失敗:', error)
+                    );
                 }
-                await batch.commit();
-                lastSyncedPlayerStateHashRef.current = stateHash;
                 setAlertInfo(current => current?.message.startsWith('玩家資料同步失敗') ? null : current);
+                void trackGameEvent('player_state_sync', {
+                    result: safePatchFields.length > 0 || setupSyncPending || !roomHasPlayerState ? 'committed' : 'no_change',
+                    local_patch_fields: Object.keys(localPatch).length,
+                    committed_fields: safePatchFields.length,
+                    duration_ms: Math.round(performance.now() - syncStartedAt),
+                    trace_id: `player-sync:${syncRoomId}:${stateHash.slice(0, 12)}`
+                }).catch(() => undefined);
             } catch (err: any) {
                 if (auth.currentUser?.uid !== syncUid || room?.id !== syncRoomId) return;
                 console.error('[GameContext] 同步玩家狀態失敗:', err);
@@ -292,11 +379,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     type: 'error',
                     persist: true
                 });
+                void trackGameEvent('player_state_sync', {
+                    result: 'failed',
+                    error_code: code,
+                    local_patch_fields: Object.keys(localPatch).length,
+                    committed_fields: safePatchFields.length,
+                    duration_ms: Math.round(performance.now() - syncStartedAt),
+                    trace_id: `player-sync:${syncRoomId}:${stateHash.slice(0, 12)}`
+                }).catch(() => undefined);
             }
-        }, insuranceChanged || setupSyncPending ? 0 : 800);
+        }, shouldSyncImmediately || insuranceChanged || setupSyncPending ? 0 : 800);
 
         return () => clearTimeout(timeoutId);
-    }, [gameState, isRoomMember, playerStatesHydrated, roomSyncState, room?.id, room?.hostId, room?.members, room?.startedAt, roomMedicalInsuranceCount, roomPlayerIsSetup, roomHasPlayerState, user?.uid, user?.role]);
+    }, [gameState, immediateSyncRequest, isRoomMember, playerStatesHydrated, roomSyncState, room?.id, room?.hostId, room?.members, room?.startedAt, room?.status, room?.boardState, roomMedicalInsuranceCount, roomPlayerIsSetup, roomHasPlayerState, roomPlayerState, user?.uid, user?.role]);
 
     // 房間私有狀態是多人遊戲中的權威來源。執行師調整玩家現金等操作會先
     // 寫入 rooms/{roomId}/players/{uid}，玩家端收到 RoomContext 快照後必須
@@ -305,10 +400,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!room?.id || !user?.uid || user.uid === room.hostId || !roomPlayerState || roomSyncState !== 'synced') return;
         if (!isPlayerStateForBoardGame(roomPlayerState, room.startedAt)) return;
 
-        lastSyncedPlayerStateHashRef.current = JSON.stringify(pickPlayerStateForSync(roomPlayerState));
+        lastAuthoritativePlayerStateRef.current = roomPlayerState;
+        lastSyncedPlayerStateHashRef.current = JSON.stringify(limitPlayerSyncHistory(pickPlayerStateForSync(roomPlayerState)));
 
         setGameState(prev => {
             const synchronizedState = mergeAuthoritativePlayerState(prev, roomPlayerState);
+            Object.entries(pendingLocalPlayerPatchRef.current).forEach(([field, value]) => {
+                const key = field as keyof GameState;
+                if (serializedValue(synchronizedState[key]) !== serializedValue(value)) {
+                    synchronizedState[key] = value as never;
+                }
+            });
 
             return JSON.stringify(prev) === JSON.stringify(synchronizedState)
                 ? prev
@@ -323,6 +425,62 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setAlertInfo(null);
     }, []);
+
+    const completePlayerSetup = useCallback(async (nextState: GameState) => {
+        if (!room?.id || !user?.uid || user.uid === room.hostId) {
+            setGameState(nextState);
+            return;
+        }
+
+        const roomRef = doc(db, 'rooms', room.id);
+        const playerRef = doc(db, 'rooms', room.id, 'players', user.uid);
+        const playerPatch = limitPlayerSyncHistory(pickPlayerStateForSync(nextState));
+        const committedState = await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
+            const [roomSnapshot, playerSnapshot] = await Promise.all([
+                transaction.get(roomRef),
+                transaction.get(playerRef)
+            ]);
+            if (!roomSnapshot.exists()) throw new Error('房間不存在，選擇尚未儲存。');
+
+            const latestRoom = roomSnapshot.data() as {
+                status?: string;
+                startedAt?: number;
+                memberUids?: string[];
+                members?: Array<{ uid: string }>;
+                publicPlayerStates?: Record<string, any>;
+            };
+            if (latestRoom.status !== 'playing' || latestRoom.startedAt !== nextState.boardGameStartedAt) {
+                throw new Error('目前遊戲場次已變更，請重新整理後再選擇。');
+            }
+            const isMember = latestRoom.memberUids?.includes(user.uid) || latestRoom.members?.some(member => member.uid === user.uid);
+            if (!isMember) throw new Error('你已不在目前房間，選擇尚未儲存。');
+            if (auth.currentUser?.uid !== user.uid) throw new Error('登入帳號已變更，請重新登入後再試。');
+
+            const latestPlayerState = (playerSnapshot.exists() ? playerSnapshot.data() : {}) as GameState;
+            const alreadySetup = latestPlayerState.isSetup === true;
+            const sameSelection = latestPlayerState.profession?.id === nextState.profession?.id &&
+                latestPlayerState.selectedEnterprise?.id === nextState.selectedEnterprise?.id &&
+                latestPlayerState.selectedDream?.id === nextState.selectedDream?.id;
+            if (alreadySetup && !sameSelection) {
+                throw new Error('這個帳號已在其他分頁完成選擇，請重新整理載入已儲存的設定。');
+            }
+
+            const committedState = alreadySetup
+                ? latestPlayerState
+                : cleanObject({ ...latestPlayerState, ...playerPatch }) as GameState;
+            if (!alreadySetup) transaction.set(playerRef, committedState, { merge: true });
+
+            const nextPublicState = toPublicPlayerState(user.uid, committedState);
+            if (hasPublicPlayerStateChanged(latestRoom.publicPlayerStates?.[user.uid], nextPublicState)) {
+                transaction.update(roomRef, { [`publicPlayerStates.${user.uid}`]: nextPublicState });
+            }
+            return committedState;
+        }));
+
+        lastAuthoritativePlayerStateRef.current = committedState;
+        lastSyncedPlayerStateHashRef.current = JSON.stringify(limitPlayerSyncHistory(pickPlayerStateForSync(committedState)));
+        setGameState(committedState);
+    }, [room?.id, room?.hostId, user?.uid]);
 
     const showAlert = useCallback((message: string, type: 'info' | 'error' | 'success' = 'info', persist: boolean = false) => {
         if (alertTimeoutRef.current) {
@@ -412,7 +570,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const interval = setInterval(() => {
             saveToPlayerSessionsRef.current?.('draft');
-        }, 10 * 60 * 1000);
+        }, 30 * 60 * 1000);
 
         return () => clearInterval(interval);
     }, [gameState.isSetup, user]);
@@ -500,7 +658,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const q = query(
             collection(db, 'score_records', 'S1', 'records'),
-            where('playerUids', 'array-contains', user.uid)
+            where('playerUids', 'array-contains', user.uid),
+            limit(HISTORY_PAGE_SIZE)
         );
 
         void getDocs(q).then((snapshot) => {
@@ -563,7 +722,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const q = query(
             collection(db, 'player_sessions', user.uid, 'records'),
-            orderBy('updatedAt', 'desc')
+            orderBy('updatedAt', 'desc'),
+            limit(HISTORY_PAGE_SIZE)
         );
 
         void getDocs(q).then((snapshot) => {
@@ -695,6 +855,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         <GameContext.Provider value={{
             gameState,
             setGameState,
+            completePlayerSetup,
             gameHistory,
             setGameHistory,
             summary,
@@ -704,6 +865,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             showAlert,
             hideAlert,
             saveGameRecord,
+            requestImmediatePlayerSync,
             updateMarketPrices,
             bubbleBurst,
             sessionId: sessionIdRef.current,

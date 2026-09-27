@@ -9,6 +9,7 @@ import { Button, Input } from '../../components/ui/ui';
 import { safeAsync } from '../../utils/utils';
 import { getPhotoPromotionConsentStatus } from '../../constants/photoPromotionConsent';
 import { handlePromotionToCoach } from '../../utils/referralUtils';
+import { debugLog } from '../../utils/debugLog';
 
 interface CoachDashboardProps {
   onCreateGame: () => void;
@@ -330,7 +331,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
 
     try {
       const lowerSearch = searchTerm.toLowerCase();
-      console.log('Searching for:', searchTerm);
+      debugLog('Searching for:', searchTerm);
 
       // 1. 先嘗試 UID 精確搜尋
       const userDocRef = doc(db, 'users', searchTerm);
@@ -378,7 +379,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
     setIsUpdating(true);
 
     try {
-      console.log(`Attempting to update user role to ${newRole}:`, searchResult.id);
+      debugLog(`Attempting to update user role to ${newRole}:`, searchResult.id);
       const userRef = doc(db, 'users', searchResult.id);
 
       await safeAsync(setDoc(userRef, {
@@ -462,7 +463,7 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
         }
       });
 
-      console.log(`分析完成：共 ${totalGames} 場遊戲，${Object.keys(playerScores).length} 位玩家`);
+      debugLog(`分析完成：共 ${totalGames} 場遊戲，${Object.keys(playerScores).length} 位玩家`);
 
       // 2. 批量更新用戶積分
       const userIds = Object.keys(playerScores);
@@ -1158,6 +1159,14 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               </div>
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
+                  {
+                    version: 'v4.19',
+                    date: '2026-09-27',
+                    color: 'amber',
+                    items: [
+                      '清理正式環境瀏覽器 console 的除錯雜訊（房間快照、審核請求偵測等約 55 處），改為可透過 localStorage 手動開啟的除錯記錄，不影響真正的錯誤回報',
+                    ],
+                  },
                   {
                     version: 'v4.18',
                     date: '2026-09-27',

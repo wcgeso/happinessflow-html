@@ -3,6 +3,7 @@ import { useRoom } from '../../context/RoomContext';
 import { useAuth, getPlayerBadge } from '../../context/AuthContext';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
 import { ConfirmModal } from '../../components/modals/ConfirmModal';
+import { CardTestConsole, type CoachTestCard } from '../../components/coach/CardTestConsole';
 import { calculateFinancialSummary, calculateScoreResult, formatMoney, cn } from '../../utils/gameUtils';
 import { safeAsync } from '../../utils/utils';
 import { ScoreView } from '../game/ScoreView';
@@ -31,7 +32,8 @@ import {
     Heart,
     Settings,
     Rocket,
-    Activity
+    Activity,
+    FlaskConical
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../../services/firebase';
@@ -41,13 +43,14 @@ import { flowLog } from '../../utils/flowLog';
 import { settleGame } from '../../game/settlement/settleGame';
 import { canSkipDisconnectedPlayer, isPresenceOnline } from '../../utils/presence';
 import { hasIncompleteSharedPrompts } from '../../utils/boardCardActions';
-import { CoachExpenseCategory, PlayerDiagnosticState } from '../../types';
+import { CoachExpenseCategory } from '../../types';
+import { debugLog } from '../../utils/debugLog';
 
 export const CoachGameView: React.FC = () => {
-    const { room, playerStates, presenceStates, playerDiagnostics, leaveRoom, closeRoom, finishRoomGame, updateMarket, adjustPlayerCash, adjustPlayerInvestmentIncome, adjustPlayerLiability, adjustPlayerExpense, updateFinancialAcceleration, grantFinancialSubsidyToAllPlayers, updateRoomTimer, approveRequest, rejectRequest, skipDisconnectedTurn, skipDisconnectedSharedPromptTarget, repeatCurrentBoardEvent, setCoachNextTurn, clearCurrentBoardEvent, forceEndBoardTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
+    const { room, pendingRequests: roomPendingRequests, playerStates, presenceStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, adjustPlayerCash, adjustPlayerInvestmentIncome, adjustPlayerLiability, adjustPlayerExpense, updateFinancialAcceleration, grantFinancialSubsidyToAllPlayers, updateRoomTimer, startRoomGame, approveRequest, rejectRequest, skipDisconnectedTurn, skipDisconnectedSharedPromptTarget, coachTriggerBoardCard, repeatCurrentBoardEvent, setCoachNextTurn, clearCurrentBoardEvent, forceEndBoardTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
     const { user } = useAuth();
 
-    console.log('CoachGameView 渲染 - 房間:', room?.id, '狀態:', room?.status, '待審核數:', room?.pendingRequests ? Object.keys(room.pendingRequests).length : 0);
+    debugLog('CoachGameView 渲染 - 房間:', room?.id, '狀態:', room?.status, '待審核數:', Object.keys(roomPendingRequests).length);
 
     const [selectedPlayerUid, setSelectedPlayerUid] = useState<string | null>(null);
     const [direction, setDirection] = useState(0);
@@ -113,6 +116,9 @@ export const CoachGameView: React.FC = () => {
     const [isRecoveringBoard, setIsRecoveringBoard] = useState(false);
     const [isRepeatingBoardEvent, setIsRepeatingBoardEvent] = useState(false);
     const [isTurnPickerOpen, setIsTurnPickerOpen] = useState(false);
+    const [isCardTestOpen, setIsCardTestOpen] = useState(false);
+    const [isTriggeringTestCard, setIsTriggeringTestCard] = useState(false);
+    const [isUpdatingTimer, setIsUpdatingTimer] = useState(false);
 
     const timerDeadlineRef = useRef<number | null>(null);
 
@@ -133,21 +139,20 @@ export const CoachGameView: React.FC = () => {
 
     // 取得當前待審核的請求
     const pendingRequest = useMemo(() => {
-        if (!room?.pendingRequests) return null;
-        const requests = Object.values(room.pendingRequests)
+        const requests = Object.values(roomPendingRequests)
             .filter(r => r.status === 'pending' && r.type !== 'family_milestone')
             .sort((a, b) => a.timestamp - b.timestamp);
         
         if (requests.length > 0) {
-            console.log('執行師端偵測到請求:', requests[0].playerName, requests[0].type, requests[0].amount);
+            debugLog('執行師端偵測到請求:', requests[0].playerName, requests[0].type, requests[0].amount);
         }
         
         return requests[0];
-    }, [room?.pendingRequests]);
+    }, [roomPendingRequests]);
 
-    const pendingRequests = useMemo(() => Object.values(room?.pendingRequests || {})
+    const pendingRequests = useMemo(() => Object.values(roomPendingRequests)
         .filter(request => request.status === 'pending' && request.type !== 'family_milestone')
-        .sort((a, b) => a.timestamp - b.timestamp), [room?.pendingRequests]);
+        .sort((a, b) => a.timestamp - b.timestamp), [roomPendingRequests]);
 
     // 倒數只依照結束時間計算；背景分頁或執行師端高負載恢復後會直接跳到正確秒數。
     useEffect(() => {
@@ -166,7 +171,7 @@ export const CoachGameView: React.FC = () => {
     const prevTimeLeftRef = useRef(timeLeft);
     useEffect(() => {
         if (timeLeft === 0 && prevTimeLeftRef.current > 0) {
-            console.log('[自動存檔] 遊戲時間到，執行最終存檔');
+            debugLog('[自動存檔] 遊戲時間到，執行最終存檔');
             saveRecords(true, true); // 靜默存檔
             setIsPaused(true);
         }
@@ -174,18 +179,21 @@ export const CoachGameView: React.FC = () => {
     }, [timeLeft]);
 
     const handleStartGame = async () => {
-        if (!room?.id) return;
+        if (!room?.id || isUpdatingTimer) return;
+        setIsUpdatingTimer(true);
         try {
-            // 開始計時並更新房間狀態
-            setIsPaused(false);
-            await updateRoomTimer(timeLeft, false, Date.now() + timeLeft * 1000);
-            // 如果需要更新房間狀態為 playing
+            // 等待房間路徑只負責初始化棋盤；不可只改 status，否則玩家會進入
+            // playing 但沒有 turnOrder / currentTurnUid，永遠無法擲骰。
             if (room.status === 'waiting') {
-                const roomRef = doc(db, 'rooms', room.id);
-                await safeAsync(setDoc(roomRef, { status: 'playing' }, { merge: true }));
+                await startRoomGame();
+                return;
             }
+            await updateRoomTimer(timeLeft, false, Date.now() + timeLeft * 1000);
+            setIsPaused(false);
         } catch (error) {
             console.error('開始遊戲失敗:', error);
+        } finally {
+            setIsUpdatingTimer(false);
         }
     };
 
@@ -206,11 +214,18 @@ export const CoachGameView: React.FC = () => {
         window.open(url, '_blank');
     };
 
-    const handleToggleTimer = () => {
-        if (timeLeft === 0) return; // 時間到不能再操作
+    const handleToggleTimer = async () => {
+        if (timeLeft === 0 || isUpdatingTimer) return; // 時間到不能再操作
         const newPaused = !isPaused;
-        setIsPaused(newPaused);
-        void updateRoomTimer(timeLeft, newPaused, newPaused ? null : Date.now() + timeLeft * 1000);
+        setIsUpdatingTimer(true);
+        try {
+            await updateRoomTimer(timeLeft, newPaused, newPaused ? null : Date.now() + timeLeft * 1000);
+            setIsPaused(newPaused);
+        } catch (error) {
+            console.error('切換遊戲計時器失敗:', error);
+        } finally {
+            setIsUpdatingTimer(false);
+        }
     };
 
     const handleAdjustTime = (seconds: number) => {
@@ -401,7 +416,7 @@ export const CoachGameView: React.FC = () => {
             timestamp: Date.now()
         });
 
-        if (!isSilent) console.log(`[存檔] 執行紀錄存檔中... (是否為結算: ${isFinal})`);
+        if (!isSilent) debugLog(`[存檔] 執行紀錄存檔中... (是否為結算: ${isFinal})`);
 
         try {
             // 直接從 Firestore 讀取最新玩家狀態，不依賴記憶體
@@ -515,7 +530,7 @@ export const CoachGameView: React.FC = () => {
                 setTimeout(() => setShowSaveSuccess(false), 2000);
             }
 
-            if (!isSilent) console.log(`[存檔] 存檔成功 (ID: ${recordId})`);
+            if (!isSilent) debugLog(`[存檔] 存檔成功 (ID: ${recordId})`);
         } catch (error) {
             flowLog({
                 name: 'coach.settlement.save.failed',
@@ -536,7 +551,7 @@ export const CoachGameView: React.FC = () => {
     // 當房間狀態變更為 finished 時，執行師自動觸發存檔
     useEffect(() => {
         if (room?.status === 'finished' && user?.uid === room?.hostId && uploadStatus === 'idle') {
-            console.log('[自動存檔] 偵測到遊戲結束，執行最終存檔');
+            debugLog('[自動存檔] 偵測到遊戲結束，執行最終存檔');
             saveRecords(true, true);
         }
     }, [room?.status, user?.uid, room?.hostId, uploadStatus]);
@@ -552,7 +567,7 @@ export const CoachGameView: React.FC = () => {
         const isJustStarted = Math.abs(now - startedAt) < 10000; // 10秒內視為剛開始
 
         if (isJustStarted) {
-            console.log('[自動存檔] 遊戲開始初始存檔');
+            debugLog('[自動存檔] 遊戲開始初始存檔');
             saveRecords(false, true);
         }
 
@@ -594,14 +609,7 @@ export const CoachGameView: React.FC = () => {
     };
 
     const selectedPlayerState = selectedPlayerUid ? playerStates[selectedPlayerUid] : null;
-    const selectedPlayerDiagnostic: PlayerDiagnosticState | null = selectedPlayerUid ? playerDiagnostics[selectedPlayerUid] || null : null;
     const selectedLiability = selectedPlayerState?.liabilities?.find(liability => liability.id === selectedLiabilityId) || null;
-
-    const formatDiagnosticTime = (value?: PlayerDiagnosticState['updatedAt']) => {
-        if (!value) return '尚未同步';
-        const timestamp = typeof value === 'object' && 'toMillis' in value ? value.toMillis() : value;
-        return new Date(timestamp).toLocaleTimeString('zh-TW');
-    };
 
     useEffect(() => {
         const firstLiabilityId = selectedPlayerState?.liabilities?.[0]?.id || '';
@@ -784,6 +792,28 @@ export const CoachGameView: React.FC = () => {
             description: '將重新顯示目前事件。若事件已完成部分財務操作，請避免重複套用同一筆結果。',
             type: 'warning',
             onConfirm: () => { void executeRepeatCurrentBoardEvent(); }
+        });
+    };
+
+    const executeTestCardTrigger = async (playerUid: string, card: CoachTestCard) => {
+        setGenericConfirm(null);
+        setIsTriggeringTestCard(true);
+        try {
+            await coachTriggerBoardCard(playerUid, card.id);
+        } catch (error: any) {
+            window.alert(error?.message || '觸發測試卡片失敗');
+        } finally {
+            setIsTriggeringTestCard(false);
+        }
+    };
+
+    const confirmTestCardTrigger = (playerUid: string, card: CoachTestCard) => {
+        const playerName = players.find(player => player.uid === playerUid)?.name || '玩家';
+        setGenericConfirm({
+            title: `觸發 ${card.id} ${card.title}？`,
+            description: `將目前回合切換為「${playerName}」，並開啟這張卡片的正式流程。卡片結果仍需玩家實際操作才會生效。`,
+            type: 'warning',
+            onConfirm: () => { void executeTestCardTrigger(playerUid, card); }
         });
     };
 
@@ -980,11 +1010,11 @@ export const CoachGameView: React.FC = () => {
                 // 計算市場總價值的跌幅
                 const marketDrop = (totalPrevPrice - totalCurrentPrice) / totalPrevPrice;
 
-                console.log(`[泡沫化檢查] 前次總市值=${totalPrevPrice}, 本次總市值=${totalCurrentPrice}, 市場跌幅=${(marketDrop * 100).toFixed(2)}% (門檻: 65%)`);
+                debugLog(`[泡沫化檢查] 前次總市值=${totalPrevPrice}, 本次總市值=${totalCurrentPrice}, 市場跌幅=${(marketDrop * 100).toFixed(2)}% (門檻: 65%)`);
 
                 if (marketDrop >= 0.65) {
                     isBubble = true;
-                    console.log('[泡沫化檢查] 觸發泡沫化！');
+                    debugLog('[泡沫化檢查] 觸發泡沫化！');
                 }
             }
         }
@@ -1085,6 +1115,17 @@ export const CoachGameView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-4">
+                    {room?.isBoardGame && (
+                        <button
+                            type="button"
+                            onClick={() => setIsCardTestOpen(true)}
+                            className="flex items-center gap-2 rounded-xl border border-violet-400/40 bg-violet-400/10 px-2 py-2 text-[11px] font-black text-violet-200 transition-colors hover:bg-violet-400/20 md:px-3 md:text-xs"
+                        >
+                            <FlaskConical size={15} />
+                            卡片發送
+                        </button>
+                    )}
+
                     {room?.isBoardGame && (
                         <button
                             onClick={handleOpenBoardProjection}
@@ -2119,36 +2160,6 @@ export const CoachGameView: React.FC = () => {
                                             </div>
                                         </section>
 
-                                        <section className="border-b border-slate-800 bg-slate-950/50 px-6 py-4">
-                                            <div className="mb-3 flex items-center justify-between">
-                                                <div>
-                                                    <div className="flex items-center gap-2 text-xs font-black text-cyan-300"><Activity size={14} /> 玩家診斷狀態</div>
-                                                    <div className="mt-1 text-[10px] font-bold text-slate-500">唯讀資訊，不會代替玩家操作。</div>
-                                                </div>
-                                                <span className={cn(
-                                                    'rounded-full px-2 py-1 text-[10px] font-black',
-                                                    selectedPlayerDiagnostic ? 'bg-emerald-500/10 text-emerald-300' : 'bg-slate-800 text-slate-500'
-                                                )}>
-                                                    {selectedPlayerDiagnostic ? `更新 ${formatDiagnosticTime(selectedPlayerDiagnostic.updatedAt)}` : '尚未同步'}
-                                                </span>
-                                            </div>
-                                            {selectedPlayerDiagnostic ? (
-                                                <div className="grid grid-cols-2 gap-2 text-[11px] font-bold text-slate-300 lg:grid-cols-4">
-                                                    <div className="rounded-lg bg-slate-900/80 p-2"><span className="text-slate-500">流程</span><div className="mt-1 text-cyan-200">{selectedPlayerDiagnostic.flow}</div></div>
-                                                    <div className="rounded-lg bg-slate-900/80 p-2"><span className="text-slate-500">畫面</span><div className="mt-1 text-cyan-200">{selectedPlayerDiagnostic.screen}</div></div>
-                                                    <div className="rounded-lg bg-slate-900/80 p-2"><span className="text-slate-500">等待動作</span><div className="mt-1 text-cyan-200">{selectedPlayerDiagnostic.pendingAction || '無'}</div></div>
-                                                    <div className="rounded-lg bg-slate-900/80 p-2"><span className="text-slate-500">事件</span><div className="mt-1 truncate text-cyan-200">{selectedPlayerDiagnostic.boardEventId || '無'}</div></div>
-                                                    {selectedPlayerDiagnostic.errorMessage && (
-                                                        <div className="col-span-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-2 text-rose-200 lg:col-span-4">
-                                                            最近錯誤：{selectedPlayerDiagnostic.errorMessage}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <div className="rounded-lg bg-slate-900/60 p-3 text-xs font-bold text-slate-500">玩家進入遊戲後，流程切換或錯誤發生時會同步狀態。</div>
-                                            )}
-                                        </section>
-
                                         <section className="border-b border-slate-800 bg-slate-950/80 px-6 py-4">
                                             <div className="flex flex-wrap items-center justify-between gap-3">
                                                 <div>
@@ -2552,6 +2563,17 @@ export const CoachGameView: React.FC = () => {
                     type={genericConfirm.type}
                     onConfirm={genericConfirm.onConfirm}
                     onCancel={() => setGenericConfirm(null)}
+                />
+            )}
+
+            {isCardTestOpen && (
+                <CardTestConsole
+                    players={players.filter(player => !player.isLeft)}
+                    currentTurnUid={room?.boardState?.currentTurnUid}
+                    hasBlockingFlow={eventPanelState.hasBlockingFlow}
+                    isSubmitting={isTriggeringTestCard}
+                    onClose={() => setIsCardTestOpen(false)}
+                    onTrigger={confirmTestCardTrigger}
                 />
             )}
 

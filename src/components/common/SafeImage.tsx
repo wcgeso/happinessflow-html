@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { debugWarn } from '../../utils/debugLog';
 
 interface SafeImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
     fallbackSrc?: string;
@@ -33,7 +34,7 @@ const SafeImage: React.FC<SafeImageProps> = ({
 
     const handleError = () => {
         if (!hasError) {
-            console.warn(`SafeImage: Failed to load ${src}, falling back to ${fallbackSrc}`);
+            debugWarn(`SafeImage: Failed to load ${src}, falling back to ${fallbackSrc}`);
             setHasError(true);
             setImgSrc(fallbackSrc);
         }

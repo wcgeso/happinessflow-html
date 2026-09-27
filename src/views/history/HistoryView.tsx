@@ -23,6 +23,7 @@ import { ScoreView } from '../game/ScoreView';
 import { db } from '../../../services/firebase';
 import { safeAsync } from '../../utils/utils';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { debugLog } from '../../utils/debugLog';
 const formatDate = (dateStr: string) => {
     if (!dateStr || dateStr === '未知日期') return '未知日期';
     try {
@@ -290,7 +291,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
 
         const fetchTargetHistory = async () => {
             setIsLoading(true);
-            console.log('[HistoryView] Fetching history for UID:', targetUserId);
+            debugLog('[HistoryView] Fetching history for UID:', targetUserId);
             try {
                 // Remove orderBy to avoid potential missing index errors
                 const q = query(
@@ -304,7 +305,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
                     return;
                 }
 
-                console.log('[HistoryView] Query result size:', querySnapshot.size);
+                debugLog('[HistoryView] Query result size:', querySnapshot.size);
 
                 const records: GameRecord[] = [];
                 querySnapshot.forEach((doc) => {
@@ -379,7 +380,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
                     return dateB - dateA;
                 });
 
-                console.log('[HistoryView] Processed records count:', records.length);
+                debugLog('[HistoryView] Processed records count:', records.length);
                 setTargetHistory(records);
             } catch (error) {
                 console.error('[HistoryView] Error fetching target history:', error);

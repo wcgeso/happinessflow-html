@@ -1,5 +1,5 @@
 import React, { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { GameProvider, isPlayerStateForBoardGame, useGame } from './context/GameContext';
+import { GameProvider, isPlayerStateForBoardGame, normalizeGameState, useGame } from './context/GameContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RoomProvider, useRoom } from './context/RoomContext';
 import { VERSION_DISPLAY } from './constants/version';
@@ -7,6 +7,8 @@ import { DeveloperPortal } from './views/lobby/DeveloperPortal';
 import { Terminal, ShieldCheck, UserCircle, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { InstallPromptBanner } from './components/modals/InstallPromptBanner';
+import { PhotoPromotionConsentModal } from './components/modals/PhotoPromotionConsentModal';
+import { requiresPhotoPromotionConsent } from './constants/photoPromotionConsent';
 
 // Lazy load views
 const AuthView = React.lazy(() => import('./views/auth/AuthView').then(module => ({ default: module.AuthView })));
@@ -22,6 +24,7 @@ const CoachGameView = React.lazy(() => import('./views/lobby/CoachGameView').the
 const BoardProjectionView = React.lazy(() => import('./views/board/BoardProjectionView').then(module => ({ default: module.BoardProjectionView })));
 
 import { GameSessionMeta, GameState } from './types';
+import { debugLog } from './utils/debugLog';
 
 // Mock Spinner
 const Spinner = () => (
@@ -31,8 +34,8 @@ const Spinner = () => (
 );
 
 const AppContent = () => {
-    const { user, isLoadingAuth } = useAuth();
-    const { gameState, setGameState } = useGame();
+    const { user, isLoadingAuth, updatePhotoPromotionConsent } = useAuth();
+    const { gameState, setGameState, completePlayerSetup } = useGame();
 
     // 維護模式判斷 (依據域名)
     const isMaintenance = false;
@@ -50,6 +53,7 @@ const AppContent = () => {
     const [practiceRoomAutoOpen, setPracticeRoomAutoOpen] = useState(false);
 
     const isGM = user?.title === '遊戲管理員';
+    const showPhotoPromotionConsent = !!user && requiresPhotoPromotionConsent(user.photoPromotionConsent);
     const [lobbyViewMode, setLobbyViewMode] = useState<'player' | 'coach' | 'gm'>('player');
     const [isViewModeDropdownOpen, setIsViewModeDropdownOpen] = useState(false);
     const [hasLobbyModalOpen, setHasLobbyModalOpen] = useState(false);
@@ -67,7 +71,7 @@ const AppContent = () => {
     }, []);
 
     const handleDevNavigate = (view: any) => {
-        console.log('Global Dev Portal Navigation:', view);
+        debugLog('Global Dev Portal Navigation:', view);
 
         if (view === 'practice_room_open') {
             setPracticeRoomAutoOpen(true);
@@ -113,23 +117,6 @@ const AppContent = () => {
         );
     }
 
-    const boardRoomCode = new URLSearchParams(window.location.search).get('boardRoom');
-    if (boardRoomCode) {
-        if (isLoadingAuth) return <Spinner />;
-        if (!user) {
-            return (
-                <Suspense fallback={<Spinner />}>
-                    <AuthView />
-                </Suspense>
-            );
-        }
-        return (
-            <Suspense fallback={<Spinner />}>
-                <BoardProjectionView roomCode={boardRoomCode} />
-            </Suspense>
-        );
-    }
-
     // If not logged in, show Auth
     if (isLoadingAuth) return <Spinner />;
     if (!user) {
@@ -150,6 +137,7 @@ const AppContent = () => {
                 setSessionMeta={setSessionMeta}
                 gameState={gameState}
                 setGameState={setGameState}
+                completePlayerSetup={completePlayerSetup}
                 onDevNavigate={handleDevNavigate}
                 isDevRouting={isDevRouting}
                 setIsDevRouting={setIsDevRouting}
@@ -222,7 +210,7 @@ const AppContent = () => {
 
             {/* Global View Mode & Developer Switcher - Persistent across all views */}
             <AnimatePresence>
-                {(user?.role === 'coach' || isGM) && (hasDevEnabled || (currentView === 'lobby' && !hasLobbyModalOpen)) && (
+                {!showPhotoPromotionConsent && (user?.role === 'coach' || isGM) && (hasDevEnabled || (currentView === 'lobby' && !hasLobbyModalOpen)) && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -347,6 +335,12 @@ const AppContent = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <PhotoPromotionConsentModal
+                isOpen={showPhotoPromotionConsent}
+                required
+                onSubmit={updatePhotoPromotionConsent}
+            />
         </Suspense>
     );
 };
@@ -360,6 +354,7 @@ const MainRouting = ({
     setSessionMeta,
     gameState,
     setGameState,
+    completePlayerSetup,
     onDevNavigate,
     isDevRouting,
     setIsDevRouting,
@@ -387,7 +382,7 @@ const MainRouting = ({
     useEffect(() => {
         // 如果是開發者模式跳轉中，不執行自動跳轉邏輯
         if (isDevRouting) {
-            console.log('開發者模式跳轉中，跳過自動路由');
+            debugLog('開發者模式跳轉中，跳過自動路由');
             return;
         }
 
@@ -396,12 +391,12 @@ const MainRouting = ({
         if (!room || !room.hostId) {
             const roomViews = ['selection', 'game', 'score', 'coach_monitor', 'room_waiting'];
             if (room && room.id && roomViews.includes(currentView)) {
-                console.log('房間數據加載中，暫緩路由');
+                debugLog('房間數據加載中，暫緩路由');
                 return;
             }
             if (!room && roomViews.includes(currentView)) {
                 if (localStorage.getItem('hf_practice_mode') === 'true') return; // 練習模式允許無房間遊戲
-                console.log('不在房間中，跳回大廳');
+                debugLog('不在房間中，跳回大廳');
                 setCurrentView('lobby');
             }
             return;
@@ -411,7 +406,7 @@ const MainRouting = ({
         // 恢復或切換流程；等 Firestore server snapshot 確認後再路由。
         if (room.status === 'playing' && roomSyncState !== 'synced') return;
 
-        console.log('App 路由監聽 - 角色:', user?.role, '房間狀態:', room.status, '當前視圖:', currentView);
+        debugLog('App 路由監聽 - 角色:', user?.role, '房間狀態:', room.status, '當前視圖:', currentView);
 
         if (room.status === 'playing') {
             const isHost = user?.uid === room.hostId;
@@ -428,7 +423,7 @@ const MainRouting = ({
             }
 
             if (!isHost && room.startedAt && room.startedAt !== lastProcessedStartTime && !hasCloudState && !hasMatchingLocalState) {
-                console.log('偵測到新遊戲開始，重設玩家狀態');
+                debugLog('偵測到新遊戲開始，重設玩家狀態');
                 setLastProcessedStartTime(room.startedAt);
 
                 const defaultReportName = `執行日記 ${new Date().toLocaleDateString('zh-TW')}`;
@@ -489,17 +484,17 @@ const MainRouting = ({
 
                 if (allPlayersSetup) {
                     if (currentView !== 'coach_monitor') {
-                        console.log('所有玩家已完成設定，執行師跳轉到監控畫面');
+                        debugLog('所有玩家已完成設定，執行師跳轉到監控畫面');
                         setCurrentView('coach_monitor');
                     }
                 } else {
                     if (currentView !== 'waiting_players' && currentView !== 'coach_monitor') {
-                        console.log('仍有玩家在選擇職業，執行師留在等待畫面');
+                        debugLog('仍有玩家在選擇職業，執行師留在等待畫面');
                         setCurrentView('coach_monitor');
                     }
                 }
             } else if (!isHost && currentView !== 'selection' && currentView !== 'game') {
-                console.log('玩家跳轉到遊戲或選擇畫面');
+                debugLog('玩家跳轉到遊戲或選擇畫面');
                 // 確保玩家有 sessionMeta
                 if (!sessionMeta) {
                     setSessionMeta({
@@ -511,12 +506,12 @@ const MainRouting = ({
 
                 // 如果已經完成設定，直接進入遊戲
                 if (gameState.isSetup || gameState.selectionStep === 'completed') {
-                    console.log('玩家已完成設定，跳轉到遊戲畫面');
+                    debugLog('玩家已完成設定，跳轉到遊戲畫面');
                     setCurrentView('game');
                 } else if (hasCloudState) {
                     // 斷線重連：如果本地還沒同步雲端狀態，則從雲端恢復
-                    console.log('斷線重連：從雲端恢復玩家狀態');
-                    const cloudState = room.playerStates![user.uid];
+                    debugLog('斷線重連：從雲端恢復玩家狀態');
+                    const cloudState = normalizeGameState(room.playerStates![user.uid]);
                     setGameState(cloudState);
                     setSessionMeta({
                         playerName: cloudState.playerName || user.name,
@@ -530,7 +525,7 @@ const MainRouting = ({
                         setCurrentView('selection');
                     }
                 } else {
-                    console.log('玩家尚未完成設定，跳轉到選擇畫面');
+                    debugLog('玩家尚未完成設定，跳轉到選擇畫面');
                     // 初始化選擇步驟 (僅在尚未設定且未完成時)
                     setGameState(prev => {
                         if (prev.selectionStep || prev.isSetup) return prev;
@@ -545,7 +540,7 @@ const MainRouting = ({
         } else if (room.status === 'finished') {
             const isHost = user?.uid === room.hostId;
             if (!isHost && currentView !== 'score' && currentView !== 'game') {
-                console.log('玩家跳轉到評分畫面');
+                debugLog('玩家跳轉到評分畫面');
                 setCurrentView('score');
             }
         }
@@ -592,53 +587,58 @@ const MainRouting = ({
         setCurrentView('selection');
     };
 
-    const handleSelectionComplete = (data: { professionId: string; enterpriseId: string; dreamId: string }) => {
+    const handleSelectionComplete = async (data: { professionId: string; enterpriseId: string; dreamId: string }) => {
         setIsDevRouting(false);
-        import('./constants').then(({ PROFESSIONS, ENTERPRISES, DREAMS, STOCK_SYMBOLS }) => {
-            const profession = PROFESSIONS.find((p: any) => p.id === data.professionId);
-            const enterprise = ENTERPRISES.find((e: any) => e.id === data.enterpriseId);
-            const dream = DREAMS.find((d: any) => d.id === data.dreamId);
+        const [{ PROFESSIONS, ENTERPRISES, DREAMS, createInitialMarketPrices }, { getInitialHappinessList }] = await Promise.all([
+            import('./constants'),
+            import('./utils/gameUtils')
+        ]);
+        const profession = PROFESSIONS.find(item => item.id === data.professionId);
+        const enterprise = ENTERPRISES.find(item => item.id === data.enterpriseId);
+        const dream = DREAMS.find(item => item.id === data.dreamId);
+        if (!profession || !enterprise || !dream) throw new Error('選擇內容已不存在，請重新選擇。');
 
-            if (profession && enterprise && dream) {
-                import('./utils/gameUtils').then(({ getInitialHappinessList }) => {
-                    const happinessItems = getInitialHappinessList(enterprise, dream);
-                    setGameState({
-                        profession,
-                        selectedEnterprise: enterprise,
-                        selectedDream: dream,
-                        currentRankTitle: profession.initialRank,
-                        currentRankLevel: 1,
-                        cash: profession.savings,
-                        children: 0,
-                        medicalInsuranceCount: 0,
-                        assets: [],
-                        liabilities: [],
-                        loans: 0,
-                        isSetup: true,
-                        selectionStep: 'completed',
-                        expenses: {},
-                        income: {},
-                        history: [],
-                        happiness: happinessItems,
-                        happinessTotal: 0,
-                        marketPrices: STOCK_SYMBOLS.reduce((acc: Record<string, number>, symbol: string) => {
-                            acc[symbol] = 0;
-                            return acc;
-                        }, {} as Record<string, number>),
-                        abilities: {
-                            stockAbilityCount: 0,
-                            realEstateAbilityCount: 0,
-                            professionAbilityCount: 0,
-                        },
-                        completedHappinessEvents: [],
-                        boardGameStartedAt: room?.startedAt,
-                        playerName: sessionMeta?.playerName || user.name,
-                        reportName: sessionMeta?.reportName || '我的財報'
-                    });
-                    setCurrentView('game');
-                });
-            }
-        });
+        const initialMarketPrices = room?.marketPrices && Object.keys(room.marketPrices).length > 0
+            ? room.marketPrices
+            : createInitialMarketPrices();
+        const previousMarketPrices = room?.previousMarketPrices && Object.keys(room.previousMarketPrices).length > 0
+            ? room.previousMarketPrices
+            : initialMarketPrices;
+        const nextState: GameState = {
+            profession,
+            selectedEnterprise: enterprise,
+            selectedDream: dream,
+            selectionDraft: data,
+            currentRankTitle: profession.initialRank,
+            currentRankLevel: 1,
+            cash: profession.savings,
+            children: 0,
+            medicalInsuranceCount: 0,
+            assets: [],
+            liabilities: [],
+            loans: 0,
+            isSetup: true,
+            selectionStep: 'completed',
+            expenses: {},
+            income: {},
+            history: [],
+            happiness: getInitialHappinessList(enterprise, dream),
+            happinessTotal: 0,
+            marketPrices: initialMarketPrices,
+            previousMarketPrices,
+            abilities: {
+                stockAbilityCount: 0,
+                realEstateAbilityCount: 0,
+                professionAbilityCount: 0,
+            },
+            completedHappinessEvents: [],
+            boardGameStartedAt: room?.startedAt,
+            playerName: sessionMeta?.playerName || user.name,
+            reportName: sessionMeta?.reportName || '我的財報'
+        } as GameState;
+
+        await completePlayerSetup(nextState);
+        setCurrentView('game');
     };
 
     const handleResumeGame = () => {
@@ -746,6 +746,7 @@ const MainRouting = ({
             if (!sessionMeta) return <Spinner />;
             return (
                 <SelectionView
+                    key={`${user?.uid ?? 'guest'}:${room?.id ?? 'solo'}:${room?.startedAt ?? gameState.boardGameStartedAt ?? 'unstarted'}`}
                     sessionMeta={sessionMeta}
                     initialStep={gameState.selectionStep as any}
                     initialSelections={gameState.selectionDraft}
@@ -776,6 +777,16 @@ const MainRouting = ({
     }
 };
 
+const ProjectionContent = ({ roomCode }: { roomCode: string }) => {
+    const { user, isLoadingAuth } = useAuth();
+    if (isLoadingAuth) return <Spinner />;
+    return (
+        <Suspense fallback={<Spinner />}>
+            {user ? <BoardProjectionView roomCode={roomCode} /> : <AuthView />}
+        </Suspense>
+    );
+};
+
 export default function App() {
     useEffect(() => {
         // 防止行動端瀏覽器彈性滾動 (Elastic Scrolling)
@@ -794,20 +805,21 @@ export default function App() {
         };
     }, []);
 
+    const boardRoomCode = new URLSearchParams(window.location.search).get('boardRoom');
     const content = (
         <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-950 select-none touch-none">
-            <AppContent />
+            {boardRoomCode ? <ProjectionContent roomCode={boardRoomCode} /> : <AppContent />}
             <InstallPromptBanner />
         </div>
     );
 
     return (
         <AuthProvider>
-            <RoomProvider>
+            {boardRoomCode ? content : <RoomProvider>
                 <GameProvider>
                     {content}
                 </GameProvider>
-            </RoomProvider>
+            </RoomProvider>}
         </AuthProvider>
     );
 }

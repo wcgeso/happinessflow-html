@@ -36,6 +36,7 @@ import { getBoardActionAvailability } from '../../utils/experienceState';
 import { audioManager } from '../../utils/audio';
 import { PlayerModalFrame } from '../../components/common/PlayerModalFrame';
 import { DICE_PRESENTATION_DURATION_MS, getFamilyDicePresentationReadyAt } from '../../game/board/dicePresentation';
+import { debugWarn } from '../../utils/debugLog';
 
 export const marketPricesMatch = (current: Record<string, number> | undefined, target: Record<string, number> | undefined) => {
     if (!current || !target) return false;
@@ -813,7 +814,7 @@ export const GameView: React.FC<{
     );
     useEffect(() => {
         if (!hasPendingSharedCardPrompt || shouldShowSharedCardPromptModal) return;
-        console.warn('[共享卡片彈窗被擋住]', {
+        debugWarn('[共享卡片彈窗被擋住]', {
             promptId: activeSharedCardPrompt?.id,
             boardFinancialAction: !!boardFinancialAction,
             pendingSharedCardCompletion: !!pendingSharedCardCompletion,

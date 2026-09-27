@@ -21,6 +21,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { UserPublicInfo, Friendship } from '../../types';
+import { debugLog, debugWarn } from '../../utils/debugLog';
 
 interface FriendsModalProps {
   isOpen: boolean;
@@ -124,17 +125,17 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
     );
 
     const unsubscribeRequests = onSnapshot(qRequests, async (snapshot) => {
-      console.log('[好友系統] 收到請求快照，文件數:', snapshot.docs.length);
+      debugLog('[好友系統] 收到請求快照，文件數:', snapshot.docs.length);
 
       const requestData = await Promise.all(
         snapshot.docs.map(async (d) => {
           const data = d.data() as Friendship;
-          console.log('[好友系統] 處理請求:', d.id, '來自:', data.requesterId);
+          debugLog('[好友系統] 處理請求:', d.id, '來自:', data.requesterId);
 
           try {
             const userDoc = await safeAsync(getDoc(doc(db, 'users', data.requesterId)));
             if (!userDoc || !userDoc.exists()) {
-              console.warn('[好友系統] 找不到發送者資料:', data.requesterId);
+              debugWarn('[好友系統] 找不到發送者資料:', data.requesterId);
               return {
                 name: '未知使用者',
                 photoURL: 'bee',
@@ -158,7 +159,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
       );
 
       const validRequests = requestData.filter((r): r is (UserPublicInfo & { friendshipId: string }) => r !== null && !!r.name);
-      console.log('[好友系統] 有效請求數:', validRequests.length);
+      debugLog('[好友系統] 有效請求數:', validRequests.length);
       setRequests(validRequests);
     }, (error) => {
       console.error('[好友系統] 監聽請求失敗:', error);
@@ -285,12 +286,12 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
     if (e) {
       e.stopPropagation();
     }
-    console.log('handleDeleteFriendship called', { friendshipId, name, score });
+    debugLog('handleDeleteFriendship called', { friendshipId, name, score });
 
     // 如果是拒絕請求（沒有提供 name/score），直接刪除
     if (!name) {
       try {
-        console.log('Directly deleting friendship (reject/cancel)');
+        debugLog('Directly deleting friendship (reject/cancel)');
         await safeAsync(deleteDoc(doc(db, 'friendships', friendshipId)));
       } catch (error) {
         console.error('Delete friendship error:', error);
@@ -298,7 +299,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
       return;
     }
     // 否則開啟確認彈窗
-    console.log('Opening delete confirmation');
+    debugLog('Opening delete confirmation');
     setItemToDelete({ id: friendshipId, name, score: score || 0 });
   };
 
@@ -480,7 +481,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onV
                             <div
                               role="button"
                               onClick={(e) => {
-                                console.log('Button Clicked!', friend.name);
+                                debugLog('Button Clicked!', friend.name);
                                 handleDeleteFriendship(friend.friendshipId, friend.name, friend.experience, e);
                               }}
                               className="relative z-50 p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer select-none active:scale-95"

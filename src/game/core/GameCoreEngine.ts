@@ -27,6 +27,7 @@ import { createEmptyCoreGameState } from '../state/CoreGameState';
 import type { StateTransitionResult } from '../events/StateTransitionResult';
 import { TransitionEventType } from '../events/StateTransitionResult';
 import { coreFeatureFlags } from './featureFlags';
+import { debugLog, debugWarn } from '../../utils/debugLog';
 
 export interface GameCoreEngineConfig {
   /** 啟用 debug logging（僅開發環境使用） */
@@ -65,7 +66,7 @@ export class GameCoreEngine {
    */
   dispatch(command: GameCommand): StateTransitionResult {
     if (this.config.debug) {
-      console.debug('[GameCoreEngine] dispatch:', command.type);
+      debugLog('[GameCoreEngine] dispatch:', command.type);
     }
 
     switch (command.type) {
@@ -98,7 +99,7 @@ export class GameCoreEngine {
  */
 function assertNeverCommand(command: never, currentState: CoreGameState): StateTransitionResult {
   const unknownCommand = command as GameCommand;
-  console.warn('[GameCoreEngine] Unknown command type:', unknownCommand.type);
+  debugWarn('[GameCoreEngine] Unknown command type:', unknownCommand.type);
   return {
     nextState: currentState,
     events: [],
@@ -121,5 +122,5 @@ export const globalGameCoreEngine = new GameCoreEngine({
 
 // 確認目前 Feature Flags 狀態（僅在開發環境輸出）
 if (import.meta.env.DEV) {
-  console.debug('[GameCoreEngine] Feature flags (all should be false in Milestone 0):', coreFeatureFlags);
+  debugLog('[GameCoreEngine] Feature flags (all should be false in Milestone 0):', coreFeatureFlags);
 }

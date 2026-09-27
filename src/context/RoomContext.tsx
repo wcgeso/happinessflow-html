@@ -66,6 +66,7 @@ import { applyPlayerExpenseAdjustment, applyPlayerLiabilityAdjustment } from '..
 import { getLiabilityMonthlyPayment, getRemainingCreditCapacity } from '../utils/financialRules';
 import { buildMedicalBoardCardState } from '../utils/boardMedical';
 import { buildRoomPlayerSlotUpdate, ROOM_PLAYER_SLOT_COUNT, getRoomPlayerSlots } from '../utils/roomPlayerSlots';
+import { debugLog, debugWarn } from '../utils/debugLog';
 
 interface RoomMember {
     uid: string;
@@ -2597,7 +2598,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // DEV only：確認 Adapter 接線成功（所有 flags = false，不接管任何行為）
     useEffect(() => {
         if (import.meta.env.DEV) {
-            console.debug('[RoomContext] coreRoomAdapter ready:', coreRoomAdapter.isReady());
+            debugLog('[RoomContext] coreRoomAdapter ready:', coreRoomAdapter.isReady());
         }
     }, [coreRoomAdapter]);
     // ─────────────────────────────────────────────────────────────────────────
@@ -2880,7 +2881,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const missingUids = getMissingTurnOrderPlayerUids(currentRoom);
                 if (!missingUids.length || !currentRoom.boardState) return;
 
-                console.warn('偵測到玩家不在棋盤 turnOrder 內，自動補齊:', missingUids);
+                debugWarn('偵測到玩家不在棋盤 turnOrder 內，自動補齊:', missingUids);
                 const boardState = currentRoom.boardState;
                 const nextTurnOrder = [...boardState.turnOrder, ...missingUids];
                 const nextPositions = { ...boardState.playerPositions };
@@ -3096,7 +3097,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastMeasuredBoardSnapshotRef.current = null;
         lastObservedTurnUidRef.current = null;
         setRoomSyncState('cached');
-        console.log('開始監聽房間:', targetRoomId);
+        debugLog('開始監聽房間:', targetRoomId);
         const unsubscribe = onSnapshot(doc(db, 'rooms', targetRoomId), { includeMetadataChanges: true }, (snapshot) => {
             if (roomListenerTokenRef.current !== targetRoomId) return;
             const serverConfirmed = !snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites;
@@ -3107,7 +3108,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const snapshotHash = JSON.stringify(data);
                 const isSameSnapshot = lastRoomSnapshotHashRef.current === snapshotHash;
                 lastRoomSnapshotHashRef.current = snapshotHash;
-                console.log('房間數據更新:', data.id, '狀態:', data.status, '成員數:', data.members?.length);
+                debugLog('房間數據更新:', data.id, '狀態:', data.status, '成員數:', data.members?.length);
 
                 const boardUpdatedAt = Number(data.boardState?.updatedAt);
                 const boardSnapshotKey = `${data.boardState?.revision ?? 'none'}:${boardUpdatedAt || 'none'}`;
@@ -3174,7 +3175,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                     if (Date.now() > movementDeadline + BOARD_MOVE_STALE_BUFFER_MS) {
                         const settleCommandId = `movement:${movement.playerUid}:${movement.startedAt}:settle`;
-                        console.warn('偵測到過期的棋盤移動狀態，自動補完收尾:', data.id, movement.playerUid);
+                        debugWarn('偵測到過期的棋盤移動狀態，自動補完收尾:', data.id, movement.playerUid);
                         runRoomBoardMutation({
                             db,
                             roomId: targetRoomId,
@@ -3206,7 +3207,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const stillMember = data.members?.some(m => m.uid === user.uid);
 
                 if (serverConfirmed && !stillMember && !isHost) {
-                    console.log('檢測到用戶已不在成員名單中，自動清除狀態');
+                    debugLog('檢測到用戶已不在成員名單中，自動清除狀態');
                     activeRoomScopeRef.current = null;
                     setRoom(null);
                     localStorage.removeItem(`active_room_${user.uid}`);
@@ -3215,7 +3216,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
 
                 if (data.pendingRequests) {
-                    console.log('偵測到待審核請求:', Object.keys(data.pendingRequests).length, '筆');
+                    debugLog('偵測到待審核請求:', Object.keys(data.pendingRequests).length, '筆');
                 }
                 setPendingRequests(current => {
                     const next = { ...current };
@@ -3264,10 +3265,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // 房主在結算後關閉（刪除）房間時，玩家仍停留在遊戲評分頁，
                 // 由玩家自己按「離開遊戲」回大廳；下次登入時房間已不存在，會直接進大廳。
                 if (lastObservedRoomStatusRef.current === 'finished' && !isClosingRoomRef.current) {
-                    console.log('房間已被房主關閉，保留結算畫面直到玩家自行離開');
+                    debugLog('房間已被房主關閉，保留結算畫面直到玩家自行離開');
                     return;
                 }
-                console.log('房間不存在或已被關閉');
+                debugLog('房間不存在或已被關閉');
                 activeRoomScopeRef.current = null;
                 setRoom(null);
                 localStorage.removeItem(`active_room_${user.uid}`);
@@ -3290,7 +3291,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         return () => {
-            console.log('停止監聽房間:', targetRoomId);
+            debugLog('停止監聽房間:', targetRoomId);
             unsubscribe();
             if (roomListenerTokenRef.current === targetRoomId) {
                 roomListenerTokenRef.current = null;
