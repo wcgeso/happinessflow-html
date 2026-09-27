@@ -1,7 +1,31 @@
 # 棋盤模式財務操作盤點（伺服器交易 vs 本機同步）
 
 日期：2026-09-27　範圍：`src/views/game/GameView.tsx` 的 `applyResolvedBoardFinancialTx`、`src/hooks/useGameLogic.ts`、`src/context/GameContext.tsx`、`src/context/RoomContext.tsx`
-方式：閱讀程式碼並對照送出資料的格式，**沒有逐一實測**。標「待確認」的項目是我沒有讀到最終落點。
+方式：閱讀程式碼並對照送出資料的格式。原始盤點（下方 A/B/C 節）**沒有逐一實測**；「現況」一節已依照實際遷移結果更新，每個階段都有本機模擬器（真實 Firestore 規則）或單元測試驗證，詳見各階段提交訊息。
+
+## 現況（v4.18，遷移執行後更新）
+
+依 `soft-wiggling-moore.md` 遷移計劃，階段 0～6 已完成並部署；**階段 7（移除棋盤模式本機同步整段機制）依使用者指示先跳過，尚未開始**。
+
+| 階段 | 內容 | 狀態 | 版本 |
+|---|---|---|---|
+| 0 | 抽出純函式 `applyBoardTransaction`（`src/game/finance/applyBoardTransaction.ts`），`useGameLogic.handleTransactionSubmit` 改呼叫它；練習模式行為以 golden master 快照驗證不變 | 完成 | v4.14 前置 |
+| 1 | 周轉借款／強制負債／賣資產（原 B-12）、以及原本「沒有對應分支」的一大類（原 B-1、B-2、B-3、B-5、B-9、B-10、B-11、B-13）改走 `completeBoardTransaction`（通用捕捉分支）| 完成 | v4.14 |
+| 2 | 共享現金股利／股票股息／全體支出調整（原 B-6、B-7、B-8）改走 `completeSharedTransactionAction`，財務結算與共享回覆同一筆交易 | 完成 | v4.16 |
+| 3、4 | 卡片現金操作、醫院／維修／理賠 | **不需額外工作**：查證後這些操作本來就落在階段 1 的通用捕捉分支，隨階段 1 一併完成，未新增獨立函式 | v4.14 |
+| 5 | 銀行事件月結餘（原 B-14）改走新函式 `completePaydayCollection`，伺服器依玩家最新資料重新計算金額，不信任前端數字 | 完成 | v4.17 |
+| 6 | 房屋自住／出租切換（原 B-16，`completeHouseConversion`）、幸福清單勾選／新增／刪除（原 B-17，`completeHappinessToggle`／`Add`／`Remove`）改走伺服器；棋盤模式關閉開發者加減現金（原 B-18） | 完成 | v4.18 |
+| — | 升等考試／終身學習（原 B-15）：查證後棋盤模式的擲骰與結果套用**本來就已經**在 `rollSkillDice`（`RoomContext.tsx`）單一伺服器交易內完成，`executePromotionFee`／`executeLifelongFee`／`applyLifelongResult`／`applyExamResult` 只在 `!room?.isBoardGame`（練習模式）才會被呼叫 | 不需遷移 | — |
+| 7 | 移除棋盤模式本機同步整段機制（`GameContext` 背景同步 effect、`pendingLocalPlayerPatchRef`）| **跳過（使用者決定）** | — |
+
+**階段 7 跳過的後續影響**：`GameContext` 的背景同步機制仍然存在並持續運作，但目前已知會呼叫它的棋盤模式路徑（原 B 類全部項目）都已經個別遷移到伺服器交易，理論上棋盤模式不會再主動觸發本機寫入；不過機制本身沒有被移除，若之後新增功能不小心又走本機 `setGameState` 加背景同步，一樣會重蹈信貸那個問題的覆轍。`handleDeleteTransactionRecord`（交易紀錄刪除／復原）在棋盤模式下仍可呼叫且仍是純本機實作，未被本次盤點列入遷移範圍時就已存在，維持原狀。
+
+**遷移過程中發現、一併修掉的問題**（不屬於本機同步，但擋住了共享交易的驗證）：
+- 執行師審核彈窗在請求已過期時卡死（`approveRequest`／`clearRequest`，v4.14／v4.16）。
+- 家庭歷程結案監聽讀到過期快照、與骰子動畫時序誤判，導致無法結束回合（v4.15）。
+- 共享卡片彈窗被上一張卡殘留的「待完成」狀態擋住，抽卡者翻牌後彈窗不出現（v4.16）。
+
+以下 A/B/C 節維持 2026-09-27 遷移前的原始盤點紀錄，作為歷史對照；目前狀態以上表為準。
 
 ## 兩條路徑
 
