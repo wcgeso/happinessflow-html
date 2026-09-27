@@ -7,7 +7,7 @@
  */
 import { Asset, GameState, HappinessItem, Transaction, TransactionData } from '../../types';
 import { normalizeGameState } from '../../utils/gameState';
-import { formatMoney, getFinancialAccelerationMultiplier } from '../../utils/gameUtils';
+import { calculateFinancialSummary, formatMoney, getFinancialAccelerationMultiplier } from '../../utils/gameUtils';
 import { extractAssetSymbol, getAssetDisplayLabel, getStockAssetLabel } from '../../utils/assetLabels';
 import { getLiabilityMonthlyPayment, getRemainingCreditCapacity } from '../../utils/financialRules';
 import { OPPORTUNITY_CARD_MAP } from '../../constants/cards';
@@ -797,5 +797,79 @@ export const createSequentialIdGenerator = (seed: string) => {
   return () => {
     counter += 1;
     return `${seed}#${counter}`;
+  };
+};
+
+export type PaydayCollectionResult =
+  | { status: 'duplicate' }
+  | { status: 'applied'; state: GameState; flow: number; forcedDebtAmount: number };
+
+/**
+ * 領取／支付每月結餘（棋盤「銀行」事件）。現金不足時自動計入強制負債，金額由伺服器依玩家
+ * 最新資料重新計算，不信任前端算出的金額；以 boardEventId 防止同一次銀行事件重複入帳。
+ */
+export const applyPaydayCollection = (
+  state: GameState,
+  financialAcceleration: FinancialAccelerationInput,
+  boardEventId: string,
+  env: BoardTransactionEnv
+): PaydayCollectionResult => {
+  const dedupeId = `payday:${boardEventId}`;
+  if (state.appliedBoardFinancialEventIds?.includes(dedupeId)) return { status: 'duplicate' };
+
+  const flow = calculateFinancialSummary(state, financialAcceleration).monthlyCashflow;
+  const cash = Math.max(0, Number(state.cash) || 0);
+  const payment = Math.max(0, -flow);
+  const forcedDebtAmount = Math.max(0, payment - cash);
+  const nextCash = Math.max(0, cash + flow + forcedDebtAmount);
+
+  let liabilities = state.liabilities;
+  const history = [...state.history];
+  if (forcedDebtAmount > 0) {
+    const fundingTransaction: Transaction = {
+      id: env.generateId(),
+      timestamp: env.now,
+      name: '月結餘不足：強制計入負債',
+      amount: forcedDebtAmount,
+      sourceLabel: '借貸',
+      usageLabel: '強制負債',
+      cashChange: forcedDebtAmount,
+      balance: cash + forcedDebtAmount,
+      details: JSON.stringify({ usage: 'forced_debt', source: 'monthly_cashflow' }),
+      flowType: '融資'
+    };
+    history.push(fundingTransaction);
+    liabilities = [...liabilities, {
+      id: fundingTransaction.id,
+      name: '強制負債',
+      totalOwed: forcedDebtAmount,
+      monthlyPayment: 0,
+      type: '強制負債'
+    }];
+  }
+  const newTx: Transaction = {
+    id: env.generateId(),
+    timestamp: env.now,
+    name: '每月結餘',
+    amount: Math.abs(flow),
+    sourceLabel: flow >= 0 ? '收入' : '支出',
+    usageLabel: '月現金流',
+    cashChange: flow,
+    balance: nextCash,
+    flowType: '生活'
+  };
+  history.push(newTx);
+
+  return {
+    status: 'applied',
+    flow,
+    forcedDebtAmount,
+    state: {
+      ...state,
+      cash: nextCash,
+      liabilities,
+      history,
+      appliedBoardFinancialEventIds: [...(state.appliedBoardFinancialEventIds || []), dedupeId]
+    }
   };
 };

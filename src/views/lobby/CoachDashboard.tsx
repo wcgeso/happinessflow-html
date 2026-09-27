@@ -1159,6 +1159,14 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v4.17',
+                    date: '2026-09-27',
+                    color: 'amber',
+                    items: [
+                      '棋盤「經過銀行」領取／支付月結餘改由伺服器結算：金額依玩家最新資料重新計算，不再信任前端算出的金額，現金不足時自動計入強制負債與現金一次寫入',
+                    ],
+                  },
+                  {
                     version: 'v4.16',
                     date: '2026-09-27',
                     color: 'amber',

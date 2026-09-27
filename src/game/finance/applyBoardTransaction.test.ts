@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameState, TransactionData } from '../../types';
 import { normalizeGameState } from '../../utils/gameState';
-import { applyBoardTransaction, createSequentialIdGenerator } from './applyBoardTransaction';
+import { applyBoardTransaction, applyPaydayCollection, createSequentialIdGenerator } from './applyBoardTransaction';
 
 const state = (overrides: Partial<GameState> = {}): GameState => normalizeGameState({
   profession: { id: 'p1', name: '測試', salary: 60000, promotions: [] } as any,
@@ -92,5 +92,54 @@ describe('applyBoardTransaction（伺服器交易使用）', () => {
     if (result.status !== 'applied') return;
     expect(result.state.cash).toBe(200000);
     expect(result.state.liabilities[0]).toMatchObject({ type: '信用貸款', totalOwed: 100000, monthlyPayment: 10000 });
+  });
+});
+
+describe('applyPaydayCollection（棋盤銀行事件的每月結餘）', () => {
+  const withProfession = (overrides: Partial<GameState> = {}) => state({
+    profession: { id: 'p1', name: '測試', salary: 60000, promotions: [] } as any,
+    income: { salary: 60000, investment: 0, other: 0 } as any,
+    expenses: { taxes: 0, mortgage: 0, studentLoan: 0, creditCard: 0, other: 0, basicLiving: 0, transportEdu: 0, otherMedicalChild: 0 } as any,
+    assets: [],
+    liabilities: [],
+    ...overrides,
+  });
+
+  it('現金流為正時直接入帳，不產生強制負債', () => {
+    const s = withProfession({ cash: 0 });
+    const result = applyPaydayCollection(s, { multiplier: 1 }, 'bank-evt-1', env());
+    expect(result.status).toBe('applied');
+    if (result.status !== 'applied') return;
+    expect(result.forcedDebtAmount).toBe(0);
+    expect(result.state.cash).toBeGreaterThan(0);
+    expect(result.state.liabilities).toHaveLength(0);
+  });
+
+  it('現金不足支付月支出時自動計入強制負債，現金歸零', () => {
+    const s = withProfession({
+      cash: 0,
+      profession: { id: 'p1', name: '測試', salary: 0, promotions: [] } as any,
+      income: { salary: 0, investment: 0, other: 0 } as any,
+      expenses: { taxes: 0, mortgage: 0, studentLoan: 0, creditCard: 0, other: 0, basicLiving: 30000, transportEdu: 0, otherMedicalChild: 0 } as any,
+    });
+    const result = applyPaydayCollection(s, { multiplier: 1 }, 'bank-evt-2', env());
+    expect(result.status).toBe('applied');
+    if (result.status !== 'applied') return;
+    expect(result.flow).toBe(-30000);
+    expect(result.forcedDebtAmount).toBe(30000);
+    expect(result.state.cash).toBe(0);
+    expect(result.state.liabilities).toEqual([
+      expect.objectContaining({ type: '強制負債', totalOwed: 30000 }),
+    ]);
+    expect(result.state.history.map((h) => h.name)).toEqual(['月結餘不足：強制計入負債', '每月結餘']);
+  });
+
+  it('同一個棋盤事件重送視為重複，不重複入帳', () => {
+    const s = withProfession({ cash: 0 });
+    const first = applyPaydayCollection(s, { multiplier: 1 }, 'bank-evt-3', env());
+    expect(first.status).toBe('applied');
+    if (first.status !== 'applied') return;
+    const second = applyPaydayCollection(first.state, { multiplier: 1 }, 'bank-evt-3', env());
+    expect(second).toEqual({ status: 'duplicate' });
   });
 });

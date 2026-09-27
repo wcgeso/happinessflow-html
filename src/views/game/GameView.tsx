@@ -73,7 +73,7 @@ export const GameView: React.FC<{
 }> = ({ onFinishGame, isDevMode = false }) => {
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeBoardTransaction, completePlayerOnlyTransaction, completeSharedTransactionAction, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
+    const { room, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeBoardTransaction, completePlayerOnlyTransaction, completeSharedTransactionAction, completePaydayCollection, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -157,6 +157,7 @@ export const GameView: React.FC<{
     const [lastSchoolPromptKey, setLastSchoolPromptKey] = useState<string | null>(null);
     const [handledBoardCardKeys, setHandledBoardCardKeys] = useState<string[]>([]);
     const [paydayStep, setPaydayStep] = useState<'confirm' | 'followup'>('confirm');
+    const [isCollectingPayday, setIsCollectingPayday] = useState(false);
     const [transactionQuickPreset, setTransactionQuickPreset] = useState<{ initialTab?: 'broker' | 'banking' | 'wealth', mode?: 'buy' | 'sell', assetType?: '保險' | '定存' | '股票' } | null>(null);
     const [boardFinancialAction, setBoardFinancialAction] = useState<BoardFinancialAction | null>(null);
     const [selectedBoardSaleAssetIds, setSelectedBoardSaleAssetIds] = useState<string[]>([]);
@@ -3991,9 +3992,31 @@ export const GameView: React.FC<{
                         setPaydayStep('confirm');
                         void advanceBoardEventQueue('bank');
                     }}
-                    onClose={() => {
+                    onClose={async () => {
                         if (paydayStep === 'confirm') {
-                            handlePaydayConfirm();
+                            if (room?.isBoardGame) {
+                                if (isCollectingPayday) return;
+                                if (!activeBankPromptKey) return;
+                                setIsCollectingPayday(true);
+                                const flow = summary.monthlyCashflow;
+                                const cashBefore = currentPlayerRoomState?.cash ?? gameState.cash;
+                                const paydayResult = await completePaydayCollection(activeBankPromptKey);
+                                setIsCollectingPayday(false);
+                                if (paydayResult.status === 'failed') {
+                                    showAlert(paydayResult.message || '月結餘同步失敗，請再試一次', 'error');
+                                    return;
+                                }
+                                showAlert(
+                                    flow >= 0
+                                        ? '已領取月結餘'
+                                        : cashBefore + flow < 0
+                                            ? `現金不足，已計入強制負債 ${formatMoney(Math.abs(cashBefore + flow))}`
+                                            : '已支付月結餘',
+                                    'success'
+                                );
+                            } else {
+                                handlePaydayConfirm();
+                            }
                             if (startupUpgradeAsset && pendingStartupUpgradeAction) {
                                 startupUpgradeQueueRef.current = [...pendingStartupUpgradeActions];
                                 setBizUpgradeAssetSnapshot(startupUpgradeAsset);
@@ -4013,7 +4036,7 @@ export const GameView: React.FC<{
                         setPaydayStep('confirm');
                         void advanceBoardEventQueue('bank');
                     }}
-                    disabled={room?.status === 'finished'}
+                    disabled={room?.status === 'finished' || isCollectingPayday}
                 />
             )}
 

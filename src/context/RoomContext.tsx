@@ -54,7 +54,7 @@ import { buildMovementEffects, describeMovementEffects } from '../game/board/mov
 import { appendDicePresentation, DICE_PRESENTATION_DURATION_MS, getFamilyDicePresentationReadyAt } from '../game/board/dicePresentation';
 import { isRetryableBoardTransactionError, runBoardTransactionWithRetry, runRoomBoardMutation as runRoomBoardMutationOnServer, type BoardRoomSnapshot, type RunRoomBoardMutationParams } from '../game/board/runBoardMutation';
 import { applyBoardCommand } from '../game/board/boardRevision';
-import { applyBoardTransaction, createSequentialIdGenerator } from '../game/finance/applyBoardTransaction';
+import { applyBoardTransaction, applyPaydayCollection, createSequentialIdGenerator } from '../game/finance/applyBoardTransaction';
 import { toPublicPlayerState } from '../utils/playerState';
 import { extractAssetSymbol, getBusinessAssetLabel, getRealEstateAssetLabel, getStockAssetLabel } from '../utils/assetLabels';
 import { canSkipDisconnectedPlayer, mapRealtimePresenceValue } from '../utils/presence';
@@ -2493,6 +2493,8 @@ interface RoomContextValue {
     completeLoanBorrow: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     /** 通用棋盤財務交易：以伺服器交易一次套用純函式 applyBoardTransaction。 */
     completeBoardTransaction: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
+    /** 棋盤「銀行」事件的每月結餘：金額由伺服器依玩家最新資料重新計算，不信任前端金額。 */
+    completePaydayCollection: (boardEventId: string) => Promise<BoardFinancialMutationResult>;
     /** 只寫玩家私有文件（不動房間主文件）：共享／家庭歷程提示進行中，規則不允許一般房間交易時使用。 */
     completePlayerOnlyTransaction: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     /** 共享卡片的財務結算（股利、股息、全體支出）：財務資料與本人回覆在同一筆交易寫入。 */
@@ -6395,6 +6397,24 @@ useEffect(() => {
         }
     };
 
+    const completePaydayCollection = async (boardEventId: string): Promise<BoardFinancialMutationResult> => {
+        const commandId = `fin-payday:${room?.sessionId || room?.id}:${user?.uid}:${boardEventId}`;
+        return runPlayerFinancialCommand({
+            commandId,
+            failureLabel: '月結餘',
+            apply: (state, latestRoom) => {
+                const result = applyPaydayCollection(
+                    state,
+                    latestRoom.financialAcceleration,
+                    boardEventId,
+                    { now: Date.now(), generateId: createSequentialIdGenerator(commandId) }
+                );
+                if (result.status === 'duplicate') return { status: 'duplicate' };
+                return { status: 'applied', state: result.state };
+            }
+        });
+    };
+
     const completeBoardTransaction = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
         const operationId = txData.boardEventId || txData.commandId;
         if (!operationId) return { status: 'failed', message: '交易缺少識別碼，請重新操作' };
@@ -8014,6 +8034,7 @@ useEffect(() => {
             completeStockTrade,
             completeLoanBorrow,
             completeBoardTransaction,
+            completePaydayCollection,
             completePlayerOnlyTransaction,
             completeSharedTransactionAction,
             completeLoanRepayment,
