@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X, Dices } from 'lucide-react';
+import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X, Dices, Music2, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getProfessionIcon } from '../common/IconHelpers';
 import { cn, formatMoney } from '../../utils/gameUtils';
@@ -10,7 +10,7 @@ import { IS_DEV_VERSION } from '../../constants/version';
 import { DevSettingsModal } from '../modals/DevSettingsModal';
 import { selectExperienceState } from '../../utils/experienceState';
 import { isPresenceOnline } from '../../utils/presence';
-import { getAudioSettings, setAudioSettings, AUDIO_SETTINGS_EVENT, AudioSettings } from '../../utils/audio';
+import { audioManager, getAudioSettings, setAudioSettings, AUDIO_SETTINGS_EVENT, AudioSettings } from '../../utils/audio';
 
 interface GameHeaderProps {
     gameState: any;
@@ -315,13 +315,31 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                                 <span className="text-xs font-mono text-[#293a38]">{timeLeft}</span>
                                             </div>
                                             <button
-                                                onClick={() => setAudioSettingsState(setAudioSettings({ enabled: !audioSettings.enabled }))}
-                                                aria-pressed={audioSettings.enabled}
+                                                onClick={() => {
+                                                    const next = setAudioSettings({ musicEnabled: !audioSettings.musicEnabled });
+                                                    setAudioSettingsState(next);
+                                                    if (next.musicEnabled) {
+                                                        void audioManager.unlock().then(() => audioManager.startBackgroundMusic()).catch(() => undefined);
+                                                    } else {
+                                                        audioManager.syncBackgroundMusic();
+                                                    }
+                                                }}
+                                                aria-pressed={audioSettings.musicEnabled}
                                                 className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f3e4cc] text-[#6f6253] hover:text-[#293a38] transition-colors text-sm font-bold"
                                             >
-                                                <span>音效</span>
-                                                <span className={audioSettings.enabled ? 'text-[#2e806d]' : 'text-[#8b7b68]'}>
-                                                    {audioSettings.enabled ? '開啟' : '關閉'}
+                                                <span className="flex items-center gap-2"><Music2 size={16} className="text-[#b88a43]" />背景音樂</span>
+                                                <span className={audioSettings.musicEnabled ? 'text-[#2e806d]' : 'text-[#8b7b68]'}>
+                                                    {audioSettings.musicEnabled ? '開啟' : '關閉'}
+                                                </span>
+                                            </button>
+                                            <button
+                                                onClick={() => setAudioSettingsState(setAudioSettings({ soundEnabled: !audioSettings.soundEnabled }))}
+                                                aria-pressed={audioSettings.soundEnabled}
+                                                className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f3e4cc] text-[#6f6253] hover:text-[#293a38] transition-colors text-sm font-bold"
+                                            >
+                                                <span className="flex items-center gap-2">{audioSettings.soundEnabled ? <Volume2 size={16} className="text-[#2e6570]" /> : <VolumeX size={16} className="text-[#8b7b68]" />}音效</span>
+                                                <span className={audioSettings.soundEnabled ? 'text-[#2e806d]' : 'text-[#8b7b68]'}>
+                                                    {audioSettings.soundEnabled ? '開啟' : '關閉'}
                                                 </span>
                                             </button>
                                             <button onClick={() => { onFinishGame(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f3e4cc] text-[#6f6253] hover:text-[#293a38] transition-colors text-sm font-bold">
@@ -347,7 +365,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                                     <ChevronDown size={14} className="rotate-[-90deg]" />
                                                 </div>
                                             </button>
-                                            {IS_DEV_VERSION && isGM && isDevMode && (
+                                            {IS_DEV_VERSION && isGM && isDevMode && !room?.isBoardGame && (
                                                 <button onClick={() => { setShowDevSettings(true); setShowSettings(false); }} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-[#8c5b2b] transition-colors hover:bg-[#f4e6d0]">
                                                     <Settings size={16} />
                                                     開發者設定
@@ -429,7 +447,8 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
             </div>
 
             {/* 開發者設定面板 */}
-            {IS_DEV_VERSION && isGM && isDevMode && (
+            {/* 棋盤模式不提供本機加減現金：財務資料只能透過伺服器交易寫入，避免和其他寫入衝突。 */}
+            {IS_DEV_VERSION && isGM && isDevMode && !room?.isBoardGame && (
                 <DevSettingsModal
                     isOpen={showDevSettings}
                     onClose={() => setShowDevSettings(false)}

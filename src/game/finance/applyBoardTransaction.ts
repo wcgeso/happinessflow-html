@@ -11,7 +11,7 @@ import { calculateFinancialSummary, formatMoney, getFinancialAccelerationMultipl
 import { extractAssetSymbol, getAssetDisplayLabel, getStockAssetLabel } from '../../utils/assetLabels';
 import { getLiabilityMonthlyPayment, getRemainingCreditCapacity } from '../../utils/financialRules';
 import { OPPORTUNITY_CARD_MAP } from '../../constants/cards';
-import { REAL_ESTATE_TYPES } from '../../constants';
+import { REAL_ESTATE_PRESETS, REAL_ESTATE_TYPES } from '../../constants';
 
 export interface BoardTransactionEnv {
   /** 交易時間戳（毫秒）。 */
@@ -873,3 +873,65 @@ export const applyPaydayCollection = (
     }
   };
 };
+
+export type HouseConversionResult =
+  | { status: 'error'; message: string }
+  | { status: 'applied'; state: GameState };
+
+/** 房屋自住／出租切換：店面不支援轉換，找不到資產時回傳錯誤，不修改狀態。 */
+export const applyHouseConversion = (
+  state: GameState,
+  assetId: string,
+  toSelfUse: boolean
+): HouseConversionResult => {
+  const asset = state.assets.find(a => a.id === assetId);
+  if (!asset || asset.type !== '不動產') return { status: 'error', message: '找不到要調整的房屋資產' };
+  if (asset.houseType?.startsWith('store')) return { status: 'error', message: '店面不支援自住／出租切換' };
+
+  const symbolMatch = asset.name.match(/[A-Z]\d+/);
+  const symbol = symbolMatch ? symbolMatch[0] : '';
+  const preset = REAL_ESTATE_PRESETS[symbol];
+
+  return {
+    status: 'applied',
+    state: {
+      ...state,
+      assets: state.assets.map(a => a.id === assetId ? {
+        ...a,
+        isSelfUse: toSelfUse,
+        cashflow: toSelfUse ? 0 : (preset?.cashflow || 0),
+        conversionCount: (a.conversionCount || 0) + 1
+      } : a)
+    }
+  };
+};
+
+const withHappinessTotal = (state: GameState, happiness: HappinessItem[]): GameState => ({
+  ...state,
+  happiness,
+  happinessTotal: happiness.reduce((sum, h) => sum + (h.checked ? h.points : 0), 0)
+});
+
+/** 勾選／取消幸福項目。checked 未提供時切換目前狀態；找不到項目或狀態未變時原樣回傳。 */
+export const applyHappinessToggle = (state: GameState, id: string, checked?: boolean): GameState => {
+  const item = state.happiness.find(h => h.id === id);
+  if (!item) return state;
+  const isNowChecked = checked !== undefined ? checked : !item.checked;
+  if (item.checked === isNowChecked) return state;
+  return withHappinessTotal(state, state.happiness.map(h => h.id === id ? { ...h, checked: isNowChecked } : h));
+};
+
+/** 新增自訂幸福項目，預設已勾選。 */
+export const applyHappinessAdd = (
+  state: GameState,
+  label: string,
+  points: number,
+  env: BoardTransactionEnv
+): GameState => withHappinessTotal(state, [
+  ...state.happiness,
+  { id: env.generateId(), label, points, checked: true, isCustom: true }
+]);
+
+/** 移除幸福項目（含自訂與內建項目）。 */
+export const applyHappinessRemove = (state: GameState, id: string): GameState =>
+  withHappinessTotal(state, state.happiness.filter(h => h.id !== id));

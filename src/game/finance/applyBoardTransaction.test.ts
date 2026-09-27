@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { GameState, TransactionData } from '../../types';
 import { normalizeGameState } from '../../utils/gameState';
-import { applyBoardTransaction, applyPaydayCollection, createSequentialIdGenerator } from './applyBoardTransaction';
+import {
+  applyBoardTransaction, applyHappinessAdd, applyHappinessRemove, applyHappinessToggle,
+  applyHouseConversion, applyPaydayCollection, createSequentialIdGenerator
+} from './applyBoardTransaction';
 
 const state = (overrides: Partial<GameState> = {}): GameState => normalizeGameState({
   profession: { id: 'p1', name: '測試', salary: 60000, promotions: [] } as any,
@@ -141,5 +144,81 @@ describe('applyPaydayCollection（棋盤銀行事件的每月結餘）', () => {
     if (first.status !== 'applied') return;
     const second = applyPaydayCollection(first.state, { multiplier: 1 }, 'bank-evt-3', env());
     expect(second).toEqual({ status: 'duplicate' });
+  });
+});
+
+describe('applyHouseConversion（自住／出租切換）', () => {
+  const withHouse = (overrides: Partial<GameState> = {}) => state({
+    assets: [
+      { id: 'a-house', name: '不動產 N038', cost: 3000000, downPayment: 500000, cashflow: 12000, type: '不動產', isSelfUse: false },
+      { id: 'a-store', name: '店面 N052', cost: 5000000, downPayment: 1000000, cashflow: 20000, type: '不動產', houseType: 'store' },
+    ] as any,
+    ...overrides,
+  });
+
+  it('轉為自住後現金流歸零，轉回出租依代號查回預設租金', () => {
+    const toSelf = applyHouseConversion(withHouse(), 'a-house', true);
+    expect(toSelf.status).toBe('applied');
+    if (toSelf.status !== 'applied') return;
+    const houseAfterSelfUse = toSelf.state.assets.find((a) => a.id === 'a-house')!;
+    expect(houseAfterSelfUse.isSelfUse).toBe(true);
+    expect(houseAfterSelfUse.cashflow).toBe(0);
+    expect(houseAfterSelfUse.conversionCount).toBe(1);
+
+    const backToRent = applyHouseConversion(toSelf.state, 'a-house', false);
+    expect(backToRent.status).toBe('applied');
+    if (backToRent.status !== 'applied') return;
+    const houseAfterRent = backToRent.state.assets.find((a) => a.id === 'a-house')!;
+    expect(houseAfterRent.isSelfUse).toBe(false);
+    expect(houseAfterRent.cashflow).toBe(-2500); // REAL_ESTATE_PRESETS['N038'].cashflow
+    expect(houseAfterRent.conversionCount).toBe(2);
+  });
+
+  it('店面不支援轉換，找不到資產一律回傳錯誤且不修改狀態', () => {
+    const s = withHouse();
+    const storeResult = applyHouseConversion(s, 'a-store', true);
+    expect(storeResult).toMatchObject({ status: 'error' });
+    const missingResult = applyHouseConversion(s, 'not-exist', true);
+    expect(missingResult).toMatchObject({ status: 'error' });
+  });
+});
+
+describe('幸福清單：applyHappinessToggle / applyHappinessAdd / applyHappinessRemove', () => {
+  const withHappiness = () => state({
+    happiness: [
+      { id: 'h1', label: '第一次約會', points: 2, checked: false },
+      { id: 'h2', label: '婚禮', points: 4, checked: true },
+    ] as any,
+  });
+
+  it('toggle 沒帶 checked 時切換目前狀態，並重算總分', () => {
+    const s = withHappiness();
+    const toggled = applyHappinessToggle(s, 'h1');
+    expect(toggled.happiness.find((h) => h.id === 'h1')?.checked).toBe(true);
+    expect(toggled.happinessTotal).toBe(6);
+
+    const untouched = applyHappinessToggle(s, 'not-exist');
+    expect(untouched).toBe(s);
+  });
+
+  it('toggle 帶明確 checked 值時是冪等的（狀態未變則原樣回傳）', () => {
+    const s = withHappiness();
+    const same = applyHappinessToggle(s, 'h2', true);
+    expect(same).toBe(s);
+  });
+
+  it('新增自訂項目會加入未勾選以外的總分計算，且 id 由 env 產生', () => {
+    const s = withHappiness();
+    const added = applyHappinessAdd(s, '特別的事', 1, env('happiness-add-1'));
+    const newItem = added.happiness[added.happiness.length - 1];
+    expect(newItem).toMatchObject({ label: '特別的事', points: 1, checked: true, isCustom: true, id: 'happiness-add-1#1' });
+    expect(added.happinessTotal).toBe(5);
+  });
+
+  it('移除項目後重新計算總分', () => {
+    const s = withHappiness();
+    const removed = applyHappinessRemove(s, 'h2');
+    expect(removed.happiness.map((h) => h.id)).toEqual(['h1']);
+    expect(removed.happinessTotal).toBe(0);
   });
 });

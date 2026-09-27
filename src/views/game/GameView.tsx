@@ -73,7 +73,7 @@ export const GameView: React.FC<{
 }> = ({ onFinishGame, isDevMode = false }) => {
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeBoardTransaction, completePlayerOnlyTransaction, completeSharedTransactionAction, completePaydayCollection, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
+    const { room, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeBoardTransaction, completePlayerOnlyTransaction, completeSharedTransactionAction, completePaydayCollection, completeHouseConversion, completeHappinessToggle, completeHappinessAdd, completeHappinessRemove, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -353,6 +353,33 @@ export const GameView: React.FC<{
         setIsBoardFinancialCompleted(false);
         setShowTransactionModal(false);
         setTransactionQuickPreset(null);
+    };
+
+    // 棋盤模式：房屋自住／出租切換與幸福清單調整改走伺服器交易，不再只改本機再等背景同步，
+    // 避免和其他玩家、共享事件同時寫入時互相覆蓋。練習模式（無房間）維持本機處理，見呼叫端判斷。
+    const handleBoardHouseConversion = async (assetId: string, toSelfUse: boolean) => {
+        const result = await completeHouseConversion(assetId, toSelfUse);
+        if (result.status === 'failed') {
+            showAlert(result.message || '房屋切換同步失敗，請再試一次', 'error');
+        }
+    };
+    const handleBoardHappinessToggle = async (id: string) => {
+        const result = await completeHappinessToggle(id);
+        if (result.status === 'failed') {
+            showAlert(result.message || '幸福清單同步失敗，請再試一次', 'error');
+        }
+    };
+    const handleBoardHappinessAdd = async (label: string, points: number) => {
+        const result = await completeHappinessAdd(label, points);
+        if (result.status === 'failed') {
+            showAlert(result.message || '幸福清單同步失敗，請再試一次', 'error');
+        }
+    };
+    const handleBoardHappinessRemove = async (id: string) => {
+        const result = await completeHappinessRemove(id);
+        if (result.status === 'failed') {
+            showAlert(result.message || '幸福清單同步失敗，請再試一次', 'error');
+        }
     };
 
     const handleMedicalClaimConfirm = (claimId: string) => {
@@ -3262,6 +3289,7 @@ export const GameView: React.FC<{
                             onShowAlert={showAlert}
                             onDeleteTransaction={handleDeleteTransactionRecord}
                             onUpgradeBiz={handleBizUpgrade}
+                            onConvertHouse={room?.isBoardGame ? handleBoardHouseConversion : undefined}
                             disabled={room?.status === 'finished'}
                         />
                     </div>
@@ -4204,9 +4232,9 @@ export const GameView: React.FC<{
                 <HappinessListModal
                     items={gameState.happiness}
                     total={gameState.happinessTotal}
-                    onToggle={handleToggleHappiness}
-                    onAdd={handleAddHappinessItem}
-                    onRemove={handleRemoveHappinessItem}
+                    onToggle={room?.isBoardGame ? handleBoardHappinessToggle : handleToggleHappiness}
+                    onAdd={room?.isBoardGame ? handleBoardHappinessAdd : handleAddHappinessItem}
+                    onRemove={room?.isBoardGame ? handleBoardHappinessRemove : handleRemoveHappinessItem}
                     onClose={() => setShowHappinessModal(false)}
                 />
             )}

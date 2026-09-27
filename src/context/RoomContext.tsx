@@ -54,7 +54,10 @@ import { buildMovementEffects, describeMovementEffects } from '../game/board/mov
 import { appendDicePresentation, DICE_PRESENTATION_DURATION_MS, getFamilyDicePresentationReadyAt } from '../game/board/dicePresentation';
 import { isRetryableBoardTransactionError, runBoardTransactionWithRetry, runRoomBoardMutation as runRoomBoardMutationOnServer, type BoardRoomSnapshot, type RunRoomBoardMutationParams } from '../game/board/runBoardMutation';
 import { applyBoardCommand } from '../game/board/boardRevision';
-import { applyBoardTransaction, applyPaydayCollection, createSequentialIdGenerator } from '../game/finance/applyBoardTransaction';
+import {
+    applyBoardTransaction, applyHappinessAdd, applyHappinessRemove, applyHappinessToggle,
+    applyHouseConversion, applyPaydayCollection, createSequentialIdGenerator
+} from '../game/finance/applyBoardTransaction';
 import { toPublicPlayerState } from '../utils/playerState';
 import { extractAssetSymbol, getBusinessAssetLabel, getRealEstateAssetLabel, getStockAssetLabel } from '../utils/assetLabels';
 import { canSkipDisconnectedPlayer, mapRealtimePresenceValue } from '../utils/presence';
@@ -2495,6 +2498,14 @@ interface RoomContextValue {
     completeBoardTransaction: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     /** 棋盤「銀行」事件的每月結餘：金額由伺服器依玩家最新資料重新計算，不信任前端金額。 */
     completePaydayCollection: (boardEventId: string) => Promise<BoardFinancialMutationResult>;
+    /** 房屋自住／出租切換。 */
+    completeHouseConversion: (assetId: string, toSelfUse: boolean) => Promise<BoardFinancialMutationResult>;
+    /** 勾選／取消幸福清單項目。 */
+    completeHappinessToggle: (id: string, checked?: boolean) => Promise<BoardFinancialMutationResult>;
+    /** 新增自訂幸福項目。 */
+    completeHappinessAdd: (label: string, points: number) => Promise<BoardFinancialMutationResult>;
+    /** 移除幸福項目。 */
+    completeHappinessRemove: (id: string) => Promise<BoardFinancialMutationResult>;
     /** 只寫玩家私有文件（不動房間主文件）：共享／家庭歷程提示進行中，規則不允許一般房間交易時使用。 */
     completePlayerOnlyTransaction: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     /** 共享卡片的財務結算（股利、股息、全體支出）：財務資料與本人回覆在同一筆交易寫入。 */
@@ -6415,6 +6426,49 @@ useEffect(() => {
         });
     };
 
+    const completeHouseConversion = async (assetId: string, toSelfUse: boolean): Promise<BoardFinancialMutationResult> => {
+        const commandId = `house-conv:${room?.sessionId || room?.id}:${user?.uid}:${assetId}:${Date.now()}`;
+        return runPlayerFinancialCommand({
+            commandId,
+            failureLabel: '房屋自住／出租切換',
+            apply: (state) => {
+                const result = applyHouseConversion(state, assetId, toSelfUse);
+                if (result.status === 'error') return { status: 'failed', message: result.message };
+                return { status: 'applied', state: result.state };
+            }
+        });
+    };
+
+    const completeHappinessToggle = async (id: string, checked?: boolean): Promise<BoardFinancialMutationResult> => {
+        const commandId = `happiness-toggle:${room?.sessionId || room?.id}:${user?.uid}:${id}:${Date.now()}`;
+        return runPlayerFinancialCommand({
+            commandId,
+            failureLabel: '幸福清單',
+            apply: (state) => ({ status: 'applied', state: applyHappinessToggle(state, id, checked) })
+        });
+    };
+
+    const completeHappinessAdd = async (label: string, points: number): Promise<BoardFinancialMutationResult> => {
+        const commandId = `happiness-add:${room?.sessionId || room?.id}:${user?.uid}:${Date.now()}`;
+        return runPlayerFinancialCommand({
+            commandId,
+            failureLabel: '幸福清單',
+            apply: (state) => ({
+                status: 'applied',
+                state: applyHappinessAdd(state, label, points, { now: Date.now(), generateId: createSequentialIdGenerator(commandId) })
+            })
+        });
+    };
+
+    const completeHappinessRemove = async (id: string): Promise<BoardFinancialMutationResult> => {
+        const commandId = `happiness-remove:${room?.sessionId || room?.id}:${user?.uid}:${id}:${Date.now()}`;
+        return runPlayerFinancialCommand({
+            commandId,
+            failureLabel: '幸福清單',
+            apply: (state) => ({ status: 'applied', state: applyHappinessRemove(state, id) })
+        });
+    };
+
     const completeBoardTransaction = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
         const operationId = txData.boardEventId || txData.commandId;
         if (!operationId) return { status: 'failed', message: '交易缺少識別碼，請重新操作' };
@@ -8035,6 +8089,10 @@ useEffect(() => {
             completeLoanBorrow,
             completeBoardTransaction,
             completePaydayCollection,
+            completeHouseConversion,
+            completeHappinessToggle,
+            completeHappinessAdd,
+            completeHappinessRemove,
             completePlayerOnlyTransaction,
             completeSharedTransactionAction,
             completeLoanRepayment,

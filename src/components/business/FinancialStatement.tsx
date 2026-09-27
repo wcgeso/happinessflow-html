@@ -17,6 +17,8 @@ interface FinancialStatementProps {
   onShowAlert?: (message: string, type: 'info' | 'error' | 'success', persist?: boolean) => void;
   onDeleteTransaction?: (id: string) => void;
   onUpgradeBiz?: (assetId: string, diceRoll: number) => void;
+  /** 提供時取代本機切換：棋盤模式改走伺服器交易，避免與其他寫入衝突時被靜默丟棄。 */
+  onConvertHouse?: (assetId: string, toSelfUse: boolean) => void;
   hideSummary?: boolean;
   defaultShowDetails?: boolean;
   hideNav?: boolean;
@@ -90,6 +92,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   onShowAlert,
   onDeleteTransaction,
   onUpgradeBiz,
+  onConvertHouse,
   hideSummary = false,
   defaultShowDetails = false,
   hideNav = false,
@@ -110,6 +113,10 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   const { setGameState } = useGame();
 
   const handleHouseConversion = (assetId: string, toSelfUse: boolean) => {
+    if (onConvertHouse) {
+      onConvertHouse(assetId, toSelfUse);
+      return;
+    }
     setGameState(prev => {
       const updatedAssets = prev.assets.map(asset => {
         if (asset.id === assetId) {

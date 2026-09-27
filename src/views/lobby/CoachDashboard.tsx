@@ -1159,6 +1159,16 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v4.18',
+                    date: '2026-09-27',
+                    color: 'amber',
+                    items: [
+                      '房屋自住／出租切換改由伺服器結算，不再只改本機畫面再等待背景同步',
+                      '幸福清單勾選、新增自訂項目、刪除項目改由伺服器結算，避免與其他玩家或共享事件同時寫入時被覆蓋',
+                      '棋盤模式關閉開發者加減現金工具，財務資料只能透過正式交易寫入',
+                    ],
+                  },
+                  {
                     version: 'v4.17',
                     date: '2026-09-27',
                     color: 'amber',
