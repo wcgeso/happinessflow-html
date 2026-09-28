@@ -16,7 +16,9 @@ import {
     arrayUnion,
     arrayRemove,
     deleteField,
-    runTransaction
+    runTransaction,
+    enableNetwork,
+    disableNetwork
 } from 'firebase/firestore';
 import {
     get as getRealtimeValue,
@@ -124,6 +126,28 @@ export const buildSharedPromptResponseFallback = (
 
 // Presence is ephemeral connection data; Firestore is reserved for game state.
 const USE_REALTIME_PRESENCE = true;
+
+// 手機分頁被切到背景（螢幕鎖定、切 App）時，作業系統常會先掛起 Firestore
+// 用來監聽房間文件的 gRPC/long-polling 串流，但 Realtime Database 的
+// WebSocket 心跳可能還撐著、或是先恢復。這段落差會讓玩家回到前景後，
+// 幸福卡／骰子等大螢幕已經送出的棋盤事件卡在舊快照上，要等 Firestore SDK
+// 自己的重連 backoff（實測可達一分鐘以上）才會補上。與其乾等，切回前景或
+// 網路恢復時主動把 Firestore 的網路關掉再打開一次，強迫 SDK 立刻重建串流、
+// 跟伺服器要一份最新快照。
+const FIRESTORE_RECONNECT_BOUNCE_MIN_INTERVAL_MS = 5000;
+
+const forceFirestoreReconnect = async (lastBounceAtRef: React.MutableRefObject<number>, reason: string) => {
+    const now = Date.now();
+    if (now - lastBounceAtRef.current < FIRESTORE_RECONNECT_BOUNCE_MIN_INTERVAL_MS) return;
+    lastBounceAtRef.current = now;
+    try {
+        await disableNetwork(db);
+        await enableNetwork(db);
+        void trackGameEvent('firestore_reconnect_bounce', { reason }).catch(() => undefined);
+    } catch (error) {
+        console.error('[RoomContext] 強制重新連線 Firestore 失敗:', error);
+    }
+};
 
 const getTabClientId = (): string => {
     const key = 'happiness_flow_tab_client_id';
@@ -2586,6 +2610,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const lastObservedRoomStatusRef = useRef<Room['status'] | null>(null);
     const isClosingRoomRef = useRef(false);
     const finalizingSubcollectionPromptRef = useRef<string | null>(null);
+    const lastFirestoreReconnectAtRef = useRef(0);
+    const lastRealtimeConnectedValueRef = useRef<boolean | null>(null);
 
     // ─── Milestone 0.5: Adapter Wiring ───────────────────────────────────────
     // LegacyRoomAdapter 就位，但所有 Feature Flags 為 false，
@@ -2632,14 +2658,24 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const connectedRef = realtimeRef(realtimeDb, '.info/connected');
         presenceSessionIdRef.current = sessionId;
         presenceConnectionRef.current = connectionRef;
+        lastRealtimeConnectedValueRef.current = null;
         setConnectionState('connecting');
 
         const handleConnection = (snapshot: DataSnapshot) => {
-            if (snapshot.val() !== true) {
+            const isConnected = snapshot.val() === true;
+            const wasConnected = lastRealtimeConnectedValueRef.current;
+            lastRealtimeConnectedValueRef.current = isConnected;
+            if (!isConnected) {
                 setConnectionState(current => current === 'online' ? 'reconnecting' : current);
                 return;
             }
             setConnectionState('online');
+            if (wasConnected === false) {
+                // 從斷線恢復（而不是第一次連上）：分頁很可能剛從背景／網路中斷
+                // 恢復，Firestore 的房間監聽串流通常比 Realtime Database 心跳
+                // 更晚才會發現自己需要重連，主動 bounce 一次網路連線。
+                void forceFirestoreReconnect(lastFirestoreReconnectAtRef, 'realtime_presence_recovered');
+            }
             void Promise.all([
                 onRealtimeDisconnect(connectionRef).remove(),
                 onRealtimeDisconnect(lastOnlineRef).set(realtimeServerTimestamp()),
@@ -2663,6 +2699,27 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ]).catch(error => console.error('清理即時連線狀態失敗:', error));
             presenceConnectionRef.current = null;
             setConnectionState('offline');
+        };
+    }, [room?.id, user?.uid]);
+
+    // 手機切回前景／恢復網路時，Realtime Database 的心跳有時比 Firestore
+    // 的房間監聽串流更快恢復，導致上面那段復原判斷來不及觸發。這裡再補一層
+    // 直接的訊號：分頁變成可見或瀏覽器回報 online，就主動 bounce 一次
+    // Firestore 網路連線，讓幸福卡／骰子等棋盤事件不用乾等 SDK 自己的重連
+    // backoff（實測可達一分鐘以上）。
+    useEffect(() => {
+        if (!user?.uid || !room?.id) return;
+        const handleForegroundOrOnline = (reason: string) => () => {
+            if (reason === 'visibilitychange' && document.visibilityState !== 'visible') return;
+            void forceFirestoreReconnect(lastFirestoreReconnectAtRef, reason);
+        };
+        const handleVisibilityChange = handleForegroundOrOnline('visibilitychange');
+        const handleOnline = handleForegroundOrOnline('window_online');
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('online', handleOnline);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('online', handleOnline);
         };
     }, [room?.id, user?.uid]);
 

@@ -1160,6 +1160,15 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v4.20',
+                    date: '2026-09-28',
+                    color: 'rose',
+                    items: [
+                      '修復經過銀行後遇到機運卡等扣款事件，現金金額會被更早、已過期的本機快取數字重新計算，變成比正確結果少一次現金的問題',
+                      '玩家手機切回前景或恢復網路連線時，主動重新建立 Firestore 連線，縮短幸福卡、骰子等棋盤畫面卡在舊資料的等待時間',
+                    ],
+                  },
+                  {
                     version: 'v4.19',
                     date: '2026-09-27',
                     color: 'amber',

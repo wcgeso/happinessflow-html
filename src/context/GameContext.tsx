@@ -400,8 +400,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!room?.id || !user?.uid || user.uid === room.hostId || !roomPlayerState || roomSyncState !== 'synced') return;
         if (!isPlayerStateForBoardGame(roomPlayerState, room.startedAt)) return;
 
+        const previousAuthoritative = lastAuthoritativePlayerStateRef.current;
         lastAuthoritativePlayerStateRef.current = roomPlayerState;
         lastSyncedPlayerStateHashRef.current = JSON.stringify(limitPlayerSyncHistory(pickPlayerStateForSync(roomPlayerState)));
+
+        // 權威資料在這段等待期間可能已經被別的交易改過（例如先領銀行月結餘、
+        // 再扣機運卡費用）。暫存的本機差異若是針對「更早那份」權威值算出來的，
+        // 就已經過期；繼續套用只會把新算好的金額蓋回舊數字，必須先丟棄。
+        Object.keys(pendingLocalPlayerPatchRef.current).forEach(field => {
+            const key = field as keyof GameState;
+            const authoritativeUnchanged = !previousAuthoritative ||
+                serializedValue(roomPlayerState[key]) === serializedValue(previousAuthoritative[key]);
+            if (!authoritativeUnchanged) {
+                delete pendingLocalPlayerPatchRef.current[key];
+            }
+        });
 
         setGameState(prev => {
             const synchronizedState = mergeAuthoritativePlayerState(prev, roomPlayerState);

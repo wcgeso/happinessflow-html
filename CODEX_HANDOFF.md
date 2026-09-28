@@ -1,5 +1,390 @@
 # 第二人生 P0 Integration Handoff
 
+## 2026-09-24 房間玩家欄位開放／關閉
+
+- 執行師可在等待房間直接點選空玩家欄位開放或關閉；房間以 `maxPlayers` 保存目前開放數量，`closedPlayerSlots` 記錄關閉的欄位，舊房間缺少欄位資料時仍依原名額顯示。
+- 關閉已有人使用的欄位、讓開放名額少於已加入人數，或關閉最後一個欄位都會被拒絕；遊戲開始後不可調整。
+- 玩家加入改為 Firestore transaction 讀取最新房間及本人存檔後檢查開放名額，降低同時加入超出人數的競態。
+- 驗證：`npm run typecheck`、`src/utils/roomPlayerSlots.test.ts`（3/3）、`npm run build`、`git diff --check` 通過；本機頁面已確認六個欄位正確呈現開放／關閉與點擊提示，未對目前房間實際切換欄位或加入測試玩家。
+- 未更新版本、未部署；保留 dev 工作樹其他既有修改。
+- 修改：`src/context/RoomContext.tsx`、`src/views/lobby/RoomView.tsx`、`src/utils/roomPlayerSlots.ts`、`src/utils/roomPlayerSlots.test.ts`。
+
+## 2026-09-24 房間監聽權限錯誤不再清空本機房間
+
+- 根因：房間文件 `onSnapshot` 遇到 `permission-denied` 時，舊處理把本機 `room` 清空並刪除房間指標；App 因而跳回大廳，表面上像房間被自動關閉。此錯誤本身不代表 Firestore 房間文件已刪除。
+- 修正：只有明確 `not-found` 才清除本機房間；權限錯誤保留房間畫面並顯示「不代表房間已關閉」的提示。實際刪除房間仍只由執行師確認關房流程呼叫。
+- 驗證：`RoomContext.test.ts` 63/63、`npm run typecheck`、目標檔案 `git diff --check` 通過；未執行雲端／瀏覽器實機回歸。
+- 修改：`src/context/RoomContext.tsx`、`src/context/RoomContext.test.ts`。
+- 風險：本次沒有取得使用者當下的 Firestore 錯誤碼；若雲端房間文件確實被刪除，仍需查明是哪個關房請求或外部清理程序造成。
+
+## 2026-09-24 考試通過彈窗單畫面版面
+
+- 考試成功結果使用緊湊版面：縮小骰子、彈窗留白與獎勵區間距，並保留至少 44px 的主要操作按鈕；擲骰前及動畫中的畫面維持原樣。
+- 彈窗最大高度納入安全區，成功狀態採緊湊排版以避免一般手機畫面垂直溢出；尚未在實機瀏覽器截圖確認。
+- 驗證：`npm run build` 與目標檔案 `git diff --check` 通過；本機 `localhost:5173` 無伺服器回應，因此未完成瀏覽器截圖確認。
+- 未更新版本、未部署；保留 dev 工作樹既有修改。
+- 修改：`src/components/modals/DiceRollModal.tsx`。
+
+## 2026-09-23 新房／新局舊資料回溯修正
+
+- 房間切換會先切換 listener token 與房間／場次 scope；舊房間 callback、舊私人玩家 listener 與上一場 `sessionId` 的玩家資料不再能覆蓋新房。
+- 新場次可接受重新由 0 開始的棋盤 revision；同房號但不同 `sessionId` 不保留上一場私人玩家資料。
+- `startRoomGame()` 改為單一 Firestore transaction，僅 `waiting` 可初始化；重複點擊開始只沿用既有場次，不重建 session 或再次刪除玩家資料。新局同步重設棋盤、計時器、市場、審核與私人玩家狀態。
+- RTDB 最後離線時間改為依房間成員逐筆監聽，符合既有逐 UID 權限，避免登入／開房時持續出現 parent-path `permission_denied`。
+- E2E 更新為目前的明確職業／企業／夢想選擇流程，並驗證計時器啟動、目前玩家可擲骰及投影棋子位置與 Firestore 一致。
+- 驗證：RoomContext／GameContext 71/71、完整 Vitest 299 passed／30 skipped、Rules 30/30、TypeScript、正式 build、`git diff --check`，以及 1 執行師＋3 玩家＋大地圖 E2E 通過。
+- 未 commit、push 或部署；保留 dev 工作樹其他既有修改。
+
+## 2026-09-17 H002 故事分享首次送出權限錯誤修正
+
+- 根因：玩家送出故事時，先以 transaction 讀取尚不存在的 `pendingRequests` 文件；Firestore Rules 只允許玩家讀取自己的既有請求，因此首次建立會被判定為權限不足。
+- 修正：`submitRequest()` 改為直接建立子集合請求，保留固定 request ID；同場次的既有 pending／approved 請求視為冪等成功，沒有 `sessionId` 的舊房間則沿用 legacy 請求格式。
+- 同時以 `cleanObject()` 移除未定義欄位，避免故事卡事件尚未帶 ID 時造成 Firestore 寫入失敗。
+- 驗證：`npm run typecheck` 通過；`npm run test:rules` 因既有 Firestore Emulator 程序占用 8080 而未能啟動，未修改或終止該程序。
+- 未 commit、push 或部署；保留 dev 工作樹其他既有修改。
+
+## 2026-09-17 v4.5 家庭歷程面板優化與正式部署
+
+- 對外版本更新為 `v4.5`，系統更新日誌加入家庭歷程同步擲骰面板可讀性、卡片避讓與收合／展開功能。
+- 正式部署 `dpl_BEDq2BgXJbXrxP2dhCLydxSvn4KY` 已 Ready，專案 `2ife`，正式網址為 `https://2ife.vercel.app`。
+- 驗證：`npm run typecheck`、`npm run build`、`git diff --check` 通過；正式網址 HTTP 200。Build 保留既有 Tailwind、動態／靜態匯入及 chunk 大小警告。
+- 未 commit 或 push；保留 dev 工作樹其他既有修改。
+
+## 2026-09-17 家庭歷程同步擲骰遮擋優化
+
+- 家庭歷程卡片改為較短的投影高度，並在卡片固定層底部預留同步擲骰面板空間，避免卡片內容與操作區被底部面板遮住。
+- 保留底部不透明深藍同步面板、多人同時顯示與卡片內部捲動，不修改同步流程或資料結構。
+- 驗證：`npm run build`、`git diff --check` 通過；Build 僅有既有 Tailwind、動態／靜態匯入及 chunk 大小警告。
+- 未 commit、push 或部署；保留 dev 工作樹其他既有修改。
+
+## 2026-09-17 家庭歷程同步擲骰遮擋再優化
+
+- 家庭歷程卡片投影層新增底部安全空間，並降低家庭歷程卡片最大高度，避免底部同步擲骰面板遮住卡片內容。
+- 同步擲骰面板新增收合／展開控制；收合時保留玩家結果進度，讓執行師可在需要時查看完整玩家列。
+- 驗證：`npm run typecheck`、`npm run build`、`git diff --check` 通過；Build 僅有既有 Tailwind、動態／靜態匯入及 chunk 大小警告。
+- 未 commit、push 或部署；保留 dev 工作樹其他既有修改。
+
+## 2026-09-17 家庭歷程同步擲骰面板可讀性優化
+
+- 底部同步擲骰面板改用完全不透明的深藍背景，並提高陰影與外框對比，避免後方家庭歷程卡片透出造成文字與骰子難以辨識。
+- 維持既有底部橫排、多人同步顯示與卡片位於面板上方的版面，不修改同步流程或資料結構。
+- 驗證：`npm run build`、`git diff --check` 通過；Build 僅有既有 Tailwind、動態／靜態匯入及 chunk 大小警告。
+- 未 commit、push 或部署；保留 dev 工作樹其他既有修改。
+
+## 2026-09-16 故事分享審核同步優化
+
+- 新故事／卡片審核請求改寫入 `rooms/{roomId}/pendingRequests/{requestId}`，不再把新請求寫入共用房間文件。
+- 執行師只監聽目前 `sessionId` 的請求；玩家只監聽自己的請求。請求 ID 以場次、類型、玩家、事件與卡片建立，重送不會產生重複請求。
+- 幸福故事核准使用單一 transaction 同時更新待審核狀態與玩家私有幸福資料；舊 `rooms.pendingRequests` 保留相容讀取與清除。
+- 修改：`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx`、`src/views/lobby/CoachGameView.tsx`、`firestore.rules`、相關測試。
+- 驗證：完整 Vitest 264 passed／27 skipped；獨立 Firestore Emulator Rules 27 passed；TypeScript、正式 build、`git diff --check` 通過。
+- 未 commit、push 或部署；尚待三位玩家＋執行師真實跨裝置延遲前後比較。
+
+## 2026-09-16 v4.3 正式部署
+
+- 對外版本與系統更新日誌更新為 v4.3，內容涵蓋職業／企業／夢想點選清單、開始前摘要確認，以及 Firestore 開局設定交易保存。
+- Vercel production deployment `dpl_G6dv8T4UBStCH4QRgkowYtGiJf66` 已 Ready，專案 `2ife`，別名 `https://2ife.vercel.app`。
+- 正式網址 HTTP 200；已確認線上 bundle 含 `v4.3` 與 v4.3 更新日誌文案。
+- 驗證：Vitest 258 passed／26 skipped；Firestore Rules 26/26；TypeScript、正式 build、`git diff --check` 通過。Build 仍有既有 Tailwind、動態／靜態匯入及 chunk 大小警告。
+- 部署使用目前 dev 工作樹；未 commit 或 push。`.env*`、`dist`、`output/playwright` 依 `.vercelignore` 排除。
+- 尚待實際多裝置手動回歸職業、企業、夢想選擇及開始後資料一致性。
+
+## 2026-09-15 職業、企業與夢想選擇流程穩定化
+
+- 根因：舊輪播在每次捲動時都呼叫選擇 callback，三份循環卡片與置中計算會讓瀏覽動作改變正式選擇；SelectionView 也會持續把父層雲端草稿與步驟寫回本機，舊快照可能覆蓋玩家當前選項。
+- 修正：三步改為響應式卡片清單／網格，只有明確點選才選取；移除循環輪播、縮放置中與父層快照持續重設本機步驟／選項。夢想完成後新增三項摘要確認。
+- 完成開局時，GameContext 以單一 Firestore transaction 寫入玩家完整設定與自己的公開完成狀態；驗證目前場次與房間成員，成功後才進入遊戲，失敗則留在摘要頁可重試。
+- 驗證：選擇 UI 目標測試 2/2、完整 Vitest 43 files passed／1 skipped，258 passed／26 skipped；Firestore Rules 26/26、TypeScript、正式 build、`git diff --check` 通過。Build 僅有既有 Tailwind／chunk size 警告。
+- 尚待 2～3 個實際玩家帳號手機與桌面同步操作回歸；本次未更新版本、部署、commit 或 push，保留 dev 工作樹其他修改。
+- 修改：`src/components/common/SelectionOptionGrid.tsx`、`src/views/selection/SelectionView.tsx`、`src/context/GameContext.tsx`、`src/App.tsx` 及選擇／Firestore Rules 測試。
+
+## 2026-09-12 正式環境回合與落點事件延遲修正
+
+- 根因：所有棋盤操作仍以 Firestore 房間文件作為權威來源；多人同時操作會競爭同一份 transaction。移動結算另有一套在 transaction 完成後重新等待完整動畫時間的排程，與既有絕對截止時間排程重疊，正式網路延遲時會放大卡片出現時間並增加重複結算競爭。
+- 修正：移除擲骰與分段事件恢復路徑的相對等待／重複結算，只保留依 `movement.startedAt + settleMs` 的 RoomContext 絕對截止時間排程。保留 command ID、revision 與 transaction retry 防護。
+- 量測：房間 listener 對每個新的正式快照記錄 `board_listener_sync`（同步延遲、是否回合交接、revision、移動狀態）；`board_command` 增加 `retry_count`，可區分 Firestore transaction 競爭與 listener 延遲。
+- Firestore 地區已由 Firebase CLI 只讀確認為 `asia-east1`，不是美國區域；目前未修改 `experimentalAutoDetectLongPolling`，待正式受影響網路 A/B 量測後再決定。
+- 驗證：`npm run typecheck` 通過；完整 Vitest 250 passed／26 skipped；`npm run build` 通過；`git diff --check` 通過。正式部署 `dpl_4YQ2jZLNDDPPsBfnHs1FWpwStF29` 已 Ready，正式網址 HTTP 200，線上 bundle 已確認包含 `v3.9`、`board_listener_sync` 與本次更新日誌文字。
+- 未 commit 或 push；保留 dev 工作樹所有既有未提交修改。尚未完成正式多人瀏覽器延遲前後比較，傳輸模式 A/B 仍待實機量測。
+- 主要修改：`src/context/RoomContext.tsx`、`src/game/board/runBoardMutation.ts`、`src/views/lobby/CoachDashboard.tsx`、`DEBUG_HANDOFF.md`。
+
+## 2026-09-11 v3.8 Vercel 正式部署
+
+- Production deployment `dpl_BaLQjzDTMHjyTFAP8ie2CMwcf2eo` 狀態為 Ready，正式網址為 `https://2ife.vercel.app`。
+- 正式網址回應 HTTP 200，production bundle 已確認包含 `v3.8` 與 `happinessflow-online`，不包含本地 Firestore Emulator 位址。
+- 近一小時 deployment error logs 無紀錄；本次未 commit 或 push，保留 dev 工作樹所有既有修改。
+
+## 2026-09-11 版本 v3.8 與系統更新日誌
+
+- 對外版本由 `v3.7` 更新為 `v3.8`。
+- 系統更新日誌新增家庭歷程同步與骰點揭示、H026、C041～C043、N056～N058 銀行升級，以及股票／負現金流修正。
+- 日誌只列入已完成且已有自動化驗證的項目；尚未宣稱多人實機回歸完成。
+- 部署前驗證完成：TypeScript 通過；完整 Vitest 244 passed／25 skipped；Firestore Rules 25 passed；正式 build 與 `git diff --check` 通過。
+
+## 2026-09-11 N057 銀行第一骰事件快照修正
+
+- 根因：第一骰已在 transaction 內讀取最新銀行事件，卻仍要求玩家畫面傳入的舊 `sourceEventId` 完全相同；listener 落後一個 revision 時，有效操作會在骰點寫入前被拒絕，大螢幕因此沒有事件。
+- 修正：N056～N058 第一骰共用 transaction 的最新銀行事件作為權威判斷；仍限制目前回合與事件玩家，移除舊畫面事件 ID 的額外阻擋。
+- 驗證：`RoomContext`／`BizUpgradeModal` 目標測試 35 passed；`npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- 尚待玩家手機＋大螢幕實機驗證；本次未 commit、push 或部署，既有工作樹修改均保留。
+
+## 2026-09-11 家庭歷程手機端提前顯示骰點結果修正
+
+- 根因：手機端在 `handleFamilyJoinRoll()` 收到 Firestore transaction 成功回傳後立即顯示結果；大螢幕則等收到 listener 快照後才播放家庭同步骰點動畫，兩端以不同起點計時。
+- 修正：家庭骰點回覆新增可選的 `presentationReadyAt`，由交易寫入 `respondedAt + DICE_PRESENTATION_REVEAL_MS`。手機端的結果通知、通過後財務檢核與失敗結果顯示，均等到該共享時間點；大螢幕家庭骰點動畫也依每位玩家的同一 deadline 結束。
+- 重送同一個家庭骰點 command 時，沿用已存在回覆的骰值、狀態與揭示時間，不會因本機重新產生亂數而出現不同結果。沒有新欄位的舊回覆以 `respondedAt + DICE_PRESENTATION_REVEAL_MS` 相容。
+- 影響範圍：`src/types.ts`、`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx`、`src/components/board/DicePresentationOverlay.tsx`、`src/game/board/dicePresentation.ts`。
+- 驗證：`npm run typecheck` 通過；完整 Vitest 41 files passed／1 skipped，242 passed／25 skipped；正式 build、`git diff --check` 通過。
+- 尚未完成三位玩家＋執行師瀏覽器實機家庭歷程回歸；本次未 commit、push 或部署。保留工作樹內其他既有修改。
+
+## 2026-09-11 N057 經過銀行第一骰無反應再次修正
+
+- 根因：第一骰 command ID 綁定畫面所在的房間 revision，且 transaction 依賴畫面快照資產 ID；銀行確認後若玩家私有狀態、房間事件與畫面快照不同步，會在寫入 `business-upgrade` 骰點投影前被判定為等待狀態已更新。
+- 修正：第一骰以本次銀行 `sourceEventId` 建立穩定冪等鍵；transaction 以最新私有玩家文件的待升級卡片代號解析未升級企業，並驗證目前銀行事件 ID。第二骰保留 revision 作為失敗重試鍵。
+- `buildStartupUpgradeState()` 同樣容許舊畫面資產 ID 失效時依待升級卡片代號解析正確工作室，並拒絕誤用其他企業代號。
+- 驗證：`npm run typecheck` 通過；完整 Vitest 41 files passed／1 skipped，241 passed／25 skipped；正式 build、`git diff --check` 通過。
+- 尚未完成多人瀏覽器實機回歸、Rules 全量驗證；本次未 commit、push 或部署。
+
+## 2026-09-11 C041～C043 修繕費依未投保房屋數量計算
+
+- 根因：共用 `property_repair` resolver 只使用卡片 `cashLoss` 一次，未乘上未投保房屋數量。
+- C041～C043 現在依每間未投保房屋計算修繕費；C041 3 間未投保房屋會收取 600,000 元，部分投保只計未投保房屋，全部投保不收費。
+- `txData.amount`、`cashChange` 與影響摘要使用同一結果，財務檢核和結算路徑一致。
+- 驗證：`npx vitest run src/utils/boardCardActions.test.ts` 62 passed；完整 Vitest 41 files passed、1 skipped，240 passed、25 skipped；TypeScript、正式 build、`git diff --check` 通過。
+- Rules 全量與真實多人瀏覽器回歸本次未執行；本次未 commit、push 或部署。
+- 保留工作樹內其他既有修改。
+
+## 2026-09-11 H026 孩子才藝活動卡修正
+
+- 根因：H014／H015 家庭歷程成功結算時未同步更新 `GameState.children`，H026 依子女數檢核時把已完成第一個孩子的玩家誤判為沒有孩子。
+- `applyFamilyMilestoneStage()` 現在會在 child1／child2 成功套用時增加子女數，且保留原有冪等防重複；H026 同時相容已勾選／已完成 child milestone 的舊存檔。
+- 有孩子時 H026 顯示「接受」並進入財務檢核；沒有孩子時維持無效果且只能關閉。
+- 驗證：H026／家庭歷程目標測試 93 passed；完整 Vitest 41 files passed、1 skipped，239 passed、25 skipped；TypeScript、正式 build、`git diff --check` 通過。
+- 本次未 commit、push 或部署；保留工作樹內其他既有修改。
+
+## 2026-09-11 股票輸入、月現金流與家庭歷程回覆修正
+
+- 股票「每檔張數」允許先清空再輸入；空值送出時仍安全回退為 1 張，不影響既有全部買入／賣出累加與賣出上限。
+- 月現金流支出不再讓現金低於 0；現金不足的差額會建立零利息強制負債及財務歷史，補足當次支出。
+- 家庭歷程玩家成功／失敗／略過回覆均以 prompt ID 記住已送出狀態，並以最新 prompt response 組出達標後的財務動作，避免舊快照讓骰子重開或再次出現同步失敗。
+- 驗證：`npm run typecheck`、目標 Vitest 3 files／40 tests、`npm run build`、`git diff --check` 通過；Rules 全量與真實多玩家瀏覽器回歸尚未執行。
+- 本次未 commit、push 或部署；保留工作樹內其他既有修改。
+
+## 2026-09-10 v3.7 Firestore 優化正式部署
+
+- 對外版本更新為 `v3.7`，執行師系統更新日誌已加入本次 Firestore 無效寫入、同步 transaction、原子翻牌／prompt、歷史讀取與投影優化。
+- Vercel production deployment `dpl_Bjh1PKq345AXKcRLWPUSdXd6C4ch` 已 `READY`，正式網址為 `https://2ife.vercel.app`。
+- 線上驗證：正式網址 HTTP 200；Production bundle 包含 `v3.7` 與 `happinessflow-online`，未包含 localhost 或 Firestore Emulator 端點。
+- 發佈前驗證：TypeScript 通過；完整 Vitest 41 passed／1 skipped、237 passed／25 skipped；正式 build 通過；`git diff --check` 通過；E2E 啟動冒煙通過。
+- 保留已知限制：Rules 全量測試受既有 8080 Emulator 佔用影響；完整 3／6 人多人實測、正式雲端讀寫前後比較、所有財務 caller transaction 遷移與 history load-more 尚未完成。
+- 本次未 commit、push；保留工作樹既有未提交修改。
+
+## 2026-09-10 Firestore 優化執行：第一至六項
+
+- 本批僅修改同步／交易／投影與歷史讀取路徑，保留既有未提交內容。沒有新增服務、集合或套件，沒有 commit、push 或部署。
+- `RoomContext`：逐一標記過期事件、已結案提示、無抽卡結果、未取得家庭參與資格等沒有資料變更的分支為 `commit: false`。不以 `result: false` 一概禁止提交，正常拒絕參與仍可寫入。
+- 提示修復會真正移除舊 `family_milestone` 請求；沒有待修資料時不寫入。只寫需要清理的私人玩家文件，修復 command ID 依場次／提示／請求識別，不再依 revision 產生。
+- `App` 的 `boardRoom` 路由在 RoomProvider／GameProvider 之前分流。保留 Auth 與投影頁自身的房間監聽；不啟動控制權 claim、玩家存檔與主持人修復副作用。
+- 既有交易 telemetry 分開 committed／duplicate／skipped／failed，增加 callback attempts、最後一次 callback 排定的寫入數及單調時鐘耗時。這些不是帳單讀寫量；Analytics 失敗不影響交易結果。
+- `GameContext`：玩家同步改為 transaction 合併最新私人文件，只套用相對於最後權威快照的本機欄位差異；歷史初次查詢限制最近 20 筆，草稿備份間隔維持 30 分鐘。
+- `RoomContext`：翻牌與家庭／共享提示在同一個房間 transaction 建立；玩家私有資料、卡片日誌與 prompt 使用目前房間快照，避免先翻牌再建立提示的競態。
+- `runRoomBoardMutation()`：即使 caller 忘記標記 `commit:false`，若 board 與 room 都沒有實際變更，也不消耗 revision 或寫入 command ID；投影幕移動取樣由 80ms 調整為 160ms。
+- 執行紀錄頁改為初次讀取最近 20 筆並提供手動重新整理；E2E 測試統一使用 `playwright/test`，排除同版本 Playwright 重複載入。
+- 測試新增原子翻牌／prompt、無效 command 零寫入與交易 telemetry 斷言；完整 Vitest 41 passed／1 skipped，237 passed／25 skipped；TypeScript、build、git diff --check 通過。
+- Rules 測試仍未完成：既有本地 Firestore Emulator 佔用 8080，直接連線的 Rules test 在清理階段逾時；未宣稱 Rules／多人 Emulator／雲端實機或節費百分比已驗收。
+- **仍待後續**：完整 history load-more、所有財務 caller 的單一 transaction 遷移，以及 3／6 玩家實機壓測。此次已降低確定的無效寫入與翻牌競態，但不宣稱正式環境共享延遲已完全排除。
+
+
+## 2026-09-09 v3.6 正式部署與雲端 Firestore 保護
+
+- 對外版本更新為 `v3.6`，執行師系統更新日誌已加入本次 Firestore 用量優化與正式環境連線保護；未宣稱尚未完成實機驗證的功能已修正。
+- `services/firebase.ts` 改為只有 Vite 開發模式且 `VITE_USE_EMULATOR=true` 時才連接 Auth／Firestore／Realtime Database Emulator；Vercel Production／Preview build 一律使用 `happinessflow-online` 雲端 Firebase。
+- Vercel project `2ife` production deployment `dpl_CucARXawLjPPZ29ytfFntW6TRgXR` 已 `READY`，正式網址為 `https://2ife.vercel.app`。
+- 線上驗證：正式網址 HTTP 200；production asset 包含 `v3.6` 與 `happinessflow-online`，未包含本地 `localhost:8080`、`127.0.0.1:8080` 或 `172.20.10.3:8080` Emulator 端點；Production 環境變數目前為空。
+- 驗證：`npm run typecheck` 通過；完整 Vitest `40 files passed / 1 skipped，229 passed / 25 skipped`；`npm run build` 通過；`git diff --check` 通過。建置仍有既有 Tailwind ambiguous class、dynamic import 與 chunk size 警告。
+- `npm run test:rules` 仍受既有 8080 Emulator 佔用影響，未宣稱 Rules 全量驗證通過；本次未 commit、push。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`、`services/firebase.ts`、`CODEX_HANDOFF.md`
+- 目前風險：尚未完成正式雲端 6 位玩家＋執行師的前後用量比較；正式站尚未進行本次版本的多人瀏覽器回歸。
+- 下一個最安全任務：用正式測試帳號做 3 位玩家＋執行師冒煙，確認主要流程與雲端 Firestore 寫入正常，再另行處理長期 bundle 分割與 Rules Emulator 隔離。
+
+## 2026-09-09 Firestore 第一階段用量優化
+
+- `runRoomBoardMutation()` 不再為每個棋盤 command 額外寫入未被正式程式讀取的 `rooms/{roomId}/events/revision_*` 文件；保留房間 revision 與 command ID 冪等防護。
+- 停止玩家診斷狀態的背景 RTDB 上傳與執行師監聽；一般 presence、斷線偵測與分頁控制權維持不變。
+- 玩家同步前限制 `history` 最近 100 筆、`appliedBoardFinancialEventIds` 最近 200 筆及每個股票 `marketPriceHistory` 最近 100 筆；`player_sessions` 草稿備份間隔由 10 分鐘調整為 30 分鐘。
+- 版本更新為 `v3.6`；`services/firebase.ts` 現在只允許本機 Vite 開發模式啟用 Emulator，正式／Preview build 一律使用 `happinessflow-online` 雲端 Firebase。
+- 新增同步資料上限測試，避免長時間遊戲讓玩家文件持續膨脹。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/game/board/runBoardMutation.ts`、`src/context/GameContext.tsx`、`src/context/GameContext.test.ts`、`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx`
+- 測試結果：`npm run typecheck` 通過；完整 Vitest `229 passed / 25 skipped`；目標測試 `9 passed`；production build 通過；選定檔案 `git diff --check` 通過。
+- Rules 結果：既有 8080 Emulator 被占用，`npm run test:rules` 無法啟動新的 Emulator；直接對既有 Emulator 執行時 `22 passed / 3 hooks timeout`，失敗為 `clearFirestore` 環境逾時，非本次程式測試斷言失敗。
+- 目前風險：尚未完成正式雲端 6 位玩家＋執行師的前後用量比較；Firestore prompt 尚未拆分，正式多人同時回覆仍可能競爭同一房間文件。
+- 下一個最安全任務：在乾淨且獨立的 Firestore Emulator 執行 Rules 全量驗收，再以一場正式雲端多人測試比較 reads／writes 與共享視窗延遲。
+
+## 2026-09-09 N056–N058 銀行第一骰無投影修正
+
+- 根因：企業升級骰點與完成路徑未明確強制讀取玩家私有文件；房間殘留舊 `playerStates` 時，可能讀到沒有最新待升級工作室／待辦的共享快照，交易在寫入骰子投影前失敗。
+- 修正：創業貸款完成、銀行第一骰及企業升級完成全部使用 `forcePrivatePlayerStates: true`，以 `rooms/{roomId}/players/{uid}` 作為玩家財務與待升級資料來源。
+- 銀行第一骰 transaction 另驗證最新 `currentEvent` 屬於目前玩家的 `bank` 事件；只有驗證成功才追加 `business-upgrade` 到 `boardState.diceEvents`，大螢幕即可收到既有投影事件。
+- 驗證：Room／Board mutation／骰子投影相關測試 36/36、`npm run typecheck`、`npm run build`、`git diff --check` 通過；本地伺服器 HTTP 200。
+- 限制：`npm run test:rules` 因既有 Firestore Emulator 佔用 8080 未能啟動新實例；尚未完成 3 位玩家＋執行師瀏覽器實機回歸；未 commit、push 或部署。
+
+## 2026-09-09 幸福歷程多人同步骰子與大螢幕網格
+
+- 大螢幕家庭歷程改以目前 prompt 的 source／target 玩家名單建立同步骰子網格：2／3 位為 1 列、4 位為 2×2、5／6 位為 2×3；尚未擲骰者顯示等待狀態，結果不再一顆一顆排隊播放。
+- 家庭骰點回覆不再追加共用 `diceEvents`，改由 prompt `responses` 作為大螢幕家庭骰點唯一來源，並避免普通骰子動畫覆蓋同步網格。
+- 家庭歷程大螢幕對每位新收到的骰點獨立播放擲骰動畫，動畫完成後才顯示點數與「達標／未達標」；既有回覆在重新整理後不會重播。
+- 家庭骰點格位的骰子展示區改為足以容納 128px 骰子的固定高度，卡片同步增加最小高度，避免骰子溢出覆蓋下方的「達標／未達標」文字。
+- `openFamilyMilestoneJoinPrompt`、家庭擲骰回覆、參與結果、來源完成及結案交易都強制使用玩家私有文件；保留 Firestore transaction、revision 與 command ID 冪等機制，降低多人同時按骰造成的同步失敗與重按需求。
+- 驗證：家庭骰點／投影相關測試 5 passed；`npm run typecheck`、`npm run build`、`git diff --check` 通過。完整 `npx vitest run src` 為 38 files passed、1 skipped，226 passed／25 skipped，另有既有 `BrokerView` 測試逾時 1 項；`npm run test:rules` 因既有 Firestore Emulator 佔用 `8080` 無法啟動新實例，未宣稱 Rules 驗證通過。
+- 尚未 commit、push 或部署；尚未完成三個獨立瀏覽器的多人家庭歷程手動回歸。
+
+## 2026-09-09 移除執行師玩家診斷狀態區塊
+
+- 移除執行師遊戲頁面的「玩家診斷狀態」唯讀面板，保留玩家管理、財務調整、補助及其他執行師功能。
+- 保留後端診斷同步資料，未修改資料結構、權限或玩家端狀態回報。
+- 驗證：`npm run typecheck`、`git diff --check` 通過；尚未 commit、push 或部署。
+
+## 2026-09-09 醫院第二次骰子動畫與醫藥費提示同步
+
+- 玩家端收到醫院骰點後，改以該事件的骰點事件鍵等待完整 `DICE_PRESENTATION_DURATION_MS` 展示時間，再顯示醫藥費並啟用財務流程。
+- 避免大螢幕骰子仍在播放時，玩家端提前看到金額或進入財務檢核；不同醫院事件不會沿用上一事件的本機骰點。
+- 驗證：`npm run typecheck`、`dicePresentation.test.ts` 2/2、`git diff --check` 通過；尚未 commit、push 或部署。
+
+## 2026-09-09 房市公告購買結果與區域網路崩潰修正
+
+- 房市購買前的 attempt ID 改用 `globalThis.crypto.randomUUID()` 安全 fallback，並在 `GameView` 入口捕捉非同步錯誤；`http://172.20.10.3:5183` 不再因非安全內容缺少 `randomUUID()` 觸發 `Unhandled Promise Rejection`。
+- `buyRealEstateFromMarket()` 強制使用玩家私有文件交易；`runRoomBoardMutation()` 同時修正空 `playerStates` 的儲存模式判斷，舊房間欄位只作被操作玩家的遷移 fallback，不把完整財務狀態寫回共享房間。
+- 房屋從房市移除、玩家現金／資產／貸款更新與冪等 command 仍在同一個 Firestore transaction，並保留多人競買第一筆成功、後續顯示已售出的規則。
+- 新增儲存模式單元測試；驗證：`npm run typecheck`、`npx vitest run src`（226 passed／25 skipped）、`npm run build`、`git diff --check` 通過。
+- 尚未 commit、push 或部署；尚未完成三個獨立瀏覽器的多人房市競買實機回歸。
+
+## 2026-09-09 H005 故事分享核准後幸福點被舊狀態覆蓋
+
+- 根因：執行師核准已原子寫入玩家幸福結果，但玩家端只因公開玩家摘要變動就把尚未收到私人文件更新的舊 `gameState` 回寫，造成幸福點回退。
+- 修正：`GameContext` 不再以公開摘要差異單獨觸發同步；保留本機狀態雜湊、初始化同步與保險資料變更的既有同步條件，所有 H001–H010 共用同一修正。
+- 驗證：`npm run typecheck`、Room／Game Context 測試 35 項、`git diff --check` 通過；完整 Vitest 為 225 passed／25 skipped，另有既有 4 個 e2e suite 因 Playwright runner／未設定 Emulator 環境在收集階段失敗；尚未 commit、push 或部署。
+
+## 2026-09-09 房市公告標題資訊簡化
+
+- 房市公告將卡片代號移到每筆物件標題最左側，移除「不動產」前綴與重複副標，保留房屋主標、價格及交易資訊。
+- 手機版標題列維持可換行，不影響房屋購買操作。
+- 驗證：`npm run typecheck`、`npm run build`、`git diff --check` 通過；尚未 commit、push 或部署。
+
+## 2026-09-09 房市公告顯示卡片代號
+
+- 玩家端房市公告的每個不動產標題旁新增卡片代號標籤，例如 `N042`，手機版可自然換行且不擠壓價格與購買按鈕。
+- 未修改房市交易、物件上架或購買判定。
+- 驗證：`npm run typecheck`、`npm run build`、`git diff --check` 通過；尚未 commit、push 或部署。
+
+## 2026-09-09 大螢幕房市資訊卡完整顯示
+
+- 房市資訊卡改用較高的展示高度與較緊湊的資訊欄位間距，讓房屋總價、頭期款、貸款、利息、租金、幸福點及月淨收益完整落在可視區內。
+- 右側資訊區新增明確的溢出邊界，內容超出小尺寸視窗時仍可在卡片內捲動；其他卡片高度與遊戲流程不變。
+- 驗證：`boardProjectionLayout.test.ts` 7/7、`npm run typecheck`、`npm run build`、`git diff --check` 通過；尚未 commit、push 或部署。
+
+## 2026-09-09 股市行情通知改為中央直接顯示
+
+- 持續型「股市行情已更新」通知固定在畫面中央顯示，移除持續型通知的縮放／滑入動畫；一般短提示仍保留底部滑入效果。
+- 保留原本行情去重、翻牌後才通知及手動關閉行為。
+- 驗證：`npm run typecheck`、`git diff --check` 通過；未 commit、push 或部署。
+
+## 2026-09-09 股票批量交易按鈕可重複套用
+
+- 「全部買入／全部賣出」每次點擊會依輸入張數累加到目前交易數量；賣出自動限制在各股票實際持股，不會超賣。
+- 保留原有清空張數、現金不足與交易送出檢核；未修改單檔股票調整或交易資料格式。
+- 驗證：`BrokerView.test.tsx` 3/3、`npm run typecheck`、`git diff --check` 通過；尚未 commit、push 或部署。
+
+## 2026-09-09 手機區域網路登入修正
+
+- 原因：手機開啟 `172.20.10.3:5183` 時，前端仍使用 Emulator 預設 `localhost`；手機會把 `localhost` 視為自身，造成登入網路連線失敗。
+- 修正：`firebase.json` 的 Auth／Firestore／Realtime Database Emulator 改綁 `0.0.0.0`；`.env.local` 改使用 `172.20.10.3:9099／8080／9000`，Vite 以 `0.0.0.0:5183` 重啟。
+- 驗證：前端與三個 Emulator 的區域網路端點可連線；Vite Firebase 設定已確認為本地 IP；本地 Emulator 重啟後原測試資料可能已清空。
+
+## 2026-09-09 區域網路手機測試伺服器
+
+- Vite 已由僅限本機的 `127.0.0.1` 改以 `0.0.0.0:5183` 提供區域網路存取。
+- 本機區域 IP 為 `172.20.10.3`，手機測試網址為 `http://172.20.10.3:5183/`；本地 Firebase Emulator 設定不變。
+- 驗證：本機與區域網路網址均 HTTP 200；未 commit、push 或部署。
+
+## 2026-09-09 本地伺服器與 Firebase Emulator
+
+- `dev` 工作樹的 `.env.local` 已切換為 `VITE_USE_EMULATOR=true`，前端重新啟動於 `http://127.0.0.1:5183/`。
+- 已確認 Firebase Emulator UI `4000`、Firestore `8080`、Auth `9099`、Realtime Database `9000` 均可連線；Vite 轉換後設定確認使用本地 Emulator。
+- 本次未修改遊戲程式碼，未 commit、push 或部署。
+
+## 2026-09-08 玩家端汽車骰子顯示優化與 v3.5
+
+- 對外版本更新為 `v3.5`；有汽車時玩家端只顯示一顆骰子主圖，右上角保留 `x2` 能力標示。
+- 單骰／雙骰選擇、送出與實際計算規則不變；執行師端與大地圖骰子顯示不變。
+- 驗證：`npm run typecheck`、`GameActions.test.tsx` 7/7、`npm run build`、`git diff --check` 通過；Vercel deployment `dpl_9hjh4XrNTaJoSNPNvMUUED6mTkUK` 已 `READY`，`https://2ife.vercel.app` HTTP 200 且正式資產包含 `v3.5`。
+
+## 2026-09-08 玩家端汽車骰子視覺簡化
+
+- 有汽車時玩家端只顯示一顆骰子主圖，右上角保留 `x2` 能力標示；單骰／雙骰實際選擇、送出與計算規則不變。
+- 驗證：`npm run typecheck`、`GameActions.test.tsx` 7/7、`git diff --check` 通過。
+- 尚未 commit、push 或部署。
+
+## 2026-09-08 背景音樂與音效控制拆分
+
+- 玩家端設定選單與執行師大地圖控制列，已將原本共用的音訊開關拆成「背景音樂」與「音效」兩個獨立按鈕。
+- `AudioSettings` 新增 `musicEnabled`／`soundEnabled`；舊版 `enabled` 設定仍可在讀取時轉換，背景音樂與遊戲音效各自依對應設定播放。
+- 驗證：`npm run typecheck`、音訊設定測試 2/2、`git diff --check` 通過。
+- 尚未 commit、push 或部署；尚未以實際玩家／執行師分頁進行聽覺回歸。
+
+## 2026-09-08 多位玩家醫院暫停後恢復順序
+
+- 根因：A、B 都有 `skipTurns` 時，`getNextBoardTurn()` 將暫停扣除後固定回傳原本的目前玩家 B，未回傳暫停等待順序中的第一位玩家。
+- 修正：全員都被跳過時，改回傳本輪掃描到的第一位暫停玩家；A 先進醫院、B 後進醫院時，下一個可行動玩家會是 A。
+- 依使用者要求未執行測試，待手動驗證兩人及多人醫院暫停情境。
+
+## 2026-09-08 幸福回憶分享核准後未取得幸福點
+
+- 根因是執行師核准與玩家幸福結果分開寫入，卡片結案觸發的舊玩家快照可能覆蓋尚未持久化的幸福點。
+- H001–H010 已改為在執行師核准時，以單一 `runRoomBoardMutation()` 原子寫入核准狀態、玩家幸福點與歷史；同一事件重送不會重複加分。
+- 驗證：TypeScript、完整 Vitest 225 passed／25 skipped、Firestore Rules 25/25、production build、`git diff --check` 通過。
+- 尚未 commit、push 或部署；尚未以真實三玩家瀏覽器回歸核准流程。
+
+## 2026-09-07 GM 用戶列表手機排版
+
+- 手機版用戶列表由五欄表格改為逐位卡片，完整顯示名稱、信箱、權限、照片使用同意及編輯操作；桌面版維持原表格。
+- `v3.4` 系統更新日誌已補上本項優化，對外版本號維持不變。
+- 驗證：390px 實機瀏覽確認無橫向溢出或直排文字；typecheck、Vitest `224 passed / 25 skipped`、Firestore Rules `25/25`、production build、`git diff --check` 通過。
+- 已部署至 `2ife` production：`dpl_BNpD89kBgzUie9vr91p7KKwAEdsy`，狀態 `READY`；`https://2ife.vercel.app` HTTP 200 且正式資產顯示 `v3.4`。
+
+## 2026-09-07 照片與遊戲畫面推廣使用同意書
+
+- 玩家、執行師與 GM 首次登入後會顯示不可略過的單選同意書；同意或不同意皆可繼續，選擇保存於既有 `users/{uid}.photoPromotionConsent`，同版本不重複詢問。
+- 個人資料可修改選擇；GM 用戶列表可重新整理並區分「是／否／未填寫／待重新確認」。大地圖 `boardRoom` 投影路由不顯示同意書。
+- 對外版本更新為 `v3.4`，執行師系統更新日誌已加入本次功能。
+- 驗證：typecheck、Vitest `224 passed / 25 skipped`、Firestore Rules `25/25`、production build、`git diff --check` 通過；本機登入頁已顯示必要同意書，大地圖確認未顯示。
+- 尚未 commit 或 push；正式對外使用前仍需法務確認同意書文字。
+
+## 2026-08-31 玩家端卡片資訊回復簡潔版
+
+- 玩家端 `BoardCardDrawer` 移除翻牌後顯示的完整卡片文案與效果／數據區塊，恢復為只顯示卡片標題、必要流程提示與操作區。
+- 執行師端與大地圖的完整卡片資訊不變；卡片資料與結算規則不變。
+- 驗證：全部 Vitest 203 passed、23 skipped；`npm run typecheck`、`npm run build` 與 `git diff --check` 通過。
+
+## 2026-08-31 每局隨機初始股價
+
+- 股票初始行情改由執行師開始新局時，從既有非泡沫新聞卡行情中隨機選一組，寫入房間 `marketPrices`；同一局所有玩家共用，不會因畫面重整或各自初始化而不同。
+- `previousMarketPrices` 同步設為同一組，避免開局被誤判為行情上漲／下跌；舊的 `marketUpdates` 在新局清除。
+- 玩家完成開局選擇時優先採用房間權威行情，練習或尚未收到房間行情才使用本地備援。
+- 驗證：`src/constants.test.ts` 1/1 通過；全部 Vitest 203 passed、23 skipped；`npm run typecheck`、`npm run build` 與 `git diff --check` 通過。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/constants.ts`、`src/context/RoomContext.tsx`、`src/App.tsx`、`src/constants.test.ts`
+- 測試結果：Vitest 203 passed／23 skipped、typecheck、build 與 diff check 通過
+- 目前風險：尚未完成瀏覽器新局驗證；練習模式若沒有房間快照會使用本地隨機備援
+- 下一個最安全任務：用新房間確認玩家端卡片已回復簡潔顯示，並確認八檔股價皆非 0
+
 ## 2026-08-30 v2.8 系統更新日誌與版本號
 
 - 對外版本號更新為 `v2.8`；執行師端系統更新日誌置頂醫療理賠按鈕與 C035–C043 保險行為修正。
@@ -898,3 +1283,1089 @@
 - 測試結果：Vitest 201 passed／23 skipped；Rules 23/23；TypeScript、production build、diff check；正式站 HTTP 200、v2.9、console error 0
 - 目前風險：3／6 玩家完整瀏覽器競買與登入後手機選擇頁實機滑動尚未閉環；Google 帳號選擇器在 in-app browser 以 Auth iframe 初始化，但未代替使用者完成帳號登入
 - 下一個最安全任務：先統一 Playwright runner 依賴，再新增 6 玩家 seed 與同屋／異屋競買案例，使用隔離 emulator 完成 3／6 玩家回歸
+
+## 2026-09-01 執行師卡片發送頁面
+
+- 執行師頁面新增「卡片發送」，正式 Vercel 與本地環境都可指定玩家、搜尋並篩選全部幸福／機運／新聞卡。
+- 觸發前必須點擊確認；有未完成遊戲流程時禁止觸發，並引導先完成或解除目前事件。觸發成功後保留卡片發送頁面，由執行師手動關閉。
+- 測試觸發仍寫入既有 `boardState` 並使用 `runRoomBoardMutation`；不直接套用卡片結果，玩家端翻牌、共享、財務檢核、重連與結案都走正式流程。
+- 只有執行師／GM 可見及使用；仍由 Context 驗證身份、有效玩家與最新交易狀態；未新增 Firebase 集合、服務或套件。
+- 驗證：`npm run typecheck`、RoomContext 26/26、完整 Vitest 203 passed／23 skipped、`npm run build`、`git diff --check` 通過。既有 BrokerView 測試首次整批執行逾時，單獨重跑與完整重跑均通過。
+- 瀏覽器目前是玩家帳號，未擅自切換登入執行師；尚待使用實際執行師帳號點擊卡片發送、確認彈窗與玩家端翻牌。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/components/coach/CardTestConsole.tsx`、`src/context/RoomContext.tsx`、`src/views/lobby/CoachGameView.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：typecheck 通過；Vitest 203 passed／23 skipped；production build 通過；`git diff --check` 通過
+- 目前風險：未實際點擊執行師角色的全卡測試頁面；現有玩家頁可見 RTDB `roomLastOnline` permission denied 既有警告，與本次功能無關
+- 下一個最安全任務：用執行師登入目前 Emulator 房間，觸發各牌組至少一張並確認玩家端、大地圖與結案流程
+
+## 2026-09-01 本地三玩家全卡片矩陣驗收
+
+- 測試分支／SHA：`dev`／`a1482f83aa7dc51a9a8861d56ef2dd91525bba4d`
+- 測試環境：本地 Vite 5183、Auth 9099、Firestore 8080、RTDB 9000；3 位玩家＋1 位執行師；房間 `873253`
+- 前置檢查：typecheck、Vitest `203 passed／24 skipped`、隔離 Firestore Rules `24/24`、build、`git diff --check` 通過
+- 瀏覽器結果：開房／登入／三步開局通過；H001 翻牌及卡片日誌寫入後，操作／結案 120 秒未完成，判定 A 級 P1，停止矩陣測試
+- 觀察證據：Firestore commit HTTP 400／409、stored version mismatch、Player1 `Maximum update depth exceeded`、RTDB presence／diagnostics `permission_denied`
+- 覆蓋率：已執行 1／160，失敗 1（A）；未執行 159；不宣稱其餘卡片通過
+- 正式報告：[BOARD_3P_ALL_160_CARDS_LOCAL_2026-09-01.md](/Users/wcg/程式開發/蜂富人生HappinessFlow/.worktrees/dev/docs/testing/BOARD_3P_ALL_160_CARDS_LOCAL_2026-09-01.md)
+- 下一個最安全任務：先修正 H001 的交易版本衝突與 React 更新深度錯誤，單卡通過後再恢復全卡片矩陣；不要以延長等待或自動重試掩蓋阻斷。
+
+## 2026-09-01 H011 家庭歷程首次確認權限拒絕修正
+
+- 根因：抽卡玩家完成家庭歷程時，舊流程先以 `family-action` 寫入自己的財務／完成狀態，再以 `family-complete` 另開 transaction 清除 prompt；第一筆成功、第二筆被規則或競態拒絕時，畫面就顯示 `Missing or insufficient permissions.`，再次點擊才會利用已提交的 command 完成結案。
+- 修正：當所有參與者已完成時，`completeFamilyMilestoneAction()` 將抽卡玩家階段結果、自己的完成狀態、家庭歷程 prompt 清除與回合推進合併為同一筆 `family-action` transaction；保留舊版已提交 action 的冪等 `family-complete` 相容路徑。
+- Firestore Rules 新增只允許目前回合抽卡玩家、目前事件、目標回覆數已齊全且 prompt 被清除的原子結案條件；未完成參與者或非當事玩家仍不可清除家庭歷程。
+- 新增規則回歸案例：H011 兩位玩家失敗後，抽卡玩家一次 transaction 同時完成結果與事件結案。
+- 驗證：`npm run typecheck`、完整 Vitest `33 files / 203 passed / 24 skipped`、Firestore Rules `24/24`（以隔離 18080 Emulator 驗證，因既有 dev Emulator 佔用 8080）、`npm run build`、`git diff --check` 通過。
+- 本次未修改版本號、未 commit、push 或部署；未執行 3／6 玩家瀏覽器實測，正式雲端 Rules 尚未由本次變更發布。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/context/RoomContext.tsx`、`firestore.rules`、`src/test/roomPermissions.test.ts`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 既有工作樹修改：`src/App.tsx`、`src/components/game/BoardCardDrawer.tsx`、`src/constants.ts`、`src/context/RoomContext.test.ts`、`src/views/game/GameView.tsx`、`src/views/lobby/CoachGameView.tsx`、`src/components/coach/`、`src/constants.test.ts` 均保留
+- 下一個最安全任務：先在本地 3 位玩家重播 H011／H014，確認首次財務檢核即可結案；再另行部署同步更新後的 Firestore Rules 與前端。
+
+## 2026-09-01 v3.0 家庭歷程同步修正與 production 部署
+
+- 對外版本更新為 `v3.0`；執行師系統更新日誌新增家庭歷程原子結案、多人同步／冪等保護與卡片發送功能。
+- Firestore Rules 已發布至 Firebase project `happinessflow-online`，新增抽卡玩家在所有目標回覆完成時，以單一 transaction 同時完成自身結果與家庭歷程結案的權限條件。
+- Vercel project `2ife` production deployment `dpl_HkCn5r8P3RHP8oqpLeMUQgi9DUwi` 已 Ready，正式別名為 `https://2ife.vercel.app`；HTTP 200，production bundle 已確認包含 `v3.0`。
+- 驗證：`npm run typecheck`、完整 Vitest `33 files / 203 passed / 24 skipped`、`npm run build`、`git diff --check` 通過；Cloud Rules 發布成功。
+- 建置仍有既有 Tailwind ambiguous class、dynamic import 與 chunk size 警告，未阻斷部署。
+- 本次未完成本地 H011／H013／H014 三玩家瀏覽器實測；正式站也未進行多人流程冒煙，因此不宣稱家庭歷程實機驗收通過。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改：`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`，並同步更新交接／除錯紀錄
+- 部署：Firebase Rules 已發布；Vercel `2ife` production Ready，`https://2ife.vercel.app` HTTP 200、v3.0
+- 目前風險：H011／H013／H014 尚未用 3 個獨立瀏覽器帳號完成本地與正式站回歸；目前瀏覽器 5183 仍是 cloud mode，未切換 Emulator
+- 下一個最安全任務：以統一本地 Emulator 重播三張代表卡，確認 H013 第一次財務檢核即可完成，再進行正式站三人冒煙
+
+## 2026-09-01 家庭歷程 Rules 預算與假完成修正
+
+- 確認反覆出現的家庭歷程「同步權限被拒絕」主因是 Firestore Rules 在大型真實房間更新時超過 1,000 expression 上限，不是玩家權限設定錯誤。
+- `firestore.rules` 先依 `boardState` 是否變更分流權限判斷，避免每次交易都計算完整 OR 鏈；安全限制維持不變。
+- `submitFamilyMilestoneJoinResponse()` 改為明確布林結果：重複 command 只有在 Firestore 已有玩家 response 時才成功；過期或缺少 response 時不寫入假 command。
+- `GameView` 移除本機提交清單作為完成依據，Firestore prompt response 成為唯一真實來源；失敗後不會消失並讓全房永久等待。
+- 驗證：typecheck；Vitest 33 files、203 passed／24 skipped；大型房間 Firestore Rules 24/24；production build；`git diff --check`。
+- 本次未 commit、push 或部署；本地 Vite／Emulator 維持運行。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`firestore.rules`、`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx`、`src/test/roomPermissions.test.ts`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 目前風險：現有測試房已留下先前失敗造成的缺漏 response；需重送該玩家擲骰，或以新 H011／H013／H014 流程做三人瀏覽器回歸
+- 下一個最安全任務：在本地新家庭歷程事件讓兩位玩家同時擲骰，再由抽卡玩家完成財務檢核，確認第一次即可結案
+
+## 2026-09-01 強制負債單次完成財務交易
+
+- 修正 `GameView` 強制負債流程：不再先寫入周轉借款再立即用舊狀態重套原交易；第一次點擊即完成差額補足與原交易。
+- 新增 `TransactionData.forcedDebtAmount`，一般財務交易在同一個 `GameContext` state update 建立強制負債與原交易；家庭歷程傳入 `completeFamilyMilestoneAction()`，由同一個 Firestore transaction 原子完成。
+- 家庭階段仍保留原本現金不足判定；強制負債只補足實際差額，月付金為 0，交易紀錄分別保留融資與原事件。
+- 驗證：RoomContext 27/27；完整 Vitest 204 passed／24 skipped；typecheck、production build、`git diff --check` 通過。
+- 本次未 commit、push 或部署；Vite 與 Firebase Emulator 仍在本地運行。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/types.ts`、`src/utils/familyMilestones.ts`、`src/hooks/useGameLogic.ts`、`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx`、`src/context/RoomContext.test.ts`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 目前風險：尚未用瀏覽器實際重播一個現金不足的非家庭卡片；本機純邏輯與家庭交易測試已通過
+- 下一個最安全任務：在本地房間測試一般支出與家庭歷程各一次，確認第一次按「強制結束並計入負債」即顯示交易完成
+# 2026-08-31 H013 家庭歷程抽卡玩家等待狀態修正
+
+- 原因：家庭歷程抽卡玩家在財務檢核完成時，部分入口仍以一般 `board-card` 流程處理財務，再另外等待主玩家完成狀態；因此可能留下 `sourceActionCompleted` 未完成的共享 prompt，畫面持續顯示「等待其他玩家完成」。
+- 修正：`GameView` 對目前卡片的家庭歷程抽卡玩家事件，統一改走 `completeFamilyMilestoneAction()`；該入口依最新 Firestore 狀態原子套用階段結果、標記主玩家完成並在所有玩家完成後結案。H013 與其他家庭歷程卡共用此修正。
+- 驗證：`npm run typecheck` 通過；`boardCardActions.test.ts` 與 `RoomContext.test.ts` 共 86 項通過；完整 Vitest 203 passed／23 skipped、正式建置與 `git diff --check` 通過。瀏覽器三人回歸尚未執行。
+
+## 2026-09-01 強制負債完成後清除舊錯誤彈窗
+
+- 修正 `BoardFinancialCheckModal`：外部收到已完成狀態時清除先前現金不足流程留下的「交易尚未正式完成」popup。
+- 驗證：相關測試 42/42、typecheck、production build、diff check 通過。
+- 未 commit、push 或部署。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/components/game/BoardFinancialCheckModal.tsx`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：相關測試 42 passed；typecheck、build、diff check 通過
+- 目前風險：尚未使用瀏覽器實際重播現金不足流程
+- 下一個最安全任務：本地測試一次一般支出與一次家庭歷程的強制負債，確認成功畫面沒有舊錯誤彈窗
+
+## 2026-09-01 銀行定存完成後無法結束回合
+
+- 修正 `GameView.finalizeBoardFinancialFlow()`：銀行快速交易完成後恢復銀行後續選項；略過後呼叫既有 `advanceBoardEventQueue('bank')` 清除銀行事件，避免 `currentEvent` 殘留阻擋結束回合。
+- 驗證：相關測試 37/37、typecheck、production build、diff check 通過。
+- 未 commit、push 或部署。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/views/game/GameView.tsx`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：GameView／BoardFinancial／Room 相關測試 37 passed；typecheck、build、diff check 通過
+- 目前風險：尚未以瀏覽器重播「踩銀行 → 辦理定存 → 略過後續 → 結束回合」
+- 下一個最安全任務：在本地房間完成一次定存後略過銀行後續，確認銀行事件清除且可結束回合
+
+## 2026-09-01 定存解約金額改為萬元選擇
+
+- 修正 `WealthView`：每筆定存可用加減按鈕或輸入框選擇解約萬元數，預設整筆、上限為該筆定存可解約萬元數。
+- 交易仍沿用既有 `relatedAssetId` 部分解約邏輯，實際金額為選擇萬元數 × 10,000。
+- 驗證：銀行相關測試 11/11、typecheck、production build、diff check 通過。
+- 未 commit、push 或部署。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/components/banking/WealthView.tsx`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：銀行相關測試 11 passed；typecheck、build、diff check 通過
+- 目前風險：尚未以瀏覽器實際操作部分解約並確認資產餘額與每月利息更新
+- 下一個最安全任務：本地建立一筆 50,000 定存，解約 2 萬後確認剩餘 30,000 與利息正確
+
+## 2026-09-01 借用信貸單次完成原交易
+
+- 修正 `handleForcedBoardBorrow()`：不再先獨立建立借款後重新送回原財務檢核；改用 `fundingLoanAmount` 一次套用。
+- 一般卡片與家庭歷程均保留原本交易，新增信用貸款本金與 10% 月息，成功後不返回財務檢核。
+- 未 commit、push 或部署。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/types.ts`、`src/utils/familyMilestones.ts`、`src/context/RoomContext.tsx`、`src/hooks/useGameLogic.ts`、`src/views/game/GameView.tsx`、`src/context/RoomContext.test.ts`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：相關測試 41 passed；typecheck、production build、`git diff --check` 通過
+- 目前風險：尚未以瀏覽器實際重播現金不足 → 借用信貸 → 完成原交易
+- 下一個最安全任務：本地測試一次一般卡片與一次家庭歷程的信貸周轉
+
+## 2026-09-01 共享卡片重複入口：修正
+
+- 根因：共享卡片事件建立後，抽卡玩家原本的卡片抽屜仍維持開啟，與共享視窗同時顯示。
+- 修正：`GameView` 以目前事件、抽卡玩家、卡片 ID 與共享 prompt 同時比對；任何共享 prompt 出現時自動關閉並隱藏原卡片抽屜。N055 與其他共享出售、投資、股利、創業貸款及全體支出卡片共用此判斷。
+- 驗證：GameView／boardCardActions／RoomContext 測試 90 passed；typecheck、production build、`git diff --check` 通過。
+- 未 commit、push 或部署。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/views/game/GameView.tsx`、`CODEX_HANDOFF.md`
+- 目前風險：尚未以瀏覽器實際觸發 N055 與其他共享卡片確認視覺層級
+- 下一個最安全任務：本地開房各觸發一張共享出售與共享投資卡片，確認只顯示共享視窗
+
+## 2026-09-01 股票批量交易張數與財務檢核提示：優化
+
+- 股票買入／賣出新增「每檔張數」輸入；批量按鈕會將指定張數套用到全部股票，賣出時自動以各檔持有量為上限。
+- 財務檢核錯誤提示改為「填寫正確」與「填寫錯誤或尚未完成」兩個區塊；第一次錯誤仍不揭露完整答案，第二次才顯示應填項目。
+- 驗證：Broker／BoardFinancial／Banking／FinancialRules 測試 14 passed；typecheck、production build、`git diff --check` 通過。
+- 未 commit、push 或部署。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/components/banking/BrokerView.tsx`、`src/components/banking/BrokerView.test.tsx`、`src/components/game/BoardFinancialCheckModal.tsx`、`src/components/game/BoardFinancialCheckModal.test.ts`、`CODEX_HANDOFF.md`
+- 目前風險：尚未以瀏覽器實際操作手機尺寸的批量輸入與財務錯誤彈窗
+- 下一個最安全任務：本地開啟銀行股票頁，確認批量買賣與錯誤提示在手機畫面不溢出
+
+## 2026-09-01 骰子改由大螢幕統一呈現
+
+- 棋盤移動、維修廠、醫院、家庭歷程參與、學校／終身學習與工作室升級，均以一次性 `diceEvents` 寫入房間 `boardState`；大地圖依序播放完整骰點與結果，最多保留最新 20 筆。
+- 玩家端只送出擲骰指令，不再自行產生最終骰點或播放擲骰動畫；房間 transaction 仍負責權威骰點、事件結果與既有 command ID 防重複。
+- 維修廠與醫院的費用骰、家庭歷程參與資格骰及升等／升級骰均沿用現有流程與資料結構，未新增服務、集合或套件。
+- 驗證：Vitest 34 files、209 passed／24 skipped；相關骰子測試 39 passed；typecheck、production build、`git diff --check` 通過。建置保留既有 Tailwind ambiguous class、動態匯入與 chunk size 警告。
+- 尚未以三個玩家＋執行師的實機瀏覽器投影連線驗證所有骰子事件依序播放；下一個最安全任務是開一間本地棋盤房，分別觸發移動、家庭參與、醫院／維修與升級骰，確認大螢幕顯示且玩家端只需點擊。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/types.ts`、`src/context/RoomContext.tsx`、`src/components/game/GameActions.tsx`、`src/components/game/GameActions.test.tsx`、`src/components/game/DiceRollContainer.tsx`、`src/components/modals/DiceRollModal.tsx`、`src/components/modals/BizUpgradeModal.tsx`、`src/views/game/GameView.tsx`、`src/views/board/BoardProjectionView.tsx`、`src/components/board/DicePresentationOverlay.tsx`、`src/game/board/dicePresentation.ts`、`src/game/board/dicePresentation.test.ts`、`CODEX_HANDOFF.md`
+- 測試結果：Vitest 209 passed／24 skipped；typecheck、production build、`git diff --check` 通過
+- 目前風險：尚未完成多帳號瀏覽器實機投影驗收；非棋盤模式仍保留原本本機骰點邏輯
+- 下一個最安全任務：用本地 Firestore Emulator 建立 3 位玩家＋1 位執行師，逐項驗證大螢幕骰點佇列與重整後不重播舊事件
+
+## 2026-09-01 版本 v3.1：骰子大螢幕同步
+
+- 更新 `src/constants/version.ts` 對外版本為 `v3.1`。
+- 更新執行師系統更新日誌，記錄骰子結果統一由大螢幕呈現、玩家端只負責點擊，以及各骰子流程的同步防重複處理。
+- 驗證：版本與日誌來源已更新；沿用本次骰子功能已通過的 Vitest 209 passed／24 skipped、typecheck、production build、`git diff --check` 結果。
+- 未 commit、push 或部署。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：版本檔案變更後 `npm run typecheck`、`npm run build`、`git diff --check` 通過；建置保留既有 Tailwind、動態匯入與 chunk size 警告
+- 目前風險：尚未完成三位玩家＋執行師的瀏覽器實機投影驗收
+- 下一個最安全任務：執行 typecheck、production build 與本地多人骰子投影驗收
+
+## 2026-09-01 大螢幕骰子彈窗對比：優化
+
+- 大螢幕骰子彈窗增加深色遮罩與輕微背景模糊，彈窗本體改為不透明深色底、實色金框及更明確陰影，避免棋盤內容穿透干擾骰點辨識。
+- 未修改骰點、動畫時間、事件佇列或玩家操作流程。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/components/board/DicePresentationOverlay.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：typecheck、production build、`git diff --check` 通過；本地頁面 HTTP 200
+- 目前風險：尚未在實際多人房間觸發骰子事件確認投影設備上的最終亮度
+- 下一個最安全任務：在大地圖觸發一次單骰與一次雙骰，確認遮罩與文字對比
+
+## 2026-09-01 換回合後骰子按鈕維持鎖定：修正
+
+- 根因：骰子改由大螢幕播放後，玩家端 `GameActions` 的本機 `isAnimating` 仍在成功擲骰後保持 `true`；回合再次輪到該玩家時按鈕因此維持禁止狀態，重新整理才會清除。
+- 修正：以 Firestore 權威回合狀態 `isBoardTurn` 為界；回合離開玩家時清除本機動畫旗標，下一次輪到該玩家可直接擲骰。
+- 未修改骰點、回合交易、事件佇列或 Firestore 資料結構。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/components/game/GameActions.tsx`、`src/components/game/GameActions.test.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：GameActions／experienceState 12 passed；typecheck、production build、`git diff --check` 通過
+- 目前風險：尚未以兩個真實玩家瀏覽器完成 A → B → A 的完整換回合實測
+- 下一個最安全任務：本地兩位玩家各完成一回合，確認第三回合 A 不需重新整理即可擲骰
+
+## 2026-09-01 玩家端擲骰圖示圓角與立體感：優化
+
+- 玩家端骰面與核心圓角由 6px 提升為手機 11px／桌面 14px，補上真正的骰面邊框。
+- 增加內亮、內暗、底部厚度與落地陰影，讓按鈕呈現圓潤實體感，同時避免旋轉六面造成接縫。
+- 未修改骰子尺寸、骰點或操作邏輯。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/components/game/GameActions.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：GameActions 6 passed；typecheck、production build、`git diff --check` 通過；本地玩家畫面已確認
+- 目前風險：不同實體手機的陰影濃度仍可能略有差異
+- 下一個最安全任務：在手機與桌面各確認啟用、禁用兩種骰子狀態
+
+## 2026-09-01 玩家端提前公布骰點：修正
+
+- 根因：玩家端收到權威骰點後立即顯示結果彈窗，但大螢幕仍會播放 3.6 秒骰子動畫，兩邊沒有共用完成時間。
+- 修正：移除玩家端重複骰點彈窗；大螢幕動畫、棋盤開始移動及玩家端「結束回合」解鎖共用 `DICE_PRESENTATION_DURATION_MS`。
+- 玩家仍會立即送出且保存權威骰點，只有操作解鎖延後至大螢幕播放完成。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/game/board/dicePresentation.ts`、`src/components/board/DicePresentationOverlay.tsx`、`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：骰子／GameActions／RoomContext 36 passed；typecheck、production build、`git diff --check` 通過
+- 目前風險：尚未以玩家與大螢幕兩個實際分頁同步計時驗收
+- 下一個最安全任務：玩家擲一次骰，確認大螢幕關閉後才顯示「結束回合」且玩家端不再跳骰點彈窗
+
+## 2026-09-01 跳過下一位後同玩家骰子鎖定：修正
+
+- 兩位玩家 A、B 時，若 B 暫停回合，權威回合會從 A 直接回到 A；舊邏輯只在玩家 UID 改變時清除本機骰子動畫鎖，因此 A 仍被鎖住。
+- `GameActions` 現在同時依 `hasRolledThisTurn=false` 清除本機鎖；同一玩家直接取得新回合也能立刻擲骰。
+- 未修改跳過回合、骰點或 Firestore transaction。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/components/game/GameActions.tsx`、`src/components/game/GameActions.test.tsx`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：GameActions／experienceState 13 passed；typecheck、production build、`git diff --check` 通過
+- 目前風險：尚未以兩位真實玩家完成 A → 跳過 B → A 的瀏覽器實測
+- 下一個最安全任務：本地將 B 設為暫停一回合，由 A 結束回合後確認 A 可直接再次擲骰
+
+## 2026-09-01 版本 v3.2：骰子同步修正與正式部署
+
+- 對外版本更新為 `v3.2`，系統更新日誌加入骰子顯示時機、換回合解鎖與視覺辨識度優化。
+- 本地仍維持 `VITE_USE_EMULATOR=true`；目前 Firestore Emulator 載入工作樹的 `firestore.rules`。
+- 已將同一份 `firestore.rules` 與 `database.rules.json` 發布至 Firebase 專案 `happinessflow-online`。
+- 規則雜湊：Firestore `3c063df2b766561fd9e9416b6146fbc574ca8d1dbcce220ffd4dc2c79317cbdb`；Realtime Database `f3e85c60c82bbe5f4c6ceb0c7e02d1c92c97b0f2d8d0390a2700f0ec97211463`。
+- Vercel production deployment `dpl_Dzni52shpfyY1yoZoeGtiYbEwYuq` 已 Ready，正式網址 `https://2ife.vercel.app/` 回應 HTTP 200，正式 JS 資產確認包含 `v3.2`。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：TypeScript 通過；Vitest 211 passed／24 skipped；Firestore rules 24 passed；production build、`git diff --check` 通過
+- 部署結果：Firebase Firestore／Realtime Database 規則發布成功；Vercel 正式部署 Ready
+- 目前風險：Firestore 規則編譯仍有既存的未使用函式及保留名稱警告；尚未完成兩位真實玩家 A → 跳過 B → A 的瀏覽器實測
+- 下一個最安全任務：以本地 Emulator 完成兩位玩家跳過回合及玩家／大螢幕骰子同步實測
+
+## 2026-09-02 定存存入單位統一：修正
+
+- 定存存入改為以萬元為單位輸入，實際交易金額固定為 `10,000 × 單位數`，與解約規則一致。
+- 保留原有銀行資格、現金上限與交易流程；非萬元倍數不會送出交易。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/components/banking/WealthView.tsx`、`src/components/banking/WealthView.test.tsx`
+- 測試結果：定存元件測試 1 passed；typecheck、production build、`git diff --check` 通過
+- 目前風險：正式多人銀行流程尚未以瀏覽器實測
+- 下一個最安全任務：在本地銀行頁確認 1 萬、2 萬及現金不足 1 萬時的按鈕狀態
+
+## 2026-09-02 執行師卡片發送版本衝突：修正
+
+- `runRoomBoardMutation()` 遇到 Firestore 版本衝突時，沿用同一個 command ID 最多重試 3 次；權限與業務錯誤不重試。
+- 執行師卡片發送耗盡重試仍失敗時，改顯示「房間正在同步，請稍候再試」，不再直接顯示 Firestore 英文錯誤。
+- 更新 `DEBUG_HANDOFF.md`，記錄錯誤訊息、重現條件、根因與禁止重複的修法。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/game/board/runBoardMutation.ts`、`src/game/board/runBoardMutation.test.ts`、`src/context/RoomContext.tsx`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：交易重試 2 passed；房間／權限測試 28 passed；完整 Vitest 214 passed／24 skipped；typecheck、production build、`git diff --check` 通過
+- 目前風險：尚未在正式多人房間實際重現並確認同時寫入時的最終成功率
+- 下一個最安全任務：本地 3 位玩家＋1 位執行師同時操作時，測試卡片發送、回合切換與卡片結案
+
+## 2026-09-05 共享兼職工作室效果未入帳：修正
+
+- 根因：共享資產出售原本由 `handleTransactionSubmit()` 先改本機玩家資料，再用另一筆 `submitSharedCardPromptResponse()` 寫共享回覆；參與玩家的本機結果可能在防抖同步前被舊 Firestore 快照覆蓋。
+- 修正：新增 `buildSharedAssetSalePromptMutation()` 與 `completeSharedAssetSaleAction()`；C027/C028 及同類共享資產出售，依 transaction 讀到的最新私人玩家資料重新計算售價、清償關聯貸款、移除資產、增加現金與歷史，並和玩家共享回覆放在同一筆 `runRoomBoardMutation()` transaction。
+- 使用 `shared-asset-sale:{promptId}:{uid}` command ID 及既有 processed command ledger，重整、連點或重送不會重複入帳；prompt 只在所有目標玩家完成後結束。
+- 沒有新增集合、服務、依賴或改動其他共享卡片的 UI；同一原子路徑涵蓋共享資產出售卡片，避免只修 C027。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/context/RoomContext.tsx`、`src/context/RoomContext.test.ts`、`src/test/roomPermissions.test.ts`、`src/views/game/GameView.tsx`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：完整 Vitest 240 passed；Firestore Emulator／Rules 25 passed；TypeScript、production build、`git diff --check` 通過
+- 目前風險：尚未以三個真實瀏覽器同時完成 C027/C028 共享出售及重新整理回歸；正式環境尚未部署
+- 下一個最安全任務：本地建立 3 位玩家房間，讓至少 2 位玩家出售兼職工作室並分別重整，確認兩份財務報表都更新且最後一位完成後才結束 prompt
+
+## 2026-09-05 升等骰與結束回合阻斷：修正
+
+- 遠端升等骰回傳後統一解除玩家端擲骰鎖，大螢幕顯示通過時玩家端不再停在「擲骰中」。
+- 結束回合改由最新 Firestore 棋盤狀態直接交易驗證與切換，不再因本機共用鎖忙碌而靜默遺失，也會把真實失敗原因交回玩家畫面。
+- 同一修正涵蓋一般回合及「天有不測風雲」保險理賠完成後的結束回合。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/hooks/useDiceRollLogic.ts`、`src/hooks/useDiceRollLogic.test.tsx`、`src/utils/experienceState.ts`、`src/utils/experienceState.test.ts`、`src/context/RoomContext.tsx`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：完整 Vitest／Firestore Emulator 243 passed；TypeScript、production build、`git diff --check` 通過
+- 目前風險：尚未用真實玩家端＋大螢幕完成升等考試與理賠後結束回合的雙裝置手動回歸；未 commit、push 或部署
+- 下一個最安全任務：本地雙分頁測試升等通過後關閉，以及 C035–C037 理賠完成後立即結束回合
+
+## 2026-09-05 版本 v3.3 與系統更新日誌
+
+- 對外版本由 `v3.2` 更新為 `v3.3`。
+- 執行師系統更新日誌新增共享兼職工作室入帳、升等骰結果解鎖、回合切換及理賠後結束回合修正。
+- 日誌只列入已完成且通過自動化驗證的項目；未宣稱雙裝置手動回歸已完成。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：版本與相關流程測試 12 passed；TypeScript、production build、`git diff --check` 通過
+- 目前風險：尚未部署，正式站仍為舊版本
+- 下一個最安全任務：完成 typecheck、版本內容測試及 production build 後再部署
+
+## 2026-09-05 v3.3 Vercel 正式部署
+
+- 首次部署因根目錄 `firestore-debug.log` 約 150 MB，超過 Vercel 100 MB 上傳限制；已在 `.vercelignore` 排除本地 `*.log`，未刪除本機紀錄。
+- Production deployment `dpl_5TmemaywFwhp9vJ6BrdxkiXFKztv` 狀態 Ready，正式 alias 為 `https://2ife.vercel.app`。
+- 正式網址回應 HTTP 200，production JS 資產確認包含 `v3.3`；近一小時 production error logs 無紀錄。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`.vercelignore`、`CODEX_HANDOFF.md`
+- 測試結果：部署前 TypeScript、相關測試 12 passed、production build 通過；部署後 HTTP 200、v3.3 資產確認通過
+- 目前風險：尚未以正式測試帳號完成升等考試及理賠後結束回合的多人操作回歸
+- 下一個最安全任務：在正式測試房以玩家端＋大螢幕完成升等與 C035–C037 理賠流程冒煙測試
+## 2026-09-11 N056～N058 第一骰舊資料相容修正
+
+- 修正舊場次只保留「兼職工作室＋企業貸款」、卻缺少 `pendingStartupUpgradeAction` 時，第一骰無法送到大螢幕的問題。
+- 補狀態與骰點事件同一筆 Firestore transaction 完成，且必須有相同卡號的企業貸款才允許修復。
+- 驗證：相關 Vitest 36 項通過、`npm run typecheck` 通過、`git diff --check` 通過。
+
+## 2026-09-11 N057 升級骰動畫時序與銀行結案：修正
+
+- N057～N058 第一骰、第二骰改為先將骰點事件寫入 Firestore，再由玩家端等待大螢幕完整 `3.6 秒` 骰子動畫後才揭示結果。
+- 玩家端在遠端骰點期間顯示「骰點已送出／請看大螢幕」，不再提前顯示結果；等待只由彈窗控制一次，避免重複等待造成額外延遲。
+- 保留升級成功結果直到玩家按下「太棒了！」；確認後才推進銀行事件佇列，避免第二骰成功後銀行事件仍未結案、無法結束回合。
+- 驗證：BizUpgradeModal、骰子投影、RoomContext 相關測試 41 項通過；`npm run typecheck`、`npm run build`、`git diff --check` 通過。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/components/modals/BizUpgradeModal.tsx`、`src/components/modals/BizUpgradeModal.test.tsx`、`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：相關測試 41 passed；TypeScript、production build、`git diff --check` 通過
+- 目前風險：尚未以實際玩家端與大螢幕雙分頁手動驗證雲端網路延遲下的動畫起訖時間
+- 下一個最安全任務：使用本地或測試房實測 N057 第一骰、第二骰及按「太棒了！」後能否立即結束銀行事件
+
+## 2026-09-11 家庭歷程並發擲骰與回合結束延遲：修正
+
+- 「結束回合」顯示與可用性改由 Firestore 權威的移動、棋盤事件及共享回覆狀態決定，不再被玩家端骰子展示計時器額外延遲；動畫期間按鈕會保持不可用，權威狀態完成後立即可按。
+- 棋盤交易遇到可重試的版本衝突時，改為短退避並最多重試 6 次；家庭歷程多位玩家同時擲骰仍各自以同一個 prompt、revision 與 command ID 原子寫入，不改成依序操作。
+- 驗證：完整 Vitest `248 passed / 25 skipped`；TypeScript、`git diff --check` 通過。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/game/board/runBoardMutation.ts`、`src/game/board/runBoardMutation.test.ts`、`src/utils/experienceState.ts`、`src/utils/experienceState.test.ts`、`src/components/game/GameActions.tsx`、`src/components/game/GameActions.test.tsx`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：完整 Vitest `248 passed / 25 skipped`；TypeScript、`git diff --check` 通過
+- 目前風險：尚未以兩個真實玩家瀏覽器同時完成家庭歷程擲骰，也尚未在雲端延遲下確認回合結束按鈕的實際等待時間
+- 下一個最安全任務：使用目前 5183 伺服器開兩個玩家分頁，實測家庭歷程同時擲骰、移動結算與結束回合
+
+## 2026-09-11 學校考試骰動畫時序：修正
+
+- 學校考試的 `rollSkillDice()` 現在回傳大螢幕骰子動畫時長；玩家端 `useDiceRollLogic` 在動畫完成前維持「擲骰中」，完成後才更新考試結果與呼叫原本的結算回呼。
+- 與 N056～N058 升級骰共用同一個呈現時序，不新增延遲流程或改動考試規則。
+- 驗證：升等骰、企業升級、骰子投影及 RoomContext 相關測試 `43 passed`；TypeScript、`git diff --check` 通過。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/hooks/useDiceRollLogic.ts`、`src/hooks/useDiceRollLogic.test.tsx`、`src/context/RoomContext.tsx`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：相關測試 `43 passed`；TypeScript、`git diff --check` 通過
+- 目前風險：尚未以實際玩家端與大螢幕雙分頁確認網路延遲下的動畫起訖時間
+- 下一個最安全任務：在目前 5183 伺服器實測學校考試，確認大螢幕動畫完成後玩家端才顯示結果
+
+## 2026-09-11 大螢幕骰子滾動隨機感：修正
+
+- 骰子滾動期間不再固定顯示最終點數；`DiceFace` 每 90ms 更新 1～6 的隨機暫時骰面，停止滾動後才恢復權威結果。
+- 保留原本的 3D 外觀與動畫，並將滾動中的無障礙名稱改為「骰子滾動中」。
+- 驗證：DiceFace、GameActions、升等骰相關測試 `12 passed`；TypeScript、`git diff --check` 通過。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/components/game/DiceFace.tsx`、`src/components/game/DiceFace.test.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：相關測試 `12 passed`；TypeScript、`git diff --check` 通過
+- 目前風險：尚未在實際大螢幕瀏覽器確認不同螢幕更新率下的視覺效果
+- 下一個最安全任務：用 5183 大螢幕實測一般擲骰、學校考試及家庭歷程骰面
+
+## 2026-09-11 家庭重要歷程共享玩家略過同步：修正
+
+- 根因：共享玩家是最後一位回覆者時，原流程在同一筆 transaction 同時新增「略過」回覆並刪除家庭歷程提示；Firestore Rules 以寫入前資料驗證結案，因此回覆與刪除同時發生會被拒絕。
+- 修正：先以既有 `prompt:family:response` transaction 寫入玩家自己的回覆，再以最新房間狀態執行 `prompt:family:finalize` transaction；只有所有玩家回覆完成且抽卡玩家已完成時才結案。未放寬 Rules，不新增資料結構。
+- 回覆已存在但提示尚未結案時仍會重新檢查結案，避免重整後只剩等待狀態。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/context/RoomContext.tsx`、`src/test/roomPermissions.test.ts`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：家庭回覆／RoomContext 相關測試 `97 passed`；完整 Vitest `250 passed / 26 skipped`；Firestore Rules Emulator `26 passed`；TypeScript、production build、`git diff --check` 通過
+- 目前風險：尚未以兩位以上真實玩家瀏覽器驗證同時擲骰、最後玩家略過及雲端延遲下的完整家庭歷程
+- 下一個最安全任務：先執行 Rules regression 與相關 Vitest，再用目前本地伺服器手動測試共享玩家按「略過」後可正常結案
+
+## 2026-09-11 v3.9 Vercel 正式部署
+
+- 對外版本由 `v3.8` 更新為 `v3.9`。
+- 系統更新日誌新增家庭重要歷程共享玩家「略過」同步修正；回覆與結案分開以最新房間狀態處理。
+- Production deployment `dpl_Bee83dtpuPwGzGKFpD9rTzQgTzx4` 狀態為 `Ready`，正式網址為 `https://2ife.vercel.app`。
+- 正式網址驗證 HTTP 200；部署前 TypeScript、相關測試、production build、`git diff --check` 通過。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：RoomContext／Rules 相關驗證通過；Production `Ready`、HTTP 200
+- 目前風險：尚未以多個正式測試帳號完成家庭歷程「略過」實機回歸
+- 下一個最安全任務：在正式測試房驗證共享玩家按「略過」後不再出現同步失敗
+
+## 2026-09-12 建立新房時清除結束房間殘留：修正
+
+- 根因：`createRoom()` 原本只檢查前端 `room` 是否存在；遊戲結束後為了保留結算畫面，`finished` 房間仍會留在本機狀態，導致建立新房時誤顯示「請先關閉目前房間」。
+- 修正：建立新房前重新讀取目前房間文件；仍為 `waiting`／`playing` 或非本帳號房主時維持阻擋，已 `finished` 或已不存在的舊房則清除本機房號、React 房間狀態及相同的 `activeGame` 恢復指標後繼續建立。
+- 保留有效房間的斷線重連與暫時離開行為，不刪除仍在進行中的房間。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/context/RoomContext.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：`src/context/RoomContext.test.ts` 35 passed；TypeScript typecheck 通過；`git diff --check` 通過
+- 目前風險：尚未用瀏覽器實際完成「結束上一局後立即建立下一局」的本地與雲端回歸
+- 下一個最安全任務：在本地開一局並結算後，直接建立第二局；再以同一執行師帳號重整確認不會恢復已結束房間
+
+## 2026-09-12 系統更新日誌與正式部署
+
+- 在現有 `v3.9` 系統更新日誌補充結算後舊房間狀態清理修正，版本號維持不變。
+- Production deployment `dpl_Ehm1CCvaELCB5wKy9G9dRPHRsxep` 狀態為 `READY`，正式網址為 `https://2ife.vercel.app`。
+- 正式網址 HTTP 200；部署建置完成，保留既有 Vercel chunk size 與 Tailwind class 警告。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/views/lobby/CoachDashboard.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：完整 Vitest `250 passed / 26 skipped`；TypeScript、production build、`git diff --check` 通過；Production `READY`、HTTP 200
+- 目前風險：尚未以瀏覽器實際完成結算後立即建立第二局的回歸測試
+- 下一個最安全任務：用同一執行師帳號在正式或本地測試房完成一局後，直接建立下一局確認舊房間不再阻擋
+
+## 2026-09-12 家庭歷程、卡片升級與房屋彈窗：修正
+
+- 家庭歷程共享回覆在最後一位玩家完成後，保留至大螢幕骰子結果播放截止時間，避免最後一位尚未播完就提前結案；每位玩家的骰子展示計時器不再因 Firestore 快照更新被取消。
+- C004 類終身學習成功結果改由同一筆房間 transaction 原子更新玩家職業、能力與收入；避免先顯示成功、收入稍後才入帳。
+- N056～N058 升級待辦以 `assetId` 排隊並使用資產識別的 command ID；多間工作室會逐間顯示升級視窗，未成功者可繼續處理，不互相覆蓋。
+- 房屋狀態轉換彈窗提高層級、支援視窗內垂直捲動並改善標籤對比，避免被大地圖或外層容器裁切。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/utils/boardCardActions.ts`、`src/components/board/DicePresentationOverlay.tsx`、`src/context/RoomContext.tsx`、`src/types.ts`、`src/views/game/GameView.tsx`、`src/components/modals/HouseConversionModal.tsx`、相關測試檔
+- 測試結果：`npm run typecheck` 通過；完整 Vitest `251 passed / 26 skipped`；production build 通過；`git diff --check` 通過
+- Rules 測試：未完成；本機 `8080` 已被另一個指向不同專案 Rules 的 Firestore Emulator 占用，未終止不明程序，也未將其結果當成本次驗證
+- 目前風險：尚未以多個真實玩家與大螢幕瀏覽器完成家庭歷程最後玩家動畫、C004 收入即時顯示及多間 N056～N058 逐項升級的實機回歸
+- 下一個最安全任務：停止或切換已確認來源的舊 Emulator 後重跑 Rules，再用 3～4 位玩家本地房實測家庭歷程並行擲骰與多間工作室升級
+
+## 2026-09-12 家庭歷程滿階段參與：修正
+
+- 家庭歷程共享提示建立時，依每位玩家自己的進度排除已完成五個階段或已有第二個孩子的玩家，避免不必要的擲骰與等待。
+- 若舊房間仍保留已完成玩家的共享提示，玩家端改顯示「家庭歷程已完成」，只能按「關閉」並送出不參與回覆，不再提供骰子按鈕。
+- 抽卡玩家本身已完成全部家庭歷程時，不再建立共享參與提示。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/utils/familyMilestones.ts`、`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx`、`src/context/RoomContext.test.ts`、`CODEX_HANDOFF.md`
+- 測試結果：家庭歷程／RoomContext／共享提示測試 `100 passed`；完整 Vitest `253 passed / 26 skipped`；TypeScript、production build、`git diff --check` 通過
+- 目前風險：尚未以 3～4 位玩家瀏覽器實測滿階段玩家關閉提示及未完成玩家並行擲骰；Rules 測試仍因其他 Emulator 占用 `8080` 未完成
+- 下一個最安全任務：部署後用本地或正式測試房確認滿階段玩家只可關閉，且其他玩家仍能正常參與並完成家庭歷程
+
+## 2026-09-12 家庭歷程滿階段參與 Vercel 正式部署
+
+- Production deployment `dpl_95kj52mwhVuWxLW8bzX4KxkXURgE` 狀態為 `Ready`。
+- 正式網址已更新至 `https://2ife.vercel.app`，HTTP `200`。
+- 部署內容包含已完成家庭歷程滿階段玩家資格過濾與舊提示關閉處理。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`CODEX_HANDOFF.md`
+- 部署結果：Production `Ready`；正式網址 HTTP `200`
+- 目前風險：尚未以正式多玩家房實測滿階段玩家不可擲骰的完整流程；Rules 測試仍因本機 `8080` 被其他 Emulator 占用而未完成
+- 下一個最安全任務：使用 3～4 位玩家驗證已完成五階段玩家只可關閉，其他未完成玩家仍可並行擲骰
+
+## 2026-09-12 v4.0 系統更新日誌
+
+- 對外版本由 `v3.9` 更新為 `v4.0`。
+- CoachDashboard 更新 `v4.0` 系統更新日誌，記錄家庭歷程骰子結案時序、C004 收入即時入帳、多間 N056～N058 升級佇列，以及房屋狀態彈窗優化。
+- 本次日誌只列出已完成的程式修正，不宣稱尚未完成實機回歸的項目已全面驗收。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：沿用本次修正已通過的 TypeScript、完整 Vitest `251 passed / 26 skipped`、production build 與 `git diff --check`
+- 目前風險：Firestore Rules 測試仍因其他 Emulator 占用 `8080` 未完成；本次未重新進行瀏覽器實機回歸
+- 下一個最安全任務：確認 Emulator 來源後重跑 Rules，並以實際多人房驗證 v4.0 四項流程
+
+## 2026-09-12 v4.0 Vercel 正式部署
+
+- Production deployment `dpl_mfcx95WaHZZrmekXm7ySjrfcoV1d` 狀態為 `Ready`。
+- 正式網址已更新至 `https://2ife.vercel.app`，HTTP `200`。
+- 部署內容包含 v4.0 版本號與系統更新日誌，以及本次家庭歷程、C004、N056～N058 與房屋彈窗修正。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`CODEX_HANDOFF.md`
+- 部署結果：Production `Ready`；正式網址 HTTP `200`
+- 目前風險：Firestore Rules 測試仍因本機 `8080` 被其他 Emulator 占用而未完成；尚未進行多玩家正式站實機回歸
+- 下一個最安全任務：先完成 Rules 驗證，再以 3～4 位玩家實測 v4.0 的家庭歷程與多間工作室升級流程
+
+## 2026-09-13 開局企業選擇誤跳：修正
+
+- 開局選擇頁的職業、企業、夢想共用同一個輪播元件，切換步驟時原本會沿用上一頁的滾動與選取內部狀態；卡片也沒有明確的點選事件，手機點擊與吸附可能被判成下一張選項。
+- 每個選擇步驟改用獨立元件 key，切換時重新初始化輪播；卡片點擊／鍵盤操作只更新選取並將卡片置中，只有底部確認按鈕可以前往下一步。
+- 新增輪播回歸測試，確認點選企業卡不會呼叫下一步。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/components/common/SelectionCarousel.tsx`、`src/views/selection/SelectionView.tsx`、`src/components/common/SelectionCarousel.test.tsx`
+- 測試結果：選擇輪播與玩家狀態測試 `3 passed`；TypeScript、production build、`git diff --check` 通過
+- 目前風險：尚未用真實帳號在手機尺寸完成職業 → 企業 → 夢想的瀏覽器回歸；本次未部署
+- 下一個最安全任務：在本地開新房，確認點擊企業卡只選取企業，按底部確認後才進入夢想頁
+
+## 2026-09-13 升等職業流程修正
+
+- 一般升等骰改由 Firestore transaction 以目前玩家私有資料作為權威，交易內同時寫入升等報名費、考試結果、職業等級、薪資與財務歷史。
+- 報名費使用 `school-fee:{schoolEventId}` 冪等鍵；重整、連點或交易重試不會重複扣款，且會保留現金不足與過期事件的明確錯誤。
+- 玩家端不再用本機升等結果覆蓋棋盤房間資料；職業資料未同步或已達最高等級時，升等按鈕會停用並顯示原因。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/context/RoomContext.tsx`、`src/context/RoomContext.test.ts`、`src/hooks/useGameLogic.ts`、`src/views/game/GameView.tsx`、`src/components/modals/PromotionModal.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：完整 Vitest `255 passed / 26 skipped`；TypeScript、production build、`git diff --check` 通過
+- 目前風險：尚未以實際多玩家瀏覽器完成學校格升等的 Firestore 競態與斷線重連回歸；本次未 commit、push 或部署
+- 下一個最安全任務：使用本地 Firestore 開一場多玩家房，分別驗證現金足夠、現金不足周轉、考試成功／失敗及重新整理後重試
+
+## 2026-09-14 雙骰資格與銀行工作室升級流程修正
+
+- 棋盤擲骰現在在 transaction 內強制讀取 `rooms/{roomId}/players/{uid}` 最新私有玩家資料，汽車／飛行器持有狀態不再取自可能過期的房間快照；有車時保留單骰／雙骰選擇，預設雙骰，無車固定單骰。
+- 玩家端骰子資格與 N056～N058 工作室清單改優先使用最新私有玩家狀態，避免遊戲進行一段時間後畫面退回單骰或銀行升級入口消失。
+- 銀行事件結案與移動收尾同樣強制使用私有玩家資料；待升級工作室若保存失效的舊資產 ID，改依卡片代號找回同一筆未升級工作室，避免經過銀行時升級流程卡住。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx`、`src/context/RoomContext.test.ts`、`CODEX_HANDOFF.md`
+- 測試結果：完整 Vitest `257 passed / 26 skipped`；TypeScript、production build、`git diff --check` 通過
+- 目前風險：尚未以 3 位玩家與大螢幕瀏覽器完成長局雙骰及 N056～N058 銀行升級實機回歸；本次未 commit、push 或部署
+- 下一個最安全任務：使用本地 Firestore 實測有車玩家後段回合仍可選雙骰，並逐一驗證 N056、N057、N058 經過銀行的第一骰、第二骰、升級成功與失敗重試
+
+## 2026-09-14 v4.1 Vercel 正式部署
+
+- 對外版本由 `v4.0` 更新為 `v4.1`。
+- CoachDashboard 新增 `v4.1` 系統更新日誌，記錄後段雙骰資格、N056～N058 銀行升級，以及移動結算私有資料同步修正。
+- Production deployment `dpl_3JmbadSzdhkunuBkuCtmmssWuSSn` 狀態為 `Ready`，正式網址為 `https://2ife.vercel.app`，HTTP `200`。
+- 線上 bundle 已確認包含 `v4.1`；本次部署使用目前已連結的 Vercel 專案 `2ife`。
+- 驗證：`npm run typecheck` 通過；完整 Vitest `257 passed / 26 skipped`；`npm run build` 通過；`git diff --check` 通過。
+- Build 保留既有 Tailwind ambiguous class、dynamic import 與 chunk size 警告；未因警告阻擋部署。
+- 本次未 commit、push；保留 dev 工作樹所有既有未提交修改。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`、`CODEX_HANDOFF.md`
+- 目前風險：尚未以 3 位玩家與大螢幕瀏覽器完成長局雙骰及 N056～N058 銀行升級實機回歸；本次只完成自動化檢查與正式部署驗證
+- 下一個最安全任務：使用實際測試房驗證 v4.1 後段雙骰與三張工作室升級流程
+
+## 2026-09-14 v4.1 系統更新日誌
+
+- 對外版本由 `v4.0` 更新為 `v4.1`。
+- CoachDashboard 新增 `v4.1` 系統更新日誌，記錄後段雙骰資格、N056～N058 銀行升級，以及移動結算私有資料同步修正。
+- 本次日誌只列出已完成的程式修正，不宣稱尚未完成實機多人回歸的項目已全面驗收。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`、`CODEX_HANDOFF.md`
+- 測試結果：待本次版本修改後重新執行
+- 目前風險：尚未以 3 位玩家與大螢幕瀏覽器完成長局雙骰及 N056～N058 銀行升級實機回歸
+- 下一個最安全任務：完成版本驗證後，再以本地或正式測試房實測後段雙骰與三張工作室升級流程
+
+## 2026-09-14 註冊表單與升等考試關閉流程修正
+
+- 註冊表單統一暱稱上限與計數器為 8 字，Email 僅在註冊時使用原生格式檢查，密碼改為遮蔽輸入並要求至少 6 碼。
+- 保留登入端的 GM0221 帳號別名相容性；註冊頁新增可選邀請碼欄位，URL `ref` 邀請連結仍會自動帶入。
+- 升等考試關閉按鈕現在會透過既有 `advanceBoardEventQueue('school')` 結案；只有 Firestore 寫入成功才標記事件已處理，失敗時保留視窗並提示重試。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/views/auth/AuthView.tsx`、`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx`、`CODEX_HANDOFF.md`、`DEBUG_HANDOFF.md`
+- 測試結果：`npm run typecheck` 通過；相關 Vitest `49 passed`；`npm run build` 通過；`git diff --check` 通過
+- 目前風險：尚未以多個實際帳號瀏覽器回歸註冊邀請碼與學校升等關閉／重連流程；工作樹仍保留既有未提交修改
+- 下一個最安全任務：使用本地測試房驗證註冊欄位、GM0221 登入別名、學校事件關閉後可結束回合，以及 Firestore 寫入失敗時可重試
+
+## 2026-09-14 v4.2 Vercel 正式部署
+
+- 對外版本由 `v4.1` 更新為 `v4.2`。
+- CoachDashboard 新增 v4.2 系統更新日誌，記錄註冊欄位／邀請碼與升等考試關閉結案修正。
+- Production deployment `dpl_7hyCD8No8Pcw4SnXx5PHFNREWvsu` 狀態為 `Ready`，正式網址為 `https://2ife.vercel.app`，HTTP `200`。
+- 正式資產已確認包含 `v4.2`；本次部署使用目前已連結的 Vercel 專案 `2ife`。
+- 驗證：完整 Vitest `257 passed / 26 skipped`；TypeScript、production build、`git diff --check` 通過。
+- Build 保留既有 Tailwind ambiguous class、dynamic import 與 chunk size 警告；未因警告阻擋部署。
+- 本次未 commit、push；保留 dev 工作樹所有既有未提交修改。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`、`CODEX_HANDOFF.md`
+- 目前風險：註冊邀請碼與學校升等關閉流程尚未以多帳號瀏覽器完成實機回歸
+- 下一個最安全任務：在本地測試房驗證 v4.2 註冊與升等流程，再進行多玩家正式站冒煙測試
+
+## 2026-09-15 職業選取中央定位修正
+
+- 修正職業選取輪播使用固定卡片寬度推算中央位置，導致手機實際卡片寬度不同時選到鄰近職業的問題。
+- 改用實際 DOM 卡片中心判定目前選項，初始化依既有選取職業置中；點擊卡片立即置中，避免平滑滾動期間選取狀態反覆跳動。
+- 新增窄版輪播中央選取回歸測試。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次修改檔案：`src/components/common/SelectionCarousel.tsx`、`src/components/common/SelectionCarousel.test.tsx`、`CODEX_HANDOFF.md`、`DEBUG_HANDOFF.md`
+- 測試結果：輪播測試 `2 passed`；TypeScript、`git diff --check` 通過
+- 目前風險：尚未在實際手機瀏覽器完成職業 → 企業 → 夢想完整操作回歸
+- 下一個最安全任務：使用 320px 與 390px 手機尺寸確認中央職業、滑動循環及確認按鈕選取結果一致
+
+## 2026-09-16 終身學習財務檢核偶發錯誤頁修正
+
+- 修正舊版／不完整 `localStorage` 玩家狀態在終身學習財務結算時缺少 `history`、`happiness`、`assets` 等陣列，可能造成 React ErrorBoundary 顯示通用錯誤頁的風險。
+- 新增並重用 `normalizeGameState()`，套用於本機存檔還原、玩家權威快照合併、財務結算 updater 及終身學習效果處理。
+- 財務檢核 modal 接住 `onApply` 的非同步例外，保留視窗並顯示可重試訊息。
+- 驗證：完整 Vitest `260 passed / 26 skipped`；TypeScript、production build、`git diff --check` 通過。
+- 限制：正式環境沒有保留當次 React stack，無法宣稱已取得該次實機例外的百分之百對應；尚未進行正式站多人實機回歸。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/context/GameContext.tsx`、`src/context/GameContext.test.ts`、`src/hooks/useGameLogic.ts`、`src/components/game/BoardFinancialCheckModal.tsx`、`src/components/game/BoardFinancialCheckModal.test.ts`、`CODEX_HANDOFF.md`、`DEBUG_HANDOFF.md`
+- 目前風險：若正式站仍重現，需保留瀏覽器 console 第一個錯誤與 ErrorBoundary stack；尚未完成多人瀏覽器實機回歸
+- 下一個最安全任務：以終身學習卡重現財務檢核成功、斷線／重整及交易失敗重試流程，確認畫面不再整頁崩潰
+
+## 2026-09-16 保險交易誤入周轉流程修正
+
+- 房屋／汽車保險維持 `cashChange: 0`、增加每月支出，改回正常財務檢核流程。
+- 現金不足周轉分支只接受 `usage: cash` 且實際增加現金的收入／借款交易。
+- 周轉資產出售流程取消時僅在強制出售 preset 下處理，避免一般銀行交易誤顯示「周轉完成」。
+- 驗證：GameView、WealthView、BoardFinancialCheckModal 共 14 項測試通過；TypeScript、production build、`git diff --check` 通過。
+- 限制：尚未完成多帳號瀏覽器實機回歸。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次直接修改：`src/views/game/GameView.tsx`、`src/views/game/GameView.test.ts`、`CODEX_HANDOFF.md`
+- 目前風險：正式環境仍需確認房屋／汽車保險的財務檢核與月支出入帳。
+- 下一個最安全任務：在本地測試房實際點擊兩種保險，確認不進周轉、可完成檢核且只增加月支出。
+
+## 2026-09-16 C036／C004 卡片崩潰與重整恢復修正
+
+- C004 終身學習成功結算改為容忍舊玩家文件缺少 `assets`、`abilities`、`history`，避免第一次結算進入 ErrorBoundary、重整後才成功。
+- C036 等卡片在現金不足並使用強制負債／信貸周轉時，不再讀取未正規化的 `prev.history`。
+- 斷線重連載入雲端玩家資料前統一正規化；Firestore cache 暫時找不到房間時不再清除 `active_room`，只有 server 確認房間不存在才回大廳。
+- 新增 C004 舊快照回歸測試；TypeScript、完整 Vitest `263 passed / 26 skipped`、production build 通過。
+- 尚未部署，且尚未用正式雲端多人房間重播 C036／C004。
+
+## 2026-09-17 目標企業、多工作室與汽車雙骰一致性修正
+
+- 目標企業購買改由 Firestore 權威 transaction 原子寫入，避免收益存在但企業資產遺失；收益只計入企業資產一次，舊版重複收益也會在報表去重。
+- N056～N058 待升級清單會依未升級工作室與企業貸款補回完整佇列，第二間以自己的 `assetId` 擲骰與升級，不再受第一筆 pending 限制。
+- 汽車骰子按鈕的 `x2` 改為固定雙骰，不再提供會造成顯示與實際骰數不一致的切換操作。
+- 新增目標企業單次收益、多工作室第二筆及購車後立即雙骰的回歸測試。
+- 舊帳號若曾只留下目標企業收益、遺失企業資產，載入時會在精確條件下補回企業資產並移除重複 income，不需再次扣款。
+- 驗證：TypeScript、完整 Vitest `269 passed / 27 skipped`、production build、`git diff --check` 通過。
+- 本次未部署；尚未完成三帳號＋執行師的瀏覽器實機回歸。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次核心修改：`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx`、`src/hooks/useGameLogic.ts`、`src/utils/gameUtils.ts`、`src/components/game/GameActions.tsx` 及相關測試
+- 目前風險：需用既有舊資料帳號確認舊版重複收益顯示已去重，並實測兩間工作室連續升級視窗
+- 下一個最安全任務：本地三玩家房依序購買目標企業、連續升級兩間工作室、購車後擲骰，核對 Firestore 私有玩家文件與畫面一致
+## 2026-09-17 家庭歷程最後一骰動畫完整播放
+
+- 修正家庭歷程最後一位玩家送出骰點後，系統以 1.2 秒結果揭示時間提早結案，導致大螢幕 3.6 秒骰子動畫被中途關閉。
+- 家庭歷程回覆、玩家結果顯示與 Firestore 結案現在共用完整動畫截止時間；動畫結束後才允許移除共享 prompt。
+- 沒有新增投影端快照或額外固定延遲，避免舊事件殘留。
+- 驗證：家庭歷程與共享 prompt 針對性測試 `67 passed`；完整 Vitest `269 passed / 27 skipped`；TypeScript 通過。
+- 本次未部署；尚未完成多帳號大螢幕實機回歸。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次核心修改：`src/game/board/dicePresentation.ts`、`src/game/board/dicePresentation.test.ts`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 目前風險：尚未以 3～4 位玩家同時擲骰，確認最後一顆骰子在大螢幕完整播完後才關閉
+- 下一個最安全任務：本地 3 位玩家家庭歷程測試，讓最後一位玩家擲骰失敗與成功各一次，觀察共享視窗結案時間
+## 2026-09-17 家庭歷程同步骰子改為底部橫排
+
+- 大螢幕家庭歷程同步骰子移除全畫面遮罩與中央大型面板，改成固定於畫面底部的單排資訊列。
+- 2～6 位玩家共用同一橫排；每格顯示玩家名稱、身分、回覆狀態及小型骰子，後方家庭歷程卡片保持可讀。
+- 移除不再使用的家庭骰子網格欄數 helper 與舊版面測試。
+- 驗證：TypeScript、骰子呈現測試 `3 passed`、production build、`git diff --check` 通過；build 僅保留既有 Tailwind 與 bundle size 警告。
+- 本次未部署；尚未用 6 位玩家實際投影畫面確認最長姓名的截斷效果。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次核心修改：`src/components/board/DicePresentationOverlay.tsx`、`src/game/board/dicePresentation.ts`、`src/game/board/dicePresentation.test.ts`、`CODEX_HANDOFF.md`
+- 目前風險：需在 1366×768 大螢幕以 6 位玩家確認單排內容可讀性
+- 下一個最安全任務：建立 6 人家庭歷程共享事件，確認卡片不被遮擋且所有玩家骰點狀態維持一排
+## 2026-09-17 重開房間後審核請求監聽權限錯誤
+
+- 房間畫面已成功顯示新房間與成員，但 `pendingRequests` 子集合監聽可能在 cache／舊房間快照尚未切換完成時啟動，造成玩家看到 `permission-denied`。
+- 修正 `RoomContext`：審核 query 只在房間 listener 進入 `synced`，且目前帳號已是房主、教練／GM 或房間成員後建立；切換房間時不再用未確認的快照啟動監聽。
+- 已確認目前本地 `.env.local` 設定 `VITE_USE_EMULATOR=false`，因此 localhost:5173 實際連線到 `happinessflow-online` 雲端 Firestore。
+- 型別檢查、房間同步／Rules 相關測試與完整 build 通過；完整 Vitest `268 passed / 27 skipped`。
+- 嘗試部署雲端 Rules 時被安全審核拒絕，尚未更動雲端規則；若雲端 Rules 尚未包含目前 `pendingRequests` 子集合規則，仍需明確授權後單獨部署 Rules。
+
+### 雲端部署結果
+
+- 已獲使用者明確同意，將 `firestore.rules` 單獨部署至 `happinessflow-online`。
+- Firebase 回報規則編譯成功並已 release；未部署前端、未修改遊戲資料。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次核心修改：`src/context/RoomContext.tsx`、`DEBUG_HANDOFF.md`、`CODEX_HANDOFF.md`
+- 測試結果：TypeScript、房間測試 `44 passed / 27 skipped`、完整 Vitest `268 passed / 27 skipped`、production build、`git diff --check` 通過
+- 目前風險：尚未用重開房間的實際玩家帳號完成瀏覽器回歸；Rules 編譯時仍有既有未使用函式警告
+- 下一個最安全任務：重開新房間並觀察玩家端是否不再顯示審核請求同步權限不足
+
+## 2026-09-17 C037 醫療卡財務檢核崩潰修正
+
+- 新增 `src/utils/gameState.ts`，集中 `createDefaultGameState()` 與 `normalizeGameState()`；`GameContext` 改為重用並對外保留原匯出。
+- 新增 `src/utils/boardMedical.ts` 與測試；C035～C037 使用權威玩家資料及 `boardEventId`／command ID 原子處理醫療費、待理賠事件、歷史與重複送出。
+- `RoomContext` 新增 `completeMedicalBoardCardAction()`；`GameView` 不再以本機醫療卡狀態先寫入，交易成功後才執行醫院移動與暫停回合。
+- 驗證：完整 Vitest `272 passed / 27 skipped`、TypeScript、production build、`git diff --check` 通過；本次未部署。
+
+## 2026-09-17 連線與 Firestore 優化第一階段
+
+- `runRoomBoardMutation()` 追加既有 Analytics 的交易／文件量測，並在衝突重試加入小幅 jitter。
+- 房間 listener 追加 snapshot 大小、cache／pending 狀態與同步延遲量測；GameContext 遠端快照無本機差異時不再觸發無效同步 transaction。
+- RTDB 分頁控制權改為每分頁獨立 claim，關閉或斷線會由 `onDisconnect` 清除，避免舊分頁持有 stale controller。
+- `VITE_FIRESTORE_TRANSPORT` 可選 `auto` 或 `default` 供實機 A/B；未設定時維持原本 `auto` 行為。
+- 驗證：`npm run typecheck` 通過；核心 Vitest `61 passed`；Firestore Rules `27 passed`（使用目前已執行的 Emulator）；`npm run build` 通過；`git diff --check` 通過。
+
+### 未完成與風險
+
+- 本輪尚未把骰子短暫展示移至 RTDB，也未啟用多人事件 response 子集合 schema v2。
+- 既有 `GameContext` 財務同步仍有相容性路徑，尚未宣稱已完成所有財務命令的單一 transaction 遷移。
+- 尚未完成 3／6 玩家瀏覽器壓力測試、transport A/B 實機量測與 120 分鐘正式站驗收；因此本輪不部署、不 commit、不宣稱延遲門檻已達標。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次核心修改：`src/utils/gameState.ts`、`src/utils/boardMedical.ts`、`src/context/GameContext.tsx`、`src/context/RoomContext.tsx`、`src/views/game/GameView.tsx` 及相關測試
+- 目前風險：尚未以正式雲端三人房重播 C035～C037 的有／無保險、連點與同步競態
+- 下一個最安全任務：本地先重播 C037 有保險與無保險，再以正式測試帳號確認交易只入帳一次且完成後才移動
+
+## 2026-09-18 多人共享回覆安全切片
+
+- 新建立的棋盤房使用 `syncSchemaVersion: 2`；非財務共享回覆各自寫入 `events/{promptId}/responses/{uid}`，玩家只能建立自己的 `declined`／`no_effect` 文件。
+- 執行師監聽完整 response 集合，回覆到齊後以既有 transaction、revision 與 command ID 一次結案；同一 prompt 的房間快照合併會保留已收到的 response。
+- Rules Emulator `28 passed`；完整 Vitest `282 passed / 28 skipped`；TypeScript、production build、`git diff --check` 通過。
+- 3 人壓力回歸到第 23 回合，N027 共享回覆已通過且未再出現先前 403；第 24 回合因測試腳本未處理實際銀行事件停止，50 回合與正式站驗收仍未完成。
+
+【交接狀態】
+- 本次核心修改：`src/context/RoomContext.tsx`、`src/types.ts`、`firestore.rules` 及相關測試
+- 目前風險：schema v2 僅切入非財務共享回覆；財務共享回覆仍待完整遷移，壓力測試需先補特殊格流程分支
+- 下一步：修正測試腳本的銀行／特殊格處理，再完成 50 回合並進入 6 人競態驗證
+
+## 2026-09-18 開局同步競態修正與 50 回合壓力測試
+
+- 確認前次壓力測試的 Firestore `FAILED_PRECONDITION` 根因：玩家選擇畫面的本機草稿仍透過舊同步橋接寫入私人玩家文件，與執行師開始新局時刪除／重建玩家文件同時發生，造成版本衝突；不是玩家文件不存在。
+- `GameContext` 現在只在 `isSetup` 完成後同步正式玩家資料；職業、企業與夢想選擇期間保留在本機草稿，最後由既有 `completePlayerSetup()` 原子提交，避免跨場／跨流程回寫。
+- 修正壓力測試的結算驗收定位：玩家端實際以 `遊戲結算` region 呈現，內部標題為 `遊戲評分`；只調整測試定位，沒有更改玩家產品畫面。
+- 以隔離 Firebase Emulator 完成 3 位玩家＋1 位執行師的 50／50 正式回合，分布為 Player1 17、Player2 17、Player3 16；最終房間 `finished`、revision 250，錯誤 0。
+- 壓力測試摘要：單回合最長 9,521 ms、回合切換同步最長 462 ms；完整測試期間未再出現 Firestore 400、同步失敗或瀏覽器錯誤。報告：`e2e/report/board-50-turn-stress.json`。
+- 驗證：針對性 Vitest `70 passed`、完整 Vitest `282 passed / 28 skipped`、TypeScript、production build、`git diff --check` 通過。Build 僅保留既有 Tailwind 類名與 bundle size 警告。
+
+### 連線優化計畫狀態
+
+- 階段 0：程式 telemetry 已具備；不同手機／網路的實機 p50／p95 仍未取得。
+- 階段 1：已修正本機選擇草稿與正式玩家資料的競態；所有財務呼叫端尚未完成單一 transaction 盤點與遷移。
+- 階段 2：分頁 claim 已完成；骰子短暫展示仍使用 Firestore，尚未切換 RTDB。
+- 階段 3：v2 response 子集合目前只涵蓋非財務共享回覆，財務回覆尚未完整遷移。
+- 階段 4：Context／GM 分頁化尚未全面執行。
+- 階段 5：transport A/B、6 人壓力測試及 120 分鐘正式站驗收尚未執行。
+
+【交接狀態】
+- CODEX_HANDOFF.md 是否已更新：是
+- 本次核心修改：`src/context/GameContext.tsx`、`e2e/board-50-turn-stress.spec.ts`、`CODEX_HANDOFF.md`、`DEBUG_HANDOFF.md`
+- 本次未 commit、未 push、未部署；50 回合測試使用 Emulator，不代表正式雲端驗收已完成
+- 下一個最安全任務：先以 3 位玩家回歸測試實際家庭歷程／財務共享競態，再決定是否擴大到 6 人與正式站
+
+## 2026-09-18 六位玩家壓力驗收與交易重試收斂
+
+- `RoomContext` 的共享 response 結案、舊玩家資料搬移、turnOrder 補救及 v2 非財務回覆交易改用既有 `runBoardTransactionWithRetry()`；沒有新增服務或狀態系統。
+- 6 位玩家＋1 位執行師＋大地圖在隔離 Emulator 完成 50／50 正式回合，分布 9／9／8／8／8／8；最終房間 `finished`、revision 249。
+- 驗收腳本將 Firestore SDK 可處理的 `FAILED_PRECONDITION` 版本衝突獨立記錄為 retryable，不掩蓋其他 4xx、頁面錯誤或未處理例外；本次真正錯誤 0、可重試衝突 1 次，測試通過。
+- 報告：`e2e/report/board-6p-50-turn-stress.json`；完整測試證據仍保留在 `test-results/`。
+
+### 連線優化計畫目前狀態
+
+- 階段 0：程式 telemetry 與本地 3／6 人基準已具備；不同手機／網路的實機 p50／p95 尚未取得。
+- 階段 1：已完成開局草稿競態切斷、玩家私有同步拆分及交易重試補齊；所有財務命令的完整盤點仍未完成。
+- 階段 2：分頁 claim 已完成；骰子短暫展示仍使用 Firestore，尚未切換 RTDB。
+- 階段 3：v2 response 子集合已涵蓋非財務共享回覆；財務共享回覆尚未完整遷移。
+- 階段 4：Context／GM 分頁化尚未全面執行。
+- 階段 5：transport A/B、120 分鐘正式站驗收仍未完成。
+
+【交接狀態】
+- 本次未 commit、未 push、未部署；只完成 dev 工作樹的本地修正與驗收。
+- 下一個安全步驟：先補 3／6 人家庭歷程與財務共享的瀏覽器競態劇本，再評估正式雲端冒煙；不要把本次安全卡片 50 回合結果當成完整卡庫通過。
+
+## 2026-09-17 連線優化續驗
+
+- `GameContext` 新增並使用純函式 `getSafePlayerStatePatch()`；延遲的本機快照若與最新 Firestore 權威欄位衝突，會被排除，不再覆蓋現金、資產等結果。
+- 新增回歸測試覆蓋「權威現金更新後，舊本機現金不得寫回；其他未衝突欄位仍可同步」。
+- 驗證通過：`npm run typecheck`、完整 Vitest `273 passed / 27 skipped`、Firestore Rules 直接測試 `27 passed`、`npm run build`（auto）、`VITE_FIRESTORE_TRANSPORT=default npm run build`、`git diff --check`。
+- 階段 0／5 已具備可重現的程式量測與 transport build 切換；尚未取得不同手機／網路的實機 p50／p95，因此不宣稱完成 transport A/B。
+
+### 仍待授權或實機條件
+
+- 尚未將骰子展示移至 RTDB：目前缺少可供 RTDB Rules 驗證房間成員的安全權威；直接開放 `roomPresentation` 會讓已登入帳號偽造或讀取其他房間動畫。
+- 尚未啟用多人 response 子集合 schema v2、完成所有財務呼叫端遷移，或執行 3／6 人瀏覽器壓力及 120 分鐘正式站驗收。
+- 若要繼續 RTDB 通道，需先決定提供安全成員授權（例如受控 custom claims／後端寫入）或維持目前 Firestore 正式骰點展示通道。
+
+## 2026-09-17 3 人＋執行師 50 回合壓力測試續驗
+
+- 使用隔離 Firebase Emulator（Firestore 8092、Auth 9112、RTDB 9012、UI 4012）與 Vite 5183，完成開房、執行師及 3 位玩家登入／初始選擇。
+- 實際完成 15 次正式回合，於第 16 回合停止；因此 50 回合、第二局初始化、6 人壓力及正式站冒煙均未完成。
+- 本次未重現前次第 16 回合前的 Rules 403；trace 主要記錄 Firestore commit 的 `FAILED_PRECONDITION` 交易競態，代表共享房間文件仍是高競爭熱點，既有重試有時可恢復但仍造成延遲。
+- 失敗時 Admin 讀到房間的 `currentEvent`、`movement`、`pendingEvents` 已清除，但玩家畫面仍保留卡片事件且「結束回合」 disabled；目前只能確認存在權威快照與玩家 UI 不一致，尚未把具體 stale UI 觸發路徑視為已修正。
+- 報告：`e2e/report/board-50-turn-stress.json`（`failed`、15 turns）；證據：`test-results/board-50-turn-stress-3-位玩家＋1-位執行師完成-50-回合壓力測試-chromium/trace.zip` 及失敗截圖。
+- 完整 Vitest `274 passed / 27 skipped`、TypeScript、`git diff --check` 通過；本次未部署、未 commit。
+
+### 連線優化計畫目前狀態
+
+- 階段 0：程式 telemetry 與 transport build 已具備；尚缺不同手機／網路的實測 p50／p95。
+- 階段 1：已降低舊快照回寫與自動結算競爭；尚未完成所有財務呼叫端的單一 transaction 遷移。
+- 階段 2：RTDB 骰子展示與分頁 claim 已評估／部分完成；骰子正式展示仍使用 Firestore，因 RTDB Rules 尚無安全房間成員權威。
+- 階段 3：多人 response schema v2 尚未啟用。
+- 階段 4：Context／GM 分頁化尚未全面執行。
+- 階段 5：transport A/B 與 120 分鐘正式站驗收尚未執行。
+
+## 2026-09-18 交易重試與 v2 共享回覆續修
+
+- `RoomContext` 剩餘的啟動升級狀態、執行師財務調整、財務加速器、全體補助、幸福分享核准與斷線跳回合 transaction，統一改走既有 `runBoardTransactionWithRetry()`。
+- schema v2 的共享回覆在 `runRoomBoardMutation()` 內讀取 `events/{promptId}/responses/{uid}`，財務完成回覆也與玩家私有資料及房間 revision 同一筆 transaction 寫入；房間內的 legacy response Map 不再因每位玩家回覆而競爭更新。
+- Rules 允許目標玩家建立 `completed` response；執行師僅能在離線恢復路徑建立 `declined` response，玩家仍不可代寫其他 UID。
+- 驗證：完整 Vitest `283 passed / 29 skipped`、Firestore Rules `29 passed`（隔離 8098 Emulator、載入工作樹 Rules）、TypeScript、production build、`git diff --check` 通過。
+
+### 尚未完成與限制
+
+- 本次只完成交易重試與共享回覆儲存切片；共享財務效果仍有既有 `GameContext` 本機表單→立即同步相容路徑，尚未全面抽成所有財務命令的純 transaction。
+- 骰子短暫展示仍在 Firestore；未執行不同手機／網路 transport A/B、120 分鐘正式雲端驗收，也未部署或 commit。
+
+## 2026-09-18 共享回覆結案邊界補強
+
+- `runRoomBoardMutation()` 對 schema v2 回覆以 UID 去重，避免同一筆回覆同時由 mutation metadata 與 prompt 差異偵測重複寫入。
+- 最後一位玩家完成且 prompt 立即移除時，仍會把最後一筆回覆寫入 `events/{promptId}/responses/{uid}`；新增單元測試鎖定此路徑。
+- 驗證：`runBoardMutation.test.ts` 15 passed、完整 Vitest 284 passed／29 skipped、Rules 29 passed（隔離 8098 Emulator）、TypeScript、production build、`git diff --check` 通過。
+
+### 尚未完成與限制
+
+- 仍未將骰子短暫展示移至 RTDB，因尚缺可由 Rules 驗證的房間成員授權來源。
+- 仍未完成所有財務命令的純 transaction 遷移、不同手機／網路 transport A/B、6 人 120 分鐘正式雲端驗收與 production 部署。
+
+## 2026-09-18 家庭歷程回覆子集合續修
+
+- schema v2 家庭歷程 prompt 現在同樣使用 `events/{promptId}/responses/{uid}`；玩家擲骰、接受／略過與完成階段的回覆，會和該玩家私有資料在同一個 board transaction 內處理。
+- 房間快照會合併家庭歷程 child responses；執行師讀完整集合、玩家只讀自己的回覆，完成後依展示截止時間冪等結案。
+- Firestore Rules 新增家庭歷程 response 欄位與 `passed`／`failed`／`declined` 驗證，玩家只能建立自己的 response。
+- 驗證：完整 Vitest `284 passed／30 skipped`、Rules `30 passed`（隔離 8098 Emulator）、TypeScript、production build、`git diff --check` 通過。
+
+### 尚未完成與限制
+
+- 尚未將骰子展示移至 RTDB；仍需安全的房間成員授權來源。
+- 所有非共享財務命令的純 transaction 遷移、transport A/B、正式雲端長時間驗收與 production 部署仍未完成。
+
+## 2026-09-18 直接幸福卡財務命令切片
+
+### 修正
+
+- 新增 `buildDirectHappinessCardState()` 純狀態轉換，將直接幸福卡的現金、月支出、幸福歷程、幸福點與交易歷史一次套用。
+- 棋盤直接幸福卡改由 `completeDirectHappinessCard()` 走既有 `runRoomBoardMutation()`；Firestore 私人玩家狀態與房間事件推進由同一筆交易處理。
+- 以 `happiness-card:{sessionId}:{eventId}:{uid}:{cardId}` 作為 command ID；重整或重送不重複扣款、增加支出或幸福點。
+- 交易失敗時保留卡片畫面，不先關閉 UI；只有 transaction 成功或已確認 duplicate 才關閉。
+- 新增直接幸福卡的現金／支出／幸福／歷史及重送冪等測試，並建立財務命令盤點：`docs/testing/FINANCIAL_COMMAND_INVENTORY_2026-09-18.md`。
+
+### 驗證
+
+- `npm run typecheck` 通過。
+- 完整 Vitest：`286 passed / 30 skipped`。
+- Firestore Rules：`30 passed`，使用隔離 18080 Emulator，避免干擾目前 8080 本地 Emulator。
+- `npm run build` 通過；保留既有 Tailwind arbitrary duration、動態／靜態 import 與大型 chunk 警告。
+- `git diff --check` 通過。
+
+### 尚未完成與限制
+
+- 目前只完成直接幸福卡切片；一般銀行、股票、定存、保險、貸款等 legacy `GameContext` 表單回寫仍未全面遷移到同一 transaction。
+- RTDB 骰子展示仍未切換；因尚缺安全的房間成員授權來源，不以放寬 RTDB Rules 取代設計。
+- 不同手機／網路 transport A/B、正式雲端長時間壓力測試與 production 部署仍未執行。
+
+## 2026-09-18 保險、定存與股票交易命令切片
+
+### 修正
+
+- 新增 `completeInsurancePurchase()`：棋盤房間的醫療、房屋及汽車保險購買，依最新私人玩家資料在 transaction 內更新保險狀態與歷史；不扣除購買當下現金。
+- 新增 `completeDepositPurchase()`：辦理定存時在 transaction 內驗證現金、扣款、建立定存資產、寫入 1% 月收益與交易歷史；現金不足不提交。
+- 新增 `completeStockTrade()`：股票買入／賣出在 transaction 內依最新持股驗證，並支援同張數的新交易再次送出；同一 command 重送仍冪等。
+- `BrokerView` 為每次股票送出建立獨立 `commandId`，避免可重複交易按鈕被錯誤去重。
+- 本地／相容模式仍保留原有 `useGameLogic()` 路徑；本批次只切換棋盤房間，降低一次性遷移風險。
+
+### 驗證
+
+- 相關測試：`62 passed`（RoomContext、GameView、BrokerView）。
+- 完整 Vitest：`292 passed / 30 skipped`。
+- Firestore Rules：`30 passed`，隔離 18080 Emulator。
+- `npm run typecheck`、`npm run build`、`git diff --check` 通過。
+- Build 仍有既有 Tailwind arbitrary duration、動態／靜態 import 與大型 chunk 警告，未因本批次新增。
+
+### 尚未完成與限制
+
+- 貸款、還款、定存解約、一般資產買賣、部分醫院／維修／卡片財務流程仍走 legacy 本機狀態相容路徑。
+- RTDB 骰子展示仍未切換；不同手機／網路 transport A/B、正式雲端長時間壓力測試與 production 部署仍未執行。
+
+## 2026-09-18 銀行複合交易續修
+
+### 修正
+
+- 新增 `buildLoanBorrowState()`、`buildLoanRepaymentState()`、`buildDepositWithdrawalState()` 與 `buildCarPurchaseState()`，都以最新私人玩家資料產生結果。
+- 棋盤房間的信貸借款、負債還款、定存解約與汽車購買改由 `RoomContext` transaction 入口處理，成功後才更新畫面。
+- Banking／Wealth 入口建立獨立 `commandId`；重整或重送同一意圖不重複扣款、建立負債或資產。
+- 共用負債月付金規則集中到 `getLiabilityMonthlyPayment()`，避免借款與還款使用不同計算。
+
+### 驗證
+
+- 相關測試：`64 passed`（RoomContext、GameView、WealthView）。
+- 完整 Vitest：`296 passed / 30 skipped`。
+- Firestore Rules：`30 passed`，使用隔離 18080 Emulator。
+- `npm run typecheck`、production build 與 `git diff --check` 通過；build 僅保留既有 Tailwind arbitrary duration、動態／靜態 import 與大型 chunk 警告。
+
+### 尚未完成與限制
+
+- 一般資產買賣、部分醫院／維修／卡片財務流程仍走 legacy 本機狀態相容路徑。
+- RTDB 骰子展示仍未切換；不同手機／網路 transport A/B、正式雲端長時間壓力測試與 production 部署仍未執行。
+
+## 2026-09-19 Firestore 優化階段 0 量測基準
+
+### 已完成
+
+- `src/utils/telemetry.ts` 新增僅開發／測試使用的 bounded in-memory debug buffer，並保留既有 Analytics；不新增 Firestore 診斷集合。
+- `runRoomBoardMutation()` 的 `hf_board_command` 統一帶有 command／trace ID、transaction duration、讀寫文件數、retry count、room／board payload bytes。
+- `RoomContext` 的房間 listener 新增 `hf_board_listener_sync` 與下一個 frame 的 `hf_board_ui_ready`，可串起 listener → UI-ready 量測。
+- `board-50-turn-stress.spec.ts` 將教練端、投影端及玩家端 telemetry 寫入壓力測試 JSON。
+- E2E 測試設定支援 `E2E_NO_ARTIFACTS=true`，在磁碟空間有限時停用 trace／影片／失敗截圖，不影響正式程式。
+
+### 本地基準
+
+- 3 位玩家＋執行師：50／50 回合通過；transaction p95 114ms、listener p95 78ms、UI-ready p95 52ms、retry 0、房間文件最大 44,412 bytes。
+- 6 位玩家＋執行師：50／50 回合通過；transaction p95 438ms、listener p95 299ms、UI-ready p95 81ms、retry 0、房間文件最大 46,472 bytes。
+- 詳細量測與限制：`docs/testing/FIRESTORE_STAGE0_BASELINE_2026-09-19.md`。
+
+### 驗證
+
+- `npm run typecheck` 通過。
+- 完整 Vitest：`297 passed / 30 skipped`。
+- Firestore Rules：`30 passed`，使用隔離 Emulator。
+- `npm run build` 通過；保留既有 Tailwind arbitrary duration、動態／靜態 import 與大型 chunk 警告。
+- `git diff --check` 通過。
+
+### 尚未完成與限制
+
+- 尚未取得真實手機在 Wi-Fi／行動網路下的 long-polling transport A/B p50／p95。
+- 尚未完成真實裝置斷線 10 秒後重連量測。
+- 尚未完成正式雲端 3 人短測、6 人＋執行師＋大地圖長時間基準與 Firestore 用量對照。
+- RTDB 骰子展示、所有財務命令全面遷移及正式雲端壓力測試仍屬後續階段；本次未宣稱完成或部署。
+
+## 2026-09-19 執行師開始遊戲計時器無反應修正
+
+### 修正
+
+- 計時器更新改由 Firestore transaction 讀取最新房間，確認目前帳號仍是房主執行師後再寫入，避免 RTDB 分頁控制權短暫未就緒時被靜默略過。
+- 執行師開始／暫停計時器只在遠端寫入成功後更新本機畫面，避免本機顯示已開始但玩家仍被 `isTimerPaused` 擋住。
+- 等待房間的舊開始入口改走 `startRoomGame()` 完整初始化棋盤，不再只寫 `status: playing` 造成缺少回合順序與目前玩家。
+
+### 驗證
+
+- `npm run typecheck` 通過。
+- 完整 Vitest：`297 passed / 30 skipped`。
+- `npm run build` 與 `git diff --check` 通過。
+- 開房 Playwright 回歸未通過：避開既有 Emulator 埠後，測試在 `seedAccounts.mjs` 連線 Auth Emulator 時出現 `ECONNREFUSED`；未宣稱瀏覽器驗收通過。
+
+### 目前風險
+
+- 需要在可啟動 Vite／Emulator 的本機環境實測一次：開房、完成玩家三步選擇、執行師按開始、確認計時器欄位與玩家骰子按鈕。
+
+## 2026-09-21 v4.9 版本與部署
+
+- 對外版本由 `v4.8` 更新為 `v4.9`。
+- 執行師計時器與開局棋盤初始化修正已加入系統更新日誌。
+- `npm run typecheck`、`npm run build`、`git diff --check` 通過；建置保留既有 Tailwind、dynamic/static import 與大型 chunk 警告。
+- 已部署至 Vercel production：`https://2ife.vercel.app`。
+- Deployment `dpl_Geuvbxn3Ha98A6fiF5q7nwaxBnyJ` 狀態為 `READY`；正式網址 HTTP 200。
+
+## 2026-09-24 C024 共享卡片放棄回覆
+
+- C024「放棄」使用 schema v2 共享 prompt 的 `declined` 回覆；子集合寫入遭 `permission-denied` 時，現在回退到既有受限房間交易，僅更新玩家自己的回覆。其他錯誤不會被當成成功。
+- Firestore Rules 測試涵蓋子集合 `declined` 寫入、房間本人回覆回退權限及非本人拒絕。
+- 驗證：`RoomContext.test.ts` + `roomPermissions.test.ts` 93/93 通過；`npm run typecheck`、`git diff --check` 通過。
+- 風險：尚未在使用者實際雲端房間重播；本機檔案不能證明雲端 Rules 發布版本一致。未更新版本號、未部署。
+- 下一步：在本地伺服器重播 C024「放棄」；若仍失敗，保留 Firestore 錯誤碼並核對雲端 Rules。
+
+## 2026-09-24 C012 共享卡片放棄回覆修正
+
+- 根因：C012 的 v2 共享回覆在子集合寫入遭拒後，沿用通用房間交易回退；該交易會讀取所有玩家 response 文件，但 Rules 僅允許玩家讀自己的文件，導致回退再次遭拒。
+- 修正：回退只 transaction 讀取最新房間，冪等更新本人回覆與 revision，不讀其他玩家回覆、不由玩家結案；執行師端在房間回覆 Map 改變時重新判斷是否可結案。
+- 驗證：`RoomContext.test.ts` 65/65、Firestore Rules Emulator `roomPermissions.test.ts` 31/31、TypeScript、`git diff --check` 通過。
+- 風險：未在使用者實際雲端 C012 房間重播；雲端 Rules 發布狀態仍需實際環境確認。未更新版本、未部署。
+
+## 2026-09-24 非本人回合仍可購買汽車
+
+- 根因：汽車購買沿用有「目前回合」限制的棋盤命令入口，非本人回合時被拒絕；汽車購買本身只影響購買者財務，不需要推進棋盤回合。
+- 修正：汽車購買改以 Firestore transaction 讀取最新房間與購買者私人玩家資料，只原子更新本人資產、現金、貸款與歷史；仍檢查房間成員、遊戲狀態、現金及單人限購，並保留 command ID 冪等防護。
+- 驗證：`RoomContext.test.ts` 65/65、Firestore Rules Emulator `roomPermissions.test.ts` 31/31、TypeScript 通過；Rules 測試明確驗證非目前回合玩家只能更新自己的私人狀態。
+- 未更新版本、未部署；尚未在多人雲端房間手動重播購車流程。
+- 修改：`src/context/RoomContext.tsx`、`src/context/RoomContext.test.ts`、`src/test/roomPermissions.test.ts`。
+
+## 2026-09-24 N055 投資完成後共享回覆失敗
+
+- 根因：N055 投資先更新本機財務、再另送共享回覆；schema v2 的 `completed` 回覆走通用棋盤交易，該交易讀取所有玩家 response 文件，違反玩家只能讀本人回覆的 Firestore Rules。
+- 修正：schema v2 所有共享回覆改走本人 response 文件；N055 投資與本人完成回覆同一 transaction 提交，使用卡片權威金額與最新玩家現金，command ID 防重複。舊版房間維持受限的本人回覆 Map 路徑。
+- 測試：`RoomContext.test.ts` + `GameView.test.ts` 70/70、Firestore Rules Emulator 32/32、TypeScript、正式 build 與 `git diff --check` 通過。
+- 風險／下一步：未以真實雲端多人房間重播或部署；請用至少兩位目標玩家測 N055，確認投資資產、現金、月收益及所有人回覆都同步，並在正式上線前核對雲端 Rules 版本。
+
+## 2026-09-24 v4.10 版本與部署
+
+- 對外版本更新至 `v4.10`；系統更新日誌列出新場次／舊資料隔離、共享卡片 C012／C024／N055、非本人回合汽車購買修正。
+- 發布前檢查：TypeScript、完整 Vitest 307 passed／32 skipped、Firestore Rules Emulator 32/32、正式 build、`git diff --check` 通過。
+- Vercel `2ife` production 部署 `dpl_CqxWQgbdukJnzoKKix287tP2cufU` 為 Ready；`https://2ife.vercel.app/` HTTP 200，正式資產含 `v4.10` 與 N055 更新日誌。
+- 本次只部署 Vercel 網站，未發布 Firestore Rules；雲端 Rules 版本與真實多人 N055 流程仍待核對與實測。既有工作樹修改保留，未 commit 或 push。
+
+## 2026-09-24 家庭歷程交易與共享回覆權限修正
+
+- 行為與資料責任：家庭歷程由 `RoomContext` 處理命令；Firestore 房間保存事件、私人玩家文件保存財務、`events/{promptId}/responses/{uid}` 保存本人回覆。執行師讀全體回覆並結案；未新增集合、依賴或第二份財務狀態。
+- 根因：v2 家庭命令沿用會讀取所有玩家 response 的通用 transaction，違反本人回覆讀取規則；通過擲骰後本人 response 又被 Rules 禁止更新，導致來源玩家交易與參與玩家完成交易均被拒。
+- 修正：玩家家庭命令限讀本人 response；Rules 只允許本人 `passed` 回覆由未完成轉已完成。財務與完成回覆同筆 transaction，執行師維持完整回覆結案；不變的回覆快照不再造成 room 重設。
+- 驗證：獨立 Firestore Emulator 33/33；完整 Vitest 307 passed／33 skipped；TypeScript、正式 build、`git diff --check` 通過。其他玩家 response 仍不可讀寫、重送不重複入帳。
+- 風險／下一步：尚未在實際多人雲端房間重播；本地 `.firebaserc` 與 SDK 預設專案 ID 仍為 `happinessflow-online`，本次沒有發布 Firestore Rules 或 Vercel。正式驗收前須核對實際 Firebase 專案並同步 Rules。
+
+## 2026-09-24 家庭歷程投影卡五階段資訊顯示
+
+- 投影卡右側合併家庭歷程專屬標題、移除重複的小標題，並縮小五階段表格的內距與列高；其他卡片版面與底部同步面板不變。
+- 驗證：`git diff --check` 通過；未執行測試或建置。未更新版本、未部署。
+- 風險：極矮視窗仍保留內容區捲動，避免字體不可讀或資訊遭裁切。
+
+## 2026-09-28 銀行後現金倒扣與幸福卡／骰子延遲
+
+- 根因 1（現金倒扣）：`GameContext.tsx` 把 Firestore 私有玩家文件的權威資料同步回本機 `gameState` 時，會無條件把 `pendingLocalPlayerPatchRef` 暫存的本機差異蓋回剛收到的權威值；但寫入這個暫存差異的另一段 effect 在棋盤事件進行中會 defer、也只有在同一段裡才會清除。玩家一回合大部分時間都在移動／抽卡／事件進行中，暫存差異因此長時間卡著舊現金數字，之後每次收到新的權威現金（例如銀行入帳、機運卡扣款）都被這個舊數字蓋掉，重現「經過銀行後現金比正確結果少一次扣款」的畫面。
+- 修正 1：`GameContext.tsx` 在套用暫存差異前，先比對「這次收到的權威值」跟「上一次收到的權威值」；只要某欄位的權威值在等待期間已經被伺服器另一筆交易改變過，就先丟棄該欄位的暫存差異，不再蓋回去。只有權威值真的沒變（純粹本機還沒同步上去）時才保留覆蓋，維持原本「保留未同步本機編輯」的用意。
+- 根因 2（幸福卡／骰子延遲 ~1 分鐘）：大螢幕與玩家手機的卡片、骰子畫面都直接讀同一條 Firestore 房間文件的 `onSnapshot`；手機切到背景或網路不穩時，這條監聽串流的重連完全依賴 SDK 自己的 backoff，實測可拖到一分鐘以上才補上新快照。這是已知的架構限制（見本檔案 2122 行前後：RTDB 缺少可驗證房間成員的安全權威，暫不搬遷展示層），本次先做緩解，不做架構搬遷。
+- 修正 2：`RoomContext.tsx` 新增 `forceFirestoreReconnect()`（`disableNetwork` → `enableNetwork`，5 秒節流）；Realtime Database `.info/connected` 從斷線恢復時，以及分頁 `visibilitychange` 變成可見／瀏覽器 `online` 事件時，主動觸發一次，強迫 Firestore 立刻重建監聽串流，不用乾等 SDK 自己的 backoff。新增 `firestore_reconnect_bounce` 遙測事件，供之後從實機數據核對效果。
+- 驗證：`npm run typecheck` 通過；完整 Vitest `367 passed／33 skipped`；`npm run build` 通過（既有大型 chunk 警告不變）。
+- 風險／下一步：尚未在實機（鎖螢幕、切背景一分鐘）驗證延遲改善幅度；RTDB 展示層搬遷需先決定安全的房間成員授權來源（Cloud Functions／custom claims），本次未動。
+- 修改：`src/context/GameContext.tsx`、`src/context/RoomContext.tsx`、`src/constants/version.ts`、`src/views/lobby/CoachDashboard.tsx`（v4.20 更新日誌）。
+
+## 2026-09-28 v4.20 版本與部署
+
+- 對外版本由 `v4.19` 更新為 `v4.20`；系統更新日誌列出銀行現金倒扣修正與幸福卡／骰子延遲緩解。
+- 發布前檢查：`npm run typecheck`、完整 Vitest `367 passed／33 skipped`、`npm run build` 通過。
+- 已部署至 Vercel production：`vercel --prod`，Deployment `dpl_3iFcP78EL94rCSQpJYJwJaecggFz` 狀態 `READY`；`https://2ife.vercel.app/` HTTP 200，正式資產已確認含 `v4.20`。
+- 本次只部署 Vercel 網站，未變更 Firestore／Realtime Database Rules。工作樹改動未 commit 或 push（延續本輪工作方式）。
