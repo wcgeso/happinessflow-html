@@ -2369,3 +2369,14 @@
 - 發布前檢查：`npm run typecheck`、完整 Vitest `367 passed／33 skipped`、`npm run build` 通過。
 - 已部署至 Vercel production：`vercel --prod`，Deployment `dpl_3iFcP78EL94rCSQpJYJwJaecggFz` 狀態 `READY`；`https://2ife.vercel.app/` HTTP 200，正式資產已確認含 `v4.20`。
 - 本次只部署 Vercel 網站，未變更 Firestore／Realtime Database Rules。工作樹改動未 commit 或 push（延續本輪工作方式）。
+
+## 2026-09-29 銀行服務窗口非本回合交易權限修正，並修正規則運算預算超限
+
+- 根因 1（銀行服務窗口未被規則支援）：玩家經過銀行格後會取得私有玩家文件裡的 `bankServiceWindowActive`，允許在非本回合購買股票／保險／定存／汽車或辦理信貸還款；但 `firestore.rules` 的 `validBoardCommand()` 只允許目前回合玩家更新 `boardState`，完全沒有對應這個窗口，導致夥伴測試時出現「股票交易權限不足」「保險同步權限不足」。
+- 修正 1：新增 `usesOwnBankServiceWindow()`，只在 `bankServiceWindowActive == true` 且本人未被家庭歷程卡／共享卡片指名要求回覆時放行，且僅允許異動 `revision`／`processedCommandIds`／`updatedAt`（真正的金額變動仍寫在私有玩家文件），加為 `validBoardStateUpdate()` 的最後一個分支。
+- 根因 2（規則運算預算超限／評估錯誤，波及房市購買等其他功能）：`hasOwnSubcollectionResponseAfter()` 對同一份子集合回覆文件重複呼叫 `getAfter()` 四次，讓 `validBoardCommand()` 假路徑的運算成本大幅增加，容易撞上 Firestore 每次請求 1000 個運算式的硬上限；`respondsToOwnSubcollectionPrompt()` 又沒有先用 `'... in ...'` 檢查欄位是否存在就直接存取 `boardState.familyMilestoneJoinPrompt`／`sharedCardPrompt`，欄位不存在時規則評估直接丟錯誤。這兩個問題會連帶拖累 `validBoardCommand()` 之後才輪到的分支（例如 `updatesRealEstateMarketPurchase()` 房市公告板購買），造成類似「隨機權限不足」的症狀，不限於銀行交易。
+- 修正 2：`hasOwnSubcollectionResponseAfter()` 改成只呼叫一次 `getAfter()`，把 `.data` 當參數傳給新增的 `matchesOwnSubcollectionResponse()` 重複使用；`respondsToOwnSubcollectionPrompt()` 改為先檢查欄位是否存在，比照檔案裡其他地方既有的寫法。
+- 驗證：新增銀行服務窗口的規則測試案例（涵蓋窗口開啟成功、窗口關閉失敗、被卡片指名時失敗、動到其他棋盤欄位失敗），Firestore Rules Emulator `roomPermissions.test.ts` 由 7 個失敗回穩到 **34/34 全過**。
+- 已部署：`firebase deploy --only firestore:rules --project happinessflow-online`，正式環境規則已更新；commit `9151e9f`（僅 `firestore.rules`、`src/test/roomPermissions.test.ts`，其餘 dev 工作樹既有修改維持未 commit）。
+- 風險／下一步：未在真實雲端多人房間重播銀行服務窗口購買或房市購買流程；正式站程式碼（Vercel `2ife`，v4.20）與規則版本落差（規則最後一次發布是 2026-09-01）已由本次部署補上，但其餘累積一個月未隨規則發布的功能仍建議找時間逐項核對。
+- 修改：`firestore.rules`、`src/test/roomPermissions.test.ts`。
