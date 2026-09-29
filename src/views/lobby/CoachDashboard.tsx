@@ -1160,9 +1160,19 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
                   {
+                    version: 'v4.21',
+                    date: '2026-09-29',
+                    color: 'rose',
+                    items: [
+                      '股票買賣改為只檢查房間資格並寫入自己的玩家資料，不再受目前回合限制或更新棋盤回合版本',
+                      '改善家庭歷程共享卡片同時回覆時的重試處理，並補強 Firestore 規則對缺失房間資料的檢查',
+                      '新增家庭歷程並行回覆的 Firestore 模擬器測試，確認兩位玩家的回覆都能保存',
+                    ],
+                  },
+                  {
                     version: 'v4.20',
                     date: '2026-09-28',
-                    color: 'rose',
+                    color: 'amber',
                     items: [
                       '修復經過銀行後遇到機運卡等扣款事件，現金金額會被更早、已過期的本機快取數字重新計算，變成比正確結果少一次現金的問題',
                       '玩家手機切回前景或恢復網路連線時，主動重新建立 Firestore 連線，縮短幸福卡、骰子等棋盤畫面卡在舊資料的等待時間',
