@@ -6356,37 +6356,37 @@ useEffect(() => {
         const tradeKey = txData.commandId || `${txData.usage}:${txData.name}:${JSON.stringify(txData.stockList || [])}`;
         const commandId = `stock:${room.sessionId || room.id}:${user.uid}:${tradeKey}`;
         try {
-            return await runRoomBoardMutation<BoardFinancialMutationResult, Room>({
-                db,
-                roomId: room.id,
-                commandId,
-                playerStateUids: [user.uid],
-                forcePrivatePlayerStates: true,
-                onDuplicate: () => ({ status: 'duplicate' }),
-                mutate: (latestRoom, latestBoard) => {
-                    const currentState = latestRoom.playerStates?.[user.uid];
-                    if (!currentState) {
-                        return {
-                            boardState: latestBoard,
-                            commit: false,
-                            result: { status: 'failed', message: '玩家資料尚未同步完成，請稍後再試' }
-                        };
-                    }
+            // 股票交易只影響本人資產／現金，不需要推進棋盤回合，因此比照
+            // completeCarPurchase()：只讀房間做資格檢查、只寫本人的私有玩家
+            // 文件，不動 boardState，非本回合也能買（UI 本來就沒有像保險／
+            // 定存那樣限制要先經過銀行）。
+            return await runTransaction(db, async transaction => {
+                const roomRef = doc(db, 'rooms', room.id);
+                const playerRef = doc(db, 'rooms', room.id, 'players', user.uid);
+                const [roomSnapshot, playerSnapshot] = await Promise.all([
+                    transaction.get(roomRef),
+                    transaction.get(playerRef)
+                ]);
+                if (!roomSnapshot.exists()) return { status: 'failed', message: '房間不存在或已關閉' };
 
-                    try {
-                        const nextState = buildStockTradeState(currentState, txData, commandId);
-                        return {
-                            boardState: latestBoard,
-                            roomPatch: { playerStates: { [user.uid]: nextState } },
-                            result: { status: 'applied' }
-                        };
-                    } catch (error: any) {
-                        return {
-                            boardState: latestBoard,
-                            commit: false,
-                            result: { status: 'failed', message: error?.message || '股票交易資料已更新，請重新操作' }
-                        };
-                    }
+                const latestRoom = roomSnapshot.data() as Room;
+                const gateError = getCarPurchaseGateError(latestRoom, user.uid);
+                if (gateError) return { status: 'failed', message: gateError };
+
+                const currentState = playerSnapshot.exists()
+                    ? playerSnapshot.data() as GameState
+                    : latestRoom.playerStates?.[user.uid];
+                if (!currentState) return { status: 'failed', message: '玩家資料尚未同步完成，請稍後再試' };
+                if ((currentState.appliedBoardFinancialEventIds || []).includes(commandId)) {
+                    return { status: 'duplicate' };
+                }
+
+                try {
+                    const nextState = buildStockTradeState(currentState, txData, commandId);
+                    transaction.set(playerRef, nextState);
+                    return { status: 'applied' };
+                } catch (error: any) {
+                    return { status: 'failed', message: error?.message || '股票交易資料已更新，請重新操作' };
                 }
             });
         } catch (error: any) {
