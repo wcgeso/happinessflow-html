@@ -2380,3 +2380,13 @@
 - 已部署：`firebase deploy --only firestore:rules --project happinessflow-online`，正式環境規則已更新；commit `9151e9f`（僅 `firestore.rules`、`src/test/roomPermissions.test.ts`，其餘 dev 工作樹既有修改維持未 commit）。
 - 風險／下一步：未在真實雲端多人房間重播銀行服務窗口購買或房市購買流程；正式站程式碼（Vercel `2ife`，v4.20）與規則版本落差（規則最後一次發布是 2026-09-01）已由本次部署補上，但其餘累積一個月未隨規則發布的功能仍建議找時間逐項核對。
 - 修改：`firestore.rules`、`src/test/roomPermissions.test.ts`。
+
+## 2026-09-29 房間文件全部驗證函式共用同一次 diff，徹底降低規則運算預算風險
+
+- 背景：前一則交接只針對 `updatesRealEstateMarketPurchase()` 跟 `hasOwnSubcollectionResponseAfter()` 個別止血；`rooms/{roomId}` 的 `allow update` 底下仍有十幾個驗證函式（`joinsSelf`／`leavesSelf`／`updatesOwnPlayerState`／`updatesOwnPublicPlayerState`／`submitsOwnRequest`／`clearsOwnRequest`／`updatesFinancialAcceleration`／`updatesFinancialSubsidy`／`validBoardCommand`／`updatesBoardNoticeOnly`／`updatesOwnBoardPromptResponse`／`skipsDisconnectedTurn`／`usesOwnBankServiceWindow`／`changesBoardState`），每一個都各自呼叫 `changedOnly()` 或直接對 `boardState` 做一次 `.diff()`，同一份房間文件的差異被重複計算十幾次，`processedCommandIds` 累積越多筆，這筆重複成本就越貴，仍有撞上 1000 個運算式硬上限的系統性風險。
+- 修正：最外層 `allow update` 改呼叫新增的 `isValidRoomUpdate()`，用 `let roomAffectedKeys = request.resource.data.diff(resource.data).affectedKeys();` 只算一次房間層級的 diff，取代原本的 `changesBoardState()`；再依 `roomAffectedKeys.hasAny(['boardState'])` 分流到 `validBoardStateUpdate(roomAffectedKeys)` 或 `validNonBoardUpdate(roomAffectedKeys)`，兩邊所有驗證函式都改成吃 `roomAffectedKeys` 參數，內部原本各自呼叫的 `changedOnly([...])` 改成直接用傳入值判斷，不再重新 diff。棋盤分支再拆出 `validBoardStateUpdateForPlayer(roomAffectedKeys)`，只在 `hostUpdateAllowed()`（執行師動作，完全不需要 `boardState` diff）判斷為否之後，才用 `let boardStateAffectedKeys = request.resource.data.boardState.diff(resource.data.boardState).affectedKeys();` 算一次 `boardState` 層級的 diff，傳給 `validBoardCommand`／`updatesRealEstateMarketPurchase`／`skipsDisconnectedTurn`／`updatesBoardNoticeOnly`／`usesOwnBankServiceWindow` 共用，執行師動作因此完全不用多付這筆成本。
+- 過程中確認 Firestore Rules 的 `let` 不能包在 `allow ...: if` 後面用 `&&`／三元運算子串起來的括號裡（編譯會直接報 `Unexpected 'let'`），也不能讓 `if` 後面第一個 token 直接是 `let`；只能出現在 `function` 內部語句的最前面，所以把整條 `allow update` 判斷包成 `isValidRoomUpdate()` 函式再呼叫。
+- 驗證：Firestore Rules Emulator `roomPermissions.test.ts` 連續執行 15 次，每次都 **34/34 全過**；`npm run typecheck` 通過。
+- 已部署：`firebase deploy --only firestore:rules --project happinessflow-online`，正式環境規則已更新。僅改動 `firestore.rules`，尚未 commit。
+- 風險／下一步：這次是結構性重寫（改了十幾個函式簽名），語意上每個函式的判斷條件沒有改變、只是把 diff 來源從「自己重新算」換成「呼叫端傳入」，但改動範圍遠大於前一則的單一函式止血；建議正式環境多留意一段時間的 `permission-denied` 錯誤率，且仍未在真實雲端多人房間、長回合（`processedCommandIds` 接近 100 筆）情境下實測驗證效果。
+- 修改：`firestore.rules`。

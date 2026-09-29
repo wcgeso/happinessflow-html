@@ -67,8 +67,10 @@ service cloud.firestore {
           request.resource.data.hostId == resource.data.hostId;
       }
 
-      function changedOnly(fields) {
-        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+      // affectedKeys 由呼叫端傳入（最外層 allow update 只算一次 room diff 後往下
+      // 傳），這裡不再自己重新對整份文件做一次 diff。
+      function changedOnly(affectedKeys, fields) {
+        return affectedKeys.hasOnly(fields);
       }
 
       function publicPlayerStates(data) {
@@ -77,52 +79,56 @@ service cloud.firestore {
           : {};
       }
 
-      function joinsSelf() {
+      function joinsSelf(roomAffectedKeys) {
         return resource.data.status == 'waiting' &&
-          changedOnly(['members', 'memberUids']) &&
+          changedOnly(roomAffectedKeys, ['members', 'memberUids']) &&
           !(request.auth.uid in resource.data.memberUids) &&
           request.resource.data.memberUids == resource.data.memberUids.concat([request.auth.uid]) &&
           request.resource.data.members.size() == resource.data.members.size() + 1 &&
           request.resource.data.members[request.resource.data.members.size() - 1].uid == request.auth.uid;
       }
 
-      function leavesSelf() {
+      function leavesSelf(roomAffectedKeys) {
         return isMember(resource.data) &&
-          changedOnly(['members', 'memberUids']) &&
+          changedOnly(roomAffectedKeys, ['members', 'memberUids']) &&
           request.resource.data.memberUids == resource.data.memberUids.removeAll([request.auth.uid]) &&
           request.resource.data.members.size() == resource.data.members.size() - 1;
       }
 
-      function updatesOwnPlayerState() {
+      function updatesOwnPlayerState(roomAffectedKeys) {
         return isMember(resource.data) &&
-          changedOnly(['playerStates']) &&
+          changedOnly(roomAffectedKeys, ['playerStates']) &&
           request.resource.data.playerStates.diff(resource.data.playerStates).affectedKeys().hasOnly([request.auth.uid]);
       }
 
-      function updatesOwnPublicPlayerState() {
+      function updatesOwnPublicPlayerState(roomAffectedKeys) {
         return isMember(resource.data) &&
-          changedOnly(['publicPlayerStates']) &&
+          changedOnly(roomAffectedKeys, ['publicPlayerStates']) &&
           request.resource.data.publicPlayerStates.diff(publicPlayerStates(resource.data)).affectedKeys().hasOnly([request.auth.uid]);
       }
 
-      function submitsOwnRequest() {
+      function submitsOwnRequest(roomAffectedKeys) {
         return isMember(resource.data) &&
-          changedOnly(['pendingRequests']) &&
+          changedOnly(roomAffectedKeys, ['pendingRequests']) &&
           request.resource.data.pendingRequests.diff(resource.data.pendingRequests).affectedKeys().hasOnly([request.auth.uid]) &&
           request.resource.data.pendingRequests[request.auth.uid] is map &&
           request.resource.data.pendingRequests[request.auth.uid].uid == request.auth.uid &&
           request.resource.data.pendingRequests[request.auth.uid].status == 'pending';
       }
 
-      function clearsOwnRequest() {
+      function clearsOwnRequest(roomAffectedKeys) {
         return isMember(resource.data) &&
-          changedOnly(['pendingRequests']) &&
+          changedOnly(roomAffectedKeys, ['pendingRequests']) &&
           request.resource.data.pendingRequests.diff(resource.data.pendingRequests).affectedKeys().hasOnly([request.auth.uid]) &&
           !(request.auth.uid in request.resource.data.pendingRequests);
       }
 
-      function updatesOnlyOwnPublicProjection() {
-        return !resource.data.diff(request.resource.data).affectedKeys().hasAny(['publicPlayerStates']) ||
+      // roomAffectedKeys 是最外層 allow update 只算一次的
+      // request.resource.data.diff(resource.data).affectedKeys()；「有哪些頂層欄位
+      // 改變了」這個集合不論用哪個方向 diff 結果都一樣，直接重複使用，不必再對調
+      // 方向重新 diff 一次整份文件。
+      function updatesOnlyOwnPublicProjection(roomAffectedKeys) {
+        return !roomAffectedKeys.hasAny(['publicPlayerStates']) ||
           (
             ('publicPlayerStates' in request.resource.data) &&
             request.resource.data.publicPlayerStates is map &&
@@ -130,9 +136,9 @@ service cloud.firestore {
           );
       }
 
-      function updatesFinancialAcceleration() {
+      function updatesFinancialAcceleration(roomAffectedKeys) {
         return (isHost(resource.data) || isCoach()) &&
-          changedOnly(['financialAcceleration']) &&
+          changedOnly(roomAffectedKeys, ['financialAcceleration']) &&
           ('financialAcceleration' in request.resource.data) &&
           request.resource.data.financialAcceleration is map &&
           (
@@ -153,9 +159,9 @@ service cloud.firestore {
           : 0;
       }
 
-      function updatesFinancialSubsidy() {
+      function updatesFinancialSubsidy(roomAffectedKeys) {
         return (isHost(resource.data) || isCoach()) &&
-          changedOnly(['financialSubsidy']) &&
+          changedOnly(roomAffectedKeys, ['financialSubsidy']) &&
           ('financialSubsidy' in request.resource.data) &&
           request.resource.data.financialSubsidy is map &&
           request.resource.data.financialSubsidy.amount > 0 &&
@@ -281,7 +287,7 @@ service cloud.firestore {
             hasOwnSubcollectionResponseAfter(resource.data.boardState.sharedCardPrompt));
       }
 
-      function validBoardCommand() {
+      function validBoardCommand(roomAffectedKeys) {
         return isMember(resource.data) &&
           (
             (resource.data.boardState.currentTurnUid == request.auth.uid &&
@@ -301,22 +307,18 @@ service cloud.firestore {
               validPromptResponseMutation()) ||
             respondsToOwnSubcollectionPrompt()
           ) &&
-          changedOnly(['boardState', 'publicPlayerStates', 'marketPrices', 'previousMarketPrices', 'marketUpdates']) &&
+          changedOnly(roomAffectedKeys, ['boardState', 'publicPlayerStates', 'marketPrices', 'previousMarketPrices', 'marketUpdates']) &&
           request.resource.data.boardState.revision == resource.data.boardState.revision + 1 &&
           request.resource.data.boardState.processedCommandIds is list &&
           request.resource.data.boardState.processedCommandIds.size() <= 100 &&
           request.resource.data.boardState.processedCommandIds != resource.data.boardState.processedCommandIds &&
-          updatesOnlyOwnPublicProjection();
+          updatesOnlyOwnPublicProjection(roomAffectedKeys);
       }
 
-      function updatesRealEstateMarketPurchase() {
-        // 房市購買原本各自呼叫 changedOnly()（room diff）跟
-        // updatesOnlyOwnPublicProjection()（另一次 room diff，方向相反但結果集合
-        // 相同）；兩次全文件 diff 疊在同一次規則求值裡，配合 processedCommandIds
-        // 最多 100 筆時的其他 diff，容易一起逼近 1000 個運算式的硬上限。這裡改用
-        // let 只算一次 room diff 的 affectedKeys，兩處都重複使用同一個結果，語意
-        // 不變、只省重算。
-        let roomAffectedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      // roomAffectedKeys／boardStateAffectedKeys 都是 validBoardStateUpdateForPlayer()
+      // 只算一次、往下傳進來的結果，這裡不再各自重新對整份文件或整個 boardState
+      // 做一次 diff。
+      function updatesRealEstateMarketPurchase(roomAffectedKeys, boardStateAffectedKeys) {
         return signedIn() &&
           resource.data.status == 'playing' &&
           hasMemberList(resource.data) &&
@@ -324,8 +326,7 @@ service cloud.firestore {
           roomAffectedKeys.hasOnly(['boardState', 'publicPlayerStates']) &&
           resource.data.boardState.realEstateMarket is list &&
           request.resource.data.boardState.realEstateMarket is list &&
-          request.resource.data.boardState.diff(resource.data.boardState).affectedKeys()
-            .hasOnly(['realEstateMarket', 'revision', 'processedCommandIds', 'updatedAt']) &&
+          boardStateAffectedKeys.hasOnly(['realEstateMarket', 'revision', 'processedCommandIds', 'updatedAt']) &&
           request.resource.data.boardState.realEstateMarket.size() == resource.data.boardState.realEstateMarket.size() - 1 &&
           resource.data.boardState.realEstateMarket.hasAll(request.resource.data.boardState.realEstateMarket) &&
           request.resource.data.boardState.revision == resource.data.boardState.revision + 1 &&
@@ -338,27 +339,19 @@ service cloud.firestore {
             (resource.data.boardState.processedCommandIds.size() == 100 &&
               request.resource.data.boardState.processedCommandIds.size() == 100)
           ) &&
-          (
-            !roomAffectedKeys.hasAny(['publicPlayerStates']) ||
-            (
-              ('publicPlayerStates' in request.resource.data) &&
-              request.resource.data.publicPlayerStates is map &&
-              request.resource.data.publicPlayerStates.diff(publicPlayerStates(resource.data)).affectedKeys().hasOnly([request.auth.uid])
-            )
-          );
+          updatesOnlyOwnPublicProjection(roomAffectedKeys);
       }
 
-      function updatesBoardNoticeOnly() {
+      function updatesBoardNoticeOnly(roomAffectedKeys, boardStateAffectedKeys) {
         return isMember(resource.data) &&
           resource.data.boardState.currentTurnUid == request.auth.uid &&
-          changedOnly(['boardState']) &&
-          request.resource.data.boardState.diff(resource.data.boardState).affectedKeys()
-            .hasOnly(['realEstateMarket', 'updatedAt']);
+          changedOnly(roomAffectedKeys, ['boardState']) &&
+          boardStateAffectedKeys.hasOnly(['realEstateMarket', 'updatedAt']);
       }
 
-      function updatesOwnBoardPromptResponse() {
+      function updatesOwnBoardPromptResponse(roomAffectedKeys) {
         return isMember(resource.data) &&
-          changedOnly(['boardState', 'publicPlayerStates']) &&
+          changedOnly(roomAffectedKeys, ['boardState', 'publicPlayerStates']) &&
           request.resource.data.boardState.revision == resource.data.boardState.revision + 1 &&
           request.resource.data.boardState.processedCommandIds is list &&
           request.resource.data.boardState.processedCommandIds != resource.data.boardState.processedCommandIds &&
@@ -376,12 +369,12 @@ service cloud.firestore {
                 resource.data.boardState.sharedCardPrompt.responses
               ).affectedKeys().hasOnly([request.auth.uid]))
           ) &&
-          updatesOnlyOwnPublicProjection();
+          updatesOnlyOwnPublicProjection(roomAffectedKeys);
       }
 
-      function skipsDisconnectedTurn() {
+      function skipsDisconnectedTurn(roomAffectedKeys, boardStateAffectedKeys) {
         return isCoach() &&
-          changedOnly(['boardState']) &&
+          changedOnly(roomAffectedKeys, ['boardState']) &&
           request.resource.data.boardState.currentTurnUid != resource.data.boardState.currentTurnUid &&
           request.resource.data.boardState.currentTurnUid in resource.data.boardState.turnOrder &&
           request.resource.data.boardState.hasRolledThisTurn == false &&
@@ -390,16 +383,11 @@ service cloud.firestore {
           (!('movement' in resource.data.boardState) || resource.data.boardState.movement == null) &&
           (!('familyMilestoneJoinPrompt' in resource.data.boardState) || resource.data.boardState.familyMilestoneJoinPrompt == null) &&
           (!('sharedCardPrompt' in resource.data.boardState) || resource.data.boardState.sharedCardPrompt == null) &&
-          request.resource.data.boardState.diff(resource.data.boardState).affectedKeys()
-            .hasOnly(['currentTurnUid', 'hasRolledThisTurn', 'skipTurns', 'revision', 'processedCommandIds', 'updatedAt']) &&
+          boardStateAffectedKeys.hasOnly(['currentTurnUid', 'hasRolledThisTurn', 'skipTurns', 'revision', 'processedCommandIds', 'updatedAt']) &&
           request.resource.data.boardState.revision == resource.data.boardState.revision + 1 &&
           request.resource.data.boardState.processedCommandIds is list &&
           request.resource.data.boardState.processedCommandIds.size() <= 100 &&
           request.resource.data.boardState.processedCommandIds != resource.data.boardState.processedCommandIds;
-      }
-
-      function changesBoardState() {
-        return request.resource.data.diff(resource.data).affectedKeys().hasAny(['boardState']);
       }
 
       function hostUpdateAllowed() {
@@ -438,44 +426,46 @@ service cloud.firestore {
       // 房間文件只帶動 revision／processedCommandIds／updatedAt，不觸碰任何棋盤事件
       // 或其他玩家的資料，因此允許不是目前回合時也能提交。
       //
-      // 刻意放在 validBoardStateUpdate() 的最後一項、而不是塞進 validBoardCommand()
-      // 內部：Firestore 規則的運算量有上限（單次請求最多約 1000 個運算式），
-      // validBoardCommand() 本身已經很龐大，多數指令（擲骰、翻牌、回合內動作）都會
-      // 在前面幾項就判斷為真而提早結束；把這項獨立放在最後，才不會讓「原本就會用到
-      // 後面其他項目」的指令（例如非本回合購買房市釋出的物件）額外多付這項的運算成本，
-      // 因為 || 只有在前面全部為否時才會往後評估。
-      // 先做完全不用讀取文件的便宜檢查（diff 的異動欄位），只有在欄位範圍真的符合
-      // 銀行服務窗口指令時，才繼續付出 get()/exists() 的成本；CEL 的 || / && 只保證
-      // 「可交換」、不保證一定由左到右求值，所以不能只靠把這個分支放在 OR 鏈最後面
-      // 來省成本，必須讓分支本身在不適用時就用便宜條件提早判否。
-      function usesOwnBankServiceWindow() {
-        return request.resource.data.boardState.diff(resource.data.boardState).affectedKeys()
-            .hasOnly(['revision', 'processedCommandIds', 'updatedAt']) &&
+      // 先做完全不用讀取文件的便宜檢查（傳入的 boardStateAffectedKeys），只有在
+      // 欄位範圍真的符合銀行服務窗口指令時，才繼續付出 get()/exists() 的成本；CEL
+      // 的 || / && 只保證「可交換」、不保證一定由左到右求值，所以不能只靠把這個
+      // 分支放在 OR 鏈最後面來省成本，必須讓分支本身在不適用時就用便宜條件提早
+      // 判否。
+      function usesOwnBankServiceWindow(boardStateAffectedKeys) {
+        return boardStateAffectedKeys.hasOnly(['revision', 'processedCommandIds', 'updatedAt']) &&
           isMember(resource.data) &&
           isBankServiceWindowOpenForMe() &&
           !isTargetOfBlockingPrompt();
       }
 
-      function validBoardStateUpdate() {
-        return hostUpdateAllowed() ||
-          validBoardCommand() ||
-          updatesRealEstateMarketPurchase() ||
-          skipsDisconnectedTurn() ||
-          updatesBoardNoticeOnly() ||
-          updatesOwnBoardPromptResponse() ||
-          usesOwnBankServiceWindow();
+      // hostUpdateAllowed() 刻意留在 boardState diff 之前：執行師的動作完全用不到
+      // 這個 diff，這樣執行師操作就不用白付一次 boardState diff 的成本。其餘玩家
+      // 動作才需要共用同一份 boardState diff，所以移到
+      // validBoardStateUpdateForPlayer() 用 let 只算一次，傳給下面幾個函式共用。
+      function validBoardStateUpdate(roomAffectedKeys) {
+        return hostUpdateAllowed() || validBoardStateUpdateForPlayer(roomAffectedKeys);
       }
 
-      function validNonBoardUpdate() {
+      function validBoardStateUpdateForPlayer(roomAffectedKeys) {
+        let boardStateAffectedKeys = request.resource.data.boardState.diff(resource.data.boardState).affectedKeys();
+        return validBoardCommand(roomAffectedKeys) ||
+          updatesRealEstateMarketPurchase(roomAffectedKeys, boardStateAffectedKeys) ||
+          skipsDisconnectedTurn(roomAffectedKeys, boardStateAffectedKeys) ||
+          updatesBoardNoticeOnly(roomAffectedKeys, boardStateAffectedKeys) ||
+          updatesOwnBoardPromptResponse(roomAffectedKeys) ||
+          usesOwnBankServiceWindow(boardStateAffectedKeys);
+      }
+
+      function validNonBoardUpdate(roomAffectedKeys) {
         return hostUpdateAllowed() ||
-          joinsSelf() ||
-          leavesSelf() ||
-          updatesOwnPlayerState() ||
-          updatesOwnPublicPlayerState() ||
-          updatesFinancialAcceleration() ||
-          updatesFinancialSubsidy() ||
-          submitsOwnRequest() ||
-          clearsOwnRequest();
+          joinsSelf(roomAffectedKeys) ||
+          leavesSelf(roomAffectedKeys) ||
+          updatesOwnPlayerState(roomAffectedKeys) ||
+          updatesOwnPublicPlayerState(roomAffectedKeys) ||
+          updatesFinancialAcceleration(roomAffectedKeys) ||
+          updatesFinancialSubsidy(roomAffectedKeys) ||
+          submitsOwnRequest(roomAffectedKeys) ||
+          clearsOwnRequest(roomAffectedKeys);
       }
 
       allow create: if signedIn() &&
@@ -491,9 +481,21 @@ service cloud.firestore {
       allow read: if signedIn() &&
         (!exists(/databases/$(database)/documents/rooms/$(roomId)) || canReadRoom(resource.data));
 
-      allow update: if signedIn() && immutableIdentity() && (
-        changesBoardState() ? validBoardStateUpdate() : validNonBoardUpdate()
-      );
+      // roomAffectedKeys 只算一次 request.resource.data.diff(resource.data).
+      // affectedKeys()，用它決定走 board 還是 non-board 分支，並傳給兩邊所有驗證
+      // 函式重複使用；不再讓十幾個函式各自對整份文件重新做一次 diff。
+      // 注意：allow ...: if 後面只接受一個條件式，不能直接寫 let；let 只能出現在
+      // function 內部，所以把整條判斷包成一個函式再讓 allow 呼叫它。
+      function isValidRoomUpdate() {
+        let roomAffectedKeys = request.resource.data.diff(resource.data).affectedKeys();
+        return signedIn() && immutableIdentity() && (
+          roomAffectedKeys.hasAny(['boardState'])
+            ? validBoardStateUpdate(roomAffectedKeys)
+            : validNonBoardUpdate(roomAffectedKeys)
+        );
+      }
+
+      allow update: if isValidRoomUpdate();
 
       allow delete: if isHost(resource.data);
 
