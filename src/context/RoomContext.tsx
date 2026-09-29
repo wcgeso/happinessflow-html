@@ -54,6 +54,7 @@ import { applyFamilyMilestoneStage, getFamilyMilestoneStageByCardId, getFamilyMi
 import { getSharedOpportunityKind, resolveBoardCardAction, hasIncompleteSharedPrompts, isBoardPromptForCurrentEvent } from '../utils/boardCardActions';
 import { buildMovementEffects, describeMovementEffects } from '../game/board/movementEffects';
 import { appendDicePresentation, DICE_PRESENTATION_DURATION_MS, getFamilyDicePresentationReadyAt } from '../game/board/dicePresentation';
+import { submitFamilyMilestoneResponse } from '../game/board/familyMilestoneResponse';
 import { isRetryableBoardTransactionError, runBoardTransactionWithRetry, runRoomBoardMutation as runRoomBoardMutationOnServer, type BoardRoomSnapshot, type RunRoomBoardMutationParams } from '../game/board/runBoardMutation';
 import { applyBoardCommand } from '../game/board/boardRevision';
 import {
@@ -5247,18 +5248,41 @@ useEffect(() => {
 
         let shouldFinalizeFamilyPrompt = false;
         familyJoinSubmitErrorRef.current = '';
-        const result = await safeAsync(runRoomBoardMutation<FamilyMilestoneJoinResponse | false, Room>({
+        let result: FamilyMilestoneJoinResponse | false;
+        if (room.syncSchemaVersion === 2 && prompt.responseStorage === 'subcollection') {
+            try {
+                const submitted = await submitFamilyMilestoneResponse({
+                    db,
+                    roomId: room.id,
+                    promptId: payload.promptId,
+                    uid: user.uid,
+                    playerName: user.name || '玩家',
+                    cardId: payload.cardId,
+                    status: payload.status,
+                    roll: payload.roll
+                });
+                result = submitted.response;
+                if (submitted.prompt?.id === payload.promptId) {
+                    const nextPrompt = {
+                        ...submitted.prompt,
+                        responses: { ...(submitted.prompt.responses || {}), [user.uid]: result }
+                    };
+                    shouldFinalizeFamilyPrompt = nextPrompt.sourceActionCompleted === true &&
+                        !hasIncompleteSharedPrompts({ ...room.boardState, familyMilestoneJoinPrompt: nextPrompt });
+                }
+            } catch (err: any) {
+                familyJoinSubmitErrorRef.current = err?.code ? `${err.code}: ${err.message || ''}` : (err?.message || '');
+                setError(err?.message || '家庭重要歷程回覆失敗');
+                return false;
+            }
+        } else {
+            result = await safeAsync(runRoomBoardMutation<FamilyMilestoneJoinResponse | false, Room>({
             db,
             roomId: room.id,
             commandId: `prompt:family:response:${payload.promptId}:${user.uid}`,
             playerStateUids: payload.status === 'passed' ? [user.uid] : [],
             responseReadUid: prompt.responseStorage === 'subcollection' ? user.uid : undefined,
             forcePrivatePlayerStates: payload.status === 'passed',
-            // 子集合回覆偶爾會在多人同時回覆時被規則暫時拒絕（見
-            // firestore.rules 的 canCreateResponse／isValidRoomUpdate 併發已知
-            // 問題，尚未完全根治)；一律允許重試，重試時重新讀取的房間狀態一定
-            // 是最新的，不會重複入帳（commandId 冪等）。
-            retryOnPermissionDenied: true,
             onDuplicate: latestRoom => {
                 const latestPrompt = latestRoom.boardState?.familyMilestoneJoinPrompt;
                 shouldFinalizeFamilyPrompt = !!latestPrompt &&
@@ -5331,6 +5355,7 @@ useEffect(() => {
             familyJoinSubmitErrorRef.current = err?.code ? `${err.code}: ${err.message || ''}` : (err?.message || '');
             setError(err?.message || '家庭重要歷程回覆失敗');
         });
+        }
         if (result && shouldFinalizeFamilyPrompt && (room.hostId === user.uid || user.role === 'coach' || user.role === 'gm')) {
             // The Rules validate the response write and prompt deletion against
             // different document states. Keep them as two atomic transactions.

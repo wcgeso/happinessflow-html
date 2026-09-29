@@ -22,6 +22,7 @@ import {
 import type { GameState } from '../types';
 import { buildCarPurchaseState, buildSharedAssetSalePromptMutation, buildSharedInvestmentState, buildStartupLoanPromptMutation, type Room } from '../context/RoomContext';
 import { runRoomBoardMutation } from '../game/board/runBoardMutation';
+import { submitFamilyMilestoneResponse } from '../game/board/familyMilestoneResponse';
 import { createInitialDeckState } from '../constants/board';
 
 const rules = readFileSync(resolve(process.cwd(), 'firestore.rules'), 'utf8');
@@ -725,6 +726,7 @@ rulesDescribe('Firestore room P0 permissions', () => {
       syncSchemaVersion: 2,
       boardState: {
         ...boardState('player'),
+        currentEvent: { id: 'event-family', playerUid: 'player' },
         familyMilestoneJoinPrompt: {
           id: promptId,
           responseStorage: 'subcollection',
@@ -886,7 +888,7 @@ rulesDescribe('Firestore room P0 permissions', () => {
     await assertFails(updateDoc(responseRef, { roll: 6 }));
   });
 
-  it('allows two participants to respond to the same subcollection family prompt concurrently', async () => {
+  it('allows two participants to respond concurrently without updating the room document', async () => {
     const promptId = 'family-v2-concurrent';
     await assertSucceeds(setDoc(roomRef('coach'), room()));
     await assertSucceeds(updateDoc(roomRef('coach'), {
@@ -912,32 +914,21 @@ rulesDescribe('Firestore room P0 permissions', () => {
       }
     }));
 
+    const coachDb = testEnv.authenticatedContext('coach').firestore();
+    await assertSucceeds(setDoc(doc(coachDb, 'rooms/room-p0/players/other-1'), startupLoanPlayerState('Other 1')));
+    await assertSucceeds(setDoc(doc(coachDb, 'rooms/room-p0/players/other-2'), startupLoanPlayerState('Other 2')));
     const other1Db = testEnv.authenticatedContext('other-1').firestore();
     const other2Db = testEnv.authenticatedContext('other-2').firestore();
-    const buildResponse = (uid: string) => ({
-      playerUid: uid, playerName: uid, status: 'declined' as const,
-      actionCompleted: true, respondedAt: 1
-    });
-    const respond = (db: typeof other1Db, uid: string) => runRoomBoardMutation<boolean, Room>({
-      db, roomId: 'room-p0',
-      commandId: `prompt:family:response:${promptId}:${uid}`,
-      responseReadUid: uid, retryOnPermissionDenied: true, onDuplicate: () => true,
-      mutate: (_latestRoom, latestBoard) => ({
-        boardState: {
-          ...latestBoard,
-          familyMilestoneJoinPrompt: {
-            ...latestBoard.familyMilestoneJoinPrompt!,
-            responses: { ...latestBoard.familyMilestoneJoinPrompt!.responses, [uid]: buildResponse(uid) }
-          }
-        },
-        sharedResponse: { uid, response: buildResponse(uid) },
-        result: true
-      })
-    });
 
     const results = await Promise.allSettled([
-      respond(other1Db, 'other-1'),
-      respond(other2Db, 'other-2')
+      submitFamilyMilestoneResponse({
+        db: other1Db, roomId: 'room-p0', promptId, uid: 'other-1',
+        playerName: 'Other 1', cardId: 'H013', status: 'passed', roll: 5
+      }),
+      submitFamilyMilestoneResponse({
+        db: other2Db, roomId: 'room-p0', promptId, uid: 'other-2',
+        playerName: 'Other 2', cardId: 'H013', status: 'declined'
+      })
     ]);
     results.forEach((settled, index) => {
       if (settled.status === 'rejected') {
@@ -945,10 +936,44 @@ rulesDescribe('Firestore room P0 permissions', () => {
       }
     });
     expect(results.every(r => r.status === 'fulfilled')).toBe(true);
-    expect((await getDoc(doc(other1Db, `rooms/room-p0/events/${promptId}/responses/other-1`))).data()?.status).toBe('declined');
-    expect((await getDoc(doc(other2Db, `rooms/room-p0/events/${promptId}/responses/other-2`))).data()?.status).toBe('declined');
+    expect((await getDoc(doc(other1Db, `rooms/room-p0/events/${promptId}/responses/other-1`))).data())
+      .toMatchObject({ status: 'passed', actionCompleted: false });
+    expect((await getDoc(doc(other2Db, `rooms/room-p0/events/${promptId}/responses/other-2`))).data())
+      .toMatchObject({ status: 'declined', actionCompleted: true });
+    expect((await getDoc(doc(other1Db, 'rooms/room-p0/players/other-1'))).data()?.pendingFamilyMilestoneJoinAction)
+      .toMatchObject({ promptId, cardId: 'H013' });
+
+    const savedRoom = (await getDoc(doc(other1Db, 'rooms/room-p0'))).data();
+    expect(savedRoom?.boardState.revision).toBe(0);
+    expect(savedRoom?.boardState.familyMilestoneJoinPrompt.responses).toEqual({});
   });
 
+  it('denies board completion safely when an optional currentEvent field is absent', async () => {
+    await assertSucceeds(setDoc(roomRef('coach'), room()));
+    await assertSucceeds(updateDoc(roomRef('coach'), {
+      status: 'playing',
+      members: [
+        { uid: 'coach', name: 'Coach', role: 'coach' },
+        { uid: 'other-1', name: 'Other 1', role: 'player' }
+      ],
+      memberUids: ['coach', 'other-1'],
+      boardState: {
+        ...boardState('coach'),
+        familyMilestoneJoinPrompt: {
+          id: 'family-no-event', sourceEventId: 'missing-event', sourceCardId: 'H013',
+          sourcePlayerUid: 'coach', sourcePlayerName: 'Coach', sourceActionCompleted: true,
+          requiredRoll: 4, targetPlayerUids: ['other-2'], responses: {}, responseStorage: 'subcollection'
+        }
+      }
+    }));
+    await assertFails(updateDoc(roomRef('other-1'), {
+      boardState: {
+        ...boardState('coach'),
+        revision: 1,
+        processedCommandIds: ['invalid-current-event-update']
+      }
+    }));
+  });
   it('allows the source player to finish their own family milestone event', async () => {
     await assertSucceeds(setDoc(roomRef('coach'), room()));
     const familyBoard = {
