@@ -886,6 +886,69 @@ rulesDescribe('Firestore room P0 permissions', () => {
     await assertFails(updateDoc(responseRef, { roll: 6 }));
   });
 
+  it('allows two participants to respond to the same subcollection family prompt concurrently', async () => {
+    const promptId = 'family-v2-concurrent';
+    await assertSucceeds(setDoc(roomRef('coach'), room()));
+    await assertSucceeds(updateDoc(roomRef('coach'), {
+      status: 'playing', syncSchemaVersion: 2,
+      memberUids: ['coach', 'player', 'other-1', 'other-2'],
+      members: [
+        { uid: 'coach', name: 'Coach', role: 'coach' },
+        { uid: 'player', name: 'Player', role: 'player' },
+        { uid: 'other-1', name: 'Other 1', role: 'player' },
+        { uid: 'other-2', name: 'Other 2', role: 'player' }
+      ],
+      boardState: {
+        ...boardState('player'),
+        currentCard: { cardId: 'H013', deck: 'happiness' },
+        currentEvent: { id: 'event-family-concurrent', playerUid: 'player' },
+        familyMilestoneJoinPrompt: {
+          id: promptId, sourceEventId: 'event-family-concurrent', sourceCardId: 'H013',
+          sourcePlayerUid: 'player', sourcePlayerName: 'Player',
+          sourceActionCompleted: true, requiredRoll: 4,
+          targetPlayerUids: ['other-1', 'other-2'],
+          responses: {}, responseStorage: 'subcollection'
+        }
+      }
+    }));
+
+    const other1Db = testEnv.authenticatedContext('other-1').firestore();
+    const other2Db = testEnv.authenticatedContext('other-2').firestore();
+    const buildResponse = (uid: string) => ({
+      playerUid: uid, playerName: uid, status: 'declined' as const,
+      actionCompleted: true, respondedAt: 1
+    });
+    const respond = (db: typeof other1Db, uid: string) => runRoomBoardMutation<boolean, Room>({
+      db, roomId: 'room-p0',
+      commandId: `prompt:family:response:${promptId}:${uid}`,
+      responseReadUid: uid, retryOnPermissionDenied: true, onDuplicate: () => true,
+      mutate: (_latestRoom, latestBoard) => ({
+        boardState: {
+          ...latestBoard,
+          familyMilestoneJoinPrompt: {
+            ...latestBoard.familyMilestoneJoinPrompt!,
+            responses: { ...latestBoard.familyMilestoneJoinPrompt!.responses, [uid]: buildResponse(uid) }
+          }
+        },
+        sharedResponse: { uid, response: buildResponse(uid) },
+        result: true
+      })
+    });
+
+    const results = await Promise.allSettled([
+      respond(other1Db, 'other-1'),
+      respond(other2Db, 'other-2')
+    ]);
+    results.forEach((settled, index) => {
+      if (settled.status === 'rejected') {
+        console.error(`participant ${index} rejected:`, settled.reason);
+      }
+    });
+    expect(results.every(r => r.status === 'fulfilled')).toBe(true);
+    expect((await getDoc(doc(other1Db, `rooms/room-p0/events/${promptId}/responses/other-1`))).data()?.status).toBe('declined');
+    expect((await getDoc(doc(other2Db, `rooms/room-p0/events/${promptId}/responses/other-2`))).data()?.status).toBe('declined');
+  });
+
   it('allows the source player to finish their own family milestone event', async () => {
     await assertSucceeds(setDoc(roomRef('coach'), room()));
     const familyBoard = {

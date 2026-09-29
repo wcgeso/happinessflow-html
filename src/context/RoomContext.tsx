@@ -5254,7 +5254,11 @@ useEffect(() => {
             playerStateUids: payload.status === 'passed' ? [user.uid] : [],
             responseReadUid: prompt.responseStorage === 'subcollection' ? user.uid : undefined,
             forcePrivatePlayerStates: payload.status === 'passed',
-            retryOnPermissionDenied: prompt.responseStorage !== 'subcollection',
+            // 子集合回覆偶爾會在多人同時回覆時被規則暫時拒絕（見
+            // firestore.rules 的 canCreateResponse／isValidRoomUpdate 併發已知
+            // 問題，尚未完全根治)；一律允許重試，重試時重新讀取的房間狀態一定
+            // 是最新的，不會重複入帳（commandId 冪等）。
+            retryOnPermissionDenied: true,
             onDuplicate: latestRoom => {
                 const latestPrompt = latestRoom.boardState?.familyMilestoneJoinPrompt;
                 shouldFinalizeFamilyPrompt = !!latestPrompt &&
@@ -5379,7 +5383,7 @@ useEffect(() => {
             playerStateUids: [user.uid],
             responseReadUid: room.boardState?.familyMilestoneJoinPrompt?.responseStorage === 'subcollection' ? user.uid : undefined,
             forcePrivatePlayerStates: true,
-            retryOnPermissionDenied: room.boardState?.familyMilestoneJoinPrompt?.responseStorage !== 'subcollection',
+            retryOnPermissionDenied: true,
             onDuplicate: () => undefined,
             mutate: (latestRoom, latestBoard) => {
                 const latestState = latestRoom.playerStates?.[user.uid];
@@ -5498,7 +5502,7 @@ useEffect(() => {
                 playerStateUids: [user.uid],
                 responseReadUid: room.boardState?.familyMilestoneJoinPrompt?.responseStorage === 'subcollection' ? user.uid : undefined,
                 forcePrivatePlayerStates: true,
-                retryOnPermissionDenied: room.boardState?.familyMilestoneJoinPrompt?.responseStorage !== 'subcollection',
+                retryOnPermissionDenied: true,
                 onDuplicate: latestRoom => {
                     const latestPrompt = latestRoom.boardState?.familyMilestoneJoinPrompt;
                     const finalizeSource = !!latestPrompt &&
@@ -6089,7 +6093,7 @@ useEffect(() => {
             forcePrivatePlayerStates: true,
             // Players may only read their own v2 response document.
             responseReadUid: room.boardState?.sharedCardPrompt?.responseStorage === 'subcollection' ? user.uid : undefined,
-            retryOnPermissionDenied: room.boardState?.sharedCardPrompt?.responseStorage !== 'subcollection',
+            retryOnPermissionDenied: true,
             onDuplicate: () => true,
             mutate: (latestRoom, latestBoard) => buildStartupLoanPromptMutation(
                 latestRoom,
@@ -6123,7 +6127,7 @@ useEffect(() => {
                 commandId,
                 playerStateUids: [user.uid],
                 responseReadUid: room.boardState?.sharedCardPrompt?.responseStorage === 'subcollection' ? user.uid : undefined,
-                retryOnPermissionDenied: room.boardState?.sharedCardPrompt?.responseStorage !== 'subcollection',
+                retryOnPermissionDenied: true,
                 onDuplicate: () => ({ status: 'duplicate' }),
                 mutate: (latestRoom, latestBoard) => buildSharedAssetSalePromptMutation(
                     latestRoom,

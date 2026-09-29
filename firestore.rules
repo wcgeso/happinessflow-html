@@ -540,7 +540,8 @@ service cloud.firestore {
         function isRoomCoach() {
           return signedIn() && (
             roomData().hostId == request.auth.uid ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm']
+            (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm'])
           );
         }
 
@@ -574,7 +575,8 @@ service cloud.firestore {
         function isRoomCoach() {
           return signedIn() && (
             roomData().hostId == request.auth.uid ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm']
+            (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm'])
           );
         }
 
@@ -617,7 +619,8 @@ service cloud.firestore {
         function isRoomCoach() {
           return signedIn() && (
             roomData().hostId == request.auth.uid ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm']
+            (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm'])
           );
         }
 
@@ -653,21 +656,26 @@ service cloud.firestore {
       }
 
       match /events/{eventId} {
-        function roomData() {
-          return get(/databases/$(database)/documents/rooms/$(roomId)).data;
-        }
-
-        function isRoomMember() {
+        // room 由呼叫端透過 let 只讀一次房間文件後傳入；這個 match 底下（含巢狀的
+        // responses）原本每個輔助函式都各自呼叫 roomData()／get()，同一次規則求值
+        // 裡光是 allow create 就可能重複讀好幾十次同一份房間文件，容易撞上
+        // Firestore 每次請求 1000 個運算式的硬上限，多人同時回覆時尤其明顯。
+        function isRoomMember(room) {
           return signedIn() && (
-            (roomData().memberUids is list && request.auth.uid in roomData().memberUids) ||
-            (('playerStates' in roomData()) && roomData().playerStates is map && request.auth.uid in roomData().playerStates)
+            (room.memberUids is list && request.auth.uid in room.memberUids) ||
+            (('playerStates' in room) && room.playerStates is map && request.auth.uid in room.playerStates)
           );
         }
 
-        function isRoomCoach() {
+        // 非房主玩家若沒有 users/{uid} 文件，get().data 會直接拋錯；且這次把
+        // isRoomCoach() 的結果透過 let 提前算好重複使用，CEL 的 || 原本可以在其他
+        // 分支已經為真時跳過這裡不理會這個錯誤，一旦提前求值就沒有這個保護，一定
+        // 要先用 exists() 檔掉才安全。
+        function isRoomCoach(room) {
           return signedIn() && (
-            roomData().hostId == request.auth.uid ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm']
+            room.hostId == request.auth.uid ||
+            (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm'])
           );
         }
 
@@ -682,39 +690,54 @@ service cloud.firestore {
             request.resource.data.result == 'committed';
         }
 
-        allow read: if isRoomCoach();
-        allow create, update: if isRoomMember() && validEvent();
-        allow delete: if isRoomCoach();
+        function canReadOrDeleteEvent() {
+          let room = get(/databases/$(database)/documents/rooms/$(roomId)).data;
+          return isRoomCoach(room);
+        }
+
+        function canWriteEvent() {
+          let room = get(/databases/$(database)/documents/rooms/$(roomId)).data;
+          return isRoomMember(room) && validEvent();
+        }
+
+        allow read: if canReadOrDeleteEvent();
+        allow create, update: if canWriteEvent();
+        allow delete: if canReadOrDeleteEvent();
 
         match /responses/{responseUid} {
-          function prompt() {
-            return roomData().boardState.sharedCardPrompt;
+          // 欄位不存在時直接用點記法存取會讓規則求值直接拋錯（跟用 'x' in map
+          // 先檢查、再取值不同），兩張提示卡通常不會同時存在，缺欄位要安全回傳
+          // null，讓呼叫端的 `is map` 判斷正常得到 false，而不是整條規則評估失敗。
+          function sharedPrompt(room) {
+            return ('sharedCardPrompt' in room.boardState) ? room.boardState.sharedCardPrompt : null;
           }
 
-          function familyPrompt() {
-            return roomData().boardState.familyMilestoneJoinPrompt;
+          function familyPrompt(room) {
+            return ('familyMilestoneJoinPrompt' in room.boardState) ? room.boardState.familyMilestoneJoinPrompt : null;
           }
 
-          function isSharedPromptTarget() {
-            return isRoomMember() &&
-              prompt() is map &&
-              prompt().id == eventId &&
-              'responseStorage' in prompt() &&
-              prompt().responseStorage == 'subcollection' &&
-              prompt().targetPlayerUids is list &&
+          function isSharedPromptTarget(room) {
+            let target = sharedPrompt(room);
+            return isRoomMember(room) &&
+              target is map &&
+              target.id == eventId &&
+              'responseStorage' in target &&
+              target.responseStorage == 'subcollection' &&
+              target.targetPlayerUids is list &&
               responseUid == request.auth.uid &&
-              responseUid in prompt().targetPlayerUids;
+              responseUid in target.targetPlayerUids;
           }
 
-          function isFamilyPromptTarget() {
-            return isRoomMember() &&
-              familyPrompt() is map &&
-              familyPrompt().id == eventId &&
-              'responseStorage' in familyPrompt() &&
-              familyPrompt().responseStorage == 'subcollection' &&
-              familyPrompt().targetPlayerUids is list &&
+          function isFamilyPromptTarget(room) {
+            let target = familyPrompt(room);
+            return isRoomMember(room) &&
+              target is map &&
+              target.id == eventId &&
+              'responseStorage' in target &&
+              target.responseStorage == 'subcollection' &&
+              target.targetPlayerUids is list &&
               responseUid == request.auth.uid &&
-              responseUid in familyPrompt().targetPlayerUids;
+              responseUid in target.targetPlayerUids;
           }
 
           function validSharedResponse() {
@@ -744,32 +767,51 @@ service cloud.firestore {
               request.resource.data.commandId is string;
           }
 
-          allow read: if isRoomCoach() || (isRoomMember() && responseUid == request.auth.uid);
+          function canReadResponse() {
+            let room = get(/databases/$(database)/documents/rooms/$(roomId)).data;
+            return isRoomCoach(room) || (isRoomMember(room) && responseUid == request.auth.uid);
+          }
+
           // Players can only create their own response. A coach may record a
           // declined response when the disconnected-player recovery path is
           // used; completed financial effects still require the player's own
           // authenticated transaction.
-          allow create: if (
-            isSharedPromptTarget() ||
-            isFamilyPromptTarget() ||
-            (isRoomCoach() &&
-              prompt() is map &&
-              prompt().id == eventId &&
-              responseUid in prompt().targetPlayerUids &&
-              request.resource.data.status == 'declined')
-          ) && (
-            (isSharedPromptTarget() && validSharedResponse()) ||
-            (isFamilyPromptTarget() && validFamilyResponse()) ||
-            (isRoomCoach() && validSharedResponse())
-          );
-          allow update: if isFamilyPromptTarget() &&
-            validFamilyResponse() &&
-            resource.data.playerUid == responseUid &&
-            resource.data.status == 'passed' &&
-            resource.data.actionCompleted == false &&
-            request.resource.data.actionCompleted == true &&
-            request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['actionCompleted', 'commandId']);
+          function canCreateResponse() {
+            let room = get(/databases/$(database)/documents/rooms/$(roomId)).data;
+            let sharedTarget = isSharedPromptTarget(room);
+            let familyTarget = isFamilyPromptTarget(room);
+            let coach = isRoomCoach(room);
+            let coachSharedPrompt = sharedPrompt(room);
+            return (
+              sharedTarget ||
+              familyTarget ||
+              (coach &&
+                coachSharedPrompt is map &&
+                coachSharedPrompt.id == eventId &&
+                responseUid in coachSharedPrompt.targetPlayerUids &&
+                request.resource.data.status == 'declined')
+            ) && (
+              (sharedTarget && validSharedResponse()) ||
+              (familyTarget && validFamilyResponse()) ||
+              (coach && validSharedResponse())
+            );
+          }
+
+          function canUpdateResponse() {
+            let room = get(/databases/$(database)/documents/rooms/$(roomId)).data;
+            return isFamilyPromptTarget(room) &&
+              validFamilyResponse() &&
+              resource.data.playerUid == responseUid &&
+              resource.data.status == 'passed' &&
+              resource.data.actionCompleted == false &&
+              request.resource.data.actionCompleted == true &&
+              request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['actionCompleted', 'commandId']);
+          }
+
+          allow read: if canReadResponse();
+          allow create: if canCreateResponse();
+          allow update: if canUpdateResponse();
           allow delete: if false;
         }
       }
