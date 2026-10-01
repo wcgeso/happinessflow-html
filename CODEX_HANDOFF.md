@@ -1,5 +1,108 @@
 # 第二人生 P0 Integration Handoff
 
+## 2026-10-02 H020 三人結案修復（本機 v4.24；先不發布）
+
+- 使用者最新指示「通過後先別發佈」：未 commit、push、部署；正式 v4.23 未套用此次修正。
+- 正式房 504382 封存：source 付款 committed，另外兩位各擲 2 點 failed/actionCompleted=true，但 source 呈現 shared_prompt_pending。保留場次證據，沒有改正式資料。
+- 家庭結案漏讀子集合：房主結案與完成提示復原明確讀必要回覆；固定 callback，依賴包含 sessionId。
+- 新格式房間參與者財務只寫本人財務／回覆及本人公開投影，不寫 boardState；由房主彙整結案。writeBoardState=false 對棋盤變更會明確拒絕，維持命令收據防重。
+- 本機三人 H020：兩位擲 2 點與兩位擲 6 點完成付款均可正常結束回合，扣款／幸福值各一次。441 單元、59 Firestore+RTDB Rules、TypeScript、build、diff check 通過；Rules 未改。
+- 更新本機 v4.24 系統日誌。證據：/Users/wcg/程式開發/蜂富人生HappinessFlow/第二人生/output/diagnostics/h020-20261002/README.md。正式多人實機尚未驗證本次修改。
+
+
+## 2026-10-01 v4.23 正式發布（最新）
+
+- 使用者授權更新系統日誌、版本並發布 dev 工作樹。Vercel `dpl_2qqiM5QYZotSR8kyqRpk7NsCQF8t` production／READY，正式 https://2ife.vercel.app；先 skip-domain 核對版本／build／Rules／日誌 assets，兩個索引 READY 後 promote。
+- 本機與正式版本 v4.23；發布前再驗438 單元／59 Firestore+RTDB／TypeScript／build／diff check 通過。正式登入 HTTP 200、可見 v4.23、0 browser console error／warning；Vercel 本部署 error scan 0 筆，未代替 Firebase 遊戲驗收。
+- 正式 Rules 原 9a08f32e…（9/30 10:35:20），本次先部署 713391ad…（10/1 23:36:15），讀回等同本機。RTDB 原已一致，未部署；只新增 transactions／financialEffects 必要索引且均 READY。
+- Release runtime `47b2ca73d2fd00920fe982a65aaafc8b8085044bf2b0ffbe9b9d93f5254830e2`，上傳後未變；相較已驗收遊戲僅改 version.ts／CoachDashboard.tsx 日誌，.vercelignore 排除本機 e2e/report。保留 dev dirty、未 commit／push、未修改正式場次 245839。
+- 詳細紀錄與前部署／Rules 備份：`/Users/wcg/程式開發/蜂富人生HappinessFlow/第二人生/output/diagnostics/release-v4.23-20261001/release.md`。新格式產生後不直接回退不支援接續／歷史的舊 v4.22。
+- 全體裝置須重新整理至 v4.23，正式手機／六人／投影實機驗收仍由使用者進行；性能長尾與大型 Context/View 後續工作仍未全面完成。以下未發布註記是先前候選的歷史紀錄。
+
+
+## 2026-10-01 效能首批完成（最新；本機未發布）
+
+- 保留原 dev dirty，未 commit、push、部署或操作正式房號 245839。詳細報告：`/Users/wcg/程式開發/蜂富人生HappinessFlow/第二人生/output/diagnostics/performance-20261001.md`。
+- App 登入邊界／AuthenticatedApp 延後載入遊戲、RTDB；共享回覆 listener 拆為 useSharedPromptResponses 並保持作用域穩定；GameContext 摘要與 value 不因無關棋盤變動重算。
+- 修正新載入邊界暴露的 root StrictMode 房間恢復競態；玩家與投影共用雲端翻牌判斷；市場效果不依賴重開／背景可能缺少的 CSS transitionend。
+- 首屏 JS 2,085,216 →1,203,355 bytes（-42.29%），gzip -33.65%；进入遊戲總量約 +0.12%，主檔 1.20MB／500KB warning 仍存在。
+- Runtime `fbffc0aec90aef24a3f9709df62fc91b4591d8bb75a748d4e5597c653229d8cd`；Rules 同前版未改。67 檔 438 單元、TypeScript、build、diff check 通過。
+- performance-v4：六人＋執行師＋投影 50／50 及全體結算、五項 listener／斷線／房主停滯恢復、借還款重開防重通過。卡片 13／14，C056 UI 已轉共享窗但舊 title locator 失敗；原 blocked 報告保留。
+- 僅修正 C056 驗收定位後，同 runtime performance-v5-card-recovery：C056／N001 2／2 通過；14 張關鍵卡片皆有通過證據。完整 160／121／500 舊版證據不代表本批。
+- 同裝置 event/revision 配對呈現 P95 193.3ms（929筆，31筆缺漏）；命令 P95 1,158ms／P99 4,341ms 尚未達標；2 次 SDK 已恢復衝突，0 未恢復錯誤。實機與正式延遲不能由本機代替。
+- 後續：實機 profiling／正式多人驗收、大型 Context/View 後續拆分及正式發布仍未完成。
+
+
+## 2026-10-01 最終本機候選驗收（最新；未發布）
+
+- 本輪核心修正與自動功能驗收已完成；正式多端／實機與發布門檻仍未完成。保留所有原 dev dirty 內容，未 commit、push、部署或修改正式房號 245839。
+- Runtime 05df3c6a44c1ccbd4e656547afdc0981b2f6384c296b7ee2f816bf6164d51f8a；Rules 713391ade146fd04d72f2afa998f637346ff90b06a9c6caf83a00296b5f6388c。測試期間清單中程式與工具雜湊無變更。
+- 長場次的移動拒絕已以舊版注入 600ms 單調時鐘漂移重現；修正使用 Firebase 校準牆鐘計算雲端 deadline，保留客戶端 250ms 緩衝；Rules 原期限／落點／角色限制不放寬。
+- H009 並行核准只增加一次效果；拒絕後僅查核原已入帳 receipt，不盲目重送。玩家可看到終止性訂閱錯誤並安全重新同步，唯讀／斷線／錯誤時原生停用擲骰。
+- 完整本機 gates：64 檔 427 項單元、Firestore／RTDB 59 項、TypeScript、build、diff check 通過。
+- board-6p-500-turn-final-isolated-20261001.json：六位一般玩家＋執行師＋投影，500／500 混合回合及全體結算通過；100 次銀行，0 錯誤、0 交易重試，600ms 漂移注入。舊 500 回合診斷誤將空 terminate HTTP 400 當寫入錯誤的 failed 報告保留，未改標。
+- board-card-matrix-2026-10-01-final-recovery160.json：160／160 主要流程及結算通過；final-decline121：資料標記 choiceRequired 的 121／121 拒絕流程通過；final-recovery-lowcash：5／5 信用周轉／購屋與付款重開；final-learning-failure：C003／C005／C007 判定失敗與付款重開 3／3。未窮舉全部條件組合。
+- subscription-recovery-subscription-recovery-v4-20261001.json：控制權維持、終止 listener 重建、斷線銀行／投影復原、房主 frozen／offline 時玩家接手五項通過；之後只改模擬器 Analytics 隔離，訂閱與遊戲邏輯未改。
+- 同裝置呈現追蹤 P95：玩家 299.2ms、投影 88.1ms；擲骰／移動／結束回合確認 P95 253／211／217ms。不能替代手機／正式量測，也未證明像素繪製、100ms 點擊回饋或跨端倒數差異上限。
+- 隔離建置分析：首屏 JS 約 2.09MB／gzip 485KB，主檔 1.729MB，大型 chunk 警告仍在；執行師、投影、結算已延後載入。主要成本包含 Firebase SDK／React／RoomContext，不能宣稱全部效能目標達成。
+- CI 已設定，本機對應 gates 通過；遠端尚未 push／實跑。尚待正式 Rules 相容部署、候選版本、版本／系統日誌／build 識別更新、支援新 schema 的回退驗證，以及使用者六人＋投影至少 50 回合與手機／背景／断線驗收。
+- 完整最新紀錄：/Users/wcg/程式開發/蜂富人生HappinessFlow/第二人生/output/diagnostics/implementation-20261001.md。以下保留歷史，不以舊段落取代本節狀態。
+
+
+## 2026-10-01 最新接續狀態（未發布）
+
+- 原始 dirty dev 基準與歷史證據保留；本階段沒有 commit、push、正式部署或修改房號 245839。
+- 最新整合：TypeScript、正式 build、61 檔 414 項單元測試通過；Firestore／RTDB 共 52 項規則測試通過。新增規則要求共享回覆符合當前來源事件；非財務共享回覆只讀本人文件，避免全體回覆爭用房間。
+- 已修財務視窗根因：相同資料的物件重建不能解除操作中；舊事件的非同步結果不能關閉／完成新事件視窗。銀行交易持久保存原命令，重開查原 receipt；手動銀行交易不結算棋盤事件。
+- 已拆財務、事件佇列、共享提示、家庭歷程及審核純函式；ScoreView 延後載入。主包仍約 1.72 MB，不能標記效能指標達成。
+- 完整 160 張主要流程通過：board-card-matrix-2026-10-01-full160.json。隔離候選 26 張關鍵卡／18 張自用購屋接受／學習失敗與重開通過：board-card-matrix-2026-10-01-stage-root-v3.json。全部分支仍未完成。
+- 拒絕清單 121 張曾因磁碟 ENOSPC 中斷；有效 113 張通過、C031/C032 測試按鈕讀取競態已修，另 6 張未跑。八張補測及借還款重開防重已通過；舊報告保留。
+- 六人 500 混合回合首次跑到 417：所有事件可結束，但第 417 回合共享結案 14 秒超過 10 秒測試門檻而停止，不能標為完成。保留 board-6p-500-turn-mixed-2026-10-01.json；新候選須單獨重跑，避免多組模擬器及磁碟壓力干擾。
+- 新增已通過：25 張出租購屋／未投保支出／學習成功與重開，購屋現金、資產與貸款各一次；快速操作與借還款兩個完整瀏覽器回歸。房屋轉換、幸福清單持久保存原命令與明確目標，重開可安全核對。
+- 最新固定候選 SHA256：5229dc69afceadbc70feb843cb25e0ec8efcfd21d9af6db62e9a168e0ccb589e；Rules d2148d4fbf8cc87f29cf6f1e39363492a8f009e723ddb01997032cdc15857085。新的單獨 500 回合正在執行，日誌 /private/tmp/hf-mixed500-ownresponse.log。
+- 尚未完成：最新候選 500 回合、資金不足等剩餘分支、其餘財務管理入口的命令接續審計、P95/P99 實測、GitHub CI 實跑。正式六人＋執行師＋投影至少 50 回合及手機驗收由使用者進行；其餘實作仍在繼續。
+- 發布門檻未通過。新 schema 與回退相容必須確認；不以模擬器／單元通過代替正式多端驗收。
+
+## 2026-09-30 最新階段：交易接續與指定格移動根因（未發布）
+
+以下歷史階段保留原文；本節為目前狀態。
+- dev 原始 dirty 基準／備份保留；未 commit、push、部署或修改 245839 正式資料。正式基準仍為前次核對 v4.22；不能以本機驗證代替正式房間驗收。
+- 最新單元回歸 57 檔／401 項通過；Firestore 47＋RTDB 2＝49 項通過；TypeScript 通過，正式 build 通過（主程式約 1.74 MB，大小目標尚未達成）。
+- 六張關鍵卡普通抽卡回歸 C003/C005/C007/C034/C056/H009 通過：`critical-cards-ledger.json`；三张付費學習卡額外付款後 reload 通過：`paid-learning-reload.json`。C034 目前為雲端翻牌／共享放棄，沒有投影實機證據。
+- 完整卡片主要流程首次測到 C046 後中斷：有效的前92筆為88通過、4失敗（C035/C036/C037/C039）。中斷後產生的瀏覽器關閉結果無效，不能視為真實卡片故障。報告 `full-main-branches.json` 已標示 interrupted，原始列與 summary 保留，另有 validatedSummary 說明。
+- 已修上述四張卡的共同根因：`moveCurrentPlayerToSquare()` 未指定本人私有資料讀取，交易嘗試用僅有移動欄位的文件覆蓋玩家財務而被拒絕。現在明確讀本人、缺資料失敗、保留財務；四張普通抽卡／付款／移動／結案回歸全過：`medical-move-root.json`。仍須完整清單重跑。
+- 銀行送出格式集中在 `transactionRoute.ts`（10種路由檢查）；新格式私人交易／履歷／永久 receipt；保險、定存、領款、借還款不推進棋盤。公共摘要變動與私人效果同交易，棋盤交易沿用原摘要寫入；公開行情／泡沫／全體支出事件持久保存，含執行師發布。
+- 診斷保存完整命令 ID，Analytics 保留自身100字限制；記錄四階段與每端最近20筆；各端未知 schema 顯示更新要求，命令重讀雲端 schema 拒絕。flowLog 改用既有除錯開關。
+- 執行師與玩家歷史接上100＋50分頁；indexes/CI已版本化但尚未雲端部署／GitHub CI實跑。33個一次性腳本／備份已原樣封存並保留 manifest。RTDB控制權維持固定擁有者。
+- 尚未完成：160卡全部分支及完整重跑、500混合回合、六位普通玩家＋執行師＋投影正式50回合、手機/背景/斷線證據、P95/P99目標、全部 callback 與接續清理、逾時查核提交／waiting 結果契約、公共效果失败明确重試、全部財務路徑審計及完整舊客戶端更新策略、Context/View拆分與實測效能改善。
+- 最安全下一步：先補持久入帳／無重複效果的矩陣斷言與每卡診斷，再固定 source 完整160卡重跑；修 stress 骰點 fixture 的隨機值被 SDK 消耗問題，才能進入500回合。發布門檻未通過，請勿正式發布。
+
+
+## 2026-09-30 接續實作進度（候選，仍未發布）
+
+- 關鍵卡一般玩家抽卡 E2E 六張全過：C003/C005/C007/C034/C056/H009。報告 `e2e/report/board-card-matrix-2026-09-30-critical-cards-2.json`，獨立同名 evidence 目錄；三位玩家、非正式環境、非六人驗收。
+- Firestore Rules 45/45（接續付款原子性、不得跳過待判定、錯誤骰點結果被拒絕）；新增歷史/receipt/公共金融事件 Rules 待再跑。
+- 新私人金融共用純函式在 `src/game/finance/personalState.ts`，歷史寫入在 `history.ts`。保險/定存/領款/個人切換不動棋盤。命令檢查 session，旧事件 callback 不得寫入新場。
+- 新房 `financialHistoryStorage=subcollection`；交易最近100、完整私人 ledger、持久 receipt；歷史 UI 首100、每次50；索引版本化。原始 dev dirty 工作樹與舊格式房間保留。
+- 新格式房間停止本機財務 patch 背景同步；行情泡沫/全體支出保留公共事件，由本人 transaction 套用並保存游標，離線可接續。此部分尚待六人借還款 Rules 與瀏覽器回歸。
+- 目前 typecheck clean，全部單元 384/384（最新公共事件測試尚待下一輪）；完整160卡/所有分支、500回合、正式六人＋投影50回合及效能門檻仍未完成。
+
+## 2026-09-30 補強方案實作中（未發布）
+
+- 固定 dev 原始基準：HEAD `fa64e87aaac07281f2c1775d2ea3e157b410e5ce`，保留原未提交內容；修改前完整來源備份在 `/private/tmp/hf-implementation-baseline/source.tar.gz`，每檔 SHA256 在同目錄 `baseline.json`。
+- 正式部署開始時仍為 `dpl_8RApFrzZvXycghYPnvBiXVvBDM8k`／v4.22，2026-09-30 10:36:12（台北）Ready；本輪沒有正式資料修補或部署。
+- 已寫入：C003／C005／C007 付款、移至學校與雲端待擲骰原子提交，成功／失敗結果保存；C056 子集合審核核准與待抽卡保存，抽卡回傳明確結果並保留失敗待辦；H009 先結案再清理核准請求。
+- 已寫入：共享回覆改為預設不讀；本人借還款、股票及汽車走私人交易入口；相同命令共用 Promise，不同命令忙碌回傳原因；銀行／財務結案失敗保留視窗；控制權最早有效 claim 保留；移除錯誤直接覆寫 document.body。
+- 訂閱終止後有限恢復，權限拒絕等待登入／手動重新核對；各端有訂閱失敗提示；私有資料錯誤不再標示已 hydration。各端最近 20 筆時序／訂閱／版本診斷每 10 秒更新、失敗立即送出；關房前封存，缺少某端明確標示缺漏。新診斷／封存 Rules 尚待本輪完整 Rules 回歸。
+- 數字改為固定版面與顏色提示，取消同步時的縮放；執行師倒數採同一 serverNow。
+- 已驗證：完整單元測試 54 檔／383 項；新私人交易測試於 250 筆後重送原命令不重複入帳、不讀共享回覆、不動棋盤；訂閱舊 callback 不再回寫、權限錯誤不無限自動重試。第一批 Rules 44／44（診斷與封存變更前）通過。
+- 瀏覽器證據：C003 付款後呈現終身學習骰子、雲端 awaiting_roll；尚未完成整張卡回歸。既有矩陣未讀新骰子 UI 且卡片失敗不使測試退出失敗，已修正。改成一般玩家實際擲骰抽卡；匯入帶卡片 JSON 的 board.ts 在 Node 發生 JSON import attribute 問題，fixture 已避開該匯入，待重跑。
+- 私人完整交易歷史／receipt helper 已有回歸，但新房尚未啟用 financialHistoryStorage，仍需所有財務寫入入口／Rules／100+50 分頁接線。
+- 尚未完成：完整接續 Rules 限制、線上本機財務同步移除、全部金融寫入收斂、舊 callback／投影完整回歸、requirements 與交易路由映射、索引／RTDB CI、腳本封存、全部卡片分支、500 回合、正式六人＋投影 50 回合及體感指標。
+- 邊界：RoomContext 保存資料與提交命令，continuation.ts 保存接續領域判斷；privateCommand.ts 只寫本人資料，View 僅推導視窗。不得把單元／模擬器成功標為正式多人驗收。
+- 下一步：固定程式跑關鍵卡一般玩家抽卡回歸，依失敗畫面／雲端待辦查明原因，再完成上述剩餘工作。發布門檻未通過，請勿正式部署。
+
+
 ## 2026-09-24 房間玩家欄位開放／關閉
 
 - 執行師可在等待房間直接點選空玩家欄位開放或關閉；房間以 `maxPlayers` 保存目前開放數量，`closedPlayerSlots` 記錄關閉的欄位，舊房間缺少欄位資料時仍依原名額顯示。

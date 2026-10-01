@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { X, Users, Copy, Play, LogOut, RefreshCw, User as UserIcon } from 'lucide-react';
+import { X, Users, Copy, Play, LogOut, RefreshCw, User as UserIcon, Lock, LockOpen } from 'lucide-react';
 import { useRoom } from '../../context/RoomContext';
 import { ProfileModal } from '../../components/modals/ProfileModal';
 import { useAuth, getUserTitle, getAvatarBorderStyle, getCoachBadge, getPlayerBadge, getTitleColor, getBadgeGlowStyle } from '../../context/AuthContext';
 import { Button } from '../../components/ui/ui';
 import { cn } from '../../utils/gameUtils';
 import SafeImage from '../../components/common/SafeImage';
+import { getRoomPlayerSlots } from '../../utils/roomPlayerSlots';
 
 interface RoomViewProps {
     onBack: () => void;
@@ -13,7 +14,7 @@ interface RoomViewProps {
 }
 
 export const RoomView: React.FC<RoomViewProps> = ({ onBack, viewMode }) => {
-    const { room, leaveRoom, closeRoom, startRoomGame, error } = useRoom();
+    const { room, leaveRoom, closeRoom, startRoomGame, setRoomPlayerSlotOpen, error } = useRoom();
     const { user } = useAuth();
     const [copied, setCopied] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
@@ -65,6 +66,7 @@ export const RoomView: React.FC<RoomViewProps> = ({ onBack, viewMode }) => {
                     leaveRoom={leaveRoom}
                     closeRoom={closeRoom}
                     startRoomGame={startRoomGame}
+                    setRoomPlayerSlotOpen={setRoomPlayerSlotOpen}
                     error={error}
                 />
             );
@@ -82,6 +84,7 @@ export const RoomView: React.FC<RoomViewProps> = ({ onBack, viewMode }) => {
             leaveRoom={leaveRoom}
             closeRoom={closeRoom}
             startRoomGame={startRoomGame}
+            setRoomPlayerSlotOpen={setRoomPlayerSlotOpen}
             error={error}
         />
     );
@@ -97,10 +100,13 @@ const RoomContent: React.FC<{
     leaveRoom: any;
     closeRoom: any;
     startRoomGame: any;
+    setRoomPlayerSlotOpen: (slotIndex: number, isOpen: boolean) => Promise<void>;
     error: string | null;
-}> = ({ room, user, viewMode, onBack, isHost, leaveRoom, closeRoom, startRoomGame, error }) => {
+}> = ({ room, user, viewMode, onBack, isHost, leaveRoom, closeRoom, startRoomGame, setRoomPlayerSlotOpen, error }) => {
     const [copied, setCopied] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const [updatingSlot, setUpdatingSlot] = useState<number | null>(null);
+    const [slotActionError, setSlotActionError] = useState('');
 
     // Profile Menu State
     const [profileMenu, setProfileMenu] = useState<{ isOpen: boolean; x: number; y: number; user: any | null }>({ isOpen: false, x: 0, y: 0, user: null });
@@ -123,6 +129,23 @@ const RoomContent: React.FC<{
     const coachMember = room?.members.find((m: any) => m.uid === room.hostId);
     const playerMembers = room?.members.filter((m: any) => m.uid !== room.hostId) || [];
     const displayCoach = coachMember;
+    const playerSlots = getRoomPlayerSlots(room.maxPlayers, room.closedPlayerSlots);
+    const slotMembers = new Map(
+        playerSlots.filter(slot => slot.isOpen).slice(0, playerMembers.length)
+            .map((slot, index) => [slot.index, playerMembers[index]])
+    );
+
+    const handlePlayerSlotToggle = async (slotIndex: number, isOpen: boolean) => {
+        setUpdatingSlot(slotIndex);
+        setSlotActionError('');
+        try {
+            await setRoomPlayerSlotOpen(slotIndex, isOpen);
+        } catch (err: any) {
+            setSlotActionError(err?.message || '玩家欄位更新失敗，請再試一次');
+        } finally {
+            setUpdatingSlot(null);
+        }
+    };
 
     const handleCloseOrLeave = () => {
         setShowConfirm(true);
@@ -357,7 +380,43 @@ const RoomContent: React.FC<{
                         <div className="flex-1 flex flex-col min-h-0">
                             <div className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-1 text-center">參與玩家</div>
                             <div className="flex-1 grid grid-cols-2 gap-1.5 w-full auto-rows-fr">
-                                {playerMembers.map((member) => (
+                                {playerSlots.map((slot) => {
+                                    const member = slotMembers.get(slot.index);
+                                    if (!member) {
+                                        const canEdit = isHost && room.status === 'waiting';
+                                        const isUpdating = updatingSlot === slot.index;
+                                        const SlotTag = canEdit ? 'button' : 'div';
+                                        return (
+                                            <SlotTag
+                                                key={`slot-${slot.index}`}
+                                                type={canEdit ? 'button' : undefined}
+                                                disabled={canEdit && isUpdating}
+                                                aria-label={canEdit ? `玩家欄位 ${slot.index + 1}，${slot.isOpen ? '開放中，點擊關閉' : '已關閉，點擊開放'}` : undefined}
+                                                onClick={canEdit ? () => void handlePlayerSlotToggle(slot.index, !slot.isOpen) : undefined}
+                                                className={cn(
+                                                    'flex flex-col items-center justify-center p-2 rounded-2xl border h-full relative transition-all duration-200',
+                                                    slot.isOpen
+                                                        ? 'bg-slate-900/30 border-slate-700/70 text-slate-400'
+                                                        : 'bg-slate-950/40 border-slate-800/70 text-slate-600',
+                                                    canEdit && 'cursor-pointer hover:border-amber-400/60 hover:bg-amber-500/10 active:scale-[0.98]',
+                                                    isUpdating && 'opacity-60 cursor-wait'
+                                                )}
+                                            >
+                                                {slot.isOpen ? <Users size={24} strokeWidth={1.5} /> : <Lock size={22} strokeWidth={1.5} />}
+                                                <span className="mt-2 text-[10px] font-black tracking-wider">
+                                                    {slot.isOpen ? '等待玩家' : '已關閉'}
+                                                </span>
+                                                {canEdit && (
+                                                    <span className="mt-1 flex items-center gap-1 text-[9px] font-bold text-amber-400/80">
+                                                        {slot.isOpen ? <Lock size={11} /> : <LockOpen size={11} />}
+                                                        {slot.isOpen ? '點擊關閉' : '點擊開放'}
+                                                    </span>
+                                                )}
+                                            </SlotTag>
+                                        );
+                                    }
+
+                                    return (
                                     <div
                                         key={member.uid}
                                         className="flex flex-col items-center justify-center p-2 rounded-xl border border-slate-800/50 bg-slate-900/50 transition-all relative h-full cursor-pointer active:scale-[0.98]"
@@ -393,32 +452,8 @@ const RoomContent: React.FC<{
                                             </div>
                                         </div>
                                     </div>
-                                ))}
-
-                                {Array.from({ length: room.maxPlayers - playerMembers.length }).map((_, i) => (
-                                    <div
-                                        key={`empty-${i}`}
-                                        className="flex flex-col items-center justify-center p-2 rounded-2xl bg-slate-900/30 border border-slate-800/50 h-full relative group transition-all duration-300"
-                                    >
-                                        <div className="w-14 h-14 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-center text-slate-600 mb-2 relative overflow-hidden animate-breath shadow-[0_0_20px_rgba(245,158,11,0.1)]">
-                                            {/* Internal pulsing gradient - slowed down to match breath */}
-                                            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-transparent animate-pulse [animation-duration:4s]" />
-                                            <Users size={24} strokeWidth={1.5} className="relative z-10 opacity-40 text-amber-500/60" />
-                                        </div>
-                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] group-hover:text-amber-500/60 transition-colors">等待中</span>
-                                    </div>
-                                ))}
-
-                                {Array.from({ length: 6 - room.maxPlayers }).map((_, i) => (
-                                    <div
-                                        key={`disabled-${i}`}
-                                        className="flex flex-col items-center justify-center p-2 rounded-2xl border border-transparent bg-slate-950/40 h-full select-none relative overflow-hidden"
-                                    >
-                                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-slate-900/20 border border-white/5">
-                                            <X size={20} strokeWidth={1.2} className="text-slate-800" />
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -430,6 +465,11 @@ const RoomContent: React.FC<{
             {error && (
                 <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-sm font-medium text-center animate-in slide-in-from-bottom-2">
                     {error}
+                </div>
+            )}
+            {slotActionError && (
+                <div role="alert" className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-300 text-sm font-semibold text-center">
+                    {slotActionError}
                 </div>
             )}
 

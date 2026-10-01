@@ -25,6 +25,7 @@ const EMPTY_QTY_MAP = Object.fromEntries(
 export const BrokerView: React.FC<BrokerViewProps> = ({ cash, assets, marketPrices, previousMarketPrices, onTransaction }) => {
   const [mode, setMode] = useState<TradeMode>('buy');
   const [tradeQuantities, setTradeQuantities] = useState<Record<string, number>>(EMPTY_QTY_MAP);
+  const [bulkQuantity, setBulkQuantity] = useState<number | ''>(1);
 
   const holdingsBySymbol = useMemo(
     () => STOCK_COLUMNS.flat().reduce<Record<string, number>>((acc, symbol) => {
@@ -51,15 +52,18 @@ export const BrokerView: React.FC<BrokerViewProps> = ({ cash, assets, marketPric
     }));
   };
 
-  const applyBulkOneShare = (nextMode: TradeMode) => {
+  const applyBulkQuantity = (nextMode: TradeMode) => {
+    const quantity = typeof bulkQuantity === 'number'
+      ? Math.max(1, Math.floor(bulkQuantity) || 1)
+      : 1;
     setMode(nextMode);
     setTradeQuantities(prev => STOCK_COLUMNS.flat().reduce<Record<string, number>>((acc, symbol) => {
-      const currentValue = prev[symbol] || 0;
+      const currentQuantity = prev[symbol] || 0;
       if (nextMode === 'buy') {
-        acc[symbol] = currentValue + 1;
+        acc[symbol] = currentQuantity + quantity;
       } else {
         const maxSellable = holdingsBySymbol[symbol] || 0;
-        acc[symbol] = Math.min(maxSellable, currentValue + (maxSellable > 0 ? 1 : 0));
+        acc[symbol] = Math.min(maxSellable, currentQuantity + quantity);
       }
       return acc;
     }, {}));
@@ -94,9 +98,11 @@ export const BrokerView: React.FC<BrokerViewProps> = ({ cash, assets, marketPric
       qty: item.qty
     }));
     const tickerNames = stockList.map(item => item.symbol).join(', ');
+    const commandId = `stock:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
 
     if (mode === 'buy') {
       onTransaction({
+        commandId,
         name: `買入股票 (${tickerNames})`,
         amount: totalTradeAmount,
         cashChange: -totalTradeAmount,
@@ -111,6 +117,7 @@ export const BrokerView: React.FC<BrokerViewProps> = ({ cash, assets, marketPric
       });
     } else {
       onTransaction({
+        commandId,
         name: `賣出股票 (${tickerNames})`,
         amount: totalTradeAmount,
         cashChange: totalTradeAmount,
@@ -204,28 +211,37 @@ export const BrokerView: React.FC<BrokerViewProps> = ({ cash, assets, marketPric
           </button>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-1.5 sm:mt-4 sm:flex sm:flex-wrap sm:gap-3">
-          {mode === 'buy' ? (
-            <button
-              type="button"
-              onClick={() => applyBulkOneShare('buy')}
-              className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-2 text-[10px] font-black text-emerald-300 transition-colors hover:bg-emerald-500/20 sm:rounded-2xl sm:px-4 sm:py-2.5 sm:text-sm"
-            >
-              全部購買一張
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => applyBulkOneShare('sell')}
-              className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-1.5 py-2 text-[10px] font-black text-rose-300 transition-colors hover:bg-rose-500/20 sm:rounded-2xl sm:px-4 sm:py-2.5 sm:text-sm"
-            >
-              全部出售一張
-            </button>
-          )}
+        <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 sm:gap-3">
+          <label className="flex min-h-10 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/70 px-2.5 py-2 text-[10px] font-black text-slate-300 sm:rounded-2xl sm:px-3 sm:text-sm">
+            <span className="shrink-0">每檔張數</span>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={bulkQuantity}
+              onChange={(event) => {
+                const value = event.target.value;
+                setBulkQuantity(value === '' ? '' : Math.max(1, parseInt(value, 10) || 1));
+              }}
+              className="h-7 w-14 rounded-lg border border-slate-700 bg-slate-950 px-1 text-center text-xs font-black text-white sm:w-16 sm:text-sm"
+              aria-label="全部交易每檔張數"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => applyBulkQuantity(mode)}
+            className={`min-h-10 flex-1 rounded-xl border px-3 py-2 text-[10px] font-black transition-colors sm:flex-none sm:rounded-2xl sm:px-4 sm:py-2.5 sm:text-sm ${
+              mode === 'buy'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                : 'border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20'
+            }`}
+          >
+            {mode === 'buy' ? '全部買入' : '全部賣出'} {bulkQuantity || 1} 張
+          </button>
           <button
             type="button"
             onClick={resetQuantities}
-            className="rounded-xl border border-slate-700 bg-slate-900/70 px-1.5 py-2 text-[10px] font-black text-slate-300 transition-colors hover:bg-slate-800 sm:rounded-2xl sm:px-4 sm:py-2.5 sm:text-sm"
+            className="min-h-10 rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-[10px] font-black text-slate-300 transition-colors hover:bg-slate-800 sm:rounded-2xl sm:px-4 sm:py-2.5 sm:text-sm"
           >
             清空張數
           </button>

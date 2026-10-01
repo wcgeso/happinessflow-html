@@ -17,7 +17,8 @@ export type AudioCue =
   | 'warning';
 
 export interface AudioSettings {
-  enabled: boolean;
+  musicEnabled: boolean;
+  soundEnabled: boolean;
   volume: number;
 }
 
@@ -25,13 +26,15 @@ export const AUDIO_SETTINGS_KEY = 'hf_audio_settings_v1';
 export const AUDIO_SETTINGS_EVENT = 'hf-audio-settings-change';
 export const MAIN_MAP_BGM_SRC = '/audio/happinessflow-bgm-main-map.m4a';
 
-const DEFAULT_AUDIO_SETTINGS: AudioSettings = { enabled: true, volume: 0.55 };
+const DEFAULT_AUDIO_SETTINGS: AudioSettings = { musicEnabled: true, soundEnabled: true, volume: 0.55 };
 
 export const normalizeAudioSettings = (value: unknown): AudioSettings => {
   if (!value || typeof value !== 'object') return { ...DEFAULT_AUDIO_SETTINGS };
-  const candidate = value as Partial<AudioSettings>;
+  const candidate = value as Partial<AudioSettings> & { enabled?: unknown };
+  const legacyEnabled = typeof candidate.enabled === 'boolean' ? candidate.enabled : undefined;
   return {
-    enabled: candidate.enabled !== false,
+    musicEnabled: typeof candidate.musicEnabled === 'boolean' ? candidate.musicEnabled : legacyEnabled ?? DEFAULT_AUDIO_SETTINGS.musicEnabled,
+    soundEnabled: typeof candidate.soundEnabled === 'boolean' ? candidate.soundEnabled : legacyEnabled ?? DEFAULT_AUDIO_SETTINGS.soundEnabled,
     volume: typeof candidate.volume === 'number'
       ? Math.min(1, Math.max(0, candidate.volume))
       : DEFAULT_AUDIO_SETTINGS.volume,
@@ -163,7 +166,7 @@ class NativeAudioManager {
 
   play(cue: AudioCue) {
     const settings = getAudioSettings();
-    if (!settings.enabled || settings.volume <= 0) return false;
+    if (!settings.soundEnabled || settings.volume <= 0) return false;
     const context = this.getContext();
     if (!context || context.state !== 'running') return false;
     if (cue === 'dice') return this.playDiceRoll(context, settings.volume);
@@ -196,8 +199,8 @@ class NativeAudioManager {
     }
 
     const settings = getAudioSettings();
-    this.backgroundMusic.volume = settings.enabled ? settings.volume * 0.32 : 0;
-    if (!settings.enabled || !this.backgroundMusic.paused) return Promise.resolve();
+    this.backgroundMusic.volume = settings.musicEnabled ? settings.volume * 0.32 : 0;
+    if (!settings.musicEnabled || !this.backgroundMusic.paused) return Promise.resolve();
 
     return this.backgroundMusic.play().catch(() => undefined);
   }
@@ -205,8 +208,8 @@ class NativeAudioManager {
   syncBackgroundMusic() {
     if (!this.backgroundMusic) return;
     const settings = getAudioSettings();
-    this.backgroundMusic.volume = settings.enabled ? settings.volume * 0.32 : 0;
-    if (!settings.enabled) {
+    this.backgroundMusic.volume = settings.musicEnabled ? settings.volume * 0.32 : 0;
+    if (!settings.musicEnabled) {
       this.backgroundMusic.pause();
       return;
     }

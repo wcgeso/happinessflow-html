@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from 'playwright/test';
 
 // Sanity check for the E2E pipeline itself (emulator + seeded accounts + dev
 // server all wired together) before any real board-multiplayer flow specs

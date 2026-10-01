@@ -10,6 +10,8 @@ interface PromotionModalProps {
     onConfirm: (type: 'normal' | 'lifelong') => void;
     currentRankLevel: number;
     disabled?: boolean;
+    canPromote?: boolean;
+    disabledReason?: string;
 }
 
 export const PromotionModal: React.FC<PromotionModalProps> = ({
@@ -18,7 +20,9 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
     onBack,
     onConfirm,
     currentRankLevel,
-    disabled = false
+    disabled = false,
+    canPromote = true,
+    disabledReason
 }) => {
     if (!isOpen) return null;
 
@@ -34,12 +38,15 @@ export const PromotionModal: React.FC<PromotionModalProps> = ({
                     <button
                         type="button"
                         onClick={() => onConfirm('normal')}
-                        disabled={disabled}
+                        disabled={disabled || !canPromote}
                         className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#d6a94e] to-[#a9643a] py-3.5 text-lg font-black text-white shadow-[0_12px_24px_-14px_rgba(169,100,58,0.8)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                        <span>{disabled ? '遊戲已結算' : '確認報名'}</span>
-                        {!disabled && <ChevronRight size={20} />}
+                        <span>{disabled ? '遊戲已結算' : !canPromote ? '目前無法升等' : '確認報名'}</span>
+                        {!disabled && canPromote && <ChevronRight size={20} />}
                     </button>
+                    {!disabled && !canPromote && disabledReason && (
+                        <p className="text-center text-sm font-bold text-[#a9643a]">{disabledReason}</p>
+                    )}
                     <button type="button" onClick={onClose} className="min-h-11 w-full rounded-2xl border border-[#d8c29a] bg-[#f4e6d0] py-3 text-sm font-black text-[#7a6958] transition hover:bg-[#ead7b8]">
                         關閉
                     </button>

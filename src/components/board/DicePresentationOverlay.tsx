@@ -1,22 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, ChevronDown, ChevronUp, Dices, XCircle } from 'lucide-react';
+import { serverNow } from '../../utils/serverClock';
+import { trackBoardStage } from '../../utils/telemetry';
 import { DiceFace } from '../game/DiceFace';
 import { DicePresentationEvent, FamilyMilestoneJoinPrompt } from '../../types';
-import { DICE_PRESENTATION_DURATION_MS, DICE_PRESENTATION_REVEAL_MS, getDicePresentationLabel, getFamilyDicePresentationReadyAt } from '../../game/board/dicePresentation';
+import { DICE_PRESENTATION_DURATION_MS, DICE_PRESENTATION_REVEAL_MS, getDicePresentationTiming, getDicePresentationLabel, getFamilyDicePresentationReadyAt } from '../../game/board/dicePresentation';
 
 export const DicePresentationOverlay: React.FC<{
     events?: DicePresentationEvent[];
+    scopeKey?: string;
+    roomId?: string;
+    turnStartedAt?: number;
     prefersReducedMotion?: boolean | null;
     familyPrompt?: FamilyMilestoneJoinPrompt | null;
     familyParticipants?: Array<{ uid: string; name: string; isSource?: boolean }>;
-}> = ({ events = [], prefersReducedMotion = false, familyPrompt = null, familyParticipants = [] }) => {
+}> = ({ events = [], scopeKey = '', roomId = '', turnStartedAt = 0, prefersReducedMotion = false, familyPrompt = null, familyParticipants = [] }) => {
     const [activeEvent, setActiveEvent] = useState<DicePresentationEvent | null>(null);
     const [isRevealed, setIsRevealed] = useState(false);
     const [isFamilyDockCollapsed, setIsFamilyDockCollapsed] = useState(false);
     const [familyRollingUids, setFamilyRollingUids] = useState<Set<string>>(new Set());
     const seenIdsRef = useRef(new Set<string>());
-    const initializedRef = useRef(false);
+
     const familyPromptIdRef = useRef<string | null>(null);
     const familySeenResponseKeysRef = useRef(new Set<string>());
     const familyRollTimersRef = useRef(new Map<string, number>());
@@ -31,28 +36,24 @@ export const DicePresentationOverlay: React.FC<{
             : [];
 
     useEffect(() => {
-        if (initializedRef.current) return;
-        const cutoff = Date.now() - 7000;
-        events.forEach(event => {
-            if (event.timestamp < cutoff) seenIdsRef.current.add(event.id);
-        });
-        initializedRef.current = true;
-    }, [events]);
+        setActiveEvent(null);
+    }, [scopeKey]);
 
     useEffect(() => {
-        if (activeEvent || events.length === 0) return;
-        const nextEvent = [...events]
-            .sort((left, right) => left.sequence - right.sequence)
-            .find(event => event.kind !== 'family-participation' && !seenIdsRef.current.has(event.id));
-        if (!nextEvent) return;
-        seenIdsRef.current.add(nextEvent.id);
-        setIsRevealed(false);
-        setActiveEvent(nextEvent);
-    }, [activeEvent, events]);
-
-    useEffect(() => {
-        if (activeEvent?.kind === 'family-participation') setActiveEvent(null);
-    }, [activeEvent]);
+        const now = serverNow();
+        // Retain only current history IDs, bounding memory for long games.
+        const eventIds = new Set(events.map(event => event.id));
+        seenIdsRef.current = new Set([...seenIdsRef.current].filter(id => eventIds.has(id)));
+        const candidates = events.filter(event => event.kind !== 'family-participation'
+            && event.timestamp >= turnStartedAt && !seenIdsRef.current.has(event.id));
+        candidates.forEach(event => { if (getDicePresentationTiming(event.timestamp, now).expired) seenIdsRef.current.add(event.id); });
+        const next = candidates.filter(event => !getDicePresentationTiming(event.timestamp, now).expired)
+            .sort((a, b) => b.sequence - a.sequence)[0];
+        if (!next) return;
+        candidates.forEach(event => seenIdsRef.current.add(event.id));
+        setIsRevealed(getDicePresentationTiming(next.timestamp, now).revealInMs === 0);
+        setActiveEvent(next);
+    }, [events, scopeKey, turnStartedAt]);
 
     useEffect(() => {
         if (familyPromptIdRef.current !== familyPrompt?.id) {
@@ -84,7 +85,7 @@ export const DicePresentationOverlay: React.FC<{
         newlyRolledUids.forEach(uid => {
             const response = familyPrompt.responses?.[uid];
             const presentationReadyAt = response?.presentationReadyAt
-                || (response?.respondedAt ? getFamilyDicePresentationReadyAt(response.respondedAt) : Date.now());
+                || (response?.respondedAt ? getFamilyDicePresentationReadyAt(response.respondedAt) : serverNow());
             const responseKey = `${familyPrompt.id}:${uid}:${response?.respondedAt || 'pending'}`;
             const timer = window.setTimeout(() => {
                 familyRollTimersRef.current.delete(responseKey);
@@ -93,7 +94,7 @@ export const DicePresentationOverlay: React.FC<{
                     next.delete(uid);
                     return next;
                 });
-            }, Math.max(0, presentationReadyAt - Date.now()));
+            }, Math.max(0, presentationReadyAt - serverNow()));
             familyRollTimersRef.current.set(responseKey, timer);
         });
     }, [familyPrompt]);
@@ -105,8 +106,12 @@ export const DicePresentationOverlay: React.FC<{
 
     useEffect(() => {
         if (!activeEvent) return;
-        const revealTimer = window.setTimeout(() => setIsRevealed(true), prefersReducedMotion ? 0 : DICE_PRESENTATION_REVEAL_MS);
-        const closeTimer = window.setTimeout(() => setActiveEvent(null), prefersReducedMotion ? 1400 : DICE_PRESENTATION_DURATION_MS);
+        const timing = getDicePresentationTiming(activeEvent.timestamp, serverNow());
+        if (timing.expired) { setActiveEvent(null); return; }
+        trackBoardStage('presented', roomId, undefined, { surface: 'projection', event_id: activeEvent.id,
+            command_id: activeEvent.id, phase: timing.revealInMs ? 'dice_animation' : 'dice_result' });
+        const revealTimer = window.setTimeout(() => setIsRevealed(true), prefersReducedMotion ? 0 : timing.revealInMs);
+        const closeTimer = window.setTimeout(() => setActiveEvent(null), timing.closeInMs);
         return () => {
             window.clearTimeout(revealTimer);
             window.clearTimeout(closeTimer);

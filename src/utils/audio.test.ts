@@ -3,11 +3,12 @@ import { normalizeAudioSettings } from './audio';
 
 describe('audio settings', () => {
   it('uses safe defaults for missing or malformed values', () => {
-    expect(normalizeAudioSettings(null)).toEqual({ enabled: true, volume: 0.55 });
-    expect(normalizeAudioSettings({ volume: 3 })).toEqual({ enabled: true, volume: 1 });
+    expect(normalizeAudioSettings(null)).toEqual({ musicEnabled: true, soundEnabled: true, volume: 0.55 });
+    expect(normalizeAudioSettings({ volume: 3 })).toEqual({ musicEnabled: true, soundEnabled: true, volume: 1 });
   });
 
-  it('clamps volume and preserves the mute preference', () => {
-    expect(normalizeAudioSettings({ enabled: false, volume: -1 })).toEqual({ enabled: false, volume: 0 });
+  it('keeps legacy mute settings and supports independent controls', () => {
+    expect(normalizeAudioSettings({ enabled: false, volume: -1 })).toEqual({ musicEnabled: false, soundEnabled: false, volume: 0 });
+    expect(normalizeAudioSettings({ musicEnabled: false, soundEnabled: true })).toEqual({ musicEnabled: false, soundEnabled: true, volume: 0.55 });
   });
 });

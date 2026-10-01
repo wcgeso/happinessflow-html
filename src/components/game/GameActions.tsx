@@ -1,6 +1,5 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CirclePlus, Dices, Target, Landmark, Building, CheckCircle2 } from 'lucide-react';
-import { motion, useAnimation } from 'framer-motion';
 
 interface GameActionsProps {
     onRollBoardDice?: (diceCount?: 1 | 2) => Promise<any> | void;
@@ -46,19 +45,8 @@ export const GameActions: React.FC<GameActionsProps> = ({
     hasCar = false,
     disabled = false,
 }) => {
-    const leftDiceControls = useAnimation();
-    const rightDiceControls = useAnimation();
-    const diceControls = [leftDiceControls, rightDiceControls];
     const [isAnimating, setIsAnimating] = useState(false);
-    const [diceResults, setDiceResults] = useState<number[]>([]);
-    const [selectedDiceCount, setSelectedDiceCount] = useState<1 | 2>(hasCar ? 2 : 1);
-    const landingFaceTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const animationCompleteTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const animationCompletionCalledRef = useRef(false);
-    const DICE_ROLL_DURATION_MS = 3500;
-    const DICE_RESULT_REVEAL_MS = 850;
-    const idleDiceRotation = { rotateX: -18, rotateY: 22, rotateZ: 0 };
-
+    const [showEndTurnReminder, setShowEndTurnReminder] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => {
         const checkMobile = () => {
@@ -70,8 +58,9 @@ export const GameActions: React.FC<GameActionsProps> = ({
     }, []);
 
     useEffect(() => {
-        setSelectedDiceCount(hasCar ? 2 : 1);
-    }, [hasCar]);
+        if (!isBoardTurn || !hasRolledBoardDice) setIsAnimating(false);
+    }, [hasRolledBoardDice, isBoardTurn]);
+    useEffect(() => { if (!isRollingBoardDice) setIsAnimating(false); }, [isRollingBoardDice]);
 
     const tz = isMobile ? '26px' : '32px';
     const tagTz = isMobile ? '31px' : '39px';
@@ -91,13 +80,25 @@ export const GameActions: React.FC<GameActionsProps> = ({
         };
     };
     const isActive = isBoardTurn && canRoll && !isRollingBoardDice && !isAnimating && !disabled;
-    const shouldShowEndTurn = !!(onEndTurn && hasRolledBoardDice && !isRollingBoardDice);
+    const shouldShowEndTurn = !!(onEndTurn && hasRolledBoardDice);
     const visibleBlockReason = shouldShowEndTurn ? endTurnBlockReason : rollBlockReason;
     const isVisualActive = isActive || isAnimating;
-    const visibleDiceCount = diceResults.length > 0 ? diceResults.length : selectedDiceCount;
+
+    useEffect(() => {
+        if (!shouldShowEndTurn || !canEndTurn || disabled || isEndingTurn) {
+            setShowEndTurnReminder(false);
+            return;
+        }
+        setShowEndTurnReminder(false);
+        const reminderTimer = window.setTimeout(() => setShowEndTurnReminder(true), 10000);
+        return () => window.clearTimeout(reminderTimer);
+    }, [canEndTurn, disabled, isEndingTurn, shouldShowEndTurn]);
+
+    // 汽車仍保留單骰／雙骰選擇，但玩家端只顯示一顆主骰，避免兩顆骰子擠在按鈕內。
+    const visibleDiceCount = 1;
     const faceBg = isVisualActive 
-        ? "bg-gradient-to-br from-white to-slate-100 border-slate-300 shadow-[inset_0_0_15px_rgba(0,0,0,0.05)]" 
-        : "bg-gradient-to-br from-[#d8e5e0] to-[#a9c0ba] border-[#829f97] shadow-[inset_0_0_15px_rgba(46,101,112,0.18)]";
+        ? "bg-gradient-to-br from-white via-[#f8fafc] to-[#d7dee5] border-white/90 shadow-[inset_5px_5px_10px_rgba(255,255,255,0.95),inset_-7px_-8px_12px_rgba(71,85,105,0.24),0_5px_0_rgba(100,116,139,0.72),0_12px_16px_rgba(15,23,42,0.34)]"
+        : "bg-gradient-to-br from-[#e7f0ed] via-[#c8d9d4] to-[#91aaa3] border-[#dce9e5]/80 shadow-[inset_5px_5px_10px_rgba(255,255,255,0.5),inset_-7px_-8px_12px_rgba(46,101,112,0.3),0_5px_0_rgba(82,111,104,0.75),0_12px_16px_rgba(15,45,52,0.38)]";
     const coreBg = isVisualActive ? 'bg-[#dce6e3]' : 'bg-[#9fb9b2]';
     const dotBg = isVisualActive ? "bg-slate-800" : "bg-[#5d766f]";
     const dot1Bg = isVisualActive ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" : "bg-[#9a6a5a]";
@@ -155,73 +156,19 @@ export const GameActions: React.FC<GameActionsProps> = ({
         }
     };
 
-    // 當擲骰結束 (或是換人回合時)，強制將骰子重置回手上
-    useEffect(() => {
-        if (!isRollingBoardDice) {
-            if (landingFaceTimerRef.current) {
-                clearTimeout(landingFaceTimerRef.current);
-                landingFaceTimerRef.current = null;
-            }
-            if (animationCompleteTimerRef.current) {
-                clearTimeout(animationCompleteTimerRef.current);
-                animationCompleteTimerRef.current = null;
-            }
-            diceControls.forEach(control => {
-                control.stop(); // 停止所有進行中的動畫(包含延遲消失)
-                control.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, ...idleDiceRotation });
-            });
-            setIsAnimating(false);
-            setDiceResults([]);
-        }
-    }, [isRollingBoardDice, leftDiceControls, rightDiceControls]);
-
-    useEffect(() => {
-        return () => {
-            if (landingFaceTimerRef.current) clearTimeout(landingFaceTimerRef.current);
-            if (animationCompleteTimerRef.current) clearTimeout(animationCompleteTimerRef.current);
-        };
-    }, []);
-
-    const showResultWhenLanded = (results: number[]) => {
-        if (landingFaceTimerRef.current) clearTimeout(landingFaceTimerRef.current);
-        landingFaceTimerRef.current = setTimeout(() => {
-            setDiceResults(results);
-            diceControls.forEach(control => {
-                // 首次落地後停止旋轉，再固定結果面；不讓後半段動畫把骰面重新帶走。
-                control.stop();
-                control.set(idleDiceRotation);
-            });
-            landingFaceTimerRef.current = null;
-        }, DICE_RESULT_REVEAL_MS);
-    };
-
-    const getRollingRotation = (spinSeed: number, direction: -1 | 1) => {
-        const spinX = (Math.floor(Math.random() * 2) + 2) * 360 * direction;
-        const spinY = (Math.floor(Math.random() * 2) + 2) * 360 * (direction === -1 ? 0.72 : -0.9);
-        const spinZ = (spinSeed + (Math.random() * 180 + 180)) * direction;
-
-        return {
-            rotateX: [0, spinX * 0.35, spinX, spinX * 1.08, 0, 0, 0, 0, 0],
-            rotateY: [0, spinY * 0.4, spinY, spinY * 1.12, 0, 0, 0, 0, 0],
-            rotateZ: [0, spinZ * 0.5, spinZ, spinZ * 1.1, 0, 0, 0, 0, 0],
-        };
-    };
-
     const renderDie = (result: number, index: number) => {
         const faces = getDiceFaces(result);
-        const faceBase = "absolute inset-0 flex items-center justify-center overflow-hidden rounded-[6px]";
+        const faceBase = "absolute inset-0 flex items-center justify-center overflow-hidden rounded-[11px] border sm:rounded-[14px]";
         return (
-            <motion.div
+            <div
                 key={`die-${index}`}
                 data-testid="board-die"
                 data-die-value={result}
-                className="relative h-[52px] w-[52px] sm:h-[64px] sm:w-[64px]"
-                animate={diceControls[index]}
-                initial={{ x: 0, y: 0, z: 0, scale: 1, opacity: 1, ...idleDiceRotation }}
+                className="relative h-[52px] w-[52px] drop-shadow-[0_10px_8px_rgba(6,21,27,0.32)] sm:h-[64px] sm:w-[64px]"
                 style={{ transformStyle: 'preserve-3d' }}
             >
                 <div className="absolute inset-0 h-full w-full" style={{ transformStyle: 'preserve-3d' }}>
-                    <div className={`absolute inset-0 ${coreBg}`} style={{ transform: 'translateZ(0)' }} />
+                    <div className={`absolute inset-0 rounded-[11px] sm:rounded-[14px] ${coreBg}`} style={{ transform: 'translateZ(0)' }} />
                     <div className={`${faceBase} ${faceBg}`} style={{ transform: `translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.front)}</div>
                     <div className={`${faceBase} ${faceBg} brightness-75`} style={{ transform: `rotateY(180deg) translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.back)}</div>
                     <div className={`${faceBase} ${faceBg} brightness-90`} style={{ transform: `rotateY(90deg) translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.right)}</div>
@@ -229,7 +176,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                     <div className={`${faceBase} ${faceBg} brightness-[.65]`} style={{ transform: `rotateX(90deg) translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.bottom)}</div>
                     <div className={`${faceBase} ${faceBg} brightness-110`} style={{ transform: `rotateX(-90deg) translateZ(${tz})`, backfaceVisibility: 'hidden' }}>{renderDots(faces.top)}</div>
                 </div>
-            </motion.div>
+            </div>
         );
     };
 
@@ -237,11 +184,10 @@ export const GameActions: React.FC<GameActionsProps> = ({
         if (!isActive || !onRollBoardDice) return;
 
         setIsAnimating(true);
-
         let rollResult: { total: number; dice: number[] } | void;
         try {
-            rollResult = await onRollBoardDice(hasCar ? selectedDiceCount : 1);
-        } catch (e) {
+            rollResult = await onRollBoardDice(hasCar ? 2 : 1);
+        } catch {
             setIsAnimating(false);
             return;
         }
@@ -251,69 +197,9 @@ export const GameActions: React.FC<GameActionsProps> = ({
             return;
         }
 
-        const actualDice = Array.isArray(rollResult.dice) && rollResult.dice.length > 0
-            ? rollResult.dice
-            : [rollResult.total];
-        const isDoubleRoll = actualDice.length > 1;
-        const targetX = (Math.random() - 0.5) * 150;
-        const rollAnimations = actualDice.slice(0, 2).map((_, index) => {
-            const direction = index === 0 ? -1 : 1;
-            const landingX = isDoubleRoll ? direction * 24 : targetX;
-            const launchX = isDoubleRoll ? direction * 52 : targetX;
-            const apexY = isDoubleRoll
-                ? (index === 0 ? -238 : -266)
-                : -250;
-            const bounceY = isDoubleRoll
-                ? (index === 0 ? -34 : -24)
-                : -40;
-            const rotation = getRollingRotation(360 + index * 115, direction as -1 | 1);
-
-            return diceControls[index].start({
-                x: [0, launchX * 0.5, launchX, landingX + direction * 10, landingX, landingX + direction * 5, landingX, landingX, landingX],
-                y: [0, apexY, -100, -100 + bounceY, -100, -100 + Math.round(bounceY * 0.4), -100, -100, -100],
-                z: [0, -100 - index * 30, -300 - index * 35, -300 - index * 35, -300 - index * 35, -300 - index * 35, -300 - index * 35, -300 - index * 35, -300 - index * 35],
-                scale: [1, 1.2, 0.58, 0.5, 0.58, 0.52, 0.5, 0.5, 0.5],
-                ...rotation,
-                transition: {
-                    duration: DICE_ROLL_DURATION_MS / 1000,
-                    times: [0, 0.1, 0.18, 0.24, 0.3, 0.36, 0.42, 0.88, 1],
-                    ease: ["easeOut", "easeIn", "easeOut", "easeIn", "easeOut", "easeIn", "linear", "easeInOut"]
-                }
-            });
-        });
-
-        setDiceResults([]);
-        showResultWhenLanded(actualDice.slice(0, 2));
-        animationCompletionCalledRef.current = false;
-
-        const completeAnimation = () => {
-            if (animationCompletionCalledRef.current) return;
-            animationCompletionCalledRef.current = true;
-            onRollAnimationComplete?.(rollResult);
-            animationCompleteTimerRef.current = null;
-        };
-
-        void Promise.all(rollAnimations).catch(() => {
-            if (animationCompleteTimerRef.current) {
-                clearTimeout(animationCompleteTimerRef.current);
-                animationCompleteTimerRef.current = null;
-            }
-            if (landingFaceTimerRef.current) {
-                clearTimeout(landingFaceTimerRef.current);
-                landingFaceTimerRef.current = null;
-            }
-            diceControls.forEach(control => {
-                control.stop();
-                control.set({ x: 0, y: 0, z: 0, scale: 1, opacity: 1, ...idleDiceRotation });
-            });
-            setDiceResults([]);
-            setIsAnimating(false);
-            completeAnimation();
-        });
-
-        animationCompleteTimerRef.current = setTimeout(() => {
-            completeAnimation();
-        }, DICE_ROLL_DURATION_MS);
+        // 玩家只送出一次擲骰指令；骰點與動畫由大螢幕依房間事件播放。
+        onRollAnimationComplete?.(rollResult);
+        if (!onRollAnimationComplete) setIsAnimating(false);
     };
 
 
@@ -356,62 +242,54 @@ export const GameActions: React.FC<GameActionsProps> = ({
                     <div className="pointer-events-auto px-2 pb-1 relative" style={{ perspective: '700px' }}>
                         {onRollBoardDice ? (
                             shouldShowEndTurn ? (
-                            <button
-                                onClick={onEndTurn}
-                                disabled={disabled || !canEndTurn || isEndingTurn}
-                                aria-label="結束回合"
-                                className={`group relative flex flex-col items-center gap-2 ${(disabled || !canEndTurn) ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
-                                title={!isBoardTurn ? '尚未輪到你' : (canEndTurn ? '結束回合，換下一位玩家' : '請先完成目前的棋盤事件')}
-                            >
-                                <div className="flex h-[52px] w-[52px] items-center justify-center rounded-[14px] border-2 border-[#d8c29a] bg-gradient-to-br from-[#d6a94e] to-[#a9643a] text-white shadow-[0_12px_24px_-10px_rgba(169,100,58,0.55)] transition-all duration-300 group-enabled:hover:-translate-y-1 group-enabled:hover:scale-105 group-active:scale-95 sm:h-[64px] sm:w-[64px] sm:rounded-[18px]">
-                                    <CheckCircle2 size={26} strokeWidth={2.5} className="sm:hidden" /><CheckCircle2 size={32} strokeWidth={2.5} className="hidden sm:block" />
-                                </div>
-                                <span className="text-[11px] font-black uppercase tracking-widest text-[#f0c85c] drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">{isEndingTurn ? '提交中' : '結束回合'}</span>
-                            </button>
+                            <div className="relative flex flex-col items-center gap-1">
+                                <button
+                                    onClick={onEndTurn}
+                                    disabled={disabled || !canEndTurn || isEndingTurn}
+                                    aria-label="結束回合"
+                                    className={`group relative flex flex-col items-center gap-2 ${canEndTurn && !isEndingTurn ? 'rounded-2xl ring-4 ring-[#f0c85c]/35' : ''} ${(disabled || !canEndTurn) ? 'opacity-40 cursor-not-allowed filter grayscale-[0.5]' : ''}`}
+                                    title={!isBoardTurn ? '尚未輪到你' : (canEndTurn ? '本回合已完成，點擊結束回合換下一位玩家' : '請先完成目前的棋盤事件')}
+                                >
+                                    <div className="flex h-[52px] w-[52px] items-center justify-center rounded-[14px] border-2 border-[#d8c29a] bg-gradient-to-br from-[#d6a94e] to-[#a9643a] text-white shadow-[0_12px_24px_-10px_rgba(169,100,58,0.55)] transition-all duration-300 group-enabled:hover:-translate-y-1 group-enabled:hover:scale-105 group-active:scale-95 sm:h-[64px] sm:w-[64px] sm:rounded-[18px]">
+                                        <CheckCircle2 size={26} strokeWidth={2.5} className="sm:hidden" /><CheckCircle2 size={32} strokeWidth={2.5} className="hidden sm:block" />
+                                    </div>
+                                    <span className="text-[11px] font-black uppercase tracking-widest text-[#f0c85c] drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">{isEndingTurn ? '提交中' : canEndTurn ? '完成，結束回合' : '結束回合'}</span>
+                                </button>
+                                {showEndTurnReminder && canEndTurn && !isEndingTurn && (
+                                    <span className="absolute bottom-full mb-2 w-36 rounded-xl border border-[#d8c29a] bg-[#fffaf2] px-2 py-1.5 text-center text-[10px] font-black leading-tight text-[#2e6570] shadow-lg">
+                                        本回合已完成，請點擊結束回合
+                                    </span>
+                                )}
+                            </div>
                             ) : (
                             <div className="relative flex flex-col items-center gap-2">
                                 {/* 向上引導動畫 (輪到自己時顯示) */}
                                 {/* 發光底圖 */}
                                 {isActive && !isAnimating && (
-                                    <motion.div
+                                    <div
                                         className="absolute inset-0 rounded-full bg-[#5da58e] blur-2xl opacity-30 z-0"
-                                        animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.5, 0.2] }}
-                                        transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
                                     />
                                 )}
 
                                 <button
                                     type="button"
                                     onClick={handleDiceClick}
-                                    aria-label={isRollingBoardDice ? '骰子同步中' : (isBoardTurn ? `擲骰子${hasCar ? `，目前選擇${selectedDiceCount}顆` : ''}` : '尚未輪到你擲骰子')}
+                                    disabled={!isActive}
+                                    aria-label={isRollingBoardDice ? '骰子同步中' : (isBoardTurn ? `擲骰子${hasCar ? '，使用2顆' : ''}` : '尚未輪到你擲骰子')}
                                     style={{ touchAction: "manipulation" }}
                                     className={`relative z-10 min-h-[52px] sm:min-h-[64px] transition-transform duration-200 ${isActive ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-not-allowed'} ${!isVisualActive ? 'opacity-100' : ''}`}
-                                    title={!isBoardTurn ? "尚未輪到你" : (isRollingBoardDice ? "同步中..." : `點擊拋擲 (${hasCar ? `${selectedDiceCount}顆` : '1顆'})`)}
+                                    title={!isBoardTurn ? "尚未輪到你" : (isRollingBoardDice ? "同步中..." : `點擊拋擲 (${hasCar ? '2顆' : '1顆'})`)}
                                 >
-                                    <div className={`relative flex items-center justify-center gap-2 ${visibleDiceCount === 2 ? 'w-[112px] sm:w-[136px]' : 'w-[52px] sm:w-[64px]'}`}>
-                                        {(diceResults.length > 0 ? diceResults : Array.from({ length: selectedDiceCount }, () => 5)).map(renderDie)}
+                                    <div className="relative flex w-[52px] items-center justify-center gap-2 sm:w-[64px]">
+                                        {Array.from({ length: visibleDiceCount }, () => 5).map(renderDie)}
 
-	                                        {hasCar && isVisualActive && (
+                                        {hasCar && (
                                             <div
-                                                role="button"
-                                                tabIndex={0}
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    if (!isActive) return;
-                                                    setSelectedDiceCount(prev => prev === 2 ? 1 : 2);
-                                                }}
-                                                onKeyDown={(event) => {
-                                                    if (event.key !== 'Enter' && event.key !== ' ') return;
-                                                    event.preventDefault();
-                                                    event.stopPropagation();
-                                                    if (!isActive) return;
-                                                    setSelectedDiceCount(prev => prev === 2 ? 1 : 2);
-                                                }}
                                                 className="absolute -top-3 -right-3 w-7 h-7 rounded-full border-2 border-[#293a38] bg-[#f0c85c] flex items-center justify-center shadow-sm"
                                                 style={{ transform: `translateZ(${tagTz})` }}
-                                                title={isActive ? '點一下切換單骰 / 雙骰' : '持有汽車時可切換單骰 / 雙骰'}
+                                                title="持有汽車時使用雙骰"
                                             >
-                                                <span className="text-[10px] font-black text-[#604721] leading-none tracking-tighter">x{selectedDiceCount}</span>
+                                                <span className="text-[10px] font-black text-[#604721] leading-none tracking-tighter">x2</span>
 	                                    </div>
                                         )}
                                     </div>
@@ -419,7 +297,7 @@ export const GameActions: React.FC<GameActionsProps> = ({
                                 <span className={`text-[11px] font-black uppercase tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] transition-colors ${
                                     isActive ? 'text-[#fffaf2]' : 'text-[#b9aa98]'
                                 }`}>
-                                    {isRollingBoardDice ? '同步中' : (isBoardTurn ? `點擊拋擲${hasCar ? ` (${selectedDiceCount}顆)` : ''}` : '擲骰子')}
+                                    {isRollingBoardDice ? '同步中' : (isBoardTurn ? `點擊拋擲${hasCar ? ' (2顆)' : ''}` : '擲骰子')}
                                 </span>
                             </div>
                             )

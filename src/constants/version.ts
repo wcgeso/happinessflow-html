@@ -1,12 +1,9 @@
 /**
  * 版本號管理
- * 根據環境自動切換後綴：
- * 1. 正式版 (happinessflow-online.vercel.app): 無後綴
- * 2. 測試版 (Vercel Preview): -beta
- * 3. 開發/本地版 (localhost / happinessflow-dev.vercel.app): -dev
+ * 本機使用 -dev；其他網址依 MANUAL_SUFFIX 設定。
  */
 
-const BASE_VERSION = 'v4.21';
+const BASE_VERSION = 'v4.24';
 
 /**
  * 在此手動切換對外網址的顯示後綴：
@@ -30,7 +27,7 @@ export const APP_VERSION = (() => {
   const isDevSite = hostname.includes('happinessflow-dev');
   
   // 本地環境、手機行動網路連線與開發專屬網址一律顯示 -dev
-  if (isLocal || isDevSite) return `${BASE_VERSION}`;
+  if (isLocal || isDevSite) return `${BASE_VERSION}-dev`;
   
   // 其餘對外網址則根據上面的 MANUAL_SUFFIX 設定 (正式版或測試版)
   return `${BASE_VERSION}${MANUAL_SUFFIX}`;
@@ -39,4 +36,9 @@ export const APP_VERSION = (() => {
 export const VERSION_DISPLAY = APP_VERSION;
 
 // 新增版本類型判斷，方便 UI 顯示顏色
-export const IS_DEV_VERSION = true;
+export const IS_DEV_VERSION = APP_VERSION.endsWith('-dev');
+
+declare const __HF_BUILD_ID__: string;
+declare const __HF_RULES_HASH__: string;
+export const BUILD_ID=typeof __HF_BUILD_ID__==='string'?__HF_BUILD_ID__:'unknown';
+export const RULES_HASH=typeof __HF_RULES_HASH__==='string'?__HF_RULES_HASH__:'unknown';

@@ -461,17 +461,85 @@ service cloud.firestore {
       // 動作才需要共用同一份 boardState diff，所以移到
       // validBoardStateUpdateForPlayer() 用 let 只算一次，傳給下面幾個函式共用。
       function validBoardStateUpdate(roomAffectedKeys) {
-        return hostUpdateAllowed() || validBoardStateUpdateForPlayer(roomAffectedKeys);
+        return hostUpdateAllowed()
+          ? (changesActiveMovement() ? validBoardStateUpdateForPlayer(roomAffectedKeys) : true)
+          : validBoardStateUpdateForPlayer(roomAffectedKeys);
+      }
+
+      // Active movement transitions cannot fall through the general turn-owner grant.
+      function changesActiveMovement() {
+        return resource.data.boardState.get('movement', null) is map &&
+          resource.data.boardState.movement.isActive == true &&
+          (request.resource.data.boardState.get('movement', null) != resource.data.boardState.movement ||
+            request.resource.data.boardState.playerPositions != resource.data.boardState.playerPositions);
+      }
+
+      function validSettledMovement(movement, nextMovement) {
+        return movement.get('remainingPath', []).size() == 0
+          ? nextMovement == null
+          : nextMovement is map && nextMovement.isActive == false &&
+            nextMovement.path == movement.remainingPath &&
+            nextMovement.get('remainingPath', []).size() == 0 &&
+            nextMovement.diff(movement).affectedKeys().hasOnly(['isActive', 'path', 'remainingPath']);
+      }
+
+      function validMovementLanding(movement, nextBoard) {
+        let landing = movement.path[movement.path.size() - 1];
+        let event = nextBoard.currentEvent;
+        let cardSquare = !(landing in [0, 6, 13, 15, 24, 26, 27, 32, 39, 41, 50]);
+        let eventId = movement.playerUid + '_' + string(movement.startedAt) + '_';
+        return nextBoard.playerPositions.diff(resource.data.boardState.playerPositions).affectedKeys().hasOnly([movement.playerUid]) &&
+          nextBoard.playerPositions[movement.playerUid] == landing &&
+          event is map && event.playerUid == movement.playerUid &&
+          event.squareIndex == landing && event.rollTotal == movement.rollTotal &&
+          ((landing in [6, 15, 24, 32, 41, 50] && event.type == 'bank' &&
+              (event.id == eventId + 'bank' || event.id == eventId + 'bank_land')) ||
+          (landing in [0, 26] && event.type == 'school' &&
+              (event.id == eventId + 'school' || event.id == eventId + 'school_land')) ||
+            (landing == 27 && event.type == 'repair' &&
+              event.id == eventId + 'repair') ||
+            (landing in [13, 39] && event.type == 'hospital' && event.id == eventId + 'hospital') ||
+            (cardSquare && event.type == 'card' &&
+              (event.id == eventId + 'happiness' || event.id == eventId + 'news' || event.id == eventId + 'opportunity'))) &&
+          (cardSquare
+            ? nextBoard.currentCard is map && nextBoard.currentCardReveal is map &&
+              nextBoard.currentCardReveal.eventId == event.id &&
+              nextBoard.currentCardReveal.cardId == nextBoard.currentCard.cardId &&
+              nextBoard.currentCardReveal.isRevealed == false
+            : nextBoard.get('currentCard', null) == null && nextBoard.get('currentCardReveal', null) == null &&
+              nextBoard.get('deckState', resource.data.boardState.get('deckState', null)) == resource.data.boardState.get('deckState', null) &&
+              nextBoard.get('cardLog', resource.data.boardState.get('cardLog', null)) == resource.data.boardState.get('cardLog', null)) &&
+          nextBoard.pendingEvents.size() == 0 &&
+          validSettledMovement(movement, nextBoard.get('movement', null));
+      }
+
+      function validMovementSettlement(roomKeys, boardKeys) {
+        let movement = resource.data.boardState.movement;
+        let nextBoard = request.resource.data.boardState;
+        let command = 'movement:' + movement.playerUid + ':' + string(movement.startedAt) + ':settle';
+        return (isHost(resource.data) || (isMember(resource.data) && movement.playerUid == request.auth.uid)) && resource.data.status == 'playing' &&
+          resource.data.boardState.currentTurnUid == movement.playerUid &&
+          movement.path.size() > 0 &&
+          request.time.toMillis() >= movement.startedAt + movement.introDelayMs +
+            movement.path.size() * movement.stepDurationMs + movement.landingDelayMs + (isHost(resource.data) ? 0 : 2000) &&
+          roomKeys.hasOnly(['boardState', 'publicPlayerStates']) &&
+          boardKeys.hasOnly(['movement', 'playerPositions', 'currentEvent', 'currentCard', 'currentCardReveal',
+            'pendingEvents', 'deckState', 'cardLog', 'revision', 'processedCommandIds', 'updatedAt']) &&
+          nextBoard.revision == resource.data.boardState.revision + 1 &&
+          nextBoard.processedCommandIds.size() <= 100 &&
+          !(command in resource.data.boardState.processedCommandIds) && command in nextBoard.processedCommandIds &&
+          (!roomKeys.hasAny(['publicPlayerStates']) || request.resource.data.publicPlayerStates.diff(resource.data.publicPlayerStates).affectedKeys().hasOnly([movement.playerUid])) &&
+          validMovementLanding(movement, nextBoard);
       }
 
       function validBoardStateUpdateForPlayer(roomAffectedKeys) {
         let boardStateAffectedKeys = request.resource.data.boardState.diff(resource.data.boardState).affectedKeys();
-        return validBoardCommand(roomAffectedKeys) ||
+        return changesActiveMovement() ? validMovementSettlement(roomAffectedKeys, boardStateAffectedKeys) : (validBoardCommand(roomAffectedKeys) ||
           updatesRealEstateMarketPurchase(roomAffectedKeys, boardStateAffectedKeys) ||
           skipsDisconnectedTurn(roomAffectedKeys, boardStateAffectedKeys) ||
           updatesBoardNoticeOnly(roomAffectedKeys, boardStateAffectedKeys) ||
           updatesOwnBoardPromptResponse(roomAffectedKeys) ||
-          usesOwnBankServiceWindow(boardStateAffectedKeys);
+          usesOwnBankServiceWindow(boardStateAffectedKeys));
       }
 
       function validNonBoardUpdate(roomAffectedKeys) {
@@ -504,11 +572,78 @@ service cloud.firestore {
       // 函式重複使用；不再讓十幾個函式各自對整份文件重新做一次 diff。
       // 注意：allow ...: if 後面只接受一個條件式，不能直接寫 let；let 只能出現在
       // function 內部，所以把整條判斷包成一個函式再讓 allow 呼叫它。
+      function validLearningPayment(before, after, fee) {
+        let oldDebt = before.get('liabilities', []);
+        let newDebt = after.get('liabilities', []);
+        let shortfall = fee > before.cash ? fee - before.cash : 0;
+        let added = newDebt.size() > oldDebt.size() ? newDebt[oldDebt.size()] : {};
+        return after.cash == before.cash - fee ||
+          (shortfall > 0 && after.cash == 0 && newDebt.size() == oldDebt.size() + 1 &&
+            newDebt == oldDebt.concat([added]) && added.get('totalOwed', 0) == shortfall &&
+            added.get('id', '') is string && added.get('id', '').size() > 0 &&
+            ((added.get('type', '') == '信用貸款' && added.get('monthlyPayment', -1) == int(shortfall * 0.1)) ||
+              (added.get('type', '') == '強制負債' && added.get('monthlyPayment', -1) == 0)));
+      }
+
+      function validNewLearningContinuation(next) {
+        let board = resource.data.boardState;
+        let oldPlayer = get(/databases/$(database)/documents/rooms/$(roomId)/players/$(request.auth.uid)).data;
+        let newPlayer = getAfter(/databases/$(database)/documents/rooms/$(roomId)/players/$(request.auth.uid)).data;
+        let profession = next.cardId in ['C001', 'C002', 'C003', 'C004'];
+        let stock = next.cardId in ['C005', 'C006'];
+        let fee = next.cardId in ['C005', 'C006', 'C008'] ? 10000 : 5000;
+        return next.kind == 'lifelong-learning' && next.phase == 'awaiting_roll' &&
+          next.playerUid == request.auth.uid && board.currentTurnUid == request.auth.uid &&
+          next.sessionId == resource.data.sessionId && next.sourceEventId == board.currentEvent.id &&
+          next.cardId == board.currentCard.cardId && next.cardId in ['C001','C002','C003','C004','C005','C006','C007','C008'] &&
+          next.commandId is string && next.createdAt is number &&
+          next.learningType == (profession ? 'enhance_profession' : (stock ? 'stock_ability' : 'real_estate_ability')) &&
+          next.requiredRoll == (profession ? 2 : 4) &&
+          request.resource.data.boardState.currentEvent == board.currentEvent &&
+          request.resource.data.boardState.currentCard == board.currentCard &&
+          validLearningPayment(oldPlayer, newPlayer, fee);
+      }
+
+      function validNewDrawContinuation(next) {
+        let board = resource.data.boardState;
+        return (isHost(resource.data) || isCoach()) && next.kind == 'followup-card' &&
+          next.phase == 'awaiting_draw' && next.deck == 'news' && next.cardId == 'C056' &&
+          next.sessionId == resource.data.sessionId && next.sourceEventId == board.currentEvent.id &&
+          next.playerUid == board.currentEvent.playerUid && board.currentCard.cardId == next.cardId &&
+          next.commandId == 'draw-followup:' + next.sourceEventId + ':news' && next.createdAt is number;
+      }
+
+      function validCompletedContinuation(previous, next) {
+        let nextBoard = request.resource.data.boardState;
+        return previous.playerUid == request.auth.uid && resource.data.boardState.currentTurnUid == request.auth.uid &&
+          previous.sessionId == resource.data.sessionId && previous.phase in ['awaiting_roll','awaiting_draw'] &&
+          next.phase == 'completed' && next.diff(previous).affectedKeys().hasOnly(['phase','result']) &&
+          (previous.kind == 'lifelong-learning'
+            ? next.result.roll is int && next.result.roll >= 1 && next.result.roll <= 6 &&
+              next.result.target == previous.requiredRoll && next.result.success == (next.result.roll >= next.result.target) &&
+              nextBoard.currentEvent.id == previous.sourceEventId && nextBoard.currentCard.cardId == previous.cardId
+            : next.result.eventId == nextBoard.currentEvent.id && next.result.cardId == nextBoard.currentCard.cardId &&
+              nextBoard.currentEvent.playerUid == previous.playerUid && nextBoard.currentCard.deck == previous.deck);
+      }
+
+      function validContinuationTransition() {
+        let previous = resource.data.boardState.get('pendingContinuation', null);
+        let next = request.resource.data.boardState.get('pendingContinuation', null);
+        return previous == next
+          ? (previous == null || previous.phase == 'completed' ||
+              request.resource.data.boardState.currentEvent == resource.data.boardState.currentEvent)
+          : (previous == null
+            ? next is map && (validNewDrawContinuation(next) || validNewLearningContinuation(next))
+            : next == null
+              ? previous.phase == 'completed'
+              : next is map && validCompletedContinuation(previous, next));
+      }
+
       function isValidRoomUpdate() {
         let roomAffectedKeys = request.resource.data.diff(resource.data).affectedKeys();
         return signedIn() && immutableIdentity() && (
           roomAffectedKeys.hasAny(['boardState'])
-            ? validBoardStateUpdate(roomAffectedKeys)
+            ? (validContinuationTransition() && validBoardStateUpdate(roomAffectedKeys))
             : validNonBoardUpdate(roomAffectedKeys)
         );
       }
@@ -530,7 +665,7 @@ service cloud.firestore {
         }
 
         function isRoomCoach() {
-          return signedIn() && (roomData().hostId == request.auth.uid || isCoach());
+          return signedIn() && ((exists(/databases/$(database)/documents/rooms/$(roomId)) && roomData().hostId == request.auth.uid) || isCoach());
         }
 
         function canReadOwnWaitingState() {
@@ -539,8 +674,87 @@ service cloud.firestore {
         }
 
         allow read: if canReadOwnWaitingState() || isRoomCoach();
-        allow create, update: if (isRoomMember() && request.auth.uid == playerUid) || isRoomCoach();
+        function isCompletingMovement() {
+          let before = roomData().get('boardState', {});
+          let after = getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.get('boardState', {});
+          return before.get('movement', null) is map && before.movement.isActive == true &&
+            after.get('movement', null) != before.movement;
+        }
+        function validMovementPlayerWrite() {
+          let before = roomData().get('boardState', {});
+          let after = getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.get('boardState', {});
+          return before.get('movement', null) is map && before.movement.isActive == true &&
+            after.get('movement', null) != before.movement
+            ? (before.movement.playerUid == playerUid &&
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'boardPosition', 'skipTurns', 'lastBoardEvent', 'pendingCardAction',
+                'bankServiceWindowActive', 'bankServiceGrantedAtEventId']) &&
+              request.resource.data.boardPosition == before.movement.path[before.movement.path.size() - 1] &&
+              request.resource.data.get('skipTurns', 0) == resource.data.get('skipTurns', 0) &&
+              (request.resource.data.get('bankServiceWindowActive', false) == resource.data.get('bankServiceWindowActive', false) ||
+                (after.get('currentEvent', null) is map && after.currentEvent.type == 'bank' && after.currentEvent.squareIndex in [6, 15, 24, 32, 41, 50] &&
+                  request.resource.data.get('bankServiceWindowActive', false) == true &&
+                  request.resource.data.get('bankServiceGrantedAtEventId', '') == after.currentEvent.id)))
+            : true;
+        }
+        function validFinancialCommit() {
+          let financialChanged=request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'cash','assets','liabilities','expenses','income','happiness','happinessTotal','profession','abilities','medicalInsuranceCount','history','marketPrices','previousMarketPrices','lastMarketUpdateTimestamp','lastPublicEffectTimestamp','lastPublicEffectId']);
+          let command=request.resource.data.get('lastFinancialCommandId','');
+          // Receipt IDs are URI encoded by the client; the document path is carried explicitly below.
+          return roomData().get('financialHistoryStorage','') != 'subcollection' || !resource.data.get('isSetup',false) || !financialChanged ||
+            (command is string && command.size()>0 && command is string &&
+              !exists(/databases/$(database)/documents/rooms/$(roomId)/players/$(playerUid)/commandResults/$(command)) &&
+              getAfter(/databases/$(database)/documents/rooms/$(roomId)/players/$(playerUid)/commandResults/$(command)).data.commandId == command);
+        }
+
+        allow create: if ((isRoomMember() && request.auth.uid == playerUid) || isRoomCoach()) && !isCompletingMovement();
+        allow update: if ((isRoomMember() && request.auth.uid == playerUid) || isRoomCoach())
+          ? (validMovementPlayerWrite() && validFinancialCommit())
+          : false;
         allow delete: if isRoomCoach();
+
+        match /transactions/{transactionId} {
+          allow read: if signedIn() && (request.auth.uid==playerUid || isRoomCoach() || isCoach());
+          allow create: if ((isRoomMember() && request.auth.uid==playerUid) || isRoomCoach()) &&
+            roomData().get('financialHistoryStorage','')=='subcollection' && request.resource.data.sessionId==roomData().sessionId &&
+            request.resource.data.playerUid==playerUid && request.resource.data.id is string && request.resource.data.timestamp is number;
+          allow update, delete: if false;
+        }
+        match /commandResults/{commandId} {
+          allow read: if signedIn() && (request.auth.uid==playerUid || isRoomCoach() || isCoach());
+          allow create: if ((isRoomMember() && request.auth.uid==playerUid) || isRoomCoach()) &&
+            roomData().get('financialHistoryStorage','')=='subcollection' && request.resource.data.sessionId==roomData().sessionId &&
+            request.resource.data.playerUid==playerUid && request.resource.data.commandId==commandId && request.resource.data.status=='applied';
+          allow update, delete: if false;
+        }
+
+      }
+
+      match /coachCommands/{commandId} {
+        function roomData() {return get(/databases/$(database)/documents/rooms/$(roomId)).data;}
+        allow read: if signedIn() && (isCoach() || isHost(roomData()));
+        allow create: if signedIn() && (isHost(roomData()) || isCoach()) && roomData().status=='playing' &&
+          roomData().get('flowSchemaVersion',0)==1 && request.resource.data.sessionId==roomData().sessionId &&
+          request.resource.data.coachUid==request.auth.uid && request.resource.data.kind=='subsidy' &&
+          request.resource.data.commandId is string && request.resource.data.commandId.size()>0 &&
+          request.resource.data.result==getAfter(/databases/$(database)/documents/rooms/$(roomId)).data.financialSubsidy;
+        allow update, delete: if false;
+      }
+
+      match /financialEffects/{effectId} {
+        function roomData() {return get(/databases/$(database)/documents/rooms/$(roomId)).data;}
+        function afterRoom() {return getAfter(/databases/$(database)/documents/rooms/$(roomId)).data;}
+        allow read: if signedIn() && (isMember(roomData()) || isHost(roomData()) || isCoach());
+        allow create: if signedIn() && roomData().status=='playing' && roomData().get('flowSchemaVersion',0)==1 &&
+          request.resource.data.sessionId==roomData().sessionId && request.resource.data.sourcePlayerUid==request.auth.uid &&
+          (request.resource.data.kind=='market'
+            ? (roomData().boardState.currentTurnUid==request.auth.uid || isHost(roomData()) || isCoach()) &&
+              request.resource.data.payload==afterRoom().marketUpdates &&
+              afterRoom().marketUpdates!=roomData().get('marketUpdates',null)
+            : request.resource.data.kind=='expense' && roomData().boardState.currentTurnUid==request.auth.uid &&
+              request.resource.data.payload==afterRoom().boardState.sharedExpenseEffect);
+        allow update, delete: if false;
       }
 
       match /presence/{presenceUid} {
@@ -601,13 +815,16 @@ service cloud.firestore {
         function validDiagnostic() {
           return request.resource.data.keys().hasOnly([
               'uid', 'sessionId', 'flow', 'screen', 'activeModal', 'boardEventId',
-              'cardId', 'pendingAction', 'errorMessage', 'errorAt', 'updatedAt'
+              'cardId', 'pendingAction', 'errorMessage', 'errorAt', 'updatedAt',
+              'clientId', 'appVersion', 'records', 'subscriptions', 'controller', 'clock', 'buildId', 'rulesHash'
             ]) &&
-            request.resource.data.uid == diagnosticUid &&
+            (diagnosticUid == request.resource.data.uid || diagnosticUid == request.resource.data.uid + '_' + request.resource.data.get('clientId', '')) &&
             request.resource.data.sessionId is string &&
             request.resource.data.flow is string &&
             request.resource.data.screen is string &&
             request.resource.data.updatedAt is timestamp &&
+            request.resource.data.get('records', []) is list && request.resource.data.get('records', []).size() <= 20 &&
+            request.resource.data.get('subscriptions', []) is list && request.resource.data.get('subscriptions', []).size() <= 20 &&
             (!('activeModal' in request.resource.data) || request.resource.data.activeModal == null || request.resource.data.activeModal is string) &&
             (!('boardEventId' in request.resource.data) || request.resource.data.boardEventId == null || request.resource.data.boardEventId is string) &&
             (!('cardId' in request.resource.data) || request.resource.data.cardId == null || request.resource.data.cardId is string) &&
@@ -617,8 +834,8 @@ service cloud.firestore {
         }
 
         allow read: if isRoomCoach();
-        allow create: if isRoomMember() && request.auth.uid == diagnosticUid && validDiagnostic();
-        allow update: if isRoomMember() && request.auth.uid == diagnosticUid && validDiagnostic();
+        allow create: if isRoomMember() && request.auth.uid == request.resource.data.uid && validDiagnostic();
+        allow update: if isRoomMember() && request.auth.uid == resource.data.uid && request.auth.uid == request.resource.data.uid && validDiagnostic();
         allow delete: if isRoomCoach() || (isRoomMember() && request.auth.uid == diagnosticUid);
       }
 
@@ -670,7 +887,11 @@ service cloud.firestore {
           request.resource.data.sessionId == resource.data.sessionId &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
           request.resource.data.status in ['approved', 'rejected'];
-        allow delete: if isRoomCoach() || (isRoomMember() && resource.data.uid == request.auth.uid);
+        allow delete: if signedIn() && (
+          !exists(/databases/$(database)/documents/rooms/$(roomId)/pendingRequests/$(requestId))
+            ? true
+            : isRoomCoach() || (isRoomMember() && resource.data.uid == request.auth.uid)
+        );
       }
 
       match /events/{eventId} {
@@ -736,8 +957,11 @@ service cloud.firestore {
 
           function isSharedPromptTarget(room) {
             let target = sharedPrompt(room);
-            return isRoomMember(room) &&
+            return room.status == 'playing' && isRoomMember(room) &&
               target is map &&
+              (!('sourceEventId' in target) ||
+                (room.boardState.get('currentEvent', null) is map &&
+                  room.boardState.get(['currentEvent', 'id'], null) == target.sourceEventId)) &&
               target.id == eventId &&
               'responseStorage' in target &&
               target.responseStorage == 'subcollection' &&
@@ -801,23 +1025,16 @@ service cloud.firestore {
           // authenticated transaction.
           function canCreateResponse() {
             let room = get(/databases/$(database)/documents/rooms/$(roomId)).data;
-            let sharedTarget = isSharedPromptTarget(room);
-            let familyTarget = isFamilyPromptTarget(room);
-            let coach = isRoomCoach(room);
-            let coachSharedPrompt = sharedPrompt(room);
-            return (
-              sharedTarget ||
-              familyTarget ||
-              (coach &&
-                coachSharedPrompt is map &&
-                coachSharedPrompt.id == eventId &&
-                responseUid in coachSharedPrompt.targetPlayerUids &&
-                request.resource.data.status == 'declined')
-            ) && (
-              (sharedTarget && validSharedResponse()) ||
-              (familyTarget && validFamilyResponse()) ||
-              (coach && validSharedResponse())
-            );
+            return isSharedPromptTarget(room)
+              ? validSharedResponse()
+              : isFamilyPromptTarget(room)
+                ? validFamilyResponse()
+                : (isRoomCoach(room) &&
+                  sharedPrompt(room) is map &&
+                  sharedPrompt(room).id == eventId &&
+                  responseUid in sharedPrompt(room).targetPlayerUids &&
+                  request.resource.data.status == 'declined' &&
+                  validSharedResponse());
           }
 
           function canUpdateResponse() {
@@ -853,6 +1070,16 @@ service cloud.firestore {
                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
     }
     
+    match /room_archives/{sessionId} {
+      function coach() { return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm']; }
+      allow read: if request.auth != null && (resource.data.hostId == request.auth.uid || coach());
+      allow create: if request.auth != null && request.resource.data.sessionId == sessionId &&
+        request.resource.data.hostId == request.auth.uid &&
+        get(/databases/$(database)/documents/rooms/$(request.resource.data.roomId)).data.hostId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.roomId == resource.data.roomId;
+      allow delete: if coach();
+    }
+
     // 5. 執行師記錄規則
     match /coach_records/{recordId} {
       // 只有執行師可以讀寫

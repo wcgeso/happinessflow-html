@@ -1,5 +1,7 @@
+import {collection,query,where,orderBy,limit,startAfter,getDocs,type QueryDocumentSnapshot} from 'firebase/firestore';
+import {db} from '../../../services/firebase';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Transaction } from '../../types';
 import { Trash2 } from 'lucide-react';
 import { ConfirmModal } from '../modals/ConfirmModal';
@@ -9,12 +11,34 @@ interface HistoryTableProps {
     onDeleteTransaction?: (id: string) => void;
     reportName?: string;
     disabled?: boolean;
+    source?: {roomId:string;uid:string;sessionId:string};
 }
 
 const formatMoney = (amount: number) => amount.toLocaleString();
 
-export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTransaction, reportName, disabled = false }) => {
+export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTransaction, reportName, disabled = false,source }) => {
     const [confirmId, setConfirmId] = useState<string | null>(null);
+
+    const [older,setOlder]=useState<Transaction[]>([]),[loading,setLoading]=useState(false),[hasMore,setHasMore]=useState(false),[loadError,setLoadError]=useState('');
+    const cursor=useRef<QueryDocumentSnapshot|null>(null),scope=useRef('');
+    const key=source ? `${source.roomId}:${source.uid}:${source.sessionId}` : '';
+    scope.current=key;
+    const load=async(first=false)=>{
+        if(!source)return;
+        const requested=key;setLoading(true);setLoadError('');
+        try {
+            const pageSize=first?100:50;
+            const page=await getDocs(query(collection(db,'rooms',source.roomId,'players',source.uid,'transactions'),
+                where('sessionId','==',source.sessionId),orderBy('timestamp','desc'),...(cursor.current&&!first?[startAfter(cursor.current)]:[]),limit(pageSize)));
+            if(scope.current!==requested)return;
+            cursor.current=page.docs.at(-1)||cursor.current;
+            setOlder(previous=>first?page.docs.map(row=>row.data() as Transaction):[...previous,...page.docs.map(row=>row.data() as Transaction)]);
+            setHasMore(page.size===pageSize);
+        } catch(error:any) {if(scope.current===requested)setLoadError(`歷史載入失敗：${error.code || error.message}`);}
+        finally {if(scope.current===requested)setLoading(false);}
+    };
+    useEffect(()=>{cursor.current=null;setOlder([]);setHasMore(false);if(source)void load(true);return()=>{scope.current='';};},[key]);
+    const rows=[...new Map([...older,...history].map(entry=>[entry.id,entry])).values()].sort((a,b)=>b.timestamp-a.timestamp);
 
     const handleDeleteClick = (id: string) => {
         setConfirmId(id);
@@ -47,14 +71,14 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTra
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-700/50">
-                            {history.length === 0 ? (
+                            {rows.length === 0 ? (
                                 <tr>
                                     <td colSpan={onDeleteTransaction ? 3 : 2} className="px-4 py-8 text-center text-slate-500">
                                         尚無交易記錄
                                     </td>
                                 </tr>
                             ) : (
-                                [...history].reverse().map((tx) => {
+                                rows.map((tx) => {
                                     return (
                                         <tr key={tx.id} className="transition-colors hover:bg-[#f3e4cc]">
                                             <td className="px-2 py-3">
@@ -94,6 +118,10 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTra
                 </div>
             </div>
 
+            {source && <div className="text-center text-sm">
+                {loadError && <p role="alert" className="text-rose-300">{loadError}</p>}
+                {(hasMore||loadError) && <button disabled={loading} onClick={()=>void load(!cursor.current)} className="px-4 py-2 text-slate-200 disabled:opacity-50">{loading?'載入中…':loadError?'重試載入':'載入較早 50 筆'}</button>}
+            </div>}
             {confirmId && (
                 <ConfirmModal
                     title="確認刪除交易記錄？"

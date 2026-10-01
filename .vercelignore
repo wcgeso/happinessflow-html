@@ -5,9 +5,15 @@ dist
 
 # Local browser test artifacts (not application assets)
 test-results
+e2e/report
 playwright-report
 .playwright-cli
 output/playwright
 
+# Local emulator/debug logs can exceed Vercel's upload limit
+*.log
+
 # Local environment files
 .env*
+
+scripts/archive/

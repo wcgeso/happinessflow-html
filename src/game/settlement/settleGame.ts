@@ -1,6 +1,7 @@
 import { doc, increment, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
 import { SettlementPlayerInput, SettlementResult } from '../../types';
+import { runBoardTransactionWithRetry } from '../board/runBoardMutation';
 
 interface SettleGameInput {
     roomId: string;
@@ -13,7 +14,7 @@ export const settleGame = async ({ settlementId, coachUid, players }: SettleGame
     const recordRef = doc(db, 'score_records', 'S1', 'records', settlementId);
     const playerRefs = players.map(player => ({ player, ref: doc(db, 'users', player.uid) }));
 
-    return runTransaction(db, async transaction => {
+    return runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
         const recordSnapshot = await transaction.get(recordRef);
         if (recordSnapshot.exists() && recordSnapshot.data()?.scoreAppliedAt) {
             return 'already_applied';
@@ -36,5 +37,5 @@ export const settleGame = async ({ settlementId, coachUid, players }: SettleGame
         }, { merge: true });
 
         return 'applied';
-    });
+    }));
 };

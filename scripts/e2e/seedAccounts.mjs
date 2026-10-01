@@ -1,4 +1,4 @@
-// Idempotently creates the 4 fixed local E2E accounts (1 coach + 3 players)
+// Idempotently creates the fixed local E2E accounts (1 coach + 6 players)
 // in the Auth + Firestore emulators. Safe to re-run: existing accounts are
 // looked up and reused rather than recreated.
 //
@@ -11,6 +11,9 @@ export const TEST_ACCOUNTS = [
   { email: 'p1.local@hf.test', password: 'Player123!', name: 'Player1', role: 'player' },
   { email: 'p2.local@hf.test', password: 'Player123!', name: 'Player2', role: 'player' },
   { email: 'p3.local@hf.test', password: 'Player123!', name: 'Player3', role: 'player' },
+  { email: 'p4.local@hf.test', password: 'Player123!', name: 'Player4', role: 'player' },
+  { email: 'p5.local@hf.test', password: 'Player123!', name: 'Player5', role: 'player' },
+  { email: 'p6.local@hf.test', password: 'Player123!', name: 'Player6', role: 'player' },
 ];
 
 const upsertAuthUser = async ({ email, password, name }) => {

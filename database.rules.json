@@ -37,8 +37,10 @@
       "$presenceKey": {
         "$uid": {
           ".read": "auth != null",
-          ".write": "auth != null && auth.uid === $uid",
-          ".validate": "newData.hasChildren(['clientId', 'claimedAt'])"
+          "$clientId": {
+            ".write": "auth != null && auth.uid === $uid && (newData.val() === null || newData.child('clientId').val() === $clientId)",
+            ".validate": "newData.val() === null || (newData.hasChildren(['clientId', 'claimedAt', 'lastSeenAt']) && newData.child('clientId').val() === $clientId && newData.child('claimedAt').isNumber() && newData.child('lastSeenAt').isNumber())"
+          }
         }
       }
     }

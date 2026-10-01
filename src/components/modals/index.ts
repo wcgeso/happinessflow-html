@@ -9,5 +9,6 @@ export { LetterToPlayersModal } from './LetterToPlayersModal';
 export { CreateRoomModal } from './CreateRoomModal';
 export { LeaderboardModal } from './LeaderboardModal';
 export { FriendsModal } from './FriendsModal';
+export { PhotoPromotionConsentModal } from './PhotoPromotionConsentModal';
 
 export type { AvatarOption } from './AvatarModal';

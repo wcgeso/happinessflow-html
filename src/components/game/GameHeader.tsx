@@ -39,7 +39,16 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
     isDevMode = false
 }) => {
     const { user } = useAuth();
-    const { room, playerStates, presenceStates, connectionState, isController } = useRoom();
+    const { room, playerStates, presenceStates, connectionState, isController, roomSyncState, subscriptionError, resyncRoom } = useRoom();
+    const [isResyncing, setIsResyncing] = useState(false);
+    const [syncRetryError, setSyncRetryError] = useState<string | null>(null);
+    const retryRoomSync = async () => {
+        if (isResyncing) return;
+        setIsResyncing(true);setSyncRetryError(null);
+        try { await resyncRoom(); }
+        catch (error:any) { setSyncRetryError(`重新同步未完成（${error?.code || 'unknown'}），請確認登入與房間資格後再試`); }
+        finally { setIsResyncing(false); }
+    };
     const [showSettings, setShowSettings] = useState(false);
     const [showRoomInfo, setShowRoomInfo] = useState(false);
     const [showDevSettings, setShowDevSettings] = useState(false);
@@ -383,18 +392,25 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                         </div>
                     </div>
 
-                    {room?.status === 'playing' && (connectionState !== 'online' || !isController) && (
+                    {room?.status === 'playing' && (connectionState !== 'online' || !isController || subscriptionError || roomSyncState==='error' || roomSyncState==='offline') && (
                         <div
                             aria-live="polite"
                             className="mt-2 rounded-2xl border border-amber-300/70 bg-amber-50 px-3 py-2 text-center text-xs font-bold text-amber-800"
                         >
                             {!isController
-                                ? '此分頁為唯讀，請回到最新操作分頁'
-                                : connectionState === 'reconnecting'
+                                ? '此分頁為唯讀，請回到原操作分頁'
+                                : subscriptionError || (roomSyncState==='error' ? '房間資料同步中斷，請重新同步' : null) ||
+                                  (connectionState === 'reconnecting'
                                     ? '網路重新連線中，遊戲資料會自動恢復'
                                     : connectionState === 'connecting'
                                         ? '正在連線遊戲資料庫…'
-                                        : '目前離線，請確認網路連線'}
+                                        : '目前離線，請確認網路連線')}
+                            {(subscriptionError || roomSyncState==='error' || roomSyncState==='offline' || connectionState!=='online') && (
+                                <button type="button" onClick={retryRoomSync} disabled={isResyncing} className="ml-2 rounded-lg bg-amber-900 px-3 py-2 text-white disabled:opacity-50">
+                                    {isResyncing ? '核對同步中…' : '安全重新同步'}
+                                </button>
+                            )}
+                            {syncRetryError && <p role="status">{syncRetryError}</p>}
                         </div>
                     )}
 

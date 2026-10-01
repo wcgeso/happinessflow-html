@@ -1,29 +1,31 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page } from 'playwright/test';
 import { login, switchToCoachMode } from './fixtures/login';
 import { seedAccounts, TEST_ACCOUNTS } from '../scripts/e2e/seedAccounts.mjs';
 import { getEmulatorDb } from '../scripts/e2e/adminClient.mjs';
 
 test.setTimeout(150_000);
 
-const PLAYERS = TEST_ACCOUNTS.filter((a) => a.role === 'player');
+const PLAYERS = TEST_ACCOUNTS.filter((a) => a.role === 'player').slice(0, 3);
 const COACH = TEST_ACCOUNTS.find((a) => a.role === 'coach')!;
 
-// Drives a freshly-joined player through the profession/enterprise/dream
-// setup wizard. Each SelectionCarousel step auto-selects its first item on
-// mount (see src/components/common/SelectionCarousel.tsx), so the "next"
-// button is immediately enabled without touching the carousel itself.
+// Drives a freshly-joined player through the current explicit-choice setup.
 const completeSelectionWizard = async (page: Page) => {
+  await page.locator('[data-selection-option]').first().click();
   const step1 = page.getByRole('button', { name: '確認選擇並前往：選擇企業' });
   await expect(step1).toBeVisible({ timeout: 30_000 });
   await step1.click();
 
+  await page.locator('[data-selection-option]').first().click();
   const step2 = page.getByRole('button', { name: '確認選擇並前往：選擇夢想' });
   await expect(step2).toBeVisible({ timeout: 30_000 });
   await step2.click();
 
+  await page.locator('[data-selection-option]').first().click();
   const step3 = page.getByRole('button', { name: '確認選擇並開始遊戲' });
   await expect(step3).toBeVisible({ timeout: 30_000 });
   await step3.click();
+
+  await page.getByRole('button', { name: '確認並開始遊戲' }).click();
 };
 
 test('coach creates a board room, 3 players join + set up, display syncs', async ({ browser }) => {
@@ -49,6 +51,7 @@ test('coach creates a board room, 3 players join + set up, display syncs', async
   const roomCodeText = await roomCodeButton.locator('text=/^\\d{6}$/').innerText();
   const roomCode = roomCodeText.trim();
   expect(roomCode).toMatch(/^\d{6}$/);
+  const roomRef = getEmulatorDb().collection('rooms').doc(roomCode);
 
   const playerPages: Page[] = [];
   for (const player of PLAYERS) {
@@ -93,6 +96,30 @@ test('coach creates a board room, 3 players join + set up, display syncs', async
   await expect(coachPage.getByText('總玩家數').locator('..')).toContainText('3');
   await coachPage.getByRole('button', { name: '開始遊戲' }).click();
 
+  await expect.poll(async () => {
+    const data = (await roomRef.get()).data();
+    return {
+      paused: data?.isTimerPaused,
+      hasDeadline: Number(data?.timerEndsAtMs || 0) > Date.now(),
+      turnUid: data?.boardState?.currentTurnUid || '',
+    };
+  }, { timeout: 20_000 }).toMatchObject({ paused: false, hasDeadline: true, turnUid: expect.any(String) });
+
+  const currentRoom = (await roomRef.get()).data();
+  const currentTurnUid = currentRoom?.boardState?.currentTurnUid;
+  const playerEntries = [seededAccounts.p1, seededAccounts.p2, seededAccounts.p3];
+  const currentPlayerIndex = playerEntries.findIndex(player => player.uid === currentTurnUid);
+  expect(currentPlayerIndex).toBeGreaterThanOrEqual(0);
+  const tutorialSkip = playerPages[currentPlayerIndex].getByRole('button', { name: '跳過' });
+  if (await tutorialSkip.isVisible().catch(() => false)) await tutorialSkip.click();
+  const rollButton = playerPages[currentPlayerIndex].getByRole('button', { name: /^擲骰子/ });
+  await expect(rollButton).toBeEnabled({ timeout: 20_000 });
+  await rollButton.click();
+  await expect.poll(async () => {
+    const data = (await roomRef.get()).data();
+    return data?.boardState?.lastRoll?.uid;
+  }, { timeout: 20_000 }).toBe(currentTurnUid);
+
   // Display: a second browser context logged in as the same coach account,
   // opening the projector URL (see CoachGameView.tsx's `?boardRoom=` link).
   const displayContext = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
@@ -115,7 +142,10 @@ test('coach creates a board room, 3 players join + set up, display syncs', async
   );
 
   expect(playerTokenBoxes).toHaveLength(3);
-  expect(new Set(playerTokenBoxes.map((token) => token.position))).toEqual(new Set(['0']));
+  const expectedPositions = Object.values((await roomRef.get()).data()?.boardState?.playerPositions || {})
+    .map(position => String(position))
+    .sort();
+  expect(playerTokenBoxes.map(token => token.position).sort()).toEqual(expectedPositions);
   expect(new Set(playerTokenBoxes.map((token) => `${token.centerX}:${token.centerY}`)).size).toBe(3);
 
   await expect(displayPage.locator('[data-projection-hud]')).toBeVisible();
@@ -131,7 +161,6 @@ test('coach creates a board room, 3 players join + set up, display syncs', async
   }
   await displayPage.screenshot({ path: 'e2e/report/projection-p1-1366.png' });
 
-  const roomRef = getEmulatorDb().collection('rooms').doc(roomCode);
   const cardCases = [
     { deck: 'happiness', cardId: 'H001', title: '幸福卡投影測試', effectLines: ['現金 +1,000'] },
     { deck: 'opportunity', cardId: 'C001', title: '機運卡投影測試', effectLines: ['現金 +1,000'] },

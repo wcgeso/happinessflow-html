@@ -19,7 +19,7 @@ import { useRoom } from '../../context/RoomContext';
 import { Trophy } from 'lucide-react';
 import { GameRecord, GameState } from '../../types';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
-import { ScoreView } from '../game/ScoreView';
+const ScoreView = React.lazy(() => import('../game/ScoreView').then(module => ({ default: module.ScoreView })));
 import { db } from '../../../services/firebase';
 import { safeAsync } from '../../utils/utils';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
@@ -151,6 +151,7 @@ const FullFinancialStatementModal: React.FC<{
                 <div className="flex-1 overflow-y-auto p-6 bg-slate-950/30">
                     <FinancialStatement
                         gameState={dummyGameState}
+                        historySource={record.historySource}
                         summary={record.financialSummary}
                         hideSummary={true}
                         defaultShowDetails={true}
@@ -343,6 +344,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
 
                         records.push({
                             id: doc.id,
+                            historySource: data.financialHistoryStorage === 'subcollection' && data.roomId && data.sessionId
+                                ? { roomId: data.roomId, sessionId: data.sessionId, uid: targetUserId } : undefined,
                             date: data.settledAt?.toDate ? data.settledAt.toDate().toISOString() :
                                 (data.settledAt ? new Date(data.settledAt).toISOString() : new Date().toISOString()),
                             playerName: playerData.name,

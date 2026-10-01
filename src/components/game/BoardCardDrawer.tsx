@@ -203,25 +203,6 @@ export const BoardCardDrawer: React.FC<BoardCardDrawerProps> = ({
                             </div>
                         </div>
 
-                        {isRevealed && (presentation.description || presentation.effectLines.length > 0) && (
-                            <div className="mt-4 space-y-3 rounded-2xl border border-[#d8c29a] bg-[#fffaf2]/95 p-4 text-left shadow-inner">
-                                {presentation.description && (
-                                    <p className="whitespace-pre-line break-words text-sm font-bold leading-relaxed text-[#765f47]">
-                                        {presentation.description}
-                                    </p>
-                                )}
-                                {presentation.effectLines.length > 0 && (
-                                    <div className="space-y-2 border-t border-[#ead7b8] pt-3">
-                                        <div className="text-[11px] font-black tracking-[0.18em] text-[#a9643a]">卡片效果</div>
-                                        {presentation.effectLines.map((line, index) => (
-                                            <div key={`${line}_${index}`} className="break-words text-sm font-bold leading-relaxed text-[#2e6570]">
-                                                {line}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
                     </div>
 
                     {/* 3. ACTION AREA (Sticky Footer) */}

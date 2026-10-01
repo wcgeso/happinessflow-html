@@ -229,6 +229,38 @@ const normalizeNewsSubtype = (category?: string): NewsCard['subtype'] => {
   return '股市新訊';
 };
 
+// Data requirements must have an explicit existing flow owner. New values fail closed.
+export const CARD_REQUIREMENT_HANDLERS:Record<string,string> = {
+  "apply_effect_after_school_dice": "buildPaidLearningContinuation",
+  "dice_requirement_2": "buildPaidLearningContinuation",
+  "dice_requirement_4": "buildPaidLearningContinuation",
+  "family_milestone_progression": "getFamilyMilestoneStatus",
+  "join_dice_min_4": "getFamilyMilestoneStatus",
+  "miss_rounds_1": "buildPaidLearningContinuation",
+  "move_clockwise_to_next_school": "buildPaidLearningContinuation",
+  "move_to_4s_shop": "resolveBoardCardAction",
+  "move_to_hospital": "resolveBoardCardAction",
+  "move_to_repair_shop": "resolveBoardCardAction",
+  "move_to_school": "buildPaidLearningContinuation",
+  "other_players_can_join": "getFamilyMilestoneStatus",
+  "prefer_rental_real_estate_if_distinguishable": "resolveBoardCardAction",
+  "requires_child_count_1": "resolveBoardCardAction",
+  "requires_family_milestone_stage_1_completed": "resolveBoardCardAction",
+  "requires_investment_amount_input": "resolveBoardCardAction",
+  "requires_real_estate": "resolveBoardCardAction",
+  "requires_recycling_method_sharing": "submitRequest",
+  "requires_story_sharing": "submitRequest",
+  "requires_time_use_sharing": "submitRequest",
+  "requires_vehicle": "resolveBoardCardAction",
+  "school_fee_10000": "buildPaidLearningContinuation",
+  "school_fee_5000": "buildPaidLearningContinuation",
+  "vehicle_loss_keeps_loan": "buildVehicleLossState"
+};
+export const CARD_REQUIREMENTS=Object.fromEntries([...happinessRawCards,...opportunityRawCards,...newsRawCards]
+  .map(card=>[card.id,card.conditions?.requirements || []])) as Record<string,string[]>;
+export const getUnsupportedCardRequirements=(cardId:string)=>
+  (CARD_REQUIREMENTS[cardId] || []).filter(requirement=>!CARD_REQUIREMENT_HANDLERS[requirement]);
+
 const rawEffectsSummary = (card: RawCardRecord) => normalizeCardCopy(card.effects?.summary);
 // 投影幕的卡片規則文字優先取 description 裡「*」後半段的規則段落；
 // 只有 description 沒有規則段落時，才用 effects.summary 補位，避免

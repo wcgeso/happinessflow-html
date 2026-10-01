@@ -1,3 +1,6 @@
+import {readFinancialIntent, saveFinancialIntent, clearFinancialIntent, readPersonalIntent, clearPersonalIntent, personalIntentKey, type PersonalAction, type PersonalIntent} from '../../game/finance/pendingIntent';
+import {getPersonalFinancialHandler} from '../../game/finance/transactionRoute';
+import { SubscriptionStatus } from '../../components/common/SubscriptionStatus';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useAuth } from '../../context/AuthContext';
@@ -17,7 +20,7 @@ import { HappinessListModal } from '../../components/modals/HappinessListModal';
 import { TutorialModal } from '../../components/modals/TutorialModal';
 import { BizUpgradeModal } from '../../components/modals/BizUpgradeModal';
 import { DiceRollContainer } from '../../components/game/DiceRollContainer';
-import { ScoreView } from './ScoreView';
+const ScoreView = React.lazy(() => import('./ScoreView').then(module => ({ default: module.ScoreView })));
 import { PromotionType } from '../../hooks/useDiceRollLogic';
 import { GameHeader } from '../../components/game/GameHeader';
 import { GameStats } from '../../components/game/GameStats';
@@ -25,13 +28,15 @@ import { GameActions } from '../../components/game/GameActions';
 import { BoardCardDrawer } from '../../components/game/BoardCardDrawer';
 import { BoardFinancialApplyResult, BoardFinancialCheckModal } from '../../components/game/BoardFinancialCheckModal';
 import { HappinessWinAnimation } from '../../components/game/HappinessWinAnimation';
-import { hydrateBoardCardResult } from '../../utils/boardCardDisplay';
+import { hydrateBoardCardResult, isCurrentBoardCardRevealed } from '../../utils/boardCardDisplay';
 import { formatMoney } from '../../utils/gameUtils';
 import { Asset, BoardCardResult, BoardFinancialFlow, FamilyMilestoneJoinPrompt, GameState, TransactionData } from '../../types';
 import { BoardAssetSaleCandidate, BoardFinancialAction, BoardInvestmentAction, buildBoardAssetSaleFinancialAction, getSharedOpportunityKind, hasIncompleteSharedPrompts, isBoardPromptForCurrentEvent, isBoardPromptVisibleForCurrentEvent, isForcedBoardCard, resolveBoardCardAction, shouldBlockBoardCardDismissal } from '../../utils/boardCardActions';
 import { getFamilyMilestoneStageByProgressId, getFamilyMilestoneStatus, isFamilyMilestoneComplete } from '../../utils/familyMilestones';
 import { buildNewsCardMetaFromSchema, HAPPINESS_CARD_MAP, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP } from '../../constants/cards';
 import { flowLog } from '../../utils/flowLog';
+import { trackBoardStage } from '../../utils/telemetry';
+import { serverNow } from '../../utils/serverClock';
 import { getBoardActionAvailability } from '../../utils/experienceState';
 import { audioManager } from '../../utils/audio';
 import { PlayerModalFrame } from '../../components/common/PlayerModalFrame';
@@ -51,11 +56,13 @@ export const isForcedPaymentFundingTransaction = (
 
 // 伺服器交易需要穩定的識別碼：優先用棋盤事件 ID，其次是呼叫端提供的指令編號，
 // 都沒有時才為這一次操作產生一個新的編號。
-const ensureTransactionOperationId = <T extends { boardEventId?: string; commandId?: string }>(data: T): T => (
-    data.boardEventId || data.commandId
-        ? data
-        : { ...data, commandId: `tx:${typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}` }
-);
+const transactionIntentIds = new WeakMap<object,string>();
+const ensureTransactionOperationId = <T extends { boardEventId?: string; commandId?: string }>(data: T): T => {
+    if(data.boardEventId || data.commandId)return data;
+    let commandId=transactionIntentIds.get(data);
+    if(!commandId){commandId=`tx:${typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;transactionIntentIds.set(data,commandId);}
+    return {...data,commandId};
+};
 
 const withBoardFlow = (action: BoardFinancialAction, boardFlow: BoardFinancialFlow): BoardFinancialAction => ({
     ...action,
@@ -74,7 +81,8 @@ export const GameView: React.FC<{
 }> = ({ onFinishGame, isDevMode = false }) => {
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
-    const { room, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeBoardTransaction, completePlayerOnlyTransaction, completeSharedTransactionAction, completePaydayCollection, completeHouseConversion, completeHappinessToggle, completeHappinessAdd, completeHappinessRemove, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
+    const {financialSyncError,retryFinancialSync}=useGame();
+    const { room, isController, connectionState, roomSyncState, subscriptionError, movementSettlementError, isSettlingMovement, retryStaleBoardMovement, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeBoardTransaction, completePlayerOnlyTransaction, completeSharedTransactionAction, completePaydayCollection, completeHouseConversion, completeHappinessToggle, completeHappinessAdd, completeHappinessRemove, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -129,7 +137,7 @@ export const GameView: React.FC<{
         handleFinishGame,
         happinessSubMode,
         setHappinessSubMode
-    } = useGameLogic();
+    } = useGameLogic(!!room?.isBoardGame);
 
     const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [showTargetDreamModal, setShowTargetDreamModal] = useState(false);
@@ -149,8 +157,6 @@ export const GameView: React.FC<{
     const [isLeaving, setIsLeaving] = useState(false);
     const [isBoardCardDrawerOpen, setIsBoardCardDrawerOpen] = useState(false);
     const [lastBoardCardKey, setLastBoardCardKey] = useState<string | null>(null);
-    const [isBoardCardRevealed, setIsBoardCardRevealed] = useState(false);
-    const [isBoardCardRevealAnimationComplete, setIsBoardCardRevealAnimationComplete] = useState(false);
     const boardCardRevealInFlightRef = useRef<string | null>(null);
     const [handledBankPromptKeys, setHandledBankPromptKeys] = useState<string[]>([]);
     const [lastBankPromptKey, setLastBankPromptKey] = useState<string | null>(null);
@@ -167,6 +173,7 @@ export const GameView: React.FC<{
     const [showRealEstateMarketModal, setShowRealEstateMarketModal] = useState(false);
     const [pendingForcedBoardPayment, setPendingForcedBoardPayment] = useState<TransactionData | null>(null);
     const [showForcedBoardPaymentModal, setShowForcedBoardPaymentModal] = useState(false);
+    const [isFundingPayment, setIsFundingPayment] = useState(false);
     const [boardInvestmentAmount, setBoardInvestmentAmount] = useState(0);
     const [shouldResumeBankFollowup, setShouldResumeBankFollowup] = useState(false);
     const [isBoardFinancialCompleted, setIsBoardFinancialCompleted] = useState(false);
@@ -211,6 +218,10 @@ export const GameView: React.FC<{
     } | null>(null);
     const [processedStoryRequestIds, setProcessedStoryRequestIds] = useState<string[]>([]);
     const processingStoryRequestKeysRef = useRef(new Set<string>());
+    const failedStoryRequestKeysRef = useRef(new Set<string>());
+    const [requestContinuationError,setRequestContinuationError]=useState<string|null>(null);
+    const [requestRetryGeneration,setRequestRetryGeneration]=useState(0);
+    const [pendingRequestCleanup,setPendingRequestCleanup]=useState<string|null>(null);
     const familyJoinCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const boardDicePresentationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const familyJoinRollInFlightRef = useRef(false);
@@ -243,8 +254,11 @@ export const GameView: React.FC<{
     }, [room?.boardState?.hasRolledThisTurn, room?.isBoardGame, user?.uid]);
 
     // 監控幸福值是否達標
+    const winAnimationSessionRef=useRef('');
     useEffect(() => {
-        if (gameState.happinessTotal >= 100 && !gameState.hasShownWinAnimation) {
+        const scope=room?.sessionId || 'practice';
+        if (gameState.happinessTotal >= 100 && winAnimationSessionRef.current!==scope && !gameState.hasShownWinAnimation) {
+            winAnimationSessionRef.current=scope;
             setShowWinAnimation(true);
             setGameState(prev => ({ ...prev, hasShownWinAnimation: true }));
         }
@@ -311,21 +325,41 @@ export const GameView: React.FC<{
         }
     };
 
+    const restoreFinancialIntent = (txData: TransactionData) => {
+        setBoardFinancialAction({kind: 'financial', label: '查核原交易', txData, expectedEntries: txData.financialCheckEntries || []});
+        setIsBoardFinancialCompleted(false);
+        setShowTransactionModal(false);
+    };
     const handleTransaction = async (data: any) => {
+        if (room?.isBoardGame && room.sessionId && user?.uid) {
+            try {
+            const pending = readFinancialIntent(localStorage, room.id, room.sessionId, user.uid);
+            if (pending) {
+                restoreFinancialIntent(pending);
+                showAlert('上次交易尚待確認，請先查核原交易；不會重複入帳', 'info');
+                return;
+            }
+            } catch(error) {showAlert((error as Error).message,'error');return;}
+
+        }
         if (pendingForcedBoardPayment && isForcedPaymentFundingTransaction(data)) {
             // 共享／家庭歷程提示進行中時，房間文件只允許「回覆本人提示」的寫入，
             // 所以周轉只寫玩家私有文件；沒有提示時走完整的房間交易。
             const hasActiveBoardPrompt = !!(boardState?.sharedCardPrompt || boardState?.familyMilestoneJoinPrompt);
             if (room?.isBoardGame) {
                 // 周轉（借款／賣資產）必須和其他財務寫入一樣走伺服器交易。
-                const fundingTx = ensureTransactionOperationId(data);
+                const fundingTx = ensureTransactionOperationId({...data, boardFlow: 'manual-bank' as const});
+                try { saveFinancialIntent(localStorage, room.id, room.sessionId!, user!.uid, fundingTx); }
+                catch { showAlert('無法保存交易識別，請檢查瀏覽器儲存空間後重試', 'error'); return; }
                 const fundingResult = hasActiveBoardPrompt
                     ? await completePlayerOnlyTransaction(fundingTx)
                     : await completeBoardTransaction(fundingTx);
-                if (fundingResult.status === 'failed' || fundingResult.status === 'requires_funding') {
+                if ((fundingResult.status === 'failed' || fundingResult.status === 'waiting') || fundingResult.status === 'requires_funding') {
+                    if (fundingResult.status !== 'waiting') clearFinancialIntent(localStorage, room.id, room.sessionId!, user!.uid, fundingTx.commandId!);
                     showAlert(fundingResult.message || '周轉同步失敗，請保留目前選擇後再試一次', 'error');
                     return;
                 }
+                clearFinancialIntent(localStorage, room.id, room.sessionId!, user!.uid, fundingTx.commandId!);
             } else {
                 const applied = handleTransactionSubmit(data);
                 if (!applied) return;
@@ -347,7 +381,7 @@ export const GameView: React.FC<{
         setBoardFinancialAction({
             kind: 'financial',
             label: '確認交易內容',
-            txData: { ...data, boardFlow: data.boardFlow || 'manual-bank' },
+            txData: ensureTransactionOperationId({ ...data, boardFlow: data.boardFlow || 'manual-bank' }),
             expectedEntries: data.financialCheckEntries || []
         });
         setPendingBoardLifelongRoll(null);
@@ -358,30 +392,51 @@ export const GameView: React.FC<{
 
     // 棋盤模式：房屋自住／出租切換與幸福清單調整改走伺服器交易，不再只改本機再等背景同步，
     // 避免和其他玩家、共享事件同時寫入時互相覆蓋。練習模式（無房間）維持本機處理，見呼叫端判斷。
-    const handleBoardHouseConversion = async (assetId: string, toSelfUse: boolean) => {
-        const result = await completeHouseConversion(assetId, toSelfUse);
-        if (result.status === 'failed') {
-            showAlert(result.message || '房屋切換同步失敗，請再試一次', 'error');
-        }
+    const personalScope = room?.id && user?.uid ? `${room.id}:${room.sessionId || room.id}:${user.uid}` : '';
+    const currentPersonalScope = useRef(personalScope);
+    currentPersonalScope.current = personalScope;
+    const personalActionBusy = useRef(false);
+    const [isPersonalActionBusy,setIsPersonalActionBusy] = useState(false);
+    const [pendingPersonalIntent,setPendingPersonalIntent] = useState<PersonalIntent|null>(null);
+    useEffect(()=>{
+        if(!personalScope){setPendingPersonalIntent(null);return;}
+        try{setPendingPersonalIntent(readPersonalIntent(localStorage,personalScope));}
+        catch(error:any){showAlert(error.message,'error');}
+    },[personalScope]);
+    const runPersonalAction = async (action:PersonalAction, retry?:PersonalIntent):Promise<boolean> => {
+        if(personalActionBusy.current || !personalScope)return false;
+        const scope=personalScope;
+        let intent:PersonalIntent;
+        try{
+            const existing=readPersonalIntent(localStorage,scope);
+            if(existing && !retry && JSON.stringify(existing.action)!==JSON.stringify(action)){
+                setPendingPersonalIntent(existing);showAlert('請先核對上一筆個人操作，再進行新的操作','error');return false;
+            }
+            intent=existing || {commandId:`personal:${crypto.randomUUID()}`,action};
+            localStorage.setItem(personalIntentKey(scope),JSON.stringify(intent));
+        }catch(error:any){showAlert(error.message || '無法保存操作識別，請檢查瀏覽器儲存空間','error');return false;}
+        setPendingPersonalIntent(intent);
+        personalActionBusy.current=true;setIsPersonalActionBusy(true);
+        try{
+            const a=intent.action;
+            const result=a.kind==='house' ? await completeHouseConversion(a.assetId,a.toSelfUse,intent.commandId)
+                : a.kind==='toggle' ? await completeHappinessToggle(a.id,a.checked,intent.commandId)
+                : a.kind==='add' ? await completeHappinessAdd(a.label,a.points,intent.commandId)
+                : await completeHappinessRemove(a.id,intent.commandId);
+            const success=result.status==='applied' || result.status==='duplicate';
+            if(success || result.status==='requires_funding' || (result.status==='failed' && !['unavailable','deadline-exceeded','unknown'].includes(result.code || ''))){
+                clearPersonalIntent(localStorage,scope,intent.commandId);
+                if(currentPersonalScope.current===scope)setPendingPersonalIntent(null);
+            }
+            if(!success && currentPersonalScope.current===scope)showAlert(result.message || '個人操作尚未確認，請安全重試','error');
+            return success && currentPersonalScope.current===scope;
+        }catch(error:any){if(currentPersonalScope.current===scope)showAlert(error.message || '個人操作尚未確認，請安全重試','error');return false;}
+        finally{personalActionBusy.current=false;setIsPersonalActionBusy(false);}
     };
-    const handleBoardHappinessToggle = async (id: string) => {
-        const result = await completeHappinessToggle(id);
-        if (result.status === 'failed') {
-            showAlert(result.message || '幸福清單同步失敗，請再試一次', 'error');
-        }
-    };
-    const handleBoardHappinessAdd = async (label: string, points: number) => {
-        const result = await completeHappinessAdd(label, points);
-        if (result.status === 'failed') {
-            showAlert(result.message || '幸福清單同步失敗，請再試一次', 'error');
-        }
-    };
-    const handleBoardHappinessRemove = async (id: string) => {
-        const result = await completeHappinessRemove(id);
-        if (result.status === 'failed') {
-            showAlert(result.message || '幸福清單同步失敗，請再試一次', 'error');
-        }
-    };
+    const handleBoardHouseConversion = (assetId:string,toSelfUse:boolean) => runPersonalAction({kind:'house',assetId,toSelfUse});
+    const handleBoardHappinessToggle = (id:string) => runPersonalAction({kind:'toggle',id,checked:!gameState.happiness.find(item=>item.id===id)?.checked});
+    const handleBoardHappinessAdd = (label:string,points:number) => runPersonalAction({kind:'add',label,points});
+    const handleBoardHappinessRemove = (id:string) => runPersonalAction({kind:'remove',id});
 
     const handleMedicalClaimConfirm = (claimId: string) => {
         const claim = (gameState.pendingMedicalClaims || []).find(item => item.id === claimId);
@@ -492,7 +547,15 @@ export const GameView: React.FC<{
         }
     };
 
-    const handleDiceModalClose = () => {
+    const handleDiceModalClose = async () => {
+        const continuation = boardState?.pendingContinuation;
+        if (continuation?.kind === 'lifelong-learning' && continuation.playerUid === user?.uid) {
+            if (continuation.phase !== 'completed') {
+                showAlert('請先完成已付款的終身學習判定', 'info');
+                return;
+            }
+            if (!await markBoardCardHandled()) return;
+        }
         const currentPromotionType = promotionType;
         const shouldDrawExamHappiness = currentPromotionType === 'normal' && !activeBoardCard;
         setShowDiceModal(false);
@@ -552,6 +615,7 @@ export const GameView: React.FC<{
     const dicePlayerState = currentPlayerRoomState || gameState;
     const hasCar = dicePlayerState.assets.some(asset => asset.type === '汽車' || asset.type === '飛行器');
     const activeBoardCard = boardState?.currentEvent?.playerUid === user?.uid ? boardState?.currentCard || null : null;
+    const isBoardCardRevealed = isCurrentBoardCardRevealed(boardState, activeBoardCard);
     const shouldSuppressBoardCardDrawer = !!(
         activeSharedCardPrompt &&
         activeSharedCardPrompt.sourcePlayerUid === user?.uid &&
@@ -922,15 +986,19 @@ export const GameView: React.FC<{
         isBoardCardDrawerOpen ? 'board-card' :
         null;
 
-    const canOpenNextBoardStep =
-        !showDiceModal &&
-        !showPromotionModal &&
-        !showPaydayModal &&
-        !showHospitalRollModal &&
-        !showRepairConfirmationModal &&
-        !isBoardCardDrawerOpen &&
-        !boardFinancialAction &&
-        !isNonBoardOverlayOpen;
+    const syncBlocker = room?.isBoardGame && room.status==='playing'
+        ? !isController ? {code:'read_only',message:'此分頁為唯讀，請回到原操作分頁'}
+          : subscriptionError || roomSyncState==='error' ? {code:'subscription_error',message:subscriptionError || '房間資料同步中斷，請安全重新同步'}
+          : connectionState!=='online' || roomSyncState==='offline' ? {code:'offline',message:'等待遊戲資料重新連線'} : null
+        : null;
+
+    const eventOpeningAvailability = getBoardActionAvailability({
+        roomStatus: room?.status, isTimerPaused: room?.isTimerPaused, isBoardGame: room?.isBoardGame,
+        currentUid: user?.uid, boardState, isRollingDice: isRollingBoardDice,
+        eventBlocker: syncBlocker || (boardFinancialAction ? { code: 'financial_pending', message: '等待財務交易完成' }
+            : visibleFlowModal || isNonBoardOverlayOpen ? { code: 'overlay_open', message: '等待目前視窗完成' } : null),
+    });
+    const canOpenNextBoardStep = !!eventOpeningAvailability.canOpenEvent;
     // 回合不再自動結束，玩家自己按「結束回合」才換下一位（比照大富翁）。
     // 條件：輪到自己、沒有正在移動、沒有排隊中/進行中的棋盤事件、
     // 沒有未回覆完的共享事件、且畫面上沒有任何流程視窗擋著。
@@ -970,7 +1038,8 @@ export const GameView: React.FC<{
         boardState,
         isRollingDice: isRollingBoardDice,
         isProcessingEvent,
-        rollBlocker: isGameFinished
+        eventBlocker: syncBlocker || (boardFinancialAction ? { code: 'financial_pending', message: '等待財務交易完成' } : null),
+        rollBlocker: syncBlocker || (isGameFinished
             ? { code: 'game_finished', message: '本局已結算' }
             : showPaydayModal || isActiveBankPromptPending
                 ? { code: 'bank_pending', message: '請先完成銀行流程' }
@@ -984,11 +1053,73 @@ export const GameView: React.FC<{
                                 ? { code: 'financial_pending', message: '請先完成財務檢核' }
                                 : isNonBoardOverlayOpen
                                     ? { code: 'overlay_open', message: '請先關閉目前視窗' }
-                                    : null,
+                                    : null),
     });
     const canEndTurn = boardActionAvailability.canEndTurn;
+    useEffect(() => {
+        const frame = requestAnimationFrame(() => trackBoardStage('presented', room?.id || '', boardState, {
+            surface: 'player', modal: visibleFlowModal || 'none',
+            blocker: boardActionAvailability.endTurnBlocker?.code || '',
+            card_revealed: isBoardCardRevealed, can_end_turn: boardActionAvailability.canEndTurn,
+        }));
+        return () => cancelAnimationFrame(frame);
+    }, [room?.id, boardState?.currentEvent?.id, visibleFlowModal, isBoardCardRevealed,
+        boardActionAvailability.endTurnBlocker?.code, boardActionAvailability.canEndTurn]);
+
+    const visualEventScope = `${room?.sessionId}:${boardState?.currentTurnUid}:${boardState?.currentEvent?.id || ''}`;
+    const visualEventScopeRef=useRef(visualEventScope);visualEventScopeRef.current=visualEventScope;
+    useEffect(() => {
+        // Animation state is scoped to the cloud event; a new event cannot inherit the previous timer.
+        if (boardDicePresentationTimeoutRef.current) clearTimeout(boardDicePresentationTimeoutRef.current);
+        if (boardDiceFailsafeTimeoutRef.current) clearTimeout(boardDiceFailsafeTimeoutRef.current);
+        setIsRollingBoardDice(false);
+        setShowDiceModal(false);
+        setPromotionType(null);
+        setLastDiceSuccess(false);
+        setIsBoardCardDrawerOpen(false);
+        setPendingHandledBoardCard(null);
+        setLastBoardCardKey(null);
+        setBoardFinancialAction(current => current?.txData?.boardFlow && current.txData.boardFlow!=='manual-bank' ? null : current);
+        setShowPaydayModal(false);
+        setPaydayStep('confirm');
+        setShouldResumeBankFollowup(false);
+        setIsBoardFinancialCompleted(false);
+        setPendingSharedCardCompletion(null);
+        setPendingBoardStepAdvance(null);
+        setPendingBoardLifelongRoll(null);
+        setPendingCashEventRoll(null);
+        setPendingForcedBoardPayment(current => current?.boardFlow === 'board-card' ? null : current);
+    }, [visualEventScope]);
+
+
+    useEffect(() => {
+        if (!room?.isBoardGame || !room.sessionId || !user?.uid) return;
+        try {
+            const pending = readFinancialIntent(localStorage, room.id, room.sessionId, user.uid);
+            if (pending) restoreFinancialIntent(pending);
+        } catch(error) {showAlert((error as Error).message,'error');}
+    }, [room?.id, room?.sessionId, user?.uid]);
+
+    useEffect(() => {
+        if(boardFinancialAction?.txData.boardFlow!=='board-card' || isBoardFinancialCompleted || !isBoardPromptForCurrentEvent(boardState?.sharedCardPrompt,boardState))return;
+        // Reveal and the shared prompt commit together; an older local form must yield to that cloud workflow.
+        setBoardFinancialAction(null);
+        setPendingForcedBoardPayment(null);
+        setShowForcedBoardPaymentModal(false);
+        setIsBoardCardDrawerOpen(false);
+    },[boardState?.sharedCardPrompt?.id,boardFinancialAction?.txData.boardFlow,isBoardFinancialCompleted]);
+
+    useEffect(() => {
+        const pending = boardState?.pendingContinuation;
+        if (pending?.kind !== 'lifelong-learning' || pending.playerUid !== user?.uid || !canOpenNextBoardStep) return;
+        setIsBoardCardDrawerOpen(false);
+        setPromotionType(pending.learningType);
+        setShowDiceModal(true);
+    }, [boardState?.pendingContinuation?.commandId, boardState?.pendingContinuation?.phase, user?.uid, canOpenNextBoardStep]);
 
     const handleBoardDiceRoll = async (diceCount?: 1 | 2) => {
+        trackBoardStage('clicked', room?.id || '', boardState, { surface: 'player',
+            command_id: `roll:${user?.uid}:${boardState?.revision || 0}`, blocker: boardActionAvailability.rollBlocker?.code || '' });
         const blockReason = boardActionAvailability.rollBlocker?.message;
         if (blockReason || isProcessingEvent) {
             showAlert(blockReason || '請先完成目前事件', 'info');
@@ -1013,19 +1144,20 @@ export const GameView: React.FC<{
     };
 
     const handleEndTurn = async () => {
+        trackBoardStage('clicked', room?.id || '', boardState, { surface: 'player', action: 'end_turn', blocker: boardActionAvailability.endTurnBlocker?.code || '' });
         if (isEndingTurn) return;
         if (!canEndTurn) {
             showAlert(boardActionAvailability.endTurnBlocker?.message || '請先完成目前的棋盤事件，才能結束回合。', 'info');
             return;
         }
-        const startedAt = Date.now();
+        const startedAt = performance.now();
         const slowTimer = window.setTimeout(() => showAlert('回合仍在同步；若狀態未更新，請稍後再按一次結束回合', 'info'), 10000);
         setIsEndingTurn(true);
         try {
             await endTurn();
             flowLog({
                 name: 'board-end-turn', roomId: room?.id || '', sessionId: room?.sessionId || '',
-                phase: `${Date.now() - startedAt}ms`, revision: boardState?.revision,
+                phase: `${Math.round(performance.now() - startedAt)}ms`, revision: boardState?.revision,
                 result: 'completed', timestamp: Date.now()
             });
         } catch (err: any) {
@@ -1037,25 +1169,18 @@ export const GameView: React.FC<{
     };
 
     const handleBoardDiceAnimationComplete = (result: any) => {
-        const diceText = Array.isArray(result.dice) && result.dice.length > 1
-            ? `（${result.dice.join(' + ')} = ${result.total}）`
-            : `（${result.total}）`;
-        setGameState(prev => ({
-            ...prev,
-            boardPosition: result.position,
-            skipTurns: result.skipTurns,
-            lastBoardEvent: `擲出骰子 ${diceText} 點，前進至第 ${result.position + 1} 格`,
-            pendingCardAction: result.detail
-        }));
         if (boardDicePresentationTimeoutRef.current) clearTimeout(boardDicePresentationTimeoutRef.current);
+        if (boardDiceFailsafeTimeoutRef.current) clearTimeout(boardDiceFailsafeTimeoutRef.current);
+        const remaining = Math.max(0, (result.timestamp || serverNow()) + DICE_PRESENTATION_DURATION_MS - serverNow());
         boardDicePresentationTimeoutRef.current = setTimeout(() => {
             setIsRollingBoardDice(false);
             boardDicePresentationTimeoutRef.current = null;
-        }, DICE_PRESENTATION_DURATION_MS);
+        }, remaining);
+        trackBoardStage('presented', room?.id || '', boardState, { surface: 'player', phase: 'dice_result', remaining_ms: remaining });
     };
 
     useEffect(() => {
-        if (!activeBoardCardKey || activeBoardCardKey === lastBoardCardKey) return;
+        if (!activeBoardCardKey || activeBoardCardKey === lastBoardCardKey || boardState?.pendingContinuation?.kind === 'lifelong-learning') return;
         if (!canOpenNextBoardStep || isActiveBankPromptPending || isActiveSchoolPromptPending) return;
         // 擲骰動畫結束後才顯示卡片，避免先看到卡片、才看到骰子點數。
         if (isRollingBoardDice) return;
@@ -1063,10 +1188,8 @@ export const GameView: React.FC<{
         setLastBoardCardKey(activeBoardCardKey);
         hideAlert();
         setIsBoardCardDrawerOpen(true);
-        setIsBoardCardRevealed(false);
-        setIsBoardCardRevealAnimationComplete(false);
         setSelectedBoardSaleAssetIds([]);
-    }, [activeBoardCardKey, lastBoardCardKey, canOpenNextBoardStep, isActiveBankPromptPending, isActiveSchoolPromptPending, isRollingBoardDice, hideAlert]);
+    }, [activeBoardCardKey, lastBoardCardKey, canOpenNextBoardStep, isActiveBankPromptPending, isActiveSchoolPromptPending, isRollingBoardDice, hideAlert, boardState?.pendingContinuation]);
 
     const boardInvestmentKey = activeBoardCardAction?.kind === 'investment'
         ? `${activeBoardCardKey}:${activeBoardCardAction.businessSymbol}`
@@ -1228,22 +1351,26 @@ export const GameView: React.FC<{
     useEffect(() => {
         if (!storyShareRequest || !activeBoardCardAction || activeBoardCardAction.kind !== 'happiness') return;
         const requestKey = getPendingRequestExecutionKey(storyShareRequest);
-        if (processedStoryRequestIds.includes(requestKey) || processingStoryRequestKeysRef.current.has(requestKey)) return;
+        if (processedStoryRequestIds.includes(requestKey) || processingStoryRequestKeysRef.current.has(requestKey) || failedStoryRequestKeysRef.current.has(requestKey)) return;
 
+        const scope = visualEventScope;
         const finalize = async () => {
             processingStoryRequestKeysRef.current.add(requestKey);
             try {
                 if (storyShareRequest.status === 'approved') {
-                    if (!await clearRequest(storyShareRequest.id)) return;
+                    if (!await markBoardCardHandled()) throw new Error('分享已核准，卡片結案尚未完成');
+                    if (!await clearRequest(storyShareRequest.id)) {failedStoryRequestKeysRef.current.add(requestKey);setPendingRequestCleanup(storyShareRequest.id);return;}
                     setProcessedStoryRequestIds(prev => prev.includes(requestKey) ? prev : [...prev, requestKey]);
                     showAlert(`故事分享已確認，發放 ${activeBoardCardAction.points} 點幸福`, 'success');
-                    void markBoardCardHandled();
                 } else if (storyShareRequest.status === 'rejected') {
-                    if (!await clearRequest(storyShareRequest.id)) return;
+                    if (!await clearRequest(storyShareRequest.id)) {failedStoryRequestKeysRef.current.add(requestKey);setPendingRequestCleanup(storyShareRequest.id);return;}
                     setProcessedStoryRequestIds(prev => prev.includes(requestKey) ? prev : [...prev, requestKey]);
                     showAlert('故事分享尚未通過主持人確認，這張卡暫不發放幸福點', 'info');
-                    setIsBoardCardDrawerOpen(true);
+                    if (visualEventScopeRef.current === scope) setIsBoardCardDrawerOpen(true);
                 }
+            } catch (error: any) {
+                failedStoryRequestKeysRef.current.add(requestKey);
+                if (visualEventScopeRef.current === scope) setRequestContinuationError(error?.message || '分享結案尚未完成');
             } finally {
                 processingStoryRequestKeysRef.current.delete(requestKey);
             }
@@ -1254,65 +1381,50 @@ export const GameView: React.FC<{
         clearRequest,
         processedStoryRequestIds,
         showAlert,
-        storyShareRequest
+        storyShareRequest,
+        requestRetryGeneration
     ]);
 
     useEffect(() => {
         if (!boardShareRequest || !activeBoardCardAction || !requiresOpportunityShareApproval) return;
         const requestKey = getPendingRequestExecutionKey(boardShareRequest);
-        if (processedStoryRequestIds.includes(requestKey) || processingStoryRequestKeysRef.current.has(requestKey)) return;
+        if (processedStoryRequestIds.includes(requestKey) || processingStoryRequestKeysRef.current.has(requestKey) || failedStoryRequestKeysRef.current.has(requestKey)) return;
 
+        const scope = visualEventScope;
         const finalizeRejected = async () => {
             processingStoryRequestKeysRef.current.add(requestKey);
-            if (!await clearRequest(boardShareRequest.id)) {
-                processingStoryRequestKeysRef.current.delete(requestKey);
-                return;
-            }
-            setProcessedStoryRequestIds(prev => [...prev, requestKey]);
-            processingStoryRequestKeysRef.current.delete(requestKey);
-            showAlert('分享尚未通過主持人確認，這張卡暫不執行效果', 'info');
-            setIsBoardCardDrawerOpen(true);
+            try {
+                if (!await clearRequest(boardShareRequest.id)) {failedStoryRequestKeysRef.current.add(requestKey);setPendingRequestCleanup(boardShareRequest.id);return;}
+                setProcessedStoryRequestIds(prev => prev.includes(requestKey) ? prev : [...prev, requestKey]);
+                if (visualEventScopeRef.current === scope) {
+                    showAlert('分享尚未通過主持人確認，這張卡暫不執行效果', 'info');
+                    setIsBoardCardDrawerOpen(true);
+                }
+            } catch (error: any) {
+                failedStoryRequestKeysRef.current.add(requestKey);
+                if (visualEventScopeRef.current === scope) setRequestContinuationError(error?.message || '分享結案尚未完成');
+            } finally {processingStoryRequestKeysRef.current.delete(requestKey);}
         };
 
         const finalizeApproved = async () => {
             processingStoryRequestKeysRef.current.add(requestKey);
-            if (!await clearRequest(boardShareRequest.id)) {
-                processingStoryRequestKeysRef.current.delete(requestKey);
-                return;
-            }
-            setProcessedStoryRequestIds(prev => [...prev, requestKey]);
-
-            if (activeBoardCardAction.kind === 'effect') {
-                await handleApplyBoardInstantEffect(activeBoardCardAction.title, activeBoardCardAction.afterApply);
-                processingStoryRequestKeysRef.current.delete(requestKey);
-                return;
-            }
-
-            if (activeBoardCardAction.kind === 'choice') {
-                const acceptOption = activeBoardCardAction.options.find(option => option.id === 'accept');
-                if (!acceptOption) {
-                    showAlert('找不到可執行的卡片效果', 'error');
-                    setIsBoardCardDrawerOpen(true);
-                    processingStoryRequestKeysRef.current.delete(requestKey);
-                    return;
-                }
-
-                if (acceptOption.action.kind === 'effect') {
-                    await handleApplyBoardInstantEffect(acceptOption.action.title, acceptOption.action.afterApply);
-                    return;
-                }
-
-                if (acceptOption.action.kind === 'financial') {
-                    setBoardFinancialAction(withBoardFlow(acceptOption.action, 'board-card'));
+            try {
+                const action = activeBoardCardAction.kind === 'choice'
+                    ? activeBoardCardAction.options.find(option => option.id === 'accept')?.action : activeBoardCardAction;
+                if (action?.kind === 'financial') {
+                    setProcessedStoryRequestIds(prev => prev.includes(requestKey) ? prev : [...prev, requestKey]);
+                    setBoardFinancialAction(withBoardFlow(action, 'board-card'));
                     setIsBoardFinancialCompleted(false);
-                    processingStoryRequestKeysRef.current.delete(requestKey);
                     return;
                 }
-            }
-
-            showAlert('這張分享卡目前沒有可接續的效果', 'error');
-            setIsBoardCardDrawerOpen(true);
-            processingStoryRequestKeysRef.current.delete(requestKey);
+                if (action?.kind !== 'effect') throw new Error('找不到可接續的分享效果');
+                if (!await handleApplyBoardInstantEffect(action.title, action.afterApply)) throw new Error('分享已核准，後續效果尚未完成');
+                if (!await clearRequest(boardShareRequest.id)) {failedStoryRequestKeysRef.current.add(requestKey);setPendingRequestCleanup(boardShareRequest.id);return;}
+                setProcessedStoryRequestIds(prev => prev.includes(requestKey) ? prev : [...prev, requestKey]);
+            } catch (error: any) {
+                failedStoryRequestKeysRef.current.add(requestKey);
+                if (visualEventScopeRef.current === scope) setRequestContinuationError(error?.message || '分享接續尚未完成');
+            } finally { processingStoryRequestKeysRef.current.delete(requestKey); }
         };
 
         if (boardShareRequest.status === 'approved') {
@@ -1329,20 +1441,25 @@ export const GameView: React.FC<{
         clearRequest,
         processedStoryRequestIds,
         requiresOpportunityShareApproval,
+        requestRetryGeneration,
         showAlert
     ]);
+
+    useEffect(()=>{setRequestContinuationError(null);},[visualEventScope]);
+    const retryRequestContinuation=async()=>{
+        if(pendingRequestCleanup){
+            if(await clearRequest(pendingRequestCleanup)){setPendingRequestCleanup(null);setRequestContinuationError(null);}
+            else showAlert('已完成效果，審核紀錄尚未清理，請再次核對','error');
+        }else {failedStoryRequestKeysRef.current.clear();setRequestContinuationError(null);setRequestRetryGeneration(value=>value+1);}
+    };
 
     useEffect(() => {
         if (!activeBoardCardKey || !activeBoardCardAction || activeBoardCardAction.kind !== 'market') return;
         // 依 docs/gdd/CARD_SYSTEM.md 揭示規則：市場行情相關卡片也必須在揭示後才可正式生效，
         // 未翻牌前不得把行情寫入房間共享狀態（room.marketPrices 對全房間玩家可見）。
-        if (!isBoardCardRevealAnimationComplete) return;
-        const reveal = boardState?.currentCardReveal;
-        if (
-            reveal?.eventId !== boardState?.currentEvent?.id ||
-            reveal?.cardId !== activeBoardCard.cardId ||
-            reveal.isRevealed !== true
-        ) return;
+        // A restored/background page may never emit transitionend. The committed
+        // reveal controls effects; the cosmetic animation does not block them.
+        if (!isBoardCardRevealed) return;
         if (marketPricesMatch(room?.marketPrices, activeBoardCardAction.prices)) {
             setAppliedBoardMarketKeys(prev => prev.includes(activeBoardCardKey) ? prev : [...prev, activeBoardCardKey]);
             setIsApplyingBoardMarket(false);
@@ -1363,17 +1480,17 @@ export const GameView: React.FC<{
             .finally(() => {
                 setIsApplyingBoardMarket(false);
             });
-    }, [activeBoardCard?.cardId, activeBoardCardAction, activeBoardCardKey, appliedBoardMarketKeys, applyBoardMarketPrices, boardState?.currentCardReveal, boardState?.currentEvent?.id, isApplyingBoardMarket, isBoardCardRevealAnimationComplete, room?.marketPrices, showAlert]);
+    }, [activeBoardCard?.cardId, activeBoardCardAction, activeBoardCardKey, appliedBoardMarketKeys, applyBoardMarketPrices, boardState?.currentCardReveal, boardState?.currentEvent?.id, isApplyingBoardMarket, isBoardCardRevealed, room?.marketPrices, showAlert]);
 
     useEffect(() => {
         if (!activeBankPromptKey || activeBankPromptKey === lastBankPromptKey || !isActiveBankPromptPending) return;
         if (!canOpenNextBoardStep) return;
         setLastBankPromptKey(activeBankPromptKey);
-        setHandledBankPromptKeys(prev => prev.includes(activeBankPromptKey) ? prev : [...prev, activeBankPromptKey]);
-        setPaydayStep('confirm');
+        const alreadyCollected = currentPlayerRoomState?.appliedBoardFinancialEventIds?.includes(`payday:${activeBankPromptKey}`);
+        setPaydayStep(alreadyCollected ? 'followup' : 'confirm');
         hideAlert();
         setShowPaydayModal(true);
-    }, [activeBankPromptKey, lastBankPromptKey, isActiveBankPromptPending, summary.monthlyCashflow, canOpenNextBoardStep, hideAlert]);
+    }, [activeBankPromptKey, lastBankPromptKey, isActiveBankPromptPending, summary.monthlyCashflow, canOpenNextBoardStep, hideAlert, currentPlayerRoomState?.appliedBoardFinancialEventIds]);
 
     useEffect(() => {
         if (!activeSchoolPromptKey || activeSchoolPromptKey === lastSchoolPromptKey || !isActiveSchoolPromptPending) return;
@@ -1444,6 +1561,7 @@ export const GameView: React.FC<{
         isExplicitDismissal = false
     ) => {
         if (!cardKey) return false;
+        const scope=visualEventScope;
         const eventId = boardState?.currentEvent?.id;
         if (shouldBlockBoardCardDismissal(
             boardState,
@@ -1460,7 +1578,6 @@ export const GameView: React.FC<{
             );
             if (isFamilySourceCard) {
                 setIsBoardCardDrawerOpen(true);
-                setIsBoardCardRevealed(true);
             } else {
                 setIsBoardCardDrawerOpen(false);
             }
@@ -1483,7 +1600,7 @@ export const GameView: React.FC<{
         }
 
         setHandledBoardCardKeys(prev => prev.includes(cardKey) ? prev : [...prev, cardKey]);
-        setIsBoardCardDrawerOpen(false);
+        if(visualEventScopeRef.current===scope)setIsBoardCardDrawerOpen(false);
 
         return true;
     };
@@ -1503,7 +1620,6 @@ export const GameView: React.FC<{
             void (async () => {
                 try {
                     const revealResult = await revealBoardCard(eventId, cardId);
-                    setIsBoardCardRevealed(true);
                     if (revealResult.sharedPrompt === 'no_target') {
                         // 沒有任何玩家（含抽卡者）符合這張卡的資格，視為本次無效果，直接結案。
                         setIsBoardCardDrawerOpen(false);
@@ -1565,7 +1681,7 @@ export const GameView: React.FC<{
                 activeBoardCard.cardId,
                 activeBoardCardAction.txData
             );
-            if (result.status === 'failed') {
+            if ((result.status === 'failed' || result.status === 'waiting')) {
                 showAlert(result.message || '幸福卡同步失敗，請重新整理後再試', 'error');
                 return;
             }
@@ -1621,9 +1737,13 @@ export const GameView: React.FC<{
             detail?: string;
         };
     }) => {
+        const scope=visualEventScope;
         if (afterApply?.moveToSquare) {
             const move = afterApply.moveToSquare;
             const nextIndex = await moveCurrentPlayerToSquare(move);
+            if (visualEventScopeRef.current!==scope)return nextIndex!==null;
+            if (nextIndex === null) return {status:'failed',message:'款項已確認，移動接續尚未完成；請沿用原操作重試'};
+            if (visualEventScopeRef.current !== scope) return true;
             if (nextIndex !== null) {
                 setGameState(prev => ({
                     ...prev,
@@ -1635,17 +1755,20 @@ export const GameView: React.FC<{
         }
         if (afterApply?.drawCard) {
             setIsBoardCardDrawerOpen(false);
-            await drawBoardFollowupCard(
+            const drawn = await drawBoardFollowupCard(
                 afterApply.drawCard,
                 `${title} 後續抽卡`,
                 `卡片效果觸發，再抽一張${afterApply.drawCard === 'happiness' ? '幸福卡' : '新聞卡'}`
             );
+            if(visualEventScopeRef.current!==scope)return drawn;
+            if (!drawn) { setIsBoardCardDrawerOpen(true); showAlert('後續抽卡尚未完成，待辦已保留，請再試一次', 'error'); return false; }
             showAlert('卡片效果已套用，請處理後續抽到的卡片', 'success');
-            return;
+            return true;
         }
 
-        showAlert('卡片效果已套用', 'success');
-        await markBoardCardHandled();
+        const completed = await markBoardCardHandled();
+        if (completed) showAlert('卡片效果已套用', 'success');
+        return completed;
     };
 
     const applyJoinDirectHappiness = async (
@@ -1658,7 +1781,7 @@ export const GameView: React.FC<{
             showAlert(`現金不足，還差 ${formatMoney(result.shortfall || 0)}`, 'error');
             return false;
         }
-        if (result.status === 'failed') {
+        if ((result.status === 'failed' || result.status === 'waiting')) {
             showAlert(result.message || '家庭歷程同步失敗，請重新整理後重試', 'error');
             return false;
         }
@@ -1672,7 +1795,7 @@ export const GameView: React.FC<{
         setIsSubmittingFamilySource(true);
         try {
             const result = await completeFamilyMilestoneAction({ promptId, accepted: false });
-            if (result.status === 'failed') {
+            if ((result.status === 'failed' || result.status === 'waiting')) {
                 showAlert(result.message || '家庭歷程同步失敗，請重新整理後重試', 'error');
                 return;
             }
@@ -1688,6 +1811,7 @@ export const GameView: React.FC<{
     };
 
     const applyResolvedBoardFinancialTx = async (txData: TransactionData): Promise<boolean | BoardFinancialApplyResult> => {
+        const scope=visualEventScope;
         const handledCardKey = activeBoardCardKey;
         const handledCard = activeBoardCard;
         const nextLifelongRoll = txData.usage === 'lifelong_learning' && txData.lifelongLearningPayload
@@ -1697,10 +1821,15 @@ export const GameView: React.FC<{
         // 事件級防重複套用（P1-05）：以正式棋盤事件 ID 為準，避免 modal 重開、
         // effect 重跑或 snapshot 延遲導致同一筆棋盤財務結果被重複套用。
         const boardEventId = boardState?.currentEvent?.id;
-        const operationId = txData.boardEventId || (boardEventId
+        const operationId = txData.boardEventId || (txData.boardFlow !== 'manual-bank' && boardEventId
             ? `${boardEventId}:${txData.usage}:${txData.name}:${txData.amount}:${txData.relatedAssetId || ''}`
             : undefined);
-        const resolvedTxData = operationId ? { ...txData, boardEventId: operationId } : txData;
+        const resolvedTxData = operationId ? { ...txData, boardEventId: operationId } : ensureTransactionOperationId(txData);
+        if (room?.isBoardGame && resolvedTxData.boardFlow === 'manual-bank') {
+            if (!room.sessionId || !user?.uid) return {status: 'failed', message: '場次或登入資料尚未完成，請等待同步'};
+            try { saveFinancialIntent(localStorage, room.id, room.sessionId, user.uid, resolvedTxData); }
+            catch { return {status: 'failed', message: '無法保存交易識別，請檢查瀏覽器儲存空間後重試'}; }
+        }
         const medicalCard = handledCard ? OPPORTUNITY_CARD_MAP[handledCard.cardId] : null;
         const pendingMedicalClaim = (
             resolvedTxData.boardFlow === 'board-card' &&
@@ -1743,22 +1872,25 @@ export const GameView: React.FC<{
                 showAlert(`現金不足，還差 ${formatMoney(result.shortfall || 0)}`, 'error');
                 return result;
             }
-            if (result.status === 'failed') {
+            if ((result.status === 'failed' || result.status === 'waiting')) {
                 showAlert(result.message || '家庭歷程同步失敗，請重新整理後重試', 'error');
                 return result;
             }
+            if (visualEventScopeRef.current !== scope) return result;
             completedFamilyFlowPromptIdRef.current = familyPromptId;
             setIsBoardFinancialCompleted(true);
             return result;
         }
         if (resolvedTxData.boardFlow === 'board-card' && boardState?.currentEvent?.id && activeBoardCard?.deck === 'news' && NEWS_CARD_MAP[activeBoardCard.cardId]?.type === 'real_estate') {
             const purchased = await buyCurrentRealEstateCard(boardState.currentEvent.id, activeBoardCard.cardId, resolvedTxData);
-            if (!purchased) return false;
+            if (purchased.status !== 'applied' && purchased.status !== 'duplicate') return purchased;
+            if (visualEventScopeRef.current !== scope) return true;
             completedCurrentRealEstatePurchaseRef.current = true;
             setIsBoardFinancialCompleted(true);
             return true;
         }
         let applied: boolean | BoardFinancialApplyResult;
+        const personalFinancialHandler=getPersonalFinancialHandler(resolvedTxData);
         let sharedResponseCommitted = false;
         if (resolvedTxData.boardFlow === 'startup-loan') {
             if (!pendingSharedCardCompletion?.startupUpgradeCardId) return false;
@@ -1767,6 +1899,7 @@ export const GameView: React.FC<{
                 showAlert('創業貸款同步失敗，請再試一次', 'error');
                 return false;
             }
+            if (visualEventScopeRef.current !== scope) return true;
             setSubmittedSharedCardPromptIds(prev =>
                 prev.includes(pendingSharedCardCompletion.promptId)
                     ? prev
@@ -1789,7 +1922,7 @@ export const GameView: React.FC<{
                 resolvedTxData
             );
             if (medicalResult.status === 'requires_funding') return medicalResult;
-            if (medicalResult.status === 'failed') {
+            if ((medicalResult.status === 'failed' || medicalResult.status === 'waiting')) {
                 showAlert(medicalResult.message || '醫療卡片同步失敗，請保留答案後再試一次', 'error');
                 return medicalResult;
             }
@@ -1804,6 +1937,7 @@ export const GameView: React.FC<{
             if (marketResult.status === 'requires_funding') {
                 return marketResult;
             }
+            if(marketResult.status==='waiting'){showAlert(marketResult.message || '交易等待確認，請保留目前操作', 'error');return marketResult;}
             if (marketResult.status === 'failed') {
                 setPendingMarketPurchase(null);
                 setBoardFinancialAction(null);
@@ -1819,13 +1953,13 @@ export const GameView: React.FC<{
                 activeBoardCard?.cardId || 'C038',
                 resolvedTxData.vehicleLossPayload.assetId
             );
-            if (lossResult.status === 'failed') return lossResult;
+            if ((lossResult.status === 'failed' || lossResult.status === 'waiting')) return lossResult;
             applied = true;
         } else if (resolvedTxData.boardFlow === 'shared-card' && pendingSharedCardCompletion &&
             resolvedTxData.assetDetails?.type === '企業') {
             const investmentResult = await completeSharedInvestmentAction(pendingSharedCardCompletion.promptId, resolvedTxData);
-            if (investmentResult.status === 'requires_funding' || investmentResult.status === 'failed') {
-                if (investmentResult.status === 'failed') showAlert(investmentResult.message || '共享投資同步失敗，請稍後再試', 'error');
+            if (investmentResult.status === 'requires_funding' || (investmentResult.status === 'failed' || investmentResult.status === 'waiting')) {
+                if ((investmentResult.status === 'failed' || investmentResult.status === 'waiting')) showAlert(investmentResult.message || '共享投資同步失敗，請稍後再試', 'error');
                 return investmentResult;
             }
             applied = true;
@@ -1835,7 +1969,7 @@ export const GameView: React.FC<{
                 pendingSharedCardCompletion.promptId,
                 pendingSharedCardCompletion.selectedAssetIds
             );
-            if (sharedAssetResult.status === 'failed' || sharedAssetResult.status === 'requires_funding') {
+            if ((sharedAssetResult.status === 'failed' || sharedAssetResult.status === 'waiting') || sharedAssetResult.status === 'requires_funding') {
                 showAlert(sharedAssetResult.message || '共享出售同步失敗，請重新選擇資產後再試', 'error');
                 return sharedAssetResult;
             }
@@ -1844,65 +1978,57 @@ export const GameView: React.FC<{
         } else if (resolvedTxData.name.includes('達成事業成就')) {
             const targetResult = await completeTargetEnterprisePurchase(transactionData);
             if (targetResult.status === 'requires_funding') return targetResult;
-            if (targetResult.status === 'failed') {
+            if ((targetResult.status === 'failed' || targetResult.status === 'waiting')) {
                 showAlert(targetResult.message || '目標企業購買失敗，請稍後再試', 'error');
                 return targetResult;
             }
             applied = true;
-        } else if (room?.isBoardGame && resolvedTxData.insuranceType) {
+        } else if (room?.isBoardGame && personalFinancialHandler === 'completeInsurancePurchase') {
             const insuranceResult = await completeInsurancePurchase(transactionData);
-            if (insuranceResult.status === 'failed') {
+            if ((insuranceResult.status === 'failed' || insuranceResult.status === 'waiting')) {
                 showAlert(insuranceResult.message || '保險同步失敗，請保留目前選擇後再試', 'error');
                 return insuranceResult;
             }
             applied = insuranceResult.status === 'applied' || insuranceResult.status === 'duplicate';
-        } else if (room?.isBoardGame && (
-            resolvedTxData.assetChange?.asset.type === '定存' ||
-            resolvedTxData.assetDetails?.type === '定存'
-        )) {
+        } else if (room?.isBoardGame && personalFinancialHandler === 'completeDepositPurchase') {
             const depositResult = await completeDepositPurchase(transactionData);
             if (depositResult.status === 'requires_funding') return depositResult;
-            if (depositResult.status === 'failed') {
+            if ((depositResult.status === 'failed' || depositResult.status === 'waiting')) {
                 showAlert(depositResult.message || '定存同步失敗，請保留目前選擇後再試', 'error');
                 return depositResult;
             }
             applied = depositResult.status === 'applied' || depositResult.status === 'duplicate';
-        } else if (room?.isBoardGame && resolvedTxData.stockList?.length) {
+        } else if (room?.isBoardGame && personalFinancialHandler === 'completeStockTrade') {
             const stockResult = await completeStockTrade(transactionData);
-            if (stockResult.status === 'failed') {
+            if ((stockResult.status === 'failed' || stockResult.status === 'waiting')) {
                 showAlert(stockResult.message || '股票交易同步失敗，請保留目前選擇後再試', 'error');
                 return stockResult;
             }
             applied = stockResult.status === 'applied' || stockResult.status === 'duplicate';
-        } else if (room?.isBoardGame && !resolvedTxData.fundingLoanAmount && (
-            (resolvedTxData.usage === 'loan' && resolvedTxData.source === 'cash') ||
-            // BankingAppModal 會把銀行借款轉成 source:'loan' / usage:'cash'；
-            // 以指令編號辨識，才會走伺服器交易，一次寫入現金、信用貸款負債與紀錄。
-            (resolvedTxData.usage === 'cash' && resolvedTxData.source === 'loan' && resolvedTxData.commandId?.startsWith('loan:'))
-        )) {
+        } else if (room?.isBoardGame && personalFinancialHandler === 'completeLoanBorrow') {
             const loanResult = await completeLoanBorrow({ ...transactionData, source: 'cash', usage: 'loan' });
-            if (loanResult.status === 'failed') {
+            if ((loanResult.status === 'failed' || loanResult.status === 'waiting')) {
                 showAlert(loanResult.message || '信用貸款同步失敗，請保留目前選擇後再試', 'error');
                 return loanResult;
             }
             applied = loanResult.status === 'applied' || loanResult.status === 'duplicate';
-        } else if (room?.isBoardGame && resolvedTxData.usage === 'liability' && resolvedTxData.source === 'cash') {
+        } else if (room?.isBoardGame && personalFinancialHandler === 'completeLoanRepayment') {
             const repaymentResult = await completeLoanRepayment(transactionData);
-            if (repaymentResult.status === 'failed') {
+            if ((repaymentResult.status === 'failed' || repaymentResult.status === 'waiting')) {
                 showAlert(repaymentResult.message || '還款同步失敗，請保留目前選擇後再試', 'error');
                 return repaymentResult;
             }
             applied = repaymentResult.status === 'applied' || repaymentResult.status === 'duplicate';
-        } else if (room?.isBoardGame && resolvedTxData.name.startsWith('解約定存')) {
+        } else if (room?.isBoardGame && personalFinancialHandler === 'completeDepositWithdrawal') {
             const withdrawalResult = await completeDepositWithdrawal(transactionData);
-            if (withdrawalResult.status === 'failed') {
+            if ((withdrawalResult.status === 'failed' || withdrawalResult.status === 'waiting')) {
                 showAlert(withdrawalResult.message || '定存解約同步失敗，請保留目前選擇後再試', 'error');
                 return withdrawalResult;
             }
             applied = withdrawalResult.status === 'applied' || withdrawalResult.status === 'duplicate';
-        } else if (room?.isBoardGame && resolvedTxData.usage === 'asset' && resolvedTxData.assetDetails?.type === '汽車') {
+        } else if (room?.isBoardGame && personalFinancialHandler === 'completeCarPurchase') {
             const carResult = await completeCarPurchase(transactionData);
-            if (carResult.status === 'failed') {
+            if ((carResult.status === 'failed' || carResult.status === 'waiting')) {
                 showAlert(carResult.message || '汽車交易同步失敗，請保留目前選擇後再試', 'error');
                 return carResult;
             }
@@ -1919,7 +2045,7 @@ export const GameView: React.FC<{
                 }
             );
             if (sharedTxResult.status === 'requires_funding') return sharedTxResult;
-            if (sharedTxResult.status === 'failed') {
+            if ((sharedTxResult.status === 'failed' || sharedTxResult.status === 'waiting')) {
                 showAlert(sharedTxResult.message || '共享卡片結算同步失敗，請保留目前選擇後再試', 'error');
                 return sharedTxResult;
             }
@@ -1931,21 +2057,30 @@ export const GameView: React.FC<{
             // 留待階段 2 處理，暫時維持原路徑。
             const boardTxResult = await completeBoardTransaction(ensureTransactionOperationId(transactionData));
             if (boardTxResult.status === 'requires_funding') return boardTxResult;
-            if (boardTxResult.status === 'failed') {
+            if ((boardTxResult.status === 'failed' || boardTxResult.status === 'waiting')) {
                 showAlert(boardTxResult.message || '財務交易同步失敗，請保留目前選擇後再試', 'error');
                 return boardTxResult;
             }
             applied = boardTxResult.status === 'applied' || boardTxResult.status === 'duplicate';
         } else {
+            if (room?.isBoardGame) {
+                const message = '共享交易資料尚未完整，請保留目前選擇並重新同步';
+                showAlert(message, 'error');
+                return { status: 'failed', message };
+            }
             applied = handleTransactionSubmit(transactionData);
         }
         if (!applied) return false;
+        if (room?.isBoardGame && resolvedTxData.boardFlow === 'manual-bank' && room.sessionId && user?.uid) {
+            clearFinancialIntent(localStorage, room.id, room.sessionId, user.uid, resolvedTxData.commandId!);
+        }
+        if (visualEventScopeRef.current!==scope) return true;
         if (resolvedTxData.boardFlow === 'vehicle-loss') {
             setIsBoardFinancialCompleted(true);
             return true;
         }
 
-        if (boardFinancialAction?.afterApply?.affectsAllPlayersExpense) {
+        if (room?.flowSchemaVersion !== 1 && boardFinancialAction?.afterApply?.affectsAllPlayersExpense) {
             const effect = boardFinancialAction.afterApply.affectsAllPlayersExpense;
             // 注意：抽卡者自己的本地 expenses 已經由上面的 handleTransactionSubmit()
             // 透過 expensePayload 正確套用過一次，這裡只需要把效果廣播給其他玩家，
@@ -1959,9 +2094,10 @@ export const GameView: React.FC<{
             });
         }
 
-        if (boardFinancialAction?.afterApply?.moveToSquare) {
+        if (boardFinancialAction?.afterApply?.moveToSquare && !(room?.flowSchemaVersion === 1 && resolvedTxData.usage === 'lifelong_learning')) {
             const move = boardFinancialAction.afterApply.moveToSquare;
             const nextIndex = await moveCurrentPlayerToSquare(move);
+            if (nextIndex === null) return {status: 'failed', message: '款項已確認，移動接續尚未完成；請沿用原操作重試'};
             if (nextIndex !== null) {
                 setGameState(prev => ({
                     ...prev,
@@ -1973,11 +2109,13 @@ export const GameView: React.FC<{
         }
 
         if (boardFinancialAction?.afterApply?.drawCard) {
-            await drawBoardFollowupCard(
+            const drawn = await drawBoardFollowupCard(
                 boardFinancialAction.afterApply.drawCard,
                 `${boardFinancialAction.txData.name} 後續抽卡`,
                 `卡片效果觸發，再抽一張${boardFinancialAction.afterApply.drawCard === 'happiness' ? '幸福卡' : '新聞卡'}`
             );
+            if (!drawn) return {status:'failed',message:'款項已確認，後續抽卡尚未完成；請沿用原操作重試'};
+            if (visualEventScopeRef.current !== scope) return true;
         }
 
         if (resolvedTxData.boardFlow === 'shared-card' && pendingSharedCardCompletion) {
@@ -1990,7 +2128,7 @@ export const GameView: React.FC<{
             });
             if (!submitted) {
                 showAlert('共享卡片結算回覆送出失敗，請再試一次', 'error');
-                return;
+                return {status: 'failed', message: '財務已確認，共享回覆尚未完成；請沿用原操作重試'};
             }
             setSubmittedSharedCardPromptIds(prev =>
                 prev.includes(pendingSharedCardCompletion.promptId)
@@ -2000,6 +2138,7 @@ export const GameView: React.FC<{
             closeSharedCardPromptModal(pendingSharedCardCompletion.promptId);
         }
 
+        if (visualEventScopeRef.current!==scope) return true;
         setPendingHandledBoardCard(handledCardKey ? { key: handledCardKey, card: handledCard } : null);
         setPendingBoardLifelongRoll(nextLifelongRoll);
         setIsBoardFinancialCompleted(true);
@@ -2017,18 +2156,13 @@ export const GameView: React.FC<{
             }
             return result;
         }
-        const isMedicalBoardCard = txData.boardFlow === 'board-card' &&
-            activeBoardCard?.deck === 'opportunity' &&
-            OPPORTUNITY_CARD_MAP[activeBoardCard.cardId]?.type === 'medical';
-        const isSharedInvestment = txData.boardFlow === 'shared-card' && txData.assetDetails?.type === '企業';
-        if (txData.boardFlow !== 'real-estate-market' && !isMedicalBoardCard && !isSharedInvestment &&
-            (gameState.cash + txData.cashChange) < 0) {
-            setPendingForcedBoardPayment(txData);
-            setShowForcedBoardPaymentModal(true);
-            return false;
-        }
+        // The transaction decides available cash; a local snapshot must not turn funding into an unexplained failure.
 
         const result = await applyResolvedBoardFinancialTx(txData);
+        if (txData.boardFlow === 'manual-bank' && room?.sessionId && user?.uid && txData.commandId &&
+            (result === false || (typeof result === 'object' && (result.status === 'failed' || result.status === 'requires_funding')))) {
+            clearFinancialIntent(localStorage, room.id, room.sessionId, user.uid, txData.commandId);
+        }
         if (typeof result === 'object' && result?.status === 'requires_funding') {
             setPendingForcedBoardPayment(txData);
             setShowForcedBoardPaymentModal(true);
@@ -2036,16 +2170,46 @@ export const GameView: React.FC<{
         return result;
     };
 
+    const finishBankEvent = async () => {
+        const scope=visualEventScope;
+        try {
+            if (!await advanceBoardEventQueue('bank')) {
+                showAlert('銀行事件尚未完成，請重試結束；已領款不會重複發放', 'error');
+                return false;
+            }
+            if (activeBankPromptKey) setHandledBankPromptKeys(previous => previous.includes(activeBankPromptKey) ? previous : [...previous, activeBankPromptKey]);
+            if(visualEventScopeRef.current!==scope)return true;
+            setShouldResumeBankFollowup(false);
+            setShowPaydayModal(false);
+            setPaydayStep('confirm');
+            return true;
+        } catch (err: any) {
+            showAlert(err?.message || '銀行事件結案失敗，請安全重試', 'error');
+            return false;
+        }
+    };
+
     const finalizeBoardFinancialFlow = async () => {
+        const scope=visualEventScope;
+        const approvedRequestId = boardShareRequest?.status === 'approved' ? boardShareRequest.id : null;
+        const continuation = boardState?.pendingContinuation;
+        if (continuation?.kind === 'lifelong-learning' && continuation.playerUid === user?.uid) {
+            setIsBoardFinancialCompleted(false);
+            setBoardFinancialAction(null);
+            setIsBoardCardDrawerOpen(false);
+            setPromotionType(continuation.learningType);
+            setShowDiceModal(true);
+            return;
+        }
         if (boardFinancialAction?.txData.boardFlow === 'manual-bank') {
             const shouldShowBankFollowup = shouldResumeBankFollowup;
+            // Personal trades never close the board bank event; payday followup owns that command.
+            if(visualEventScopeRef.current!==scope)return;
             setIsBoardFinancialCompleted(false);
             setBoardFinancialAction(null);
             if (shouldShowBankFollowup) {
                 setPaydayStep('followup');
                 setShowPaydayModal(true);
-            } else {
-                await advanceBoardEventQueue('bank');
             }
             return;
         }
@@ -2085,9 +2249,20 @@ export const GameView: React.FC<{
             // 而且輪到自己，就直接嘗試結案，不依賴本機暫存的重試旗標。
             handledBoardCard = await markBoardCardHandled(activeBoardCardKey, activeBoardCard);
         }
-        if (handledBoardCard && pendingBoardStepAdvance) {
-            await advanceBoardEventQueue(pendingBoardStepAdvance);
+        if (!handledBoardCard) return;
+        if (approvedRequestId && !await clearRequest(approvedRequestId)) setPendingRequestCleanup(approvedRequestId);
+        if (pendingBoardStepAdvance) {
+            try {
+                if (!await advanceBoardEventQueue(pendingBoardStepAdvance)) {
+                    showAlert('財務已入帳，事件尚未結束，請安全重試結案', 'error');
+                    return;
+                }
+            } catch (err: any) {
+                showAlert(err?.message || '事件結案失敗，財務不會重複入帳', 'error');
+                return;
+            }
         }
+        if(visualEventScopeRef.current!==scope)return;
         if (handledBoardCard) {
             setPendingHandledBoardCard(null);
             setPendingBoardStepAdvance(null);
@@ -2165,45 +2340,28 @@ export const GameView: React.FC<{
         setShowTransactionModal(true);
     };
 
-    const handleForcedBoardBorrow = async () => {
-        if (!pendingForcedBoardPayment || forcedBoardPaymentShortfall <= 0) return;
-
-        const applied = await applyResolvedBoardFinancialTx({
-            ...pendingForcedBoardPayment,
-            fundingLoanAmount: forcedBoardPaymentShortfall
-        });
-        const didApply = applied === true || (
-            typeof applied === 'object' &&
-            (applied.status === 'applied' || applied.status === 'duplicate')
-        );
-        if (!didApply) return;
-        setShowForcedBoardPaymentModal(false);
-        setPendingForcedBoardPayment(null);
+    const handleForcedBoardPayment = async (kind: 'fundingLoanAmount' | 'forcedDebtAmount') => {
+        if (isFundingPayment || !pendingForcedBoardPayment || forcedBoardPaymentShortfall <= 0) return;
+        const scope=visualEventScope;
+        setIsFundingPayment(true);
+        try {
+            const applied = await applyResolvedBoardFinancialTx({ ...pendingForcedBoardPayment, [kind]: forcedBoardPaymentShortfall });
+            const didApply = applied === true || (typeof applied === 'object' && (applied.status === 'applied' || applied.status === 'duplicate'));
+            if (!didApply || visualEventScopeRef.current !== scope) return;
+            setShowForcedBoardPaymentModal(false);
+            setPendingForcedBoardPayment(null);
+            if (kind === 'forcedDebtAmount' && pendingForcedBoardPayment.boardFlow === 'family-milestone') {
+                showAlert('現金不足，已強制計入強制負債並完成本回合事件', 'info');
+            }
+        } catch (error) {
+            showAlert(error instanceof Error ? error.message : '周轉交易尚未確認，請沿用原操作安全重試', 'error');
+        } finally { setIsFundingPayment(false); }
     };
 
     const handleForcedBoardSellAssets = () => {
         setShowForcedBoardPaymentModal(false);
         setTransactionQuickPreset({ initialTab: 'broker', mode: 'sell' });
         setShowTransactionModal(true);
-    };
-
-    const handleForcedBoardForceDebt = async () => {
-        if (!pendingForcedBoardPayment || forcedBoardPaymentShortfall <= 0) return;
-
-        const applied = await applyResolvedBoardFinancialTx({
-            ...pendingForcedBoardPayment,
-            forcedDebtAmount: forcedBoardPaymentShortfall
-        });
-        const didApply = applied === true || (
-            typeof applied === 'object' &&
-            (applied.status === 'applied' || applied.status === 'duplicate')
-        );
-        if (!didApply) return;
-        setShowForcedBoardPaymentModal(false);
-        setPendingForcedBoardPayment(null);
-        if (pendingForcedBoardPayment.boardFlow === 'family-milestone') {
-            showAlert('現金不足，已強制計入強制負債並完成本回合事件', 'info');
-        }
     };
 
     const handleBoardAssetSaleConfirm = (items: BoardAssetSaleCandidate[]) => {
@@ -2427,6 +2585,7 @@ export const GameView: React.FC<{
                 });
                 return;
             }
+            setIsBoardFinancialCompleted(false);
             setBoardFinancialAction(withBoardFlow({
                 kind: 'financial',
                 label: '進入財務檢核',
@@ -2459,6 +2618,7 @@ export const GameView: React.FC<{
             return;
         }
 
+        setIsBoardFinancialCompleted(false);
         setBoardFinancialAction(withBoardFlow({
             kind: 'financial',
             label: '進入財務檢核',
@@ -2502,6 +2662,7 @@ export const GameView: React.FC<{
             return;
         }
         closeSharedCardPromptModal(activeSharedCardPrompt.id);
+        setIsBoardFinancialCompleted(false);
         setBoardFinancialAction(withBoardFlow(action, 'shared-card'));
         setPendingSharedCardCompletion({
             promptId: activeSharedCardPrompt.id,
@@ -2532,6 +2693,7 @@ export const GameView: React.FC<{
             return;
         }
         const monthlyIncome = (normalizedAmount / step) * newsCard.monthlyReturnPerMillion;
+        setIsBoardFinancialCompleted(false);
         setBoardFinancialAction(withBoardFlow({
             kind: 'financial',
             label: '進入財務檢核',
@@ -2575,6 +2737,7 @@ export const GameView: React.FC<{
         if (!newsCard || newsCard.type !== 'small_business') return;
         const investmentAmount = newsCard.investmentPerMonth;
 
+        setIsBoardFinancialCompleted(false);
         setBoardFinancialAction(withBoardFlow({
             kind: 'financial',
             label: '進入財務檢核',
@@ -2679,7 +2842,7 @@ export const GameView: React.FC<{
         if (pendingFamilyJoinActionDefinition.kind !== 'choice') {
             if (!accepted) {
                 const result = await completeFamilyMilestoneAction({ promptId: pendingFamilyJoinAction.promptId, accepted: false });
-                if (result.status === 'failed') {
+                if ((result.status === 'failed' || result.status === 'waiting')) {
                     showAlert(result.message || '家庭歷程拒絕結果同步失敗，請再試一次', 'error');
                     return;
                 }
@@ -2703,7 +2866,7 @@ export const GameView: React.FC<{
         }
 
         const result = await completeFamilyMilestoneAction({ promptId: pendingFamilyJoinAction.promptId, accepted: false });
-        if (result.status === 'failed') {
+        if ((result.status === 'failed' || result.status === 'waiting')) {
             showAlert(result.message || '家庭歷程結果同步失敗，請再試一次', 'error');
             return;
         }
@@ -2736,7 +2899,7 @@ export const GameView: React.FC<{
 
             if (acceptOption?.action.kind === 'dismiss' || !acceptOption) {
                 void completeFamilyMilestoneAction({ promptId, accepted: false }).then(result => {
-                    if (result.status === 'failed') {
+                    if ((result.status === 'failed' || result.status === 'waiting')) {
                         showAlert(result.message || '家庭歷程結果同步失敗，請再試一次', 'error');
                         return;
                     }
@@ -2758,7 +2921,7 @@ export const GameView: React.FC<{
         }
 
         void completeFamilyMilestoneAction({ promptId, accepted: false }).then(result => {
-            if (result.status === 'failed') {
+            if ((result.status === 'failed' || result.status === 'waiting')) {
                 showAlert(result.message || '家庭歷程結果同步失敗，請再試一次', 'error');
                 return;
             }
@@ -2806,6 +2969,28 @@ export const GameView: React.FC<{
 
     return (
         <div className="player-ui h-[100dvh] flex flex-col overflow-hidden animate-in fade-in duration-500">
+            <SubscriptionStatus flowSchemaVersion={room?.flowSchemaVersion} />
+            {(requestContinuationError || pendingRequestCleanup) && <div role="alert" className="fixed inset-x-4 bottom-32 z-[10090] rounded-xl bg-amber-100 p-3 text-amber-950 shadow-lg">
+                <p>{requestContinuationError || '效果已完成，審核紀錄尚未清理'}</p>
+                <button type="button" onClick={()=>void retryRequestContinuation()} className="mt-2 rounded-lg bg-amber-900 px-3 py-2 text-white">安全接續分享流程</button>
+            </div>}
+            {financialSyncError && <div role="alert" className="fixed inset-x-4 top-20 z-[10090] rounded-xl bg-amber-100 p-3 text-amber-950 shadow-lg">
+                <p>財務效果尚未完成：{financialSyncError.message} ({financialSyncError.code})</p>
+                <button type="button" onClick={retryFinancialSync} className="mt-2 rounded-lg bg-amber-900 px-3 py-2 text-white">核對並重試財務同步</button>
+            </div>}
+            {pendingPersonalIntent && <div role="status" className="fixed inset-x-4 top-32 z-[10090] rounded-xl bg-amber-100 p-3 text-amber-950 shadow-lg">
+                <p>{isPersonalActionBusy ? '個人操作處理中…' : '個人操作尚待確認，重試會核對原交易'}</p>
+                <button type="button" disabled={isPersonalActionBusy} onClick={()=>void runPersonalAction(pendingPersonalIntent.action,pendingPersonalIntent)} className="mt-2 rounded-lg bg-amber-900 px-3 py-2 text-white disabled:opacity-50">安全核對個人操作</button>
+            </div>}
+            {movementSettlementError && (
+                <div role="alert" className="fixed inset-x-4 top-4 z-[10080] rounded-xl bg-amber-100 p-4 text-amber-950 shadow-lg">
+                    <p>{movementSettlementError}</p>
+                    <button type="button" disabled={isSettlingMovement} onClick={() => void retryStaleBoardMovement()}
+                        className="mt-2 rounded-lg bg-amber-900 px-4 py-2 text-white disabled:opacity-50">
+                        {isSettlingMovement ? '結算中…' : '安全重試移動結算'}
+                    </button>
+                </div>
+            )}
             {showScoreView && (
                 <div className="fixed inset-0 z-[10000]">
                     <ScoreView
@@ -3287,8 +3472,9 @@ export const GameView: React.FC<{
                             showCardLogTab={room?.isBoardGame}
                             cardLogEntries={(room?.boardState?.cardLog || []).slice(0, 12)}
                             financialAccelerationMultiplier={room?.financialAcceleration?.multiplier || 1}
+                            historySource={room?.financialHistoryStorage==='subcollection' && user?.uid && room.sessionId ? {roomId:room.id,uid:user.uid,sessionId:room.sessionId} : undefined}
                             onShowAlert={showAlert}
-                            onDeleteTransaction={handleDeleteTransactionRecord}
+                            onDeleteTransaction={room?.isBoardGame ? undefined : handleDeleteTransactionRecord}
                             onUpgradeBiz={handleBizUpgrade}
                             onConvertHouse={room?.isBoardGame ? handleBoardHouseConversion : undefined}
                             disabled={room?.status === 'finished'}
@@ -3313,10 +3499,10 @@ export const GameView: React.FC<{
                     setIsSettlement(true);
                 }}
                 onEndTurn={handleEndTurn}
-                canRoll={boardActionAvailability.canRoll}
-                canEndTurn={canEndTurn && !isEndingTurn}
-                rollBlockReason={boardActionAvailability.rollBlocker?.message}
-                endTurnBlockReason={boardActionAvailability.endTurnBlocker?.message}
+                canRoll={boardActionAvailability.canRoll && !financialSyncError}
+                canEndTurn={canEndTurn && !isEndingTurn && !financialSyncError}
+                rollBlockReason={financialSyncError ? '等待公共財務效果完成，請核對並重試同步' : boardActionAvailability.rollBlocker?.message}
+                endTurnBlockReason={financialSyncError ? '等待公共財務效果完成，請核對並重試同步' : boardActionAvailability.endTurnBlocker?.message}
                 hasRolledBoardDice={!!boardState?.hasRolledThisTurn}
                 isBoardTurn={isBoardTurn}
                 isRollingBoardDice={isRollingBoardDice}
@@ -3327,11 +3513,11 @@ export const GameView: React.FC<{
 
             {displayBoardCard && !shouldSuppressBoardCardDrawer && (
                 <BoardCardDrawer
+                    key={activeBoardCardKey}
                     card={displayBoardCard}
                     isOpen={visibleFlowModal === 'board-card'}
                     isRevealed={isBoardCardRevealed}
                     onReveal={handleBoardCardReveal}
-                    onRevealAnimationComplete={() => setIsBoardCardRevealAnimationComplete(true)}
                     onClose={handleCloseBoardCardDrawer}
                     closeDisabled={visibleFlowModal !== 'board-card' || boardChoiceHasDismissOption}
                     actionArea={isBoardCardRevealed && activeBoardCardAction ? (
@@ -3491,7 +3677,7 @@ export const GameView: React.FC<{
                                                                     activeBoardCard.cardId,
                                                                     option.action.txData
                                                                 );
-                                                                if (result.status === 'failed') {
+                                                                if ((result.status === 'failed' || result.status === 'waiting')) {
                                                                     setIsBoardCardDrawerOpen(true);
                                                                     showAlert(result.message || '幸福卡同步失敗，請重新整理後再試', 'error');
                                                                     return;
@@ -3755,6 +3941,7 @@ export const GameView: React.FC<{
 
             {boardFinancialAction && visibleFlowModal === 'financial' && (
                 <BoardFinancialCheckModal
+                    key={boardFinancialAction.txData.boardFlow === 'manual-bank' ? `${room?.sessionId}:manual:${boardFinancialAction.txData.commandId}` : visualEventScope}
                     title={boardFinancialAction.txData.name}
                     txData={boardFinancialAction.txData}
                     expectedEntries={boardFinancialAction.expectedEntries}
@@ -3776,7 +3963,6 @@ export const GameView: React.FC<{
                             setShowRealEstateMarketModal(true);
                         } else if (activeBoardCardKey && !isActiveBoardCardHandled) {
                             setIsBoardCardDrawerOpen(true);
-                            setIsBoardCardRevealed(true);
                         }
                     }}
                 />
@@ -3943,31 +4129,35 @@ export const GameView: React.FC<{
                 <PlayerModalFrame
                     eyebrow="現金不足"
                     title="需要先周轉資金"
-                    description={`這張卡必須強制支付，目前還差 ${formatMoney(forcedBoardPaymentShortfall)}。`}
+                    description={pendingForcedBoardPayment.assetDetails?.type === '不動產' ? `自備頭期款不足，還差 ${formatMoney(forcedBoardPaymentShortfall)}；請先完成資產周轉或信用貸款。` : `這張卡必須強制支付，目前還差 ${formatMoney(forcedBoardPaymentShortfall)}。`}
                     accent="opportunity"
-                    onClose={() => setShowForcedBoardPaymentModal(false)}
+                    onClose={() => { if (!isFundingPayment) setShowForcedBoardPaymentModal(false); }}
                     footer={(
                         <div className="grid gap-3 sm:grid-cols-2">
                             <button
                                 onClick={handleForcedBoardSellAssets}
+                                disabled={isFundingPayment}
                                 className="min-h-12 rounded-2xl bg-[#168269] px-4 py-3 text-sm font-black text-white transition hover:bg-[#116c58]"
                             >
                                 先賣股票 / 資產周轉
                             </button>
                             <button
-                                onClick={handleForcedBoardBorrow}
+                                onClick={() => void handleForcedBoardPayment('fundingLoanAmount')}
+                                disabled={isFundingPayment}
                                 className="min-h-12 rounded-2xl bg-[#2e6570] px-4 py-3 text-sm font-black text-white transition hover:bg-[#254f57]"
                             >
                                 借信用貸款補差額
                             </button>
                             <button
-                                onClick={handleForcedBoardForceDebt}
+                                onClick={() => void handleForcedBoardPayment('forcedDebtAmount')}
+                                disabled={isFundingPayment || pendingForcedBoardPayment.assetDetails?.type === '不動產'}
                                 className="min-h-12 rounded-2xl bg-[#b54155] px-4 py-3 text-sm font-black text-white transition hover:bg-[#9f3549]"
                             >
                                 強制結束並計入負債
                             </button>
                             <button
                                 onClick={() => setShowForcedBoardPaymentModal(false)}
+                                disabled={isFundingPayment}
                                 className="min-h-12 rounded-2xl border border-[#d8c29a] bg-[#fffaf2] px-4 py-3 text-sm font-black text-[#765f47] transition hover:bg-[#f3e4cc]"
                             >
                                 稍後再處理
@@ -3975,6 +4165,7 @@ export const GameView: React.FC<{
                         </div>
                     )}
                 >
+                    {isFundingPayment && <p role="status" className="mb-3 text-center font-bold">交易確認中，請稍候…</p>}
                     <div className="rounded-2xl border border-[#e4c78f] bg-[#fff2d8] p-4 text-sm font-bold leading-relaxed text-[#76573a]">
                         你可以先賣股票或資產、直接借信用貸款，或強制把差額記入負債並結束這次事件。
                     </div>
@@ -4015,12 +4206,7 @@ export const GameView: React.FC<{
                     formatMoney={formatMoney}
                     onOpenInsurance={() => openQuickTransaction('保險')}
                     onOpenDeposit={() => openQuickTransaction('定存')}
-                    onSkipFollowup={() => {
-                        setShouldResumeBankFollowup(false);
-                        setShowPaydayModal(false);
-                        setPaydayStep('confirm');
-                        void advanceBoardEventQueue('bank');
-                    }}
+                    onSkipFollowup={() => { void finishBankEvent(); }}
                     onClose={async () => {
                         if (paydayStep === 'confirm') {
                             if (room?.isBoardGame) {
@@ -4031,7 +4217,7 @@ export const GameView: React.FC<{
                                 const cashBefore = currentPlayerRoomState?.cash ?? gameState.cash;
                                 const paydayResult = await completePaydayCollection(activeBankPromptKey);
                                 setIsCollectingPayday(false);
-                                if (paydayResult.status === 'failed') {
+                                if ((paydayResult.status === 'failed' || paydayResult.status === 'waiting')) {
                                     showAlert(paydayResult.message || '月結餘同步失敗，請再試一次', 'error');
                                     return;
                                 }
@@ -4060,10 +4246,7 @@ export const GameView: React.FC<{
                                 return;
                             }
                         }
-                        setShouldResumeBankFollowup(false);
-                        setShowPaydayModal(false);
-                        setPaydayStep('confirm');
-                        void advanceBoardEventQueue('bank');
+                        await finishBankEvent();
                     }}
                     disabled={room?.status === 'finished' || isCollectingPayday}
                 />
@@ -4142,6 +4325,7 @@ export const GameView: React.FC<{
                     onClose={handleDiceModalClose}
                     onResult={onDiceComplete}
                     promotionType={promotionType}
+                    recoveredResult={boardState?.pendingContinuation?.kind === 'lifelong-learning' ? boardState.pendingContinuation.result : undefined}
                     onRemoteRoll={room?.isBoardGame ? () => rollSkillDice({
                         kind: promotionType === 'normal'
                             ? 'normal'
@@ -4183,11 +4367,11 @@ export const GameView: React.FC<{
                             setBizUpgradeCardIdSnapshot(nextAction.cardId);
                             return;
                         }
+                        if(!await finishBankEvent())return;
                         startupUpgradeQueueRef.current = [];
                         setShowBizUpgradeModal(false);
                         setBizUpgradeAssetSnapshot(null);
                         setBizUpgradeCardIdSnapshot(null);
-                        await advanceBoardEventQueue('bank');
                     }}
                     onUpgrade={async (diceRoll) => {
                         const result = await completeStartupUpgradeAction({
@@ -4195,7 +4379,7 @@ export const GameView: React.FC<{
                             cardId: bizUpgradeCardIdSnapshot || '',
                             diceRoll
                         });
-                        if (result.status === 'failed') {
+                        if ((result.status === 'failed' || result.status === 'waiting')) {
                             showAlert(result.message || '企業升級同步失敗，請再試一次', 'error');
                             return false;
                         }
@@ -4231,6 +4415,7 @@ export const GameView: React.FC<{
 
             {showHappinessModal && (
                 <HappinessListModal
+                    disabled={isPersonalActionBusy}
                     items={gameState.happiness}
                     total={gameState.happinessTotal}
                     onToggle={room?.isBoardGame ? handleBoardHappinessToggle : handleToggleHappiness}

@@ -1,0 +1,22 @@
+import {expect,it,vi} from 'vitest';
+const mock=vi.hoisted(()=>({calls:[] as any[][],signedIn:false,close:vi.fn()}));
+vi.mock('firebase/firestore',()=>({onSnapshot:(...args:any[])=>{mock.calls.push(args);return mock.close;}}));
+vi.mock('firebase/auth',()=>({getAuth:()=>({currentUser:mock.signedIn?{uid:'player'}:null})}));
+import {observeSnapshots,getSubscriptionHealth,getSubscriptionErrors} from './recoveringSnapshot';
+it('rebuilds a closed transient listener and resumes permission errors only after login, ignoring old callbacks',()=>{
+ vi.useFakeTimers();const received=vi.fn(),error=vi.fn();
+ const stop=(observeSnapshots('test') as any)({path:'rooms/test'},received,error);
+ const old=mock.calls[0];old[1]({metadata:{fromCache:false}});
+ old[2]({code:'unavailable'});expect(error).toHaveBeenCalledTimes(1);
+ vi.advanceTimersByTime(500);expect(mock.calls).toHaveLength(2);
+ old[1]({metadata:{fromCache:false}});expect(received).toHaveBeenCalledTimes(1);
+ mock.calls[1][2]({code:'permission-denied'});
+ expect(JSON.parse(getSubscriptionErrors())[0].code).toBe('permission-denied');
+ vi.advanceTimersByTime(10000);expect(mock.calls).toHaveLength(2);
+ window.dispatchEvent(new Event('hf-reconnect'));expect(mock.calls).toHaveLength(2);
+ mock.signedIn=true;window.dispatchEvent(new Event('hf-reconnect'));expect(mock.calls).toHaveLength(3);
+ mock.calls[2][1]({metadata:{fromCache:false}});
+ expect(JSON.parse(getSubscriptionHealth())[0].status).toBe('live');
+ stop();mock.calls[2][1]({metadata:{fromCache:false}});expect(received).toHaveBeenCalledTimes(2);
+ expect(getSubscriptionHealth()).toBe('[]');expect(getSubscriptionErrors()).toBe('[]');vi.useRealTimers();
+});

@@ -1,0 +1,35 @@
+import {act,renderHook,waitFor} from '@testing-library/react';
+import {beforeEach,expect,it,vi} from 'vitest';
+import type {Firestore} from 'firebase/firestore';
+import {usePublicFinancialEffects} from './usePublicFinancialEffects';
+const mocks=vi.hoisted(()=>({listeners:[] as any[],submit:vi.fn(),wait:vi.fn(),unsubscribe:vi.fn()}));
+vi.mock('firebase/firestore',()=>Object.fromEntries(['collection','documentId','limit','orderBy','query','startAfter','where'].map(key=>[key,(...args:any[])=>({key,args})])));
+vi.mock('../utils/recoveringSnapshot',()=>({observeSnapshots:()=> (_query:any,next:any,error:any)=>{mocks.listeners.push({next,error});return mocks.unsubscribe;}}));
+vi.mock('../game/finance/privateCommand',()=>({runPrivateFinancialCommand:mocks.submit,waitForPrivateFinance:mocks.wait}));
+beforeEach(()=>{vi.clearAllMocks();mocks.listeners=[];mocks.submit.mockResolvedValue({status:'applied'});mocks.wait.mockResolvedValue([]);});
+const params={db:{} as Firestore,roomId:'r',sessionId:'s',uid:'p',enabled:true};
+const snapshot={docs:[{id:'effect1',data:()=>({id:'effect1',sessionId:'s',kind:'expense',timestamp:1,payload:{amount:100,category:'basicLiving',isIncrease:true}})}]};
+it('retains a failed effect and exposes a safe retry with the same command',async()=>{
+ mocks.submit.mockResolvedValueOnce({status:'failed',code:'permission-denied',message:'資格未確認'});
+ const {result,unmount}=renderHook(()=>usePublicFinancialEffects(params));
+ act(()=>mocks.listeners[0].next(snapshot));
+ await waitFor(()=>expect(result.current.failure?.code).toBe('permission-denied'));
+ act(()=>mocks.listeners[0].next(snapshot));
+ await act(async()=>{});expect(mocks.submit).toHaveBeenCalledTimes(1);
+ act(()=>result.current.retry());
+ act(()=>mocks.listeners[1].next(snapshot));
+ await waitFor(()=>expect(mocks.submit).toHaveBeenCalledTimes(2));
+ expect(result.current.failure).toBeNull();
+ expect(mocks.submit.mock.calls.map(([p])=>p.commandId)).toEqual(['public-effect:effect1','public-effect:effect1']);
+ unmount();
+});
+it('serializes overlapping snapshots and ignores callbacks after an event scope is replaced',async()=>{
+ let complete:(value:any)=>void=()=>{};
+ mocks.submit.mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve;}));
+ const {rerender,unmount}=renderHook(({sessionId})=>usePublicFinancialEffects({...params,sessionId}),{initialProps:{sessionId:'s'}});
+ act(()=>{mocks.listeners[0].next(snapshot);mocks.listeners[0].next(snapshot);});
+ await waitFor(()=>expect(mocks.submit).toHaveBeenCalledTimes(1));
+ rerender({sessionId:'new'});
+ await act(async()=>complete({status:'applied'}));
+ expect(mocks.submit).toHaveBeenCalledTimes(1);unmount();
+});

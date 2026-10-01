@@ -2,7 +2,7 @@
 // Wrapper component to be used inside GameView
 import React from 'react';
 import { DiceRollModal } from '../../components/modals/DiceRollModal';
-import { useDiceRollLogic, PromotionType } from '../../hooks/useDiceRollLogic';
+import { useDiceRollLogic, PromotionType, RemoteDiceRollResult } from '../../hooks/useDiceRollLogic';
 import { formatMoney } from '../../utils/gameUtils';
 
 export const DiceRollContainer: React.FC<{
@@ -10,8 +10,11 @@ export const DiceRollContainer: React.FC<{
     onClose: () => void;
     onResult: (success: boolean, bonus: number, newTitle: string) => void;
     promotionType?: PromotionType | null;
-}> = ({ isOpen, onClose, onResult, promotionType }) => {
-    const { isRolling, diceValue, examResult, examLog, handleDiceRoll } = useDiceRollLogic(onResult, formatMoney, promotionType);
+    onRemoteRoll?: () => Promise<RemoteDiceRollResult>;
+    onRollError?: (error: unknown) => void;
+    recoveredResult?: RemoteDiceRollResult;
+}> = ({ isOpen, onClose, onResult, promotionType, onRemoteRoll, onRollError, recoveredResult }) => {
+    const { isRolling, diceValue, examResult, examLog, handleDiceRoll } = useDiceRollLogic(onResult, formatMoney, promotionType, onRemoteRoll, onRollError, recoveredResult);
 
     return (
         <DiceRollModal
@@ -24,6 +27,7 @@ export const DiceRollContainer: React.FC<{
             examLog={examLog}
             formatMoney={formatMoney}
             promotionType={promotionType}
+            remoteMode={!!onRemoteRoll}
         />
     );
 };

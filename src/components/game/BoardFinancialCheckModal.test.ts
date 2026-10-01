@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { getFinancialCheckFeedback, normalizeExpectedEntries } from './BoardFinancialCheckModal';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createElement } from 'react';
+import { BoardFinancialCheckModal, getFinancialCheckFeedback, normalizeExpectedEntries } from './BoardFinancialCheckModal';
 import { buildDreamTransaction, buildTargetEnterpriseTransaction } from '../banking/TargetAndDreamModals';
 import type { TransactionData } from '../../types';
 
@@ -149,6 +151,32 @@ describe('normalizeExpectedEntries', () => {
   });
 });
 
+describe('BoardFinancialCheckModal transaction errors', () => {
+  it('keeps the check open and explains when applying a verified transaction rejects', async () => {
+    const onApply = vi.fn().mockRejectedValue(new Error('temporary transaction failure'));
+    const txData: TransactionData = {
+      name: '終身學習報名費',
+      amount: 1000,
+      cashChange: -1000,
+      source: 'cash',
+      usage: 'lifelong_learning'
+    };
+
+    render(createElement(BoardFinancialCheckModal, {
+      title: txData.name,
+      txData,
+      expectedEntries: [],
+      onApply,
+      onClose: vi.fn()
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: '確認檢核答案' }));
+
+    await waitFor(() => expect(screen.getByText('交易無法完成')).toBeInTheDocument());
+    expect(onApply).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('getFinancialCheckFeedback', () => {
   const expected = [
     { category: 'Assets' as const, name: '現金', direction: 'Decrease' as const },
@@ -165,12 +193,15 @@ describe('getFinancialCheckFeedback', () => {
     expect(feedback.affectedCategories).toEqual(['Assets', 'Expenses']);
     expect(feedback.lines[0]).toContain('目前有 3 處錯誤');
     expect(feedback.lines.join(' ')).not.toContain('交通、教育、娛樂類');
+    expect(feedback.correctLines).toEqual([]);
+    expect(feedback.incorrectLines).toContain('你填寫：資產：現金（增加）');
   });
 
   it('reveals the exact expected entries from the second incorrect attempt', () => {
     const feedback = getFinancialCheckFeedback(expected, [], 2);
 
-    expect(feedback.lines).toContain('資產：現金（減少）');
-    expect(feedback.lines).toContain('支出：交通、教育、娛樂類（增加）');
+    expect(feedback.lines).toEqual(['請參考下方分區修正填寫內容。']);
+    expect(feedback.incorrectLines).toContain('應填寫：資產：現金（減少）');
+    expect(feedback.incorrectLines).toContain('應填寫：支出：交通、教育、娛樂類（增加）');
   });
 });

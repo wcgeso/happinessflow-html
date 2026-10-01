@@ -1,4 +1,5 @@
 import { GameState, Transaction } from '../types';
+import { getRemainingCreditCapacity } from './financialRules';
 
 export interface FamilyMilestoneStage {
   cardId: string;
@@ -113,6 +114,11 @@ export const getFamilyMilestoneStatus = (gameState: GameState) => {
   };
 };
 
+export const isFamilyMilestoneComplete = (gameState?: GameState | null): boolean => {
+  if (!gameState) return false;
+  return getFamilyMilestoneStatus(gameState).currentStageIndex === -1 || Number(gameState.children) >= 2;
+};
+
 export const getFamilyMilestoneStageByCardId = (cardId: string) => {
   return FAMILY_MILESTONE_STAGES.find(stage => stage.cardId === cardId) || null;
 };
@@ -126,14 +132,17 @@ export const getFamilyMilestoneStageByProgressId = (progressId?: string | null) 
 export type FamilyMilestoneApplyResult =
   | { status: 'applied'; state: GameState }
   | { status: 'duplicate'; state: GameState }
-  | { status: 'insufficient'; state: GameState; shortfall: number };
+  | { status: 'insufficient'; state: GameState; shortfall: number }
+  | { status: 'failed'; state: GameState; message: string };
 
 /** Apply one fixed family stage to the latest persisted player state. */
 export const applyFamilyMilestoneStage = (
   state: GameState,
   stage: FamilyMilestoneStage,
   operationId: string,
-  timestamp = Date.now()
+  timestamp = Date.now(),
+  forcedDebtAmount = 0,
+  fundingLoanAmount = 0
 ): FamilyMilestoneApplyResult => {
   if (
     state.appliedBoardFinancialEventIds?.includes(operationId) ||
@@ -145,8 +154,24 @@ export const applyFamilyMilestoneStage = (
 
   const cashCost = stage.cashCostAmount || 0;
   const cash = Number(state.cash) || 0;
-  if (cash < cashCost) {
-    return { status: 'insufficient', state, shortfall: cashCost - cash };
+  const requestedFunding = Number.isFinite(forcedDebtAmount)
+    ? Math.max(0, Math.floor(forcedDebtAmount))
+    : 0;
+  const requestedLoanFunding = Number.isFinite(fundingLoanAmount)
+    ? Math.max(0, Math.floor(fundingLoanAmount))
+    : 0;
+  if (requestedFunding > 0 && requestedLoanFunding > 0) {
+    return { status: 'failed', state, message: '同一筆交易不可同時使用兩種周轉方式' };
+  }
+  if (requestedLoanFunding > getRemainingCreditCapacity(state.profession?.salary || 0, state.liabilities || [], state.loans || 0)) {
+    return { status: 'failed', state, message: '可用信貸額度不足，請改用其他周轉方式' };
+  }
+  const requestedFundingAmount = requestedFunding + requestedLoanFunding;
+  const fundingAmount = Math.min(requestedFundingAmount, Math.max(0, cashCost - cash));
+  const fundingIsLoan = requestedLoanFunding > 0;
+  const availableCash = cash + fundingAmount;
+  if (availableCash < cashCost) {
+    return { status: 'insufficient', state, shortfall: cashCost - availableCash };
   }
 
   const happiness = (state.happiness || []).some(item => item.id === stage.happinessId)
@@ -157,8 +182,9 @@ export const applyFamilyMilestoneStage = (
         points: stage.happinessPointsValue,
         checked: true
       }];
+  const childrenIncrease = stage.progressId === 'child1' || stage.progressId === 'child2' ? 1 : 0;
   const cashChange = -cashCost;
-  const nextCash = cash + cashChange;
+  const nextCash = availableCash + cashChange;
   const transaction: Transaction = {
     id: operationId,
     timestamp,
@@ -176,9 +202,32 @@ export const applyFamilyMilestoneStage = (
     flowType: '生活'
   };
 
+  const fundingTransaction: Transaction | null = fundingAmount > 0 ? {
+    id: `${operationId}:forced-debt`,
+    timestamp,
+    name: `${fundingIsLoan ? '借用信用貸款' : '強制計入負債'}：${stage.label.replace(/^\d+\.\s*/, '')}`,
+    amount: fundingAmount,
+    sourceLabel: '借貸',
+    usageLabel: fundingIsLoan ? '信用貸款' : '強制負債',
+    cashChange: fundingAmount,
+    balance: cash + fundingAmount,
+    details: JSON.stringify({ boardEventId: operationId, usage: fundingIsLoan ? 'cash' : 'forced_debt' }),
+    flowType: '融資'
+  } : null;
+
   const nextState: GameState = {
     ...state,
     cash: nextCash,
+    children: Math.max(0, Number(state.children) || 0) + childrenIncrease,
+    liabilities: fundingAmount > 0
+      ? [...(state.liabilities || []), {
+          id: `${operationId}:forced-debt-liability`,
+          name: fundingIsLoan ? '信用貸款' : '強制負債',
+          totalOwed: fundingAmount,
+          monthlyPayment: fundingIsLoan ? Math.floor(fundingAmount * 0.1) : 0,
+          type: fundingIsLoan ? '信用貸款' as const : '強制負債' as const
+        }]
+      : state.liabilities,
     expenses: stage.monthlyExpenseIncreaseAmount
       ? {
           ...state.expenses,
@@ -189,7 +238,7 @@ export const applyFamilyMilestoneStage = (
     happinessTotal: happiness.reduce((sum, item) => sum + (item.checked ? item.points : 0), 0),
     completedHappinessEvents: Array.from(new Set([...(state.completedHappinessEvents || []), stage.progressId])),
     appliedBoardFinancialEventIds: [...(state.appliedBoardFinancialEventIds || []), operationId],
-    history: [...(state.history || []), transaction]
+    history: [...(state.history || []), ...(fundingTransaction ? [fundingTransaction] : []), transaction]
   };
 
   return { status: 'applied', state: nextState };

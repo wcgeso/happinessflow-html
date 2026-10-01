@@ -10,8 +10,7 @@ import {
     getRedirectResult,
     GoogleAuthProvider,
 } from 'firebase/auth';
-import { auth, authPersistenceReady, googleProvider, appleProvider, storage, db } from '../../services/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth, authPersistenceReady, googleProvider, appleProvider, db } from '../../services/firebase';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { safeAsync } from '../utils/utils';
 import { generateInviteCode, findUserByInviteCode, computeEffectiveCoachId } from '../utils/referralUtils';

@@ -1,3 +1,4 @@
+import {debugLog} from './debugLog';
 import { trackGameEvent } from './telemetry';
 
 export interface FlowLogEvent {
@@ -35,7 +36,7 @@ export const flowLog = (event: FlowLogEvent): void => {
             .map(key => [key, event[key]])
     );
 
-    console.info('[HappinessFlow]', payload);
+    debugLog('[HappinessFlow]', payload);
     void trackGameEvent('flow_event', {
         event_name: event.name,
         phase: event.phase,

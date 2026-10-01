@@ -3,7 +3,7 @@ import {
   buildNewsCardMetaFromSchema,
   buildOpportunityCardMetaFromSchema
 } from '../constants/cards';
-import { BoardCardResult, GameState } from '../types';
+import { BoardCardResult, BoardState, GameState } from '../types';
 
 const EFFECT_SENTENCE_MARKERS = ['所有玩家', '抽到本卡', '抽到卡片', '月支出'];
 
@@ -64,3 +64,10 @@ export const hydrateBoardCardResult = (card: BoardCardResult | null, gameState?:
 
   return card;
 };
+
+// Both player and projection render the same committed event/card reveal.
+export const isCurrentBoardCardRevealed = (board: BoardState | null | undefined, card: BoardCardResult | null | undefined): boolean => !!(
+  board?.currentEvent?.id && card &&
+  board.currentCardReveal?.eventId === board.currentEvent.id &&
+  board.currentCardReveal.cardId === card.cardId && board.currentCardReveal.isRevealed === true
+);

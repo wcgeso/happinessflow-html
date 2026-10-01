@@ -18,7 +18,7 @@ interface FinancialStatementProps {
   onDeleteTransaction?: (id: string) => void;
   onUpgradeBiz?: (assetId: string, diceRoll: number) => void;
   /** 提供時取代本機切換：棋盤模式改走伺服器交易，避免與其他寫入衝突時被靜默丟棄。 */
-  onConvertHouse?: (assetId: string, toSelfUse: boolean) => void;
+  onConvertHouse?: (assetId: string, toSelfUse: boolean) => void | Promise<boolean>;
   hideSummary?: boolean;
   defaultShowDetails?: boolean;
   hideNav?: boolean;
@@ -29,6 +29,7 @@ interface FinancialStatementProps {
   showCardLogTab?: boolean;
   cardLogEntries?: BoardCardLogEntry[];
   financialAccelerationMultiplier?: number;
+  historySource?: {roomId:string;uid:string;sessionId:string};
 }
 
 const formatMoney = (amount: number, isMasked?: boolean) => {
@@ -77,9 +78,9 @@ const NumericalValue: React.FC<{ value: number, colorClass?: string, prefix?: st
 
   return (
     <span className={cn(
-      "font-mono transition-all duration-300 inline-block",
-      flash === 'up' ? "text-emerald-400 scale-110 font-bold" :
-        flash === 'down' ? "text-rose-400 scale-110 font-bold" : colorClass
+      "font-mono transition-colors duration-300 inline-block tabular-nums",
+      flash === 'up' ? "text-emerald-400 font-bold" :
+        flash === 'down' ? "text-rose-400 font-bold" : colorClass
     )}>
       {prefix}{formatMoney(value, isMasked)}
     </span>
@@ -91,6 +92,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
   summary,
   onShowAlert,
   onDeleteTransaction,
+  historySource,
   onUpgradeBiz,
   onConvertHouse,
   hideSummary = false,
@@ -114,8 +116,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
 
   const handleHouseConversion = (assetId: string, toSelfUse: boolean) => {
     if (onConvertHouse) {
-      onConvertHouse(assetId, toSelfUse);
-      return;
+      return onConvertHouse(assetId, toSelfUse);
     }
     setGameState(prev => {
       const updatedAssets = prev.assets.map(asset => {
@@ -682,6 +683,7 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
       {view === 'history' && (
         <div className="animate-in fade-in zoom-in-95 duration-300">
           <HistoryTable
+            source={historySource}
             history={gameState.history || []}
             onDeleteTransaction={onDeleteTransaction}
             disabled={disabled}

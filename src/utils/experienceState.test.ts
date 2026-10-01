@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BoardState } from '../types';
-import { clearBoardFlowState, getBoardActionAvailability, getNextBoardTurn, selectExperienceState } from './experienceState';
+import { buildNextBoardTurnState, clearBoardFlowState, getBoardActionAvailability, getNextBoardTurn, selectExperienceState } from './experienceState';
 
 const boardState = (overrides: Partial<BoardState> = {}): BoardState => ({
   currentTurnUid: 'p1',
@@ -78,6 +78,24 @@ describe('experience state', () => {
     expect(threePlayers?.skippedUids).toEqual(['p2']);
   });
 
+  it('ends a completed turn immediately from the authoritative board state', () => {
+    const next = buildNextBoardTurnState(boardState({
+      hasRolledThisTurn: true,
+      skipTurns: { p1: 0, p2: 0 },
+    }), 'p1', 25);
+
+    expect(next.currentTurnUid).toBe('p2');
+    expect(next.hasRolledThisTurn).toBe(false);
+    expect(next.updatedAt).toBe(25);
+  });
+
+  it('refuses to end while the latest board still has an unfinished event', () => {
+    expect(() => buildNextBoardTurnState(boardState({
+      hasRolledThisTurn: true,
+      currentEvent: { id: 'event-1' } as BoardState['currentEvent'],
+    }), 'p1')).toThrow('請先完成目前的棋盤事件');
+  });
+
   it('keeps turn summary and action permissions derived from board state', () => {
     const state = selectExperienceState({
       roomStatus: 'playing',
@@ -95,6 +113,18 @@ describe('experience state', () => {
     expect(state.actionAvailability.canEndTurn).toBe(true);
     expect(state.actionAvailability.canRoll).toBe(false);
     expect(state.actionAvailability.rollBlocker?.code).toBe('already_rolled');
+  });
+
+  it('does not let the local dice animation delay an authoritative end turn', () => {
+    const availability = getBoardActionAvailability({
+      roomStatus: 'playing',
+      isBoardGame: true,
+      currentUid: 'p1',
+      isRollingDice: true,
+      boardState: boardState({ hasRolledThisTurn: true }),
+    });
+
+    expect(availability.canEndTurn).toBe(true);
   });
 
   it('blocks ending a turn while a shared prompt is incomplete', () => {

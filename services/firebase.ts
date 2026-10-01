@@ -18,11 +18,6 @@ import {
   initializeFirestore,
   connectFirestoreEmulator,
 } from 'firebase/firestore';
-import {
-  getDatabase,
-  connectDatabaseEmulator,
-} from 'firebase/database';
-import { getStorage } from 'firebase/storage';
 import { debugLog } from '../src/utils/debugLog';
 
 const firebaseConfig = {
@@ -61,8 +56,6 @@ export const db = initializeFirestore(app, {
 if (import.meta.env.DEV) {
   console.info(`[Firebase] Firestore transport: ${firestoreTransport}`);
 }
-export const realtimeDb = getDatabase(app);
-export const storage = getStorage(app);
 
 // 本地開發：連接 Firebase Emulator（VITE_USE_EMULATOR=true 時啟用）
 if (useFirebaseEmulator) {
@@ -77,15 +70,7 @@ if (useFirebaseEmulator) {
     connectFirestoreEmulator(db, 'localhost', 8080);
     debugLog('%c🔧 Firebase Emulator 已啟用（本地開發模式）', 'color: #f59e0b; font-weight: bold');
   }
-  const realtimeDatabaseEmulatorUrl = import.meta.env.VITE_REALTIME_DATABASE_EMULATOR_URL;
-  if (realtimeDatabaseEmulatorUrl) {
-    const endpoint = new URL(realtimeDatabaseEmulatorUrl);
-    connectDatabaseEmulator(realtimeDb, endpoint.hostname, Number(endpoint.port || 9000));
-    debugLog('%c🔧 Realtime Database Emulator 已啟用', 'color: #f59e0b; font-weight: bold');
-  } else {
-    connectDatabaseEmulator(realtimeDb, 'localhost', 9000);
-    debugLog('%c🔧 Realtime Database Emulator 已啟用（本地開發模式）', 'color: #f59e0b; font-weight: bold');
-  }
+
 }
 export const googleProvider = new GoogleAuthProvider();
 export const appleProvider = new OAuthProvider('apple.com');

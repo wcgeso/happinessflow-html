@@ -1,7 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Activity, GraduationCap, Heart, HeartCrack, Landmark, Music2, Newspaper, ScrollText, Sparkles, TrendingDown, TrendingUp, Volume2, VolumeX, Wrench } from 'lucide-react';
-import { collection, doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
+import { observeSnapshots } from '../../utils/recoveringSnapshot';
+import { SubscriptionStatus } from '../../components/common/SubscriptionStatus';
+const onSnapshot = observeSnapshots('projection');
+import { trackBoardStage } from '../../utils/telemetry';
+import { serverNow, subscribeServerClock } from '../../utils/serverClock';
+import { useGameDiagnostics } from '../../hooks/useGameDiagnostics';
+import { useAuth } from '../../context/AuthContext';
 import { db } from '../../../services/firebase';
 import SafeImage from '../../components/common/SafeImage';
 import { BoardCardLogPanel } from '../../components/board/BoardCardLogPanel';
@@ -11,7 +18,7 @@ import { BOARD_SQUARES } from '../../constants/board';
 import { NEWS_CARD_MAP, normalizeCardCopy } from '../../constants/cards';
 import { Room } from '../../context/RoomContext';
 import { BoardCardLogEntry, BoardCardResult, BoardEventLog, BoardSquare, SkippedTurnNotice } from '../../types';
-import { getCardNarrative, hydrateBoardCardResult } from '../../utils/boardCardDisplay';
+import { getCardNarrative, hydrateBoardCardResult, isCurrentBoardCardRevealed } from '../../utils/boardCardDisplay';
 import { isBoardPromptForCurrentEvent } from '../../utils/boardCardActions';
 import { FAMILY_MILESTONE_STAGES } from '../../utils/familyMilestones';
 import { SettlementView } from '../../components/game/SettlementView';
@@ -728,11 +735,12 @@ const CardStage: React.FC<{
 };
 
 export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }) => {
+  const { user } = useAuth();
   const [baseRoom, setRoom] = useState<Room | null>(null);
   const [promptResponses, setPromptResponses] = useState<{ promptId: string; responses: Record<string, any> } | null>(null);
-  const [syncState, setSyncState] = useState<'loading' | 'live' | 'missing' | 'error'>('loading');
+  const [syncState, setSyncState] = useState<'loading' | 'live' | 'missing' | 'error' | 'cached'>('loading');
   const [zoom, setZoom] = useState(FIT_ZOOM_FALLBACK);
-  const [animationNow, setAnimationNow] = useState(() => Date.now());
+  const [animationNow, setAnimationNow] = useState(() => serverNow());
   const [showBoardCardLog, setShowBoardCardLog] = useState(false);
   const [audioSettings, setAudioSettingsState] = useState(() => getAudioSettings());
   const [visibleSkippedTurnNotice, setVisibleSkippedTurnNotice] = useState<SkippedTurnNotice | null>(null);
@@ -793,18 +801,31 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     } as Room;
   }, [baseRoom, promptResponses, activeSubcollectionPromptId]);
 
+  useGameDiagnostics({roomId:roomCode,sessionId:baseRoom?.sessionId,uid:user?.uid,surface:'projection',controller:false});
+  useEffect(subscribeServerClock, []);
+  useEffect(() => {
+    if (!room?.boardState) return;
+    const frame = requestAnimationFrame(() => trackBoardStage('presented', roomCode, room.boardState, {
+      surface: 'projection', phase: room.boardState?.currentCardReveal?.isRevealed ? 'card_revealed'
+        : room.boardState?.currentCard ? 'card_back' : room.boardState?.movement?.isActive ? 'movement' : 'board',
+    }));
+    return () => cancelAnimationFrame(frame);
+  }, [roomCode, room?.boardState?.currentEvent?.id, room?.boardState?.currentCardReveal?.isRevealed, room?.boardState?.movement?.startedAt]);
   useEffect(() => {
     setSyncState('loading');
     const unsubscribe = onSnapshot(
       doc(db, 'rooms', roomCode),
+      { includeMetadataChanges: true },
       snapshot => {
         if (!snapshot.exists()) {
           setRoom(null);
           setSyncState('missing');
           return;
         }
-        setRoom(snapshot.data() as Room);
-        setSyncState('live');
+        const data = snapshot.data() as Room;
+        trackBoardStage('received', roomCode, data.boardState, { surface: 'projection', from_cache: snapshot.metadata.fromCache });
+        setRoom(data);
+        setSyncState(snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites ? 'cached' : 'live');
       },
       () => setSyncState('error'),
     );
@@ -839,9 +860,9 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     const movement = room?.boardState?.movement;
     if (!movement?.isActive) return;
 
-    setAnimationNow(Date.now());
+    setAnimationNow(serverNow());
     const intervalId = window.setInterval(() => {
-      setAnimationNow(Date.now());
+      setAnimationNow(serverNow());
     }, BOARD_MOVEMENT_TICK_MS);
 
     return () => window.clearInterval(intervalId);
@@ -851,7 +872,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     const notice = room?.boardState?.skippedTurnNotice;
     if (!notice) return;
 
-    const remainingMs = SKIPPED_TURN_NOTICE_MS - (Date.now() - notice.timestamp);
+    const remainingMs = SKIPPED_TURN_NOTICE_MS - (serverNow() - notice.timestamp);
     if (remainingMs <= 0) {
       setVisibleSkippedTurnNotice(null);
       return;
@@ -1048,7 +1069,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
       ? '正在同步投影幕資料'
       : syncState === 'missing'
         ? `找不到房間 ${roomCode}`
-        : '同步中斷，正在重新連線';
+        : syncState === 'cached' ? '同步中，暫時顯示上次資料' : '同步中斷，請檢查連線或重新載入';
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-[#102f38] text-[#fff8e9]">
         <div className="text-2xl font-black">{message}</div>
@@ -1092,13 +1113,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     ? room.playerStates?.[boardState.currentEvent.playerUid] || null
     : null;
   const currentCard = hydrateBoardCardResult(boardState?.currentCard || null, currentPlayerState);
-  const revealState = boardState?.currentCardReveal;
-  const isCardRevealed = !!(
-    currentCard &&
-    revealState?.eventId === boardState?.currentEvent?.id &&
-    revealState?.cardId === currentCard.cardId &&
-    revealState?.isRevealed
-  );
+  const isCardRevealed = isCurrentBoardCardRevealed(boardState, currentCard);
   const currentDrawerName = boardState?.currentEvent?.playerUid
     ? room.members.find(member => member.uid === boardState.currentEvent?.playerUid)?.name || '玩家'
     : '玩家';
@@ -1225,6 +1240,7 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
       onDoubleClick={handleDoubleClick}
       className="h-screen cursor-grab overflow-auto bg-[radial-gradient(circle_at_top,#234c52_0%,#16353d_55%,#0b222a_100%)] text-[#4f3c29] active:cursor-grabbing"
     >
+      <SubscriptionStatus flowSchemaVersion={room?.flowSchemaVersion} />
       {visibleSkippedTurnNotice && (
         <motion.div
           key={visibleSkippedTurnNotice.timestamp}
@@ -1247,14 +1263,17 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
         </motion.div>
       )}
 
-      {syncState === 'error' && (
+      {(syncState === 'error' || syncState === 'cached') && (
         <div className="pointer-events-none fixed left-1/2 top-24 z-[10035] -translate-x-1/2 rounded-full border border-rose-300/45 bg-[#5d2730]/95 px-5 py-2 text-sm font-black text-white shadow-xl">
-          同步中斷，正在重新連線
+          {syncState === 'cached' ? '同步中，暫時顯示上次資料' : '同步中斷，請檢查連線或重新載入'}
         </div>
       )}
 
       <DicePresentationOverlay
         events={room?.boardState?.diceEvents}
+        roomId={roomCode}
+        scopeKey={`${room?.sessionId}:${room?.boardState?.currentTurnUid}:${room?.boardState?.lastRoll?.timestamp}`}
+        turnStartedAt={room?.boardState?.hasRolledThisTurn ? room.boardState.lastRoll?.timestamp || 0 : Number.POSITIVE_INFINITY}
         prefersReducedMotion={prefersReducedMotion}
         familyPrompt={familyPrompt}
         familyParticipants={familyParticipants}

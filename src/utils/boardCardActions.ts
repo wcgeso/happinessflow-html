@@ -1,3 +1,4 @@
+import {getUnsupportedCardRequirements} from '../constants/cards';
 import { REAL_ESTATE_TYPES } from '../constants';
 import { getHappinessMonthlyExpenseCategory, getMonthlyExpenseCategoryLabel, getOpportunityMonthlyExpenseCategory, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP, HAPPINESS_CARD_MAP } from '../constants/cards';
 import { AccountEntry, Asset, BatchSellItem, BoardState, FamilyMilestoneJoinPrompt, GameState, Liability, SharedCardPrompt, TransactionData } from '../types';
@@ -387,6 +388,8 @@ export const resolveBoardCardAction = (
   gameState: GameState,
   familyStageOverride?: FamilyMilestoneStage | null
 ): BoardCardActionDefinition => {
+  const unknownRequirements=getUnsupportedCardRequirements(cardId);
+  if(unknownRequirements.length)return {kind:'unsupported',label:'卡片條件尚未支援',note:`${cardId}：${unknownRequirements.join('、')}`};
   let happinessCard = HAPPINESS_CARD_MAP[cardId];
   if (happinessCard) {
     const recordedChildCount = Math.max(0, Number(gameState.children) || 0);

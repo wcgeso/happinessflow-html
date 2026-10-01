@@ -107,6 +107,7 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, salary, liabilit
     if (actionType === 'borrow') {
       if (amount > remainingCredit) return;
       onTransaction({
+        commandId: `loan:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
         name: '申請信用貸款',
         amount,
         cashChange: amount,
@@ -141,6 +142,7 @@ export const BankingView: React.FC<BankingViewProps> = ({ cash, salary, liabilit
         : selectedRepayTarget.type;
 
     onTransaction({
+      commandId: `repay:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
       name: selectedRepayTarget.id === 'multiple_credit_loans'
         ? '償還信用貸款'
         : `償還 ${selectedRepayTarget.name}`,

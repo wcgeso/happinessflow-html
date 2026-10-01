@@ -6,11 +6,12 @@ import {
     Users,
     ChevronDown,
     ChevronUp,
-    Trophy
+    Trophy,
+    RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../../services/firebase';
-import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { CoachRecord, GameState } from '../../types';
 import { cn, safeAsync } from '../../utils/utils';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
@@ -43,8 +44,9 @@ const FullFinancialStatementModal: React.FC<{
     playerData: any;
     date: string;
     roomName: string;
+    historySource?: {roomId:string;uid:string;sessionId:string};
     onClose: () => void;
-}> = ({ playerData, date, roomName, onClose }) => {
+}> = ({ playerData, date, roomName, historySource, onClose }) => {
     if (!playerData) return null;
 
     // 還原薪資與支出邏輯 (參考 HistoryView.tsx)
@@ -135,6 +137,7 @@ const FullFinancialStatementModal: React.FC<{
 
                 <div className="flex-1 overflow-y-auto p-6 bg-slate-950/30">
                     <FinancialStatement
+                        historySource={historySource}
                         gameState={dummyGameState}
                         summary={summary}
                         hideSummary={true}
@@ -161,31 +164,30 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
     const [viewingPlayerUid, setViewingPlayerUid] = useState<string | null>(null);
     const [isFetchingDetail, setIsFetchingDetail] = useState(false);
 
-    useEffect(() => {
+    const fetchRecords = async () => {
         if (!user) return;
-
-        const q = query(
-            collection(db, 'coach_records'),
-            where('coachId', '==', user.uid)
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedRecords = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
+        setLoading(true);
+        try {
+            const snapshot = await getDocs(query(
+                collection(db, 'coach_records'),
+                where('coachId', '==', user.uid),
+                limit(20)
+            ));
+            const fetchedRecords = snapshot.docs.map(recordDoc => ({
+                id: recordDoc.id,
+                ...recordDoc.data()
             })) as CoachRecord[];
-
-            // Client-side sort to avoid Firestore index requirement
             fetchedRecords.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
             setRecords(fetchedRecords);
-            setLoading(false);
-        }, (error) => {
+        } catch (error) {
             console.error("Error fetching coach records:", error);
+        } finally {
             setLoading(false);
-        });
+        }
+    };
 
-        return () => unsubscribe();
+    useEffect(() => {
+        void fetchRecords();
     }, [user]);
 
     const toggleExpand = async (id: string) => {
@@ -239,6 +241,15 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
                             className="bg-slate-900/50 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 h-10 px-4"
                         >
                             <ArrowLeft size={18} className="mr-2" /> 返回
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            onClick={() => void fetchRecords()}
+                            disabled={loading}
+                            className="bg-slate-900/50 border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 h-10 px-4"
+                        >
+                            <RefreshCw size={18} className={cn('mr-2', loading && 'animate-spin')} />
+                            重新整理
                         </Button>
                     </div>
 
@@ -373,6 +384,7 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
             {viewingPlayerData && (
                 <FullFinancialStatementModal
                     playerData={viewingPlayerData}
+                    historySource={selectedScoreRecord?.financialHistoryStorage==='subcollection' && viewingPlayerUid ? {roomId:selectedScoreRecord.roomId,uid:viewingPlayerUid,sessionId:selectedScoreRecord.sessionId} : undefined}
                     date={selectedScoreRecord?.settledAt?.toDate?.()?.toISOString() || selectedScoreRecord?.settledAt || records.find(r => r.id === expandedId)?.date || ""}
                     roomName={selectedScoreRecord?.roomName || records.find(r => r.id === expandedId)?.roomName || "遊戲紀錄"}
                     onClose={() => setViewingPlayerUid(null)}

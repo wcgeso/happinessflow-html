@@ -1,3 +1,6 @@
+import {observeSnapshots} from '../utils/recoveringSnapshot';
+import {usePublicFinancialEffects} from '../hooks/usePublicFinancialEffects';
+import {withAutomaticHappiness} from '../game/finance/automaticHappiness';
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     doc,
@@ -8,6 +11,8 @@ import {
     where,
     orderBy,
     limit,
+    startAfter,
+    documentId,
     setDoc,
     runTransaction,
     serverTimestamp,
@@ -47,6 +52,8 @@ interface GameContextValue {
     updateMarketPrices: (updates: Record<string, number>, code: string) => void;
     bubbleBurst: (code: string) => void;
     sessionId: string | null;
+    financialSyncError: {code:string;message:string} | null;
+    retryFinancialSync: () => void;
 }
 
 const GameContext = createContext<GameContextValue | undefined>(undefined);
@@ -182,7 +189,7 @@ export const isHiddenStockNewsCard = (room: {
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user } = useAuth();
-    const { room, playerStatesHydrated, roomSyncState } = useRoom();
+    const { room, playerStatesHydrated, roomSyncState, isController } = useRoom();
 
     // ─── Milestone 0.5: Adapter Wiring ───────────────────────────────────────
     // LegacyGameAdapter 就位，但所有 Feature Flags 為 false，
@@ -275,7 +282,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 不要讓草稿同步與執行師開始新局時的玩家文件重建互相競爭。
         if (!room?.id || !user || user.uid === room.hostId || !isRoomMember || !playerStatesHydrated || roomSyncState !== 'synced') return;
         if (!gameState.isSetup) return;
-        if (shouldDeferPlayerStateSync(room)) return;
+        if (room.flowSchemaVersion === 1 || shouldDeferPlayerStateSync(room)) return;
         // 防止跨場遊戲殘留狀態外洩（C2）：本地 gameState 必須是「為了目前這場
         // 房間遊戲（room.startedAt）而重設/建立的」才允許同步進 Firestore。
         // 玩家剛加入新房間、但本地還殘留上一場遊戲的 gameState（尚未被
@@ -407,6 +414,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 權威資料在這段等待期間可能已經被別的交易改過（例如先領銀行月結餘、
         // 再扣機運卡費用）。暫存的本機差異若是針對「更早那份」權威值算出來的，
         // 就已經過期；繼續套用只會把新算好的金額蓋回舊數字，必須先丟棄。
+        if(room.flowSchemaVersion === 1) pendingLocalPlayerPatchRef.current={};
         Object.keys(pendingLocalPlayerPatchRef.current).forEach(field => {
             const key = field as keyof GameState;
             const authoritativeUnchanged = !previousAuthoritative ||
@@ -447,7 +455,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const roomRef = doc(db, 'rooms', room.id);
         const playerRef = doc(db, 'rooms', room.id, 'players', user.uid);
-        const playerPatch = limitPlayerSyncHistory(pickPlayerStateForSync(nextState));
+        const playerPatch = limitPlayerSyncHistory(pickPlayerStateForSync(withAutomaticHappiness(nextState,room.financialAcceleration)));
         const committedState = await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
             const [roomSnapshot, playerSnapshot] = await Promise.all([
                 transaction.get(roomRef),
@@ -510,7 +518,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, []);
 
-    const financialAcceleration: FinancialAccelerationState = room?.financialAcceleration || { multiplier: 1 };
+    // Room snapshots replace objects even when only the board changes.
+    const financialAcceleration = useMemo<FinancialAccelerationState>(() => ({
+        multiplier: room?.financialAcceleration?.multiplier || 1,
+        updatedAt: room?.financialAcceleration?.updatedAt,
+        updatedByUid: room?.financialAcceleration?.updatedByUid,
+        updatedByName: room?.financialAcceleration?.updatedByName,
+    }), [room?.financialAcceleration?.multiplier, room?.financialAcceleration?.updatedAt,
+        room?.financialAcceleration?.updatedByUid, room?.financialAcceleration?.updatedByName]);
     const summary = useMemo(() => calculateFinancialSummary(gameState, financialAcceleration), [gameState, financialAcceleration]);
 
     const seenAccelerationRef = useRef<string | null>(null);
@@ -545,6 +560,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             uid: user.uid,
             playerName: gameState.playerName || (user as any).name || 'Unknown',
             roomId: room?.id || null,
+            historySource: room?.financialHistoryStorage === 'subcollection' && room.sessionId && user?.uid
+                ? {roomId:room.id, sessionId:room.sessionId, uid:user.uid} : null,
             sessionId,
             status,
             profession: gameState.currentRankTitle || gameState.profession?.title || 'Unknown',
@@ -588,77 +605,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => clearInterval(interval);
     }, [gameState.isSetup, user]);
 
-    // 自動更新唯讀幸福項目
-    useEffect(() => {
-        if (!gameState.isSetup) return;
-
-        let updatedHappiness = [...gameState.happiness];
-        let changed = false;
-
-        // 1. 財務自由 (理財收入 > 總支出)
-        const isFinancialFree = summary.passiveIncome > summary.totalExpenses;
-        const financeItem = updatedHappiness.find(h => h.id === 'h_finance');
-        if (financeItem && financeItem.checked !== isFinancialFree) {
-            updatedHappiness = updatedHappiness.map(h => h.id === 'h_finance' ? { ...h, checked: isFinancialFree } : h);
-            changed = true;
-        }
-
-        // 2. 自住房相關：只取分數最高的那一間
-        const houseSubIds: Record<string, string> = { '1room': 'h_house_1', '2room': 'h_house_2', '3room': 'h_house_3', '5room': 'h_house_5' };
-        const housePoints: Record<string, number> = { '1room': 2, '2room': 4, '3room': 6, '5room': 8 };
-        const selfUseTypes = gameState.assets
-            .filter(a => a.houseType && a.isSelfUse)
-            .map(a => a.houseType as string);
-        const bestType = selfUseTypes.reduce<string | null>((best, t) =>
-            best === null || (housePoints[t] || 0) > (housePoints[best] || 0) ? t : best
-        , null);
-
-        Object.entries(houseSubIds).forEach(([typeKey, itemId]) => {
-            const shouldBeChecked = typeKey === bestType;
-            const item = updatedHappiness.find(h => h.id === itemId);
-            if (item && item.checked !== shouldBeChecked) {
-                updatedHappiness = updatedHappiness.map(h => h.id === itemId ? { ...h, checked: shouldBeChecked } : h);
-                changed = true;
-            }
+    // Presentation mirrors the same pure calculation committed by financial transactions.
+    useEffect(()=>{
+        setGameState(previous=>{
+            const next=withAutomaticHappiness(previous,financialAcceleration);
+            return JSON.stringify(previous.happiness)===JSON.stringify(next.happiness) && previous.happinessTotal===next.happinessTotal ? previous : next;
         });
-
-        const hasAnySelfUseHouse = gameState.assets.some(a => a.type === '不動產' && a.houseType && a.isSelfUse);
-        const houseSelfItem = updatedHappiness.find(h => h.id === 'h_house_self');
-        if (houseSelfItem && houseSelfItem.checked !== hasAnySelfUseHouse) {
-            updatedHappiness = updatedHappiness.map(h => h.id === 'h_house_self' ? { ...h, checked: hasAnySelfUseHouse } : h);
-            changed = true;
-        }
-
-        // 3. 幸福家庭 (完成 5 項: 約會, 求婚, 婚禮, 孩子1, 自住房)
-        const hasDate = updatedHappiness.find(h => h.id === 'h_date')?.checked;
-        const hasProposal = updatedHappiness.find(h => h.id === 'h_proposal')?.checked;
-        const hasWedding = updatedHappiness.find(h => h.id === 'h_wedding')?.checked;
-        const hasChild1 = updatedHappiness.find(h => h.id === 'h_child1')?.checked;
-        const isFamilyComplete = !!(hasDate && hasProposal && hasWedding && hasChild1 && hasAnySelfUseHouse);
-
-        const familyItem = updatedHappiness.find(h => h.id === 'h_family');
-        if (familyItem && familyItem.checked !== isFamilyComplete) {
-            updatedHappiness = updatedHappiness.map(h => h.id === 'h_family' ? { ...h, checked: isFamilyComplete } : h);
-            changed = true;
-        }
-
-        // 4. 汽車（相容舊的飛行器資產資料）
-        const hasAircraft = gameState.assets.some(a => a.type === '汽車' || a.type === '飛行器');
-        const planeItem = updatedHappiness.find(h => h.id === 'h_plane');
-        if (planeItem && planeItem.checked !== hasAircraft) {
-            updatedHappiness = updatedHappiness.map(h => h.id === 'h_plane' ? { ...h, checked: hasAircraft } : h);
-            changed = true;
-        }
-
-        if (changed) {
-            const newTotal = updatedHappiness.reduce((sum, h) => sum + (h.checked ? h.points : 0), 0);
-            setGameState(prev => ({
-                ...prev,
-                happiness: updatedHappiness,
-                happinessTotal: newTotal
-            }));
-        }
-    }, [summary.passiveIncome, summary.totalExpenses, gameState.assets, gameState.isSetup, gameState.happiness]);
+    },[summary.passiveIncome,summary.totalExpenses,gameState.assets,gameState.isSetup,gameState.happiness,financialAcceleration]);
 
     // 歷史資料不是遊戲中的即時狀態；遊戲進行中不查詢，回到大廳／結算
     // 時只讀一次，避免歷史草稿更新觸發持續監聽。
@@ -686,6 +639,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 records.push({
                     id: docSnap.id,
                     roomId: data.roomId,
+                    historySource: data.financialHistoryStorage === 'subcollection' && data.roomId && data.sessionId
+                        ? {roomId:data.roomId, sessionId:data.sessionId, uid:user.uid} : data.historySource || undefined,
                     date: data.settledAt?.toDate ? data.settledAt.toDate().toISOString() :
                         (data.settledAt ? new Date(data.settledAt).toISOString() : new Date().toISOString()),
                     playerName: playerData.name,
@@ -746,6 +701,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 records.push({
                     id: docSnap.id,
                     roomId: data.roomId,
+                    historySource: data.financialHistoryStorage === 'subcollection' && data.roomId && data.sessionId
+                        ? {roomId:data.roomId, sessionId:data.sessionId, uid:user.uid} : data.historySource || undefined,
                     date: data.updatedAt || new Date().toISOString(),
                     playerName: data.playerName || 'Unknown',
                     reportName: data.playerName ? `${data.playerName} 的財務報表` : '我的財務報表',
@@ -771,10 +728,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     }, [room?.status, user]);
 
-    const saveGameRecord = async (record: GameRecord) => {
+    const saveGameRecord = useCallback(async (record: GameRecord) => {
         await saveToPlayerSessions('completed');
         showAlert('遊戲紀錄已保存', 'success');
-    };
+    }, [saveToPlayerSessions, showAlert]);
 
     const updateMarketPrices = useCallback((updates: Record<string, number>, code: string) => {
         setGameState(prev => ({
@@ -807,8 +764,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     }, []);
 
+    const {failure:financialSyncError,retry:retryFinancialSync}=usePublicFinancialEffects({
+        db,roomId:room?.id,sessionId:room?.sessionId,uid:user?.uid,
+        enabled:room?.flowSchemaVersion===1 && user?.uid!==room?.hostId && isController && gameState.isSetup,
+        timestamp:gameState.lastPublicEffectTimestamp,effectId:gameState.lastPublicEffectId
+    });
+
     // 房間主 listener 已經帶回行情更新，避免玩家端再開第二條同房間 listener。
     useEffect(() => {
+        if(room?.flowSchemaVersion===1)return;
         const marketUpdate = room?.marketUpdates;
         if (!room?.id || user?.uid === room.hostId || !gameState.isSetup || !marketUpdate) return;
         if (isHiddenStockNewsCard(room)) return;
@@ -835,6 +799,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         if (!room?.id || !user?.uid || user.uid === room.hostId || !gameState.isSetup) return;
 
+        if(room.flowSchemaVersion===1)return;
         const effect = room.boardState?.sharedExpenseEffect as SharedExpenseEffect | null | undefined;
         if (!effect || effect.sourcePlayerUid === user.uid || effect.id === gameState.lastSharedExpenseEventId) return;
 
@@ -862,30 +827,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [scoreRecords, playerSessionRecords]);
 
-    const setGameHistory = () => {};
+    const setGameHistory = useCallback(() => {}, []);
 
-    return (
-        <GameContext.Provider value={{
-            gameState,
-            setGameState,
-            completePlayerSetup,
-            gameHistory,
-            setGameHistory,
-            summary,
-            financialAcceleration,
-            scoreResult,
-            alertInfo,
-            showAlert,
-            hideAlert,
-            saveGameRecord,
-            requestImmediatePlayerSync,
-            updateMarketPrices,
-            bubbleBurst,
-            sessionId: sessionIdRef.current,
-        }}>
-            {children}
-        </GameContext.Provider>
-    );
+    const sessionId = sessionIdRef.current;
+    const contextValue = useMemo(() => ({
+        gameState, setGameState, completePlayerSetup, gameHistory, setGameHistory,
+        summary, financialAcceleration, scoreResult, alertInfo, showAlert, hideAlert,
+        saveGameRecord, requestImmediatePlayerSync, updateMarketPrices, bubbleBurst,
+        sessionId, financialSyncError, retryFinancialSync,
+    }), [gameState, completePlayerSetup, gameHistory, setGameHistory, summary, financialAcceleration,
+        scoreResult, alertInfo, showAlert, hideAlert, saveGameRecord, requestImmediatePlayerSync,
+        updateMarketPrices, bubbleBurst, sessionId, financialSyncError, retryFinancialSync]);
+
+    return <GameContext.Provider value={contextValue}>{children}</GameContext.Provider>;
 };
 
 export const useGame = () => {

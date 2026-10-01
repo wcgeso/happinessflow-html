@@ -219,6 +219,8 @@ export interface BoardEventLog {
   rollTotal?: number;
   repairRoll?: number;
   repairFee?: number;
+  hospitalRoll?: number;
+  hospitalFee?: number;
   repairHasCar?: boolean;
   hospitalSkipTurns?: number;
   hospitalFeeCoveredByInsurance?: boolean;
@@ -241,8 +243,6 @@ export interface BoardCardRevealState {
 export interface BoardMovementEffect {
   type: 'repair_fee';
   squareIndex: number;
-  dice: number;
-  amount: number;
 }
 
 export interface SettlementPlayerInput {
@@ -277,6 +277,9 @@ export interface FamilyMilestoneJoinResponse {
   stageProgressId?: string;
   roll?: number;
   respondedAt: number;
+  // All clients reveal the result from this shared deadline instead of from
+  // the time each client receives the Firestore snapshot.
+  presentationReadyAt?: number;
 }
 
 export interface FamilyMilestoneJoinPrompt {
@@ -290,6 +293,7 @@ export interface FamilyMilestoneJoinPrompt {
   requiredRoll: number;
   targetPlayerUids: string[];
   responses: Record<string, FamilyMilestoneJoinResponse>;
+  responseStorage?: 'room' | 'subcollection';
   createdAt: number;
 }
 
@@ -312,6 +316,7 @@ export interface SharedCardPrompt {
   sourcePlayerName: string;
   targetPlayerUids: string[];
   responses: Record<string, SharedCardPromptResponse>;
+  responseStorage?: 'room' | 'subcollection';
   createdAt: number;
 }
 
@@ -332,7 +337,27 @@ export interface SkippedTurnNotice {
   timestamp: number;
 }
 
+export type PendingBoardContinuation = {
+  sessionId: string;
+  sourceEventId: string;
+  cardId: string;
+  playerUid: string;
+  commandId: string;
+  createdAt: number;
+  phase: 'awaiting_roll' | 'awaiting_draw' | 'completed';
+} & ({
+  kind: 'lifelong-learning';
+  learningType: 'enhance_profession' | 'stock_ability' | 'real_estate_ability';
+  requiredRoll: number;
+  result?: { roll: number; target: number; success: boolean; bonus?: number; newTitle?: string };
+} | {
+  kind: 'followup-card';
+  deck: 'happiness' | 'news';
+  result?: { eventId: string; cardId: string };
+});
+
 export interface BoardState {
+  pendingContinuation?: PendingBoardContinuation | null;
   currentTurnUid: string | null;
   turnOrder: string[];
   revision?: number;
@@ -348,6 +373,7 @@ export interface BoardState {
     total: number;
     timestamp: number;
   } | null;
+  diceEvents?: DicePresentationEvent[];
   currentCard: BoardCardResult | null;
   currentCardReveal?: BoardCardRevealState | null;
   currentEvent: BoardEventLog | null;
@@ -363,6 +389,24 @@ export interface BoardState {
   updatedAt: number;
 }
 
+export interface DicePresentationEvent {
+  id: string;
+  sequence: number;
+  playerUid: string;
+  playerName: string;
+  kind: 'board-movement' | 'repair' | 'family-participation' | 'hospital-fee' | 'school-exam' | 'lifelong-learning' | 'business-upgrade';
+  sourceEventId?: string;
+  dice: number[];
+  total: number;
+  target?: number;
+  success?: boolean;
+  resultLabel?: string;
+  detail?: string;
+  bonus?: number;
+  newTitle?: string;
+  timestamp: number;
+}
+
 export interface BoardBlocker {
   code: string;
   message: string;
@@ -371,6 +415,8 @@ export interface BoardBlocker {
 export interface BoardActionAvailability {
   canRoll: boolean;
   canEndTurn: boolean;
+  canOpenEvent?: boolean;
+  eventBlocker?: BoardBlocker | null;
   rollBlocker: BoardBlocker | null;
   endTurnBlocker: BoardBlocker | null;
 }
@@ -445,6 +491,10 @@ export interface GameState {
   lastMarketUpdateTimestamp?: number;
   lastSharedExpenseSyncedAt?: number;
   lastSharedExpenseEventId?: string;
+  lastPublicEffectTimestamp?: number;
+  lastPublicEffectId?: string;
+  lastFinancialCommandId?: string;
+  lastFinancialReceiptId?: string;
   // 標記這份 gameState 是為了「哪一場」棋盤遊戲（room.startedAt）而重設/建立的。
   // 用來擋掉跨場遊戲的殘留本地狀態被誤同步進新房間（見稽核報告 C2）：只有
   // stamp 對得上目前房間 startedAt 的 gameState，才會被同步寫回 Firestore。
@@ -472,10 +522,12 @@ export interface GameState {
   pendingStartupUpgradeAction?: {
     cardId: string;
     symbol: string;
+    assetId?: string;
   };
   pendingStartupUpgradeActions?: Array<{
     cardId: string;
     symbol: string;
+    assetId?: string;
   }>;
 }
 
@@ -510,6 +562,7 @@ export interface FinancialSummary {
 }
 
 export interface GameRecord {
+  historySource?: { roomId: string; uid: string; sessionId: string };
   id: string;
   date: string;
   playerName: string;
@@ -636,6 +689,7 @@ export interface BatchSellItem {
 }
 
 export interface TransactionData {
+  commandId?: string;
   name: string;
   amount: number;
   source: SourceType;
@@ -729,6 +783,10 @@ export interface TransactionData {
   };
   boardEventId?: string; // 棋盤事件 ID，用於財務檢核流程的事件級防重複套用
   boardFlow?: BoardFinancialFlow;
+  /** 內部周轉流程：按下強制計入負債時，與原交易同一筆套用。 */
+  forcedDebtAmount?: number;
+  /** 內部周轉流程：按下借用信貸時，與原交易同一筆套用。 */
+  fundingLoanAmount?: number;
   medicalClaimId?: string;
   pendingMedicalClaim?: PendingMedicalClaim;
   vehicleLossPayload?: {
@@ -754,3 +812,89 @@ export interface AccountEntry {
 }
 
 export type Mode = 'loan' | 'buy' | 'sell' | 'dividend' | 'event' | 'expense';
+
+export type BoardFinancialMutationResult = {
+    status: 'applied' | 'duplicate' | 'requires_funding' | 'waiting' | 'failed';
+    shortfall?: number;
+    message?: string;
+    code?: string;
+};
+
+
+export interface RoomMember {
+    uid: string;
+    name: string;
+    photoURL?: string;
+    email?: string;
+    title?: string;
+    experience?: number;
+    role: 'coach' | 'player' | 'gm';
+    joinedAt: any;
+    isLeft?: boolean;
+    photoPosition?: string;
+    photoScale?: string;
+    isReady?: boolean;
+}
+
+export interface PendingRequest {
+    id: string;
+    uid: string;
+    playerName: string;
+    type: 'payday' | 'insurance' | 'happiness' | 'promotion' | 'lifelong' | 'board_share' | 'family_milestone';
+    amount: number;
+    timestamp: number;
+    status: 'pending' | 'approved' | 'rejected';
+    insuranceType?: 'medical' | 'aircraft';
+    happinessLabel?: string;
+    promotionType?: string;
+    boardCardId?: string;
+    shareLabel?: string;
+    boardEventId?: string;
+    familyStageProgressId?: string;
+    sessionId?: string;
+}
+
+export interface Room {
+    id: string; // 房間碼 (6位數)
+    name?: string; // 房間標題
+    hostId: string;
+    status: 'waiting' | 'playing' | 'finished';
+    members: RoomMember[];
+    memberUids?: string[];
+    createdAt: any;
+    maxPlayers: number;
+    closedPlayerSlots?: number[];
+    duration?: number; // 遊戲時長 (分鐘)
+    gameTimeLeft?: number; // 剩餘秒數
+    isTimerPaused?: boolean; // 計時器是否暫停
+    timerEndsAtMs?: number | null; // 執行師控制的計時基準，避免依賴瀏覽器 tick
+    // Legacy only: new rooms store full states in rooms/{roomId}/players/{uid}.
+    // RoomContext hydrates this field locally with only the states the caller may read.
+    playerStates?: Record<string, GameState>;
+    publicPlayerStates?: Record<string, PublicPlayerState>;
+    startedAt?: number; // 遊戲開始時間戳
+    sessionId?: string; // 穩定的遊戲場次 ID
+    syncSchemaVersion?: number;
+    flowSchemaVersion?: number;
+    financialHistoryStorage?: 'subcollection';
+    isBoardGame?: boolean; // 棋盤遊戲模式
+    isPractice?: boolean; // 練習模式（不計分）
+    marketPrices?: Record<string, number>; // 股市價格
+    previousMarketPrices?: Record<string, number>; // 前一次股市價格
+    marketUpdates?: {
+        updates: Record<string, number>;
+        code: string;
+        isBubble: boolean;
+        timestamp: number;
+    };
+    pendingRequests?: Record<string, PendingRequest>;
+    boardState?: BoardState | null;
+    presenceStates?: Record<string, PresenceState>;
+    financialAcceleration?: FinancialAccelerationState;
+    financialSubsidy?: FinancialSubsidyState;
+}
+
+export type BoardCardRevealResult = {
+    familyPrompt: 'opened' | 'no_target' | 'not_required';
+    sharedPrompt: 'opened' | 'no_target' | 'not_required';
+};

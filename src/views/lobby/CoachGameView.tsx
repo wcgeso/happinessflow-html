@@ -1,3 +1,5 @@
+import { serverNow } from '../../utils/serverClock';
+import { SubscriptionStatus } from '../../components/common/SubscriptionStatus';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useRoom } from '../../context/RoomContext';
 import { useAuth, getPlayerBadge } from '../../context/AuthContext';
@@ -6,7 +8,7 @@ import { ConfirmModal } from '../../components/modals/ConfirmModal';
 import { CardTestConsole, type CoachTestCard } from '../../components/coach/CardTestConsole';
 import { calculateFinancialSummary, calculateScoreResult, formatMoney, cn } from '../../utils/gameUtils';
 import { safeAsync } from '../../utils/utils';
-import { ScoreView } from '../game/ScoreView';
+const ScoreView = React.lazy(() => import('../game/ScoreView').then(module => ({ default: module.ScoreView })));
 import { StockMarketModal } from '../../components/transaction/StockMarketModal';
 import { HappinessListModal } from '../../components/modals/HappinessListModal';
 import SafeImage from '../../components/common/SafeImage';
@@ -45,6 +47,7 @@ import { canSkipDisconnectedPlayer, isPresenceOnline } from '../../utils/presenc
 import { hasIncompleteSharedPrompts } from '../../utils/boardCardActions';
 import { CoachExpenseCategory } from '../../types';
 import { debugLog } from '../../utils/debugLog';
+import {coachIntentKey,readCoachIntent,clearCoachIntent,type CoachAction,type CoachIntent} from '../../game/finance/pendingIntent';
 
 export const CoachGameView: React.FC = () => {
     const { room, pendingRequests: roomPendingRequests, playerStates, presenceStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, adjustPlayerCash, adjustPlayerInvestmentIncome, adjustPlayerLiability, adjustPlayerExpense, updateFinancialAcceleration, grantFinancialSubsidyToAllPlayers, updateRoomTimer, startRoomGame, approveRequest, rejectRequest, skipDisconnectedTurn, skipDisconnectedSharedPromptTarget, coachTriggerBoardCard, repeatCurrentBoardEvent, setCoachNextTurn, clearCurrentBoardEvent, forceEndBoardTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
@@ -76,6 +79,59 @@ export const CoachGameView: React.FC = () => {
     const [isAdjustingCorrection, setIsAdjustingCorrection] = useState(false);
     const [subsidyAmount, setSubsidyAmount] = useState('10000');
     const [isGrantingSubsidy, setIsGrantingSubsidy] = useState(false);
+
+    const coachScope = `${room?.id || ''}:${room?.sessionId || ''}:${user?.uid || ''}`;
+    const currentCoachScope = useRef(coachScope);
+    currentCoachScope.current = coachScope;
+    const coachCommandBusy = useRef(false);
+    const [isCoachCommandBusy,setIsCoachCommandBusy] = useState(false);
+    const [pendingCoachIntent,setPendingCoachIntent] = useState<CoachIntent|null>(null);
+    const [coachCommandError,setCoachCommandError] = useState('');
+    useEffect(() => {
+        setCoachCommandError('');
+        try {setPendingCoachIntent(readCoachIntent(localStorage,coachScope));}
+        catch(error) {setCoachCommandError((error as Error).message);setPendingCoachIntent(null);}
+    },[coachScope]);
+
+    const runCoachAction = async (action:CoachAction):Promise<void> => {
+        if(coachCommandBusy.current)throw new Error('另一項財務操作正在確認，請稍候');
+        if(!room?.id || !room.sessionId || !user?.uid)throw new Error('房間資料尚未準備完成');
+        const scope=coachScope;
+        coachCommandBusy.current=true;
+        setIsCoachCommandBusy(true);
+        setCoachCommandError('');
+        let intent:CoachIntent|null=null;
+        try {
+            intent=readCoachIntent(localStorage,scope);
+            if(intent && JSON.stringify(intent.action)!==JSON.stringify(action))throw new Error('請先核對上一項財務操作，再提交新的調整');
+            intent=intent || {commandId:`coach-${action.kind}:${crypto.randomUUID()}`,action};
+            localStorage.setItem(coachIntentKey(scope),JSON.stringify(intent));
+            setPendingCoachIntent(intent);
+            const id=intent.commandId;
+            switch(action.kind) {
+                case 'cash':await adjustPlayerCash(action.playerUid,action.amount,id);break;
+                case 'income':await adjustPlayerInvestmentIncome(action.playerUid,action.amount,id);break;
+                case 'liability':await adjustPlayerLiability(action.playerUid,action.liabilityId,action.adjustments,id);break;
+                case 'expense':await adjustPlayerExpense(action.playerUid,action.category,action.amount,action.reason,id);break;
+                case 'subsidy':await grantFinancialSubsidyToAllPlayers(action.amount,id);break;
+                case 'market':await updateMarket(action.updates,action.code,action.isBubble,id);break;
+            }
+            clearCoachIntent(localStorage,scope,id);
+            if(currentCoachScope.current!==scope)throw new Error('原場次操作已確認，目前場次已更新');
+            setPendingCoachIntent(null);
+        } catch(error) {
+            // A rejected transaction is definite; connection errors retain the original receipt key.
+            if(intent && ['permission-denied','invalid-argument','aborted','failed-precondition'].includes(String((error as {code?:string}).code))) {
+                clearCoachIntent(localStorage,scope,intent.commandId);
+                if(currentCoachScope.current===scope)setPendingCoachIntent(null);
+            }
+            if(currentCoachScope.current===scope)setCoachCommandError((error as Error).message || '交易尚未確認，請核對原操作');
+            throw error;
+        } finally {
+            coachCommandBusy.current=false;
+            setIsCoachCommandBusy(false);
+        }
+    };
 
     // 檢查 localStorage 是否已有紀錄
     useEffect(() => {
@@ -141,7 +197,7 @@ export const CoachGameView: React.FC = () => {
     const pendingRequest = useMemo(() => {
         const requests = Object.values(roomPendingRequests)
             .filter(r => r.status === 'pending' && r.type !== 'family_milestone')
-            .sort((a, b) => a.timestamp - b.timestamp);
+            .sort((a, b) => a.timestamp - b.timestamp || a.id.localeCompare(b.id));
         
         if (requests.length > 0) {
             debugLog('執行師端偵測到請求:', requests[0].playerName, requests[0].type, requests[0].amount);
@@ -152,14 +208,14 @@ export const CoachGameView: React.FC = () => {
 
     const pendingRequests = useMemo(() => Object.values(roomPendingRequests)
         .filter(request => request.status === 'pending' && request.type !== 'family_milestone')
-        .sort((a, b) => a.timestamp - b.timestamp), [roomPendingRequests]);
+        .sort((a, b) => a.timestamp - b.timestamp || a.id.localeCompare(b.id)), [roomPendingRequests]);
 
     // 倒數只依照結束時間計算；背景分頁或執行師端高負載恢復後會直接跳到正確秒數。
     useEffect(() => {
         if (!room || room.isTimerPaused || timerDeadlineRef.current == null) return;
 
         const updateDisplayedTime = () => {
-            const next = Math.max(0, Math.ceil((timerDeadlineRef.current! - Date.now()) / 1000));
+            const next = Math.max(0, Math.ceil((timerDeadlineRef.current! - serverNow()) / 1000));
             setTimeLeft(next);
         };
         updateDisplayedTime();
@@ -188,7 +244,7 @@ export const CoachGameView: React.FC = () => {
                 await startRoomGame();
                 return;
             }
-            await updateRoomTimer(timeLeft, false, Date.now() + timeLeft * 1000);
+            await updateRoomTimer(timeLeft, false, serverNow() + timeLeft * 1000);
             setIsPaused(false);
         } catch (error) {
             console.error('開始遊戲失敗:', error);
@@ -219,7 +275,7 @@ export const CoachGameView: React.FC = () => {
         const newPaused = !isPaused;
         setIsUpdatingTimer(true);
         try {
-            await updateRoomTimer(timeLeft, newPaused, newPaused ? null : Date.now() + timeLeft * 1000);
+            await updateRoomTimer(timeLeft, newPaused, newPaused ? null : serverNow() + timeLeft * 1000);
             setIsPaused(newPaused);
         } catch (error) {
             console.error('切換遊戲計時器失敗:', error);
@@ -232,7 +288,7 @@ export const CoachGameView: React.FC = () => {
         if (timeLeft === 0) return; // 時間到不能再操作
         const newTime = Math.max(0, timeLeft + seconds);
         setTimeLeft(newTime);
-        void updateRoomTimer(newTime, isPaused, isPaused ? null : Date.now() + newTime * 1000);
+        void updateRoomTimer(newTime, isPaused, isPaused ? null : serverNow() + newTime * 1000);
     };
 
     const handleResetTimer = () => {
@@ -468,6 +524,7 @@ export const CoachGameView: React.FC = () => {
                 roomId: room.id,
                 roomName: room.name || '未命名房間',
                 sessionId: recordId,
+                financialHistoryStorage: room.financialHistoryStorage || null,
                 settledAt: serverTimestamp(),
                 gameTime: `${room.duration || 0} 分鐘`,
                 coach: user?.name || 'Unknown Coach',
@@ -628,7 +685,7 @@ export const CoachGameView: React.FC = () => {
 
         setIsAdjustingCash(true);
         try {
-            await adjustPlayerCash(selectedPlayerUid, direction * amount);
+            await runCoachAction({kind:'cash',playerUid:selectedPlayerUid,amount:direction*amount});
         } catch (error: any) {
             window.alert(error?.message || '現金調整失敗');
         } finally {
@@ -646,7 +703,7 @@ export const CoachGameView: React.FC = () => {
 
         setIsAdjustingIncome(true);
         try {
-            await adjustPlayerInvestmentIncome(selectedPlayerUid, direction * amount);
+            await runCoachAction({kind:'income',playerUid:selectedPlayerUid,amount:direction*amount});
         } catch (error: any) {
             window.alert(error?.message || '理財收入調整失敗');
         } finally {
@@ -674,11 +731,7 @@ export const CoachGameView: React.FC = () => {
 
         setIsAdjustingCorrection(true);
         try {
-            await adjustPlayerLiability(selectedPlayerUid, liabilityId, {
-                totalOwedDelta,
-                monthlyPaymentDelta,
-                reason: adjustmentReason
-            });
+            await runCoachAction({kind:'liability',playerUid:selectedPlayerUid,liabilityId,adjustments:{totalOwedDelta,monthlyPaymentDelta,reason:adjustmentReason}});
             setLiabilityOwedAdjustment('0');
             setLiabilityPaymentAdjustment('0');
             window.alert('負債調整完成');
@@ -703,7 +756,7 @@ export const CoachGameView: React.FC = () => {
 
         setIsAdjustingCorrection(true);
         try {
-            await adjustPlayerExpense(selectedPlayerUid, expenseCategory, direction * amount, adjustmentReason);
+            await runCoachAction({kind:'expense',playerUid:selectedPlayerUid,category:expenseCategory,amount:direction*amount,reason:adjustmentReason});
             window.alert('每月支出調整完成');
         } catch (error: any) {
             window.alert(error?.message || '每月支出調整失敗');
@@ -739,7 +792,7 @@ export const CoachGameView: React.FC = () => {
             onConfirm: () => {
                 setGenericConfirm(null);
                 setIsGrantingSubsidy(true);
-                void grantFinancialSubsidyToAllPlayers(amount)
+                void runCoachAction({kind:'subsidy',amount})
                     .catch(error => window.alert(error?.message || '全體補助發放失敗'))
                     .finally(() => setIsGrantingSubsidy(false));
             }
@@ -1033,7 +1086,7 @@ export const CoachGameView: React.FC = () => {
         setIsUpdatingMarket(true);
         try {
             const publishedCode = confirmPublishData?.code || '';
-            await updateMarket(confirmPublishData.updates, confirmPublishData.code, confirmPublishData.isBubble);
+            await runCoachAction({kind:'market',...confirmPublishData});
 
             // 股市更新後立即自動存檔，確保歷史紀錄捕捉到資產變動
             saveRecords(false, true);
@@ -1094,6 +1147,11 @@ export const CoachGameView: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full bg-slate-950 text-white overflow-hidden relative pt-safe pb-safe">
+            <SubscriptionStatus flowSchemaVersion={room?.flowSchemaVersion} />
+            {(pendingCoachIntent || coachCommandError) && <div role="status" className="shrink-0 bg-amber-950 p-3 text-sm">
+                {coachCommandError || (isCoachCommandBusy ? '正在確認執行師財務操作，請稍候' : '上一項財務操作尚待核對，請使用原操作安全接續')}
+                {pendingCoachIntent && <button disabled={isCoachCommandBusy} className="ml-3 underline disabled:opacity-50" onClick={() => void runCoachAction(pendingCoachIntent.action).catch(() => {})}>安全核對原財務操作</button>}
+            </div>}
             {/* Header */}
             <div className="h-16 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-40">
                 <div className="flex items-center gap-3">
@@ -1997,7 +2055,7 @@ export const CoachGameView: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => void handleAdjustCash(-1)}
-                                                    disabled={isAdjustingCash}
+                                                    disabled={isAdjustingCash || isCoachCommandBusy}
                                                     className="rounded-lg border border-rose-500/30 px-3 py-1.5 text-sm font-black text-rose-300 hover:bg-rose-500/10 disabled:opacity-50"
                                                 >
                                                     - 扣除
@@ -2005,7 +2063,7 @@ export const CoachGameView: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => void handleAdjustCash(1)}
-                                                    disabled={isAdjustingCash}
+                                                    disabled={isAdjustingCash || isCoachCommandBusy}
                                                     className="rounded-lg border border-emerald-500/30 px-3 py-1.5 text-sm font-black text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50"
                                                 >
                                                     + 增加
@@ -2028,7 +2086,7 @@ export const CoachGameView: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => void handleAdjustInvestmentIncome(-1)}
-                                                    disabled={isAdjustingIncome}
+                                                    disabled={isAdjustingIncome || isCoachCommandBusy}
                                                     className="rounded-lg border border-rose-500/30 px-3 py-1.5 text-sm font-black text-rose-300 hover:bg-rose-500/10 disabled:opacity-50"
                                                 >
                                                     - 減少
@@ -2036,7 +2094,7 @@ export const CoachGameView: React.FC = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => void handleAdjustInvestmentIncome(1)}
-                                                    disabled={isAdjustingIncome}
+                                                    disabled={isAdjustingIncome || isCoachCommandBusy}
                                                     className="rounded-lg border border-cyan-500/30 px-3 py-1.5 text-sm font-black text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-50"
                                                 >
                                                     + 增加
@@ -2116,7 +2174,7 @@ export const CoachGameView: React.FC = () => {
                                                         <select
                                                             value={expenseCategory}
                                                             onChange={event => setExpenseCategory(event.target.value as CoachExpenseCategory)}
-                                                            disabled={isAdjustingCorrection}
+                                                            disabled={isAdjustingCorrection || isCoachCommandBusy}
                                                             className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-bold text-white outline-none"
                                                             aria-label="選擇每月支出類別"
                                                         >
@@ -2135,14 +2193,14 @@ export const CoachGameView: React.FC = () => {
                                                             step="1000"
                                                             value={expenseAdjustment}
                                                             onChange={event => setExpenseAdjustment(event.target.value)}
-                                                            disabled={isAdjustingCorrection}
+                                                            disabled={isAdjustingCorrection || isCoachCommandBusy}
                                                             className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-right text-xs font-bold text-white outline-none focus:border-orange-400 disabled:opacity-50"
                                                             aria-label="每月支出調整金額"
                                                         />
                                                         <button
                                                             type="button"
                                                             onClick={() => void handleAdjustExpense(-1)}
-                                                            disabled={isAdjustingCorrection}
+                                                            disabled={isAdjustingCorrection || isCoachCommandBusy}
                                                             className="rounded-lg border border-slate-600 px-2 py-1.5 text-xs font-black text-slate-200 hover:bg-slate-800 disabled:opacity-50"
                                                         >
                                                             - 減少
@@ -2150,7 +2208,7 @@ export const CoachGameView: React.FC = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => void handleAdjustExpense(1)}
-                                                            disabled={isAdjustingCorrection}
+                                                            disabled={isAdjustingCorrection || isCoachCommandBusy}
                                                             className="rounded-lg border border-orange-500/30 px-2 py-1.5 text-xs font-black text-orange-200 hover:bg-orange-500/10 disabled:opacity-50"
                                                         >
                                                             + 增加
@@ -2201,14 +2259,14 @@ export const CoachGameView: React.FC = () => {
                                                     step="1000"
                                                     value={subsidyAmount}
                                                     onChange={event => setSubsidyAmount(event.target.value)}
-                                                    disabled={room?.status !== 'playing' || isGrantingSubsidy}
+                                                    disabled={room?.status !== 'playing' || isGrantingSubsidy || isCoachCommandBusy}
                                                     className="w-28 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-right text-sm font-bold text-white outline-none focus:border-amber-500 disabled:opacity-50"
                                                     aria-label="全體補助金額"
                                                 />
                                                 <button
                                                     type="button"
                                                     onClick={handleGrantFinancialSubsidy}
-                                                    disabled={room?.status !== 'playing' || isGrantingSubsidy}
+                                                    disabled={room?.status !== 'playing' || isGrantingSubsidy || isCoachCommandBusy}
                                                     className="rounded-lg border border-amber-500/40 px-3 py-1.5 text-xs font-black text-amber-200 hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                                                 >
                                                     {isGrantingSubsidy ? '發放中…' : '發放給有效玩家'}
@@ -2255,6 +2313,7 @@ export const CoachGameView: React.FC = () => {
                                             ) : selectedPlayerSummary && (
                                                 <FinancialStatement
                                                     gameState={selectedPlayerState}
+                                                    historySource={room?.financialHistoryStorage === 'subcollection' && room.sessionId && selectedPlayerUid ? {roomId:room.id,uid:selectedPlayerUid,sessionId:room.sessionId} : undefined}
                                                     summary={selectedPlayerSummary}
                                                     hideNav={false}
                                                     hideSummary={true}

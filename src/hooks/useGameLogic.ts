@@ -16,7 +16,7 @@ const getLiabilityMonthlyPayment = (type: GameState['liabilities'][number]['type
     return Math.floor(total * 0.005);
 };
 
-export const useGameLogic = () => {
+export const useGameLogic = (online = false) => {
     const { gameState, setGameState, gameHistory, setGameHistory, summary, financialAcceleration, scoreResult, alertInfo, showAlert, hideAlert, saveGameRecord, requestImmediatePlayerSync } = useGame();
 
     const [happinessSubMode, setHappinessSubMode] = useState<'history' | 'pay' | 'inc_exp'>('history');
@@ -111,6 +111,7 @@ export const useGameLogic = () => {
     };
 
     const handleDeleteTransactionRecord = (id: string) => {
+        if(online) {showAlert('線上交易歷史須保留，請由執行師調整財務並註明原因','error');return;}
         const txToDelete = gameState.history.find(tx => tx.id === id);
         if (!txToDelete) return;
 
@@ -496,6 +497,7 @@ export const useGameLogic = () => {
     };
 
     const handleTransactionSubmit = (data: TransactionData) => {
+        if(online) {showAlert('線上財務操作必須提交房間交易，請保留事件後再試','error');return false;}
         const prepared = prepareBoardTransaction(gameState, data, financialAcceleration);
         if (prepared.status === 'error') {
             showAlert(prepared.message, 'error');

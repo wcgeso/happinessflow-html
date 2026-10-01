@@ -1,0 +1,20 @@
+name: Game quality
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx vitest run --exclude 'src/test/roomPermissions.test.ts' --exclude 'src/test/realtimePermissions.test.ts'
+      - run: npx firebase emulators:exec --project demo-happinessflow --only firestore,database "npx vitest run src/test/roomPermissions.test.ts src/test/realtimePermissions.test.ts"
+      - run: npm run build

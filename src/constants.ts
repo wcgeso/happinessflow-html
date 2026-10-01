@@ -45,6 +45,15 @@ export const STOCK_SYMBOLS = [
   'B50', 'B60', 'B70', 'B80'
 ];
 
+// 每場遊戲開始時使用一組既有行情卡的完整價格，確保所有玩家看到同一組初始股價。
+export const createInitialMarketPrices = (random: () => number = Math.random): Record<string, number> => {
+  const snapshots = Object.entries(STOCK_DATA)
+    .filter(([code]) => !BUBBLE_BURST_CODES.includes(code))
+    .map(([, prices]) => prices);
+  const snapshot = snapshots[Math.min(snapshots.length - 1, Math.floor(random() * snapshots.length))] || STOCK_DATA.N001;
+  return Object.fromEntries(STOCK_SYMBOLS.map(symbol => [symbol, snapshot[symbol]]));
+};
+
 export const STOCK_NAMES: Record<string, string> = {
   'A10': '禾田食品',
   'A20': '品新紡織',

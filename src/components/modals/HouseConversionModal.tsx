@@ -9,7 +9,7 @@ interface HouseConversionModalProps {
     isOpen: boolean;
     onClose: () => void;
     asset: Asset;
-    onConvert: (assetId: string, toSelfUse: boolean) => void;
+    onConvert: (assetId: string, toSelfUse: boolean) => void | Promise<boolean>;
 }
 
 export const HouseConversionModal: React.FC<HouseConversionModalProps> = ({
@@ -18,6 +18,9 @@ export const HouseConversionModal: React.FC<HouseConversionModalProps> = ({
     asset,
     onConvert
 }) => {
+    const [isSubmitting,setIsSubmitting] = useState(false);
+    const submittingRef = React.useRef(false);
+    const [error,setError] = useState('');
     const [step, setStep] = useState<'options' | 'confirm'>('options');
     const [targetType, setTargetType] = useState<boolean | null>(null);
 
@@ -33,22 +36,23 @@ export const HouseConversionModal: React.FC<HouseConversionModalProps> = ({
         setStep('confirm');
     };
 
-    const handleFinalConfirm = () => {
-        if (targetType !== null) {
-            onConvert(asset.id, targetType);
-            onClose();
-        }
+    const handleFinalConfirm = async () => {
+        if(targetType===null || submittingRef.current)return;
+        submittingRef.current=true;setIsSubmitting(true);setError('');
+        try { if(await onConvert(asset.id,targetType)!==false)onClose(); }
+        catch(error:any){setError(error.message || '轉換尚未確認，請安全重試');}
+        finally{submittingRef.current=false;setIsSubmitting(false);}
     };
 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-safe pb-safe bg-slate-950/90 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[10050] flex items-center justify-center overflow-y-auto p-4 pt-safe pb-safe bg-slate-950/90 backdrop-blur-sm" role="dialog" aria-modal="true">
             <motion.div 
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="bg-slate-900 border-2 border-slate-700 w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+                className="flex max-h-[calc(100dvh-2rem)] min-h-0 w-full max-w-sm flex-col overflow-hidden rounded-3xl border-2 border-slate-700 bg-slate-900 shadow-2xl"
             >
                 {/* Header */}
                 <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-800/50">
@@ -58,15 +62,16 @@ export const HouseConversionModal: React.FC<HouseConversionModalProps> = ({
                         </div>
                         <div>
                             <h3 className="text-lg font-black text-white tracking-tight">房屋狀態轉換</h3>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{symbol} 房產管理</p>
+                            <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">{symbol} 房產管理</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-700 rounded-full text-slate-400 transition-colors">
+                    <button disabled={isSubmitting} onClick={onClose} className="p-2 hover:bg-slate-700 rounded-full text-slate-400 transition-colors">
                         <X size={20} />
                     </button>
                 </div>
 
-                <div className="p-8 space-y-6">
+                <div className="min-h-0 overflow-y-auto p-8 space-y-6">
+                    {error && <p role="alert">{error}</p>}
                     <AnimatePresence mode="wait">
                         {step === 'options' ? (
                             <motion.div 
@@ -79,7 +84,7 @@ export const HouseConversionModal: React.FC<HouseConversionModalProps> = ({
                                 {/* Current Status */}
                                 <div className="bg-slate-800/40 rounded-2xl p-4 border border-slate-700/50">
                                     <div className="flex justify-between items-center mb-2">
-                                        <span className="text-xs font-bold text-slate-400">目前狀態</span>
+                                        <span className="text-xs font-bold text-slate-300">目前狀態</span>
                                         <span className={cn(
                                             "px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase shadow-lg",
                                             isCurrentlySelfUse ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/30" : "bg-blue-500/20 text-blue-500 border border-blue-500/30"
@@ -88,7 +93,7 @@ export const HouseConversionModal: React.FC<HouseConversionModalProps> = ({
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-xs font-bold text-slate-400">剩餘轉換次數</span>
+                                        <span className="text-xs font-bold text-slate-300">剩餘轉換次數</span>
                                         <span className={cn(
                                             "text-xs font-black",
                                             canConvert ? "text-emerald-400" : "text-rose-400"
@@ -152,7 +157,7 @@ export const HouseConversionModal: React.FC<HouseConversionModalProps> = ({
                                 </div>
                                 <div className="space-y-2">
                                     <h4 className="text-xl font-black text-white">確定要轉換嗎？</h4>
-                                    <p className="text-slate-400 text-sm leading-relaxed">
+                                    <p className="text-slate-300 text-sm leading-relaxed">
                                         您即將將此房屋轉換為 <span className={cn("font-bold", targetType ? "text-yellow-400" : "text-blue-400")}>{targetType ? '自用' : '出租'}</span> 狀態。<br/>
                                         <span className="text-rose-400 font-black">注意：此動作無法復原，且每間房僅限轉換一次。</span>
                                     </p>
@@ -160,13 +165,15 @@ export const HouseConversionModal: React.FC<HouseConversionModalProps> = ({
 
                                 <div className="flex flex-col gap-3 pt-4">
                                     <button
+                                        disabled={isSubmitting}
                                         onClick={handleFinalConfirm}
                                         className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-lg rounded-2xl shadow-lg shadow-emerald-900/40 transition-all active:scale-95 flex items-center justify-center gap-2"
                                     >
                                         <CheckCircle2 size={20} />
-                                        確認轉換
+                                        {isSubmitting ? '轉換確認中…' : '確認轉換'}
                                     </button>
                                     <button
+                                        disabled={isSubmitting}
                                         onClick={() => setStep('options')}
                                         className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl transition-all"
                                     >

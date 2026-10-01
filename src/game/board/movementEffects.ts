@@ -3,24 +3,15 @@ import { BoardMovementEffect } from '../../types';
 
 export const buildMovementEffects = (
     path: number[],
-    hasCar: boolean,
-    rollDie: () => number
+    hasCar: boolean
 ): BoardMovementEffect[] => {
     if (!hasCar) return [];
 
     return [...new Set(path)]
         .filter(squareIndex => getSquareByIndex(squareIndex).type === 'repair')
-        .map(squareIndex => {
-            const dice = rollDie();
-            return {
-                type: 'repair_fee' as const,
-                squareIndex,
-                dice,
-                amount: dice * 2000
-            };
-        });
+        .map(squareIndex => ({ type: 'repair_fee' as const, squareIndex }));
 };
 
 export const describeMovementEffects = (effects: BoardMovementEffect[]): string[] => {
-    return effects.map(effect => `經過維修廠，汽車保養費 ${effect.amount}，請自行登錄`);
+    return effects.map(() => '經過維修廠，請擲骰決定汽車保養費');
 };

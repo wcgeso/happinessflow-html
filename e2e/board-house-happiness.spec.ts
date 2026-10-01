@@ -34,7 +34,8 @@ const completeSelectionWizard = async (page: Page) => {
 };
 
 test('房屋自住／出租切換與幸福清單改由伺服器結算', async ({ browser }) => {
-  await seedAccounts();
+  const seeded = await seedAccounts();
+  await Promise.all(Object.values(seeded).map((account:any)=>getEmulatorDb().collection('users').doc(account.uid).set({activeGame:null},{merge:true})));
 
   const coachContext = await browser.newContext();
   const coachPage = await coachContext.newPage();
@@ -71,6 +72,14 @@ test('房屋自住／出租切換與幸福清單改由伺服器結算', async ({
   const playerUid = (await roomRef.get()).data()!.boardState.currentTurnUid;
   const playerDocRef = roomRef.collection('players').doc(playerUid);
 
+  await playerPage.evaluate(uid=>localStorage.setItem(`happiness_flow_board_tutorial_seen_v1_${uid}`,'true'),playerUid);
+  await playerPage.reload();
+  await expect(playerPage.getByRole('button',{name:'開啟數位銀行',exact:true})).toBeVisible({timeout:20000});
+  const retainIntent=async()=>playerPage.evaluate(()=>{
+    const remove=Storage.prototype.removeItem;
+    Storage.prototype.removeItem=function(key){if(!key.startsWith('hf-personal-intent:'))return remove.call(this,key);};
+  });
+  await retainIntent();
   // Seed an owned rental property (N038) and a custom, unchecked happiness
   // item so the two flows can be exercised deterministically through the UI.
   await playerDocRef.update({
@@ -94,6 +103,13 @@ test('房屋自住／出租切換與幸福清單改由伺服器結算', async ({
     return { isSelfUse: asset?.isSelfUse, cashflow: asset?.cashflow, conversionCount: asset?.conversionCount };
   }, { timeout: 15_000 }).toMatchObject({ isSelfUse: true, cashflow: 0, conversionCount: 1 });
 
+  const afterConversionReceipts=(await playerDocRef.collection('commandResults').get()).size;
+  await playerPage.reload();
+  await playerPage.getByRole('button',{name:'安全核對個人操作',exact:true}).click();
+  await expect(playerPage.getByRole('button',{name:'安全核對個人操作',exact:true})).not.toBeVisible({timeout:15000});
+  expect((await playerDocRef.get()).data()?.assets.find((a:any)=>a.id==='seed-house').conversionCount).toBe(1);
+  expect((await playerDocRef.collection('commandResults').get()).size).toBe(afterConversionReceipts);
+  await retainIntent();
   // --- Happiness checklist: toggle the seeded item on ---
   const happinessButton = playerPage.getByLabel(/查看幸福指數明細/);
   await happinessButton.click();
@@ -106,6 +122,13 @@ test('房屋自住／出租切換與幸福清單改由伺服器結算', async ({
     return { checked: item?.checked, total: data?.happinessTotal };
   }, { timeout: 15_000 }).toMatchObject({ checked: true, total: 3 });
 
+  const afterToggleReceipts=(await playerDocRef.collection('commandResults').get()).size;
+  await playerPage.reload();
+  await playerPage.getByRole('button',{name:'安全核對個人操作',exact:true}).click();
+  await expect(playerPage.getByRole('button',{name:'安全核對個人操作',exact:true})).not.toBeVisible({timeout:15000});
+  expect((await playerDocRef.get()).data()?.happinessTotal).toBe(3);
+  expect((await playerDocRef.get()).data()?.happiness.find((item:any)=>item.id==='seed-happy').checked).toBe(true);
+  expect((await playerDocRef.collection('commandResults').get()).size).toBe(afterToggleReceipts);
   await coachContext.close();
   await playerContext.close();
 });

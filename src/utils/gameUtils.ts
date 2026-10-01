@@ -28,6 +28,10 @@ export const calculateFinancialSummary = (gameState: GameState, acceleration?: F
     const dynamicIncome = Object.entries(income).reduce((sum, [key, v]) => {
         // 排除 salary 和 已經在 passiveIncome 算過的項目（標籤含 "收益", "租金" 等）
         if (key === 'salary' || key === 'investment') return sum;
+        // 舊版曾同時把目標企業收益寫進企業資產與 income，兩者只能計算一次。
+        if (key === gameState.selectedEnterprise?.name && assets.some(asset =>
+            asset.type === '企業' && asset.name.includes(gameState.selectedEnterprise?.name || '')
+        )) return sum;
         return sum + (Number(v) || 0);
     }, 0);
 

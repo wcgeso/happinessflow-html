@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Bug, Plane, Stethoscope, Palette, TreePine, Briefcase, Edit3, Calendar, Award, History, Play, X, Check, Upload, Copy, Trophy, Move, Link, Users, ChevronRight, ChevronDown, UserPlus, Share2 } from 'lucide-react';
+import { Bug, Plane, Stethoscope, Palette, TreePine, Briefcase, Edit3, Calendar, Award, History, Play, X, Check, Upload, Copy, Trophy, Move, Link, Users, ChevronRight, ChevronDown, UserPlus, Share2, Camera } from 'lucide-react';
 import { Button, Input, Slider } from '../ui/ui';
 import SafeImage from '../common/SafeImage';
 import { useAuth, getUserTitle, getCoachBadge, getPlayerBadge, getBadgeGlowStyle } from '../../context/AuthContext';
@@ -8,6 +8,8 @@ import { avatarOptions } from './AvatarModal';
 import { RankInfoModal } from './RankInfoModal';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../services/firebase';
+import { PhotoPromotionConsentModal } from './PhotoPromotionConsentModal';
+import { getPhotoPromotionConsentStatus } from '../../constants/photoPromotionConsent';
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -60,7 +62,7 @@ const ReferralNode: React.FC<{ uid: string; name: string; role: string; depth: n
 };
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, viewMode, targetUser, onViewHistory }) => {
-    const { user: currentUser, updateUserProfile, uploadAvatar, bindReferral } = useAuth();
+    const { user: currentUser, updateUserProfile, updatePhotoPromotionConsent, uploadAvatar, bindReferral } = useAuth();
     const { gameHistory } = useGame();
 
     // Determine which user to display
@@ -78,6 +80,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
     const [copied, setCopied] = useState(false);
     const [isBadgeEnlarged, setIsBadgeEnlarged] = useState(false);
     const [showRankInfo, setShowRankInfo] = useState(false);
+    const [showPhotoConsent, setShowPhotoConsent] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [inviteCodeCopied, setInviteCodeCopied] = useState(false);
     const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
@@ -326,6 +329,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
 
     const currentAvatar = avatarOptions.find(a => a.id === displayUser.photoURL);
     const isCustomAvatar = displayUser.photoURL?.startsWith('http') || displayUser.photoURL?.startsWith('data:image');
+    const photoConsentStatus = getPhotoPromotionConsentStatus(displayUser.photoPromotionConsent);
+    const photoConsentChoice = photoConsentStatus === 'agreed' || photoConsentStatus === 'declined'
+        ? photoConsentStatus
+        : undefined;
 
     return (
         <>
@@ -655,6 +662,42 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
                         ))}
                     </div>
 
+                    {isEditable && (
+                        <div className="mt-4 rounded-2xl border border-slate-800/50 bg-slate-950/30 p-4">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex min-w-0 items-start gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
+                                        <Camera size={19} />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">照片與遊戲畫面使用同意</div>
+                                        <div className={`mt-1 text-sm font-black ${photoConsentStatus === 'agreed'
+                                            ? 'text-emerald-400'
+                                            : photoConsentStatus === 'declined'
+                                                ? 'text-rose-400'
+                                                : 'text-amber-400'
+                                            }`}>
+                                            {photoConsentStatus === 'agreed'
+                                                ? '目前選擇：同意'
+                                                : photoConsentStatus === 'declined'
+                                                    ? '目前選擇：不同意'
+                                                    : photoConsentStatus === 'outdated'
+                                                        ? '同意書已更新，請重新確認'
+                                                        : '尚未填寫'}
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPhotoConsent(true)}
+                                    className="min-h-11 shrink-0 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 text-xs font-black text-emerald-400 transition-colors hover:bg-emerald-500/20"
+                                >
+                                    修改選擇
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* ── 邀請碼區塊（自己的資料才顯示） ── */}
                     {isEditable && (
                         <div className="mt-4 space-y-3">
@@ -794,6 +837,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, vie
             currentTitle={getUserTitle(displayUser, viewMode)}
             currentRole={viewMode || (displayUser?.role as 'coach' | 'player' | 'gm')}
             currentExperience={displayUser?.experience || 0}
+        />
+        <PhotoPromotionConsentModal
+            isOpen={showPhotoConsent}
+            initialChoice={photoConsentChoice}
+            onSubmit={updatePhotoPromotionConsent}
+            onClose={() => setShowPhotoConsent(false)}
         />
         </>
     );

@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, HelpCircle, PartyPopper } from 'lucide-react';
 import { AccountCategory, AccountEntry, ChangeDirection, TransactionData } from '../../types';
 import { FinancialCheckBoard } from '../transaction/FinancialCheckBoard';
 import { Button } from '../ui/ui';
 
 export interface BoardFinancialApplyStatus {
-  status: 'applied' | 'duplicate' | 'requires_funding' | 'failed';
+  status: 'applied' | 'duplicate' | 'requires_funding' | 'waiting' | 'failed';
   shortfall?: number;
   message?: string;
 }
@@ -141,17 +141,29 @@ export const getFinancialCheckFeedback = (
   attempt: number
 ) => {
   const entryKey = (entry: AccountEntry) => `${entry.category}:${entry.name}:${entry.direction}`;
+  const formatEntry = (entry: AccountEntry) => `${CATEGORY_LABEL[entry.category]}：${entry.name}（${ENTRY_LABEL[entry.direction]}）`;
   const expectedKeys = new Set(expectedEntries.map(entryKey));
   const userKeys = new Set(userEntries.map(entryKey));
+  const correctLines = userEntries
+    .filter(entry => expectedKeys.has(entryKey(entry)))
+    .map(formatEntry);
   const missingEntries = expectedEntries.filter(entry => !userKeys.has(entryKey(entry)));
   const unexpectedEntries = userEntries.filter(entry => !expectedKeys.has(entryKey(entry)));
+  const incorrectLines = [
+    ...unexpectedEntries.map(entry => `你填寫：${formatEntry(entry)}`),
+    ...(attempt > 1
+      ? missingEntries.map(entry => `應填寫：${formatEntry(entry)}`)
+      : missingEntries.length > 0
+        ? ['仍有項目尚未填寫，請依提示分類重新檢查。']
+        : [])
+  ];
   const affectedCategories = Array.from(new Set(
     [...missingEntries, ...unexpectedEntries].map(entry => entry.category)
   ));
   const wrongCount = missingEntries.length + unexpectedEntries.length;
 
   if (wrongCount === 0) {
-    return { isCorrect: true, wrongCount: 0, affectedCategories, lines: [] as string[] };
+    return { isCorrect: true, wrongCount: 0, affectedCategories, lines: [] as string[], correctLines, incorrectLines };
   }
 
   if (attempt <= 1) {
@@ -162,7 +174,9 @@ export const getFinancialCheckFeedback = (
       lines: [
         `目前有 ${wrongCount} 處錯誤，請重新檢查。`,
         `需要檢查的分類：${affectedCategories.map(category => CATEGORY_LABEL[category]).join('、')}`
-      ]
+      ],
+      correctLines,
+      incorrectLines
     };
   }
 
@@ -170,9 +184,9 @@ export const getFinancialCheckFeedback = (
     isCorrect: false,
     wrongCount,
     affectedCategories,
-    lines: expectedEntries.length > 0
-      ? expectedEntries.map(entry => `${CATEGORY_LABEL[entry.category]}：${entry.name}（${ENTRY_LABEL[entry.direction]}）`)
-      : ['方向或項目仍有錯誤，請再檢查各欄位的增減變化。']
+    lines: ['請參考下方分區修正填寫內容。'],
+    correctLines,
+    incorrectLines
   };
 };
 
@@ -184,11 +198,22 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
   onClose,
   isCompleted = false
 }) => {
+  const inputKey = JSON.stringify({title, txData, expectedEntries});
+  const currentInput = useRef(inputKey);
+  currentInput.current = inputKey;
+  const applyingInput = useRef<string | null>(null);
   const [userEntries, setUserEntries] = useState<AccountEntry[]>([]);
   const [isVerified, setIsVerified] = useState(false);
   const [isApplied, setIsApplied] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
-  const [errorPopup, setErrorPopup] = useState<{ title: string; lines: string[] } | null>(null);
+  const [isSlow,setIsSlow]=useState(false);
+  useEffect(()=>{setIsSlow(false);if(!isApplying)return;const timer=setTimeout(()=>setIsSlow(true),3000);return()=>clearTimeout(timer);},[isApplying]);
+  const [errorPopup, setErrorPopup] = useState<{
+    title: string;
+    lines: string[];
+    correctLines?: string[];
+    incorrectLines?: string[];
+  } | null>(null);
   const [verificationAttempts, setVerificationAttempts] = useState(0);
   const [highlightedCategories, setHighlightedCategories] = useState<AccountCategory[]>([]);
   const normalizedExpectedEntries = useMemo(
@@ -204,11 +229,12 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
     setErrorPopup(null);
     setVerificationAttempts(0);
     setHighlightedCategories([]);
-  }, [title, txData, expectedEntries]);
+  }, [inputKey]);
 
   useEffect(() => {
     if (isCompleted) {
       setIsApplied(true);
+      setErrorPopup(null);
     }
   }, [isCompleted]);
 
@@ -249,7 +275,9 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
     if (!feedback.isCorrect) {
       setErrorPopup({
         title: attempt <= 1 ? '財務檢核需要再確認' : '財務檢核答案錯誤',
-        lines: feedback.lines
+        lines: feedback.lines,
+        correctLines: feedback.correctLines,
+        incorrectLines: feedback.incorrectLines
       });
       setHighlightedCategories(feedback.affectedCategories);
       return;
@@ -262,10 +290,13 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
   };
 
   const handleApply = async () => {
-    if (isApplying) return;
+    if (applyingInput.current === inputKey) return;
+    const requested = inputKey;
+    applyingInput.current = requested;
     setIsApplying(true);
     try {
       const result = await onApply(txData);
+      if (currentInput.current !== requested) return;
       if (typeof result === 'object' && result !== null && 'status' in result) {
         if (result.status === 'applied' || result.status === 'duplicate') {
           setIsApplied(true);
@@ -273,14 +304,14 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
         }
         setIsVerified(false);
         setErrorPopup({
-          title: result.status === 'requires_funding' ? '現金不足，需要周轉' : '交易無法完成',
+          title: result.status === 'requires_funding' ? '現金不足，需要周轉' : result.status === 'waiting' ? '交易等待確認' : '交易無法完成',
           lines: result.status === 'requires_funding'
             ? [`現金不足，還差 ${(result.shortfall || 0).toLocaleString()}。完成周轉後可保留目前答案重新確認。`]
             : [result.message || '交易同步失敗，請檢查事件狀態與網路後重試。']
         });
         return;
       }
-      if (result !== false) {
+      if (result === true) {
         setIsApplied(true);
       } else {
         setIsVerified(false);
@@ -289,14 +320,24 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
           lines: ['交易未完成，請檢查目前事件狀態或網路後重試。']
         });
       }
+    } catch (error) {
+      if (currentInput.current !== requested) return;
+      console.error('[BoardFinancialCheckModal] 套用財務交易失敗:', error);
+      setIsVerified(false);
+      setErrorPopup({
+        title: '交易無法完成',
+        lines: [`${(error as {code?:string;message?:string})?.code || '交易接續失敗'}：${(error as Error)?.message || '請先確認是否已入帳，再沿用原操作安全重試。'}`]
+      });
     } finally {
-      setIsApplying(false);
+      if (applyingInput.current === requested) applyingInput.current = null;
+      if (currentInput.current === requested) setIsApplying(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-[10050] bg-[#102f38]/90 text-[#293a38] animate-in fade-in duration-200">
       <div className="h-full">
+        {isSlow && <p role="status" className="absolute inset-x-4 top-20 z-10 rounded-lg bg-amber-100 p-3 text-amber-950">正在等待伺服器確認交易，請保留目前畫面；確認完成前不會重複送出。</p>}
         <div className="flex h-full w-full flex-col overflow-hidden bg-[#f7f0e3]">
           <div className="shrink-0 border-b border-[#d8c29a] bg-[#fffaf2] px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] sm:px-5 sm:pb-4">
             <div className="flex items-center justify-between gap-3">
@@ -310,6 +351,7 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
               </div>
               <button
                 onClick={onClose}
+                disabled={isApplying}
                 className="min-h-10 rounded-xl px-3 text-base font-black text-[#76573a] transition-colors hover:bg-[#f4e6d0] sm:text-lg"
                 title="取消"
               >
@@ -407,7 +449,7 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
             <div className="text-center">
               <div className="text-lg font-black text-[#b54155]">{errorPopup.title}</div>
               <div className="mt-3 text-sm font-bold leading-relaxed text-[#765f47]">
-                請依下列正確答案重新檢查：
+                請依下方分區重新檢查：
               </div>
             </div>
             <ul className="mt-5 space-y-2">
@@ -421,6 +463,26 @@ export const BoardFinancialCheckModal: React.FC<BoardFinancialCheckModalProps> =
                 </li>
               ))}
             </ul>
+            {errorPopup.correctLines && errorPopup.incorrectLines && (
+              <div className="mt-4 grid gap-3 text-left">
+                <section className="rounded-2xl border border-[#a8dcc8] bg-[#e7f5ed] p-4">
+                  <div className="text-sm font-black text-[#286a59]">填寫正確</div>
+                  <div className="mt-2 space-y-1 text-sm font-bold leading-relaxed text-[#286a59]">
+                    {errorPopup.correctLines.length > 0
+                      ? errorPopup.correctLines.map(line => <div key={`correct-${line}`}>✓ {line}</div>)
+                      : <div className="text-[#6d8f83]">目前沒有填寫正確的項目</div>}
+                  </div>
+                </section>
+                <section className="rounded-2xl border border-[#e7a3a8] bg-[#fff0f0] p-4">
+                  <div className="text-sm font-black text-[#b54155]">填寫錯誤或尚未完成</div>
+                  <div className="mt-2 space-y-1 text-sm font-bold leading-relaxed text-[#8f3d4d]">
+                    {errorPopup.incorrectLines.length > 0
+                      ? errorPopup.incorrectLines.map(line => <div key={`incorrect-${line}`}>• {line}</div>)
+                      : <div className="text-[#a87880]">目前沒有錯誤項目</div>}
+                  </div>
+                </section>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => setErrorPopup(null)}

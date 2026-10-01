@@ -18,14 +18,7 @@
 
 <body class="text-white">
   <div id="root"></div>
-  <script>
-    window.addEventListener('error', function(event) {
-      document.body.innerHTML = '<div style="color:red;padding:20px;background:white"><h1>Global Error</h1><pre>' + event.error?.stack + '</pre></div>';
-    });
-    window.addEventListener('unhandledrejection', function(event) {
-      document.body.innerHTML = '<div style="color:red;padding:20px;background:white"><h1>Unhandled Promise Rejection</h1><pre>' + event.reason?.stack + '</pre></div>';
-    });
-  </script>
+
   <script type="module" src="/index.tsx"></script>
   <!-- Google Verification: Privacy Policy and Terms Links -->
   <div style="display:none;">

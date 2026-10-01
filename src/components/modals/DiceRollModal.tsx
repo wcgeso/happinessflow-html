@@ -22,6 +22,7 @@ interface DiceRollModalProps {
     examLog: ExamLog | null;
     formatMoney: (amount: number) => string;
     promotionType?: PromotionType | null;
+    remoteMode?: boolean;
 }
 
 export const DiceRollModal: React.FC<DiceRollModalProps> = ({
@@ -33,10 +34,12 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
     examResult,
     examLog,
     formatMoney,
-    promotionType
+    promotionType,
+    remoteMode = false
 }) => {
     const [shake, setShake] = useState(false);
     const [showParticles, setShowParticles] = useState(false);
+    const compactResult = examResult === 'success' && !isRolling;
 
     useEffect(() => {
         if (examResult === 'failure') {
@@ -54,10 +57,18 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[10050] flex items-start justify-center overflow-y-auto bg-[#102f38]/90 p-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] backdrop-blur-xl sm:items-center sm:p-6">
+        <div className={cn(
+            "fixed inset-0 z-[10050] flex justify-center overflow-y-auto bg-[#102f38]/90 backdrop-blur-xl",
+            compactResult
+                ? "items-center p-2 pt-[calc(0.5rem+env(safe-area-inset-top,0px))] pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] sm:p-6"
+                : "items-start p-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:items-center sm:p-6"
+        )}>
             {/* 彈出視窗主體 */}
             <div className={cn(
-                "relative max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-[2.5rem] border border-[#d8c29a] bg-[#fffaf2] text-[#293a38] shadow-[0_32px_64px_-12px_rgba(36,54,49,0.35)] transition-all duration-500",
+                "relative w-full max-w-md rounded-[2.5rem] border border-[#d8c29a] bg-[#fffaf2] text-[#293a38] shadow-[0_32px_64px_-12px_rgba(36,54,49,0.35)] transition-all duration-500",
+                compactResult
+                    ? "max-h-[calc(100dvh-1rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] overflow-y-auto"
+                    : "max-h-[calc(100dvh-1.5rem)] overflow-y-auto",
                 "animate-in zoom-in-95",
                 shake && "animate-shake"
             )}>
@@ -76,7 +87,10 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                 </div>
 
                 {/* 內容容器 */}
-                <div className="relative z-10 flex flex-col items-center gap-6 p-6 sm:gap-8 sm:p-10">
+                <div className={cn(
+                    "relative z-10 flex flex-col items-center",
+                    compactResult ? "gap-3 p-3 sm:gap-4 sm:p-6" : "gap-6 p-6 sm:gap-8 sm:p-10"
+                )}>
                     {/* 狀態標題 */}
                     <div className="flex w-full flex-col items-center justify-center space-y-2 text-center">
                         <div className="relative h-10 w-full flex items-center justify-center">
@@ -86,7 +100,8 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                                 </h2>
                             ) : (
                                 <h2 key="result" className={cn(
-                                    "text-2xl font-black uppercase tracking-[0.3em] absolute inset-0 flex items-center justify-center transition-all duration-300",
+                                    "font-black uppercase absolute inset-0 flex items-center justify-center transition-all duration-300",
+                                    compactResult ? "text-xl tracking-[0.18em]" : "text-2xl tracking-[0.3em]",
                                     examResult === 'success' ? "text-[#8c5b2b]" :
                                     examResult === 'failure' ? "text-[#b54155]" : "text-[#293a38]"
                                 )}>
@@ -116,7 +131,8 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                     <div className="relative group">
                         {/* 托盤背景 */}
                         <div className={cn(
-                            "absolute -inset-5 bg-[#f4e6d0]/80 rounded-[2.5rem] border border-[#d8c29a] transition-all duration-500",
+                            "absolute bg-[#f4e6d0]/80 border border-[#d8c29a] transition-all duration-500",
+                            compactResult ? "-inset-3 rounded-3xl" : "-inset-5 rounded-[2.5rem]",
                             "shadow-[inset_0_0_30px_rgba(0,0,0,0.5)]",
                             isRolling && "scale-95 opacity-80"
                         )} />
@@ -126,11 +142,16 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                             disabled={isRolling || examResult !== 'idle'}
                             onClick={() => !isRolling && examResult === 'idle' && onRoll()} 
                             className={cn(
-                                "relative z-10 flex flex-col items-center gap-6 rounded-3xl p-7 transition-transform duration-200 disabled:cursor-default",
+                                "relative z-10 flex flex-col items-center rounded-3xl transition-transform duration-200 disabled:cursor-default",
+                                compactResult ? "gap-2 p-2" : "gap-6 p-7",
                                 examResult === 'idle' && !isRolling ? "cursor-pointer hover:scale-105 active:scale-90" : "cursor-default"
                             )}
                         >
-                            <DiceFace value={diceValue} rolling={isRolling} size="lg" />
+                            {remoteMode ? (
+                                <div className="flex h-36 w-48 items-center justify-center rounded-3xl border-2 border-dashed border-[#d8c29a] bg-[#f4e6d0] px-5 text-center text-sm font-black leading-relaxed text-[#76573a]">
+                                    {isRolling ? '骰點已送出\n請看大螢幕' : `大螢幕顯示骰點\n目前結果：${diceValue} 點`}
+                                </div>
+                            ) : <DiceFace value={diceValue} rolling={isRolling} size={compactResult ? 'md' : 'lg'} />}
                             {!isRolling && examResult === 'idle' && (
                                 <span className="rounded-full border border-[#d8c29a] bg-[#fffaf2] px-4 py-2 text-xs font-black tracking-widest text-[#76573a]">
                                     點擊骰子開始
@@ -148,7 +169,7 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                     </div>
 
                     {/* 目標與結果資訊 */}
-                    <div className="w-full space-y-4">
+                    <div className={cn("w-full", compactResult ? "space-y-2" : "space-y-4")}>
                         {examLog && (
                             <div className="flex justify-center items-center gap-4 text-lg font-bold">
                                 <div className="flex flex-col items-center gap-1">
@@ -177,7 +198,8 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                         {/* 結果詳細卡片 */}
                         {examResult !== 'idle' && !isRolling && (
                             <div className={cn(
-                                "w-full rounded-2xl border p-4 transition-all duration-500 animate-in fade-in slide-in-from-bottom-2",
+                                "w-full rounded-2xl border transition-all duration-500 animate-in fade-in slide-in-from-bottom-2",
+                                compactResult ? "p-3 sm:p-4" : "p-4",
                                 examResult === 'success' 
                                     ? "bg-emerald-500/10 border-emerald-500/20" 
                                     : "bg-rose-500/10 border-rose-500/20"
@@ -185,7 +207,7 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                                 {examResult === 'success' ? (
                                     <div className="space-y-3 text-center">
                                     <div className="flex justify-center">
-                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/20">
+                                        <div className={cn("flex items-center justify-center rounded-full bg-emerald-500/20", compactResult ? "h-7 w-7" : "h-9 w-9")}>
                                             <Trophy className="text-emerald-500" size={18} />
                                             </div>
                                         </div>
@@ -207,17 +229,17 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="space-y-3">
+                                            <div className={cn(compactResult ? "space-y-2" : "space-y-3")}>
                                                 <div>
                                                     <p className="mb-0.5 text-[9px] uppercase tracking-widest text-[#7a6958]">
                                                         {promotionType === 'enhance_profession' ? '能力提升成功' : '晉升職稱'}
                                                     </p>
-                                                    <p className="text-lg font-black text-[#293a38]">{examLog?.newTitle}</p>
+                                                    <p className={cn("font-black text-[#293a38]", compactResult ? "text-base sm:text-lg" : "text-lg")}>{examLog?.newTitle}</p>
                                                 </div>
                                                 <div className="h-px bg-[#ead7b8]" />
                                                 <div>
                                                     <p className="text-[9px] text-emerald-500/70 font-bold uppercase mb-0.5">收入獎勵</p>
-                                                    <p className="text-xl font-black text-[#168269]">+{formatMoney(examLog?.bonus || 0)}</p>
+                                                    <p className={cn("font-black text-[#168269]", compactResult ? "text-lg sm:text-xl" : "text-xl")}>+{formatMoney(examLog?.bonus || 0)}</p>
                                                 </div>
                                             </div>
                                         )}
@@ -245,7 +267,8 @@ export const DiceRollModal: React.FC<DiceRollModalProps> = ({
                             <Button
                                 onClick={onClose}
                                 className={cn(
-                                    "w-full py-3.5 font-black rounded-2xl shadow-xl transition-all active:scale-95",
+                                    "min-h-11 w-full font-black rounded-2xl shadow-xl transition-all active:scale-95",
+                                    compactResult ? "py-2.5" : "py-3.5",
                                     examResult === 'success'
                                         ? "bg-[#168269] hover:bg-[#106b58] text-white"
                                         : "bg-[#f4e6d0] hover:bg-[#ead7b8] text-[#76573a]"

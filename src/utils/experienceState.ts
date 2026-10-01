@@ -4,6 +4,7 @@ import type {
   BoardState,
   ExperienceState,
 } from '../types';
+import { hasIncompleteSharedPrompts } from './boardCardActions';
 
 export interface ExperienceStateInput {
   roomStatus?: 'waiting' | 'playing' | 'finished';
@@ -16,6 +17,7 @@ export interface ExperienceStateInput {
   isRollingDice?: boolean;
   isProcessingEvent?: boolean;
   rollBlocker?: BoardBlocker | null;
+  eventBlocker?: BoardBlocker | null;
 }
 
 const blocker = (code: string, message: string): BoardBlocker => ({ code, message });
@@ -55,7 +57,41 @@ export const getNextBoardTurn = (boardState: Pick<BoardState, 'currentTurnUid' |
     return { nextUid, skipTurns, skippedUids };
   }
 
-  return { nextUid: boardState.currentTurnUid, skipTurns, skippedUids };
+  // 所有玩家都在暫停中時，不能讓目前玩家重複取得回合；
+  // 依本輪掃描順序恢復最早等待的玩家（兩人局即為先進醫院者）。
+  return { nextUid: skippedUids[0] || boardState.currentTurnUid, skipTurns, skippedUids };
+};
+
+export const buildNextBoardTurnState = (
+  boardState: BoardState,
+  playerUid: string,
+  updatedAt = Date.now()
+): BoardState => {
+  if (boardState.currentTurnUid !== playerUid) throw new Error('目前已不是你的回合');
+  if (boardState.pendingContinuation && boardState.pendingContinuation.phase !== 'completed') throw new Error('等待卡片接續完成，無法結束回合');
+  if (boardState.movement) throw new Error('移動尚未完成，無法結束回合');
+  if (!boardState.hasRolledThisTurn) throw new Error('請先擲骰後才能結束回合');
+  if (boardState.currentEvent || boardState.pendingEvents?.length) {
+    throw new Error('請先完成目前的棋盤事件，才能結束回合');
+  }
+  if (hasIncompleteSharedPrompts(boardState)) {
+    throw new Error('還有玩家尚未完成共享事件回覆，請等待所有人完成後再結束回合');
+  }
+
+  const nextTurn = getNextBoardTurn(boardState);
+  const nextTurnUid = nextTurn?.nextUid || playerUid;
+  return {
+    ...boardState,
+    currentTurnUid: nextTurnUid,
+    hasRolledThisTurn: false,
+    skipTurns: nextTurn?.skipTurns || boardState.skipTurns,
+    skippedTurnNotice: nextTurn?.skippedUids.length ? {
+      playerUids: nextTurn.skippedUids,
+      nextTurnUid,
+      timestamp: updatedAt,
+    } : null,
+    updatedAt,
+  };
 };
 
 export const getBoardActionAvailability = ({
@@ -67,6 +103,7 @@ export const getBoardActionAvailability = ({
   isRollingDice = false,
   isProcessingEvent = false,
   rollBlocker: localRollBlocker = null,
+  eventBlocker = null,
 }: ExperienceStateInput): BoardActionAvailability => {
   if (!isBoardGame || !boardState) {
     const unavailable = blocker('room_not_ready', '棋盤房間尚未同步完成');
@@ -92,8 +129,9 @@ export const getBoardActionAvailability = ({
   const sharedPromptPending = !!(
     boardState.sharedCardPrompt &&
     Object.keys(boardState.sharedCardPrompt.responses || {}).length < boardState.sharedCardPrompt.targetPlayerUids.length
-  );
-  const movementActive = !!boardState.movement?.isActive;
+  ) || !!(boardState.familyMilestoneJoinPrompt &&
+    hasIncompleteSharedPrompts({ ...boardState, sharedCardPrompt: null }));
+  const movementActive = !!boardState.movement;
   const queuedEvent = !!(boardState.currentEvent || boardState.pendingEvents?.length);
 
   const rollBlocker = localRollBlocker || (
@@ -101,6 +139,7 @@ export const getBoardActionAvailability = ({
     isRollingDice ? blocker('rolling', '骰子仍在同步中') :
     boardState.hasRolledThisTurn ? blocker('already_rolled', '這回合已經擲過骰子了，請按「結束回合」換下一位') :
     movementActive ? blocker('movement_active', '棋偶仍在移動中') :
+    eventBlocker ? eventBlocker :
     isProcessingEvent ? blocker('event_incomplete', '請先完成目前事件') :
     null
   );
@@ -108,17 +147,22 @@ export const getBoardActionAvailability = ({
   const endTurnBlocker = (
     !isMyTurn ? blocker('not_my_turn', '現在不是你的回合') :
     !boardState.hasRolledThisTurn ? blocker('not_rolled', '請先擲骰後才能結束回合') :
+    boardState.pendingContinuation?.phase === 'awaiting_roll' ? blocker('learning_pending', '等待終身學習判定') :
+    boardState.pendingContinuation?.phase === 'awaiting_draw' ? blocker('followup_pending', '等待後續抽卡完成') :
     movementActive ? blocker('movement_active', '移動尚未完成，無法結束回合') :
-    queuedEvent ? blocker('event_incomplete', '請先完成目前的棋盤事件') :
     sharedPromptPending ? blocker('shared_prompt_pending', '還有玩家尚未完成共享事件回覆') :
+    eventBlocker ? eventBlocker :
+    queuedEvent ? blocker('event_incomplete', '請先完成目前的棋盤事件') :
     isProcessingEvent ? blocker('event_incomplete', '請先完成目前事件') :
-    isRollingDice ? blocker('rolling', '骰子仍在同步中') :
     null
   );
 
   return {
     canRoll: !rollBlocker,
     canEndTurn: !endTurnBlocker,
+    canOpenEvent: !boardState.movement?.isActive && !isRollingDice && !eventBlocker,
+    eventBlocker: boardState.movement?.isActive ? blocker('movement_active', '等待移動結算')
+      : isRollingDice ? blocker('rolling', '正在播放本事件動畫') : eventBlocker,
     rollBlocker,
     endTurnBlocker,
   };

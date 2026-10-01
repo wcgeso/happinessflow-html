@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { flowLog } from './flowLog';
 
 describe('flowLog', () => {
-    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const info = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
     afterEach(() => {
         info.mockClear();

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { cn } from '../../utils/gameUtils';
 
 interface DiceFaceProps {
@@ -9,6 +9,17 @@ interface DiceFaceProps {
 }
 
 export const DiceFace: React.FC<DiceFaceProps> = ({ value, rolling, size = 'md', className }) => {
+    const [rollingValue, setRollingValue] = useState(() => Math.floor(Math.random() * 6) + 1);
+
+    useEffect(() => {
+        if (!rolling) return;
+        const timer = window.setInterval(() => {
+            setRollingValue(Math.floor(Math.random() * 6) + 1);
+        }, 90);
+        return () => window.clearInterval(timer);
+    }, [rolling]);
+
+    const displayValue = rolling ? rollingValue : value;
     const sizeClasses = {
         sm: 'w-16 h-16',
         md: 'w-24 h-24',
@@ -39,7 +50,7 @@ export const DiceFace: React.FC<DiceFaceProps> = ({ value, rolling, size = 'md',
             sizeClasses[size],
             rolling && "animate-dice-roll",
             className
-        )} role="img" aria-label={`骰子 ${value} 點`}>
+        )} role="img" aria-label={rolling ? '骰子滾動中' : `骰子 ${value} 點`} data-die-value={displayValue}>
             {/* 骰子主體 - 3D 效果層 */}
             <div className={cn(
                 "w-full h-full bg-white rounded-[24px] shadow-2xl relative overflow-hidden transition-transform duration-200 transform-gpu",
@@ -55,9 +66,9 @@ export const DiceFace: React.FC<DiceFaceProps> = ({ value, rolling, size = 'md',
 
                 {/* 點數格 - 使用絕對定位與 Flex 確保絕對置中 */}
                 <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 p-3 z-10">
-                    {getDots(value).map((dot, idx) => (
+                    {getDots(displayValue).map((dot, idx) => (
                         <div
-                            key={`${value}-${idx}`}
+                            key={`${displayValue}-${idx}`}
                             className="flex h-full w-full items-center justify-center"
                             style={{ gridColumnStart: dot.col, gridRowStart: dot.row }}
                         >

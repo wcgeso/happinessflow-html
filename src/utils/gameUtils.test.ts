@@ -71,4 +71,18 @@ describe('calculateFinancialSummary', () => {
 
         expect(calculateFinancialSummary(state).monthlyCashflow).toBe(20000);
     });
+
+    it('does not double count legacy target-enterprise income when the asset already has cashflow', () => {
+        const state = {
+            profession: { salary: 0, expenses: { basicLiving: 0, transportEdu: 0, otherMedicalChild: 0 } },
+            selectedEnterprise: { name: '目標企業' },
+            income: { '目標企業': 4500000 },
+            expenses: {},
+            assets: [{ name: '目標企業', cashflow: 4500000, type: '企業', cost: 5000000 }],
+            liabilities: [], cash: 0, loans: 0, currentRankLevel: 1, medicalInsuranceCount: 0, abilities: {}
+        } as any;
+
+        expect(calculateFinancialSummary(state).totalIncome).toBe(4500000);
+        expect(calculateFinancialSummary(state).passiveIncome).toBe(4500000);
+    });
 });

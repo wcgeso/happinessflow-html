@@ -1,3 +1,11 @@
+import {applyBoardTransaction} from '../game/finance/applyBoardTransaction';
+import {buildPaidLearningContinuation,applyPaidLearningMove,buildApprovedDrawContinuation} from '../game/board/continuation';
+import {buildExpenseBroadcast,validateFinancialEvent} from '../game/finance/cardState';
+import {runPrivateFinancialCommand} from '../game/finance/privateCommand';
+import {buildLoanBorrowState,buildLoanRepaymentState} from '../game/finance/personalState';
+import {HAPPINESS_CARD_MAP} from '../constants/cards';
+import {applyApprovedHappinessStory} from '../game/requests/state';
+import {financialCommandRef,writePrivateFinancialState} from '../game/finance/history';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
@@ -11,6 +19,7 @@ import {
   arrayUnion,
   doc,
   getDoc,
+  getDocFromServer,
   runTransaction,
   setDoc,
   serverTimestamp,
@@ -20,8 +29,12 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import type { GameState } from '../types';
-import { buildCarPurchaseState, buildSharedAssetSalePromptMutation, buildSharedInvestmentState, buildStartupLoanPromptMutation, type Room } from '../context/RoomContext';
+import { buildBoardCardResultById, buildBoardEventAdvanceState, buildCarPurchaseState, buildSharedAssetSalePromptMutation, buildSharedInvestmentState, buildStartupLoanPromptMutation, type Room } from '../context/RoomContext';
+import { buildBoardMovementLegResolution } from '../context/RoomContext';
+import { movementCommandId } from '../game/board/movementSettlement';
+import { toPublicPlayerState } from '../utils/playerState';
 import { runRoomBoardMutation } from '../game/board/runBoardMutation';
+import { applyBoardCommand } from '../game/board/boardRevision';
 import { submitFamilyMilestoneResponse } from '../game/board/familyMilestoneResponse';
 import { createInitialDeckState } from '../constants/board';
 
@@ -99,6 +112,214 @@ rulesDescribe('Firestore room P0 permissions', () => {
     await testEnv?.cleanup();
   });
 
+  it('persists coach market effects atomically, rejects non-turn players and replay, and keeps the board unchanged', async () => {
+    const initial=room({status:'playing',flowSchemaVersion:1,sessionId:'s1',memberUids:['coach','player','other'],members:[{uid:'coach'},{uid:'player'},{uid:'other'}],boardState:boardState('player'),marketPrices:{A20:100}});
+    await testEnv.withSecurityRulesDisabled(async ctx=>await setDoc(doc(ctx.firestore(),'rooms','room-p0'),initial));
+    const payload={updates:{A20:90},code:'bubble',isBubble:true,timestamp:10};
+    const publish=(uid:string,id:string)=>{
+      const db=testEnv.authenticatedContext(uid).firestore();const batch=writeBatch(db);
+      batch.update(doc(db,'rooms','room-p0'),{marketUpdates:payload,marketPrices:payload.updates,previousMarketPrices:initial.marketPrices});
+      batch.set(doc(db,'rooms','room-p0','financialEffects',id),{id,sessionId:'s1',kind:'market',timestamp:10,sourcePlayerUid:uid,payload});return batch.commit();
+    };
+    await assertFails(publish('other','not-authorized'));
+    await assertSucceeds(publish('coach','coach-command'));
+    expect((await getDoc(roomRef('coach'))).data()?.boardState).toEqual(initial.boardState);
+    await assertFails(publish('coach','same-effect-again'));
+    const playerDb=testEnv.authenticatedContext('player').firestore();
+    await assertSucceeds(getDoc(doc(playerDb,'rooms','room-p0','financialEffects','coach-command')));
+    await assertFails(updateDoc(doc(playerDb,'rooms','room-p0','financialEffects','coach-command'),{timestamp:11}));
+  });
+
+  it('requires atomic payment for a new learning continuation and preserves the pending event', async () => {
+    const event={id:'learning-event',type:'card',playerUid:'player',squareIndex:10,timestamp:1};
+    const initial=room({status:'playing',syncSchemaVersion:2,flowSchemaVersion:1,sessionId:'s1',members:[{uid:'coach'},{uid:'player'}],memberUids:['coach','player'],boardState:{...boardState('player'),currentEvent:event,currentCard:{cardId:'C003',deck:'opportunity'},pendingContinuation:null}});
+    const pending={sessionId:'s1',sourceEventId:event.id,cardId:'C003',playerUid:'player',commandId:'payment',kind:'lifelong-learning',phase:'awaiting_roll',learningType:'enhance_profession',requiredRoll:2,createdAt:1};
+    await testEnv.withSecurityRulesDisabled(async ctx=>{
+      await setDoc(doc(ctx.firestore(),'rooms','room-p0'),initial);
+      await setDoc(doc(ctx.firestore(),'rooms','room-p0','players','player'),{cash:10000});
+    });
+    const db=testEnv.authenticatedContext('player').firestore();
+    const next={...initial.boardState,revision:1,processedCommandIds:['payment'],pendingContinuation:pending};
+    await assertFails(updateDoc(roomRef('player'),{boardState:next}));
+    await assertSucceeds(runTransaction(db,async tx=>{
+      await tx.get(doc(db,'rooms','room-p0','players','player'));
+      tx.update(doc(db,'rooms','room-p0','players','player'),{cash:5000});
+      tx.update(doc(db,'rooms','room-p0'),{boardState:next});
+    }));
+    await assertFails(updateDoc(roomRef('player'),{boardState:{...next,revision:2,processedCommandIds:['payment','skip'],pendingContinuation:null,currentEvent:null}}));
+    await assertFails(updateDoc(roomRef('player'),{boardState:{...next,revision:2,processedCommandIds:['payment','skip'],currentEvent:null}}));
+    const invalid={...pending,phase:'completed',result:{roll:1,target:2,success:true}};
+    await assertFails(updateDoc(roomRef('player'),{boardState:{...next,revision:2,processedCommandIds:['payment','roll'],pendingContinuation:invalid}}));
+    const completed={...invalid,result:{roll:1,target:2,success:false}};
+    await assertSucceeds(updateDoc(roomRef('player'),{boardState:{...next,revision:2,processedCommandIds:['payment','roll'],pendingContinuation:completed}}));
+  });
+
+  it.each(['fundingLoanAmount','forcedDebtAmount'])('persists a paid learning continuation with atomic %s and rejects free or altered debt',async(funding)=>{
+    const event={id:'learning-event',type:'opportunity',playerUid:'player',squareIndex:10,timestamp:1};
+    const initial=room({status:'playing',syncSchemaVersion:2,flowSchemaVersion:1,financialHistoryStorage:'subcollection',sessionId:'s1',members:[{uid:'coach'},{uid:'player'}],memberUids:['coach','player'],boardState:{...boardState('player'),currentEvent:event,currentCard:{cardId:'C003',deck:'opportunity'},pendingContinuation:null}});
+    const state={...startupLoanPlayerState('Player'),cash:0,profession:{salary:30000} as any};
+    await testEnv.withSecurityRulesDisabled(async ctx=>{
+      await setDoc(doc(ctx.firestore(),'rooms/room-p0'),initial);
+      await setDoc(doc(ctx.firestore(),'rooms/room-p0/players/player'),state);
+    });
+    const db=testEnv.authenticatedContext('player').firestore();
+    const txData={boardFlow:'board-card',boardEventId:event.id,name:'終身學習',amount:5000,cashChange:-5000,usage:'lifelong_learning',source:'cash',lifelongLearningPayload:{learningType:'enhance_profession'},[funding]:5000} as any;
+    const pending=buildPaidLearningContinuation(initial as any,'player',txData,'payment',2)!;
+    const next={...initial.boardState,revision:1,processedCommandIds:['payment'],pendingContinuation:pending};
+    await assertFails(updateDoc(roomRef('player'),{boardState:next}));
+    const fake=writeBatch(db);
+    fake.update(doc(db,'rooms/room-p0/players/player'),{cash:0,liabilities:[{id:'fake',type:'信用貸款',totalOwed:4999,monthlyPayment:500}]});
+    fake.update(doc(db,'rooms/room-p0'),{boardState:next});
+    await assertFails(fake.commit());
+    const submit=(owed=5000)=>runRoomBoardMutation({db:db as any,roomId:'room-p0',commandId:'payment',playerStateUids:['player'],forcePrivatePlayerStates:true,onDuplicate:()=>({status:'duplicate'}),mutate:(latest,board)=>{
+      const applied=applyBoardTransaction(latest.playerStates!.player,txData,{now:2,generateId:()=> 'payment-history'});
+      if(applied.status!=='applied')throw new Error(JSON.stringify(applied));
+      applied.state.liabilities[applied.state.liabilities.length-1].totalOwed=owed;
+      const move=applyPaidLearningMove(board,applied.state,pending);
+      return {boardState:move.boardState,roomPatch:{playerStates:{player:move.state}},result:{status:'applied'}};
+    }});
+    await assertFails(submit(4999));
+    await assertSucceeds(submit());
+    await assertSucceeds(submit());
+    const saved=(await getDoc(doc(db,'rooms/room-p0/players/player'))).data()!;
+    expect(saved.cash).toBe(0);expect(saved.liabilities).toHaveLength(1);expect(saved.liabilities[0].totalOwed).toBe(5000);
+    expect((await getDoc(roomRef('player'))).data()!.boardState.pendingContinuation.phase).toBe('awaiting_roll');
+  });
+
+  it('lets six players borrow and repay while a shared prompt exists, without changing the board', async () => {
+    const uids=Array.from({length:6},(_,index)=>`p${index}`);
+    const initial=room({status:'playing',sessionId:'finance-session',syncSchemaVersion:2,flowSchemaVersion:1,financialHistoryStorage:'subcollection',members:[{uid:'coach'},...uids.map(uid=>({uid}))],memberUids:['coach',...uids],boardState:{...boardState('p0'),sharedCardPrompt:{id:'shared',targetPlayerUids:uids,responseStorage:'subcollection',responses:{}}}});
+    await testEnv.withSecurityRulesDisabled(async ctx=>{
+      await setDoc(doc(ctx.firestore(),'rooms','room-p0'),initial);
+      for(const uid of uids) await setDoc(doc(ctx.firestore(),'rooms','room-p0','players',uid),startupLoanPlayerState(uid));
+    });
+    const borrow=(uid:string)=>runPrivateFinancialCommand({db:testEnv.authenticatedContext(uid).firestore() as any,roomId:'room-p0',uid,sessionId:'finance-session',commandId:'borrow',apply:state=>({status:'applied',state:buildLoanBorrowState(state,{source:'cash',usage:'loan',amount:1000,cashChange:1000,name:'信用貸款'} as any,'borrow',1)})});
+    expect((await Promise.all(uids.map(borrow))).map(result=>result.status)).toEqual(uids.map(()=>'applied'));
+    expect(await borrow('p1')).toMatchObject({status:'duplicate'});
+    const db=testEnv.authenticatedContext('p1').firestore();
+    const state=(await getDoc(doc(db,'rooms','room-p0','players','p1'))).data()!;
+    expect(state.cash).toBe(11000);expect(state.liabilities[0].totalOwed).toBe(1000);
+    expect((await getDoc(roomRef('p1'))).data()!.boardState).toEqual(initial.boardState);
+    await assertFails(getDoc(doc(db,'rooms','room-p0','players','p2','transactions','finance-session%3Aborrow')));
+    await assertFails(updateDoc(doc(db,'rooms','room-p0','players','p1'),{cash:12000}));
+    const receipt=financialCommandRef(db as any,'room-p0','p1','finance-session','borrow');
+    await assertFails(updateDoc(receipt,{status:'applied',result:{tampered:true}}));
+    const repaid=await runPrivateFinancialCommand({db:db as any,roomId:'room-p0',uid:'p1',sessionId:'finance-session',commandId:'repay',apply:current=>({status:'applied',state:buildLoanRepaymentState(current,{usage:'liability',source:'cash',amount:1000,cashChange:-1000,liabilityId:'borrow',name:'還款'} as any,'repay',2)})});
+    expect(repaid.status).toBe('applied');expect((await getDoc(doc(db,'rooms','room-p0','players','p1'))).data()!.cash).toBe(10000);
+  });
+
+  it('keeps private history readable after closing the parent room while denying another player', async () => {
+    const path='rooms/room-p0/players/player/transactions/archived-entry';
+    await testEnv.withSecurityRulesDisabled(async context=>{
+      const db=context.firestore();
+      await setDoc(doc(db,'rooms/room-p0'),room());
+      await setDoc(doc(db,path),{id:'archived-entry',sessionId:'finished-session',playerUid:'player',timestamp:1,amount:100});
+      await setDoc(doc(db,'users/coach'),{role:'coach'});
+    });
+    const owner=testEnv.authenticatedContext('player').firestore();
+    await assertSucceeds(getDoc(doc(owner,path)));
+    await assertSucceeds(deleteDoc(roomRef('coach')));
+    await assertSucceeds(getDoc(doc(owner,path)));
+    await assertSucceeds(getDoc(doc(testEnv.authenticatedContext('coach').firestore(),path)));
+    await assertFails(getDoc(doc(testEnv.authenticatedContext('player2').firestore(),path)));
+    await assertFails(updateDoc(doc(owner,path),{amount:200}));
+  });
+
+  it('commits a canonical all-player expense and the source player finances together, then recovers the receipt without republishing', async()=>{
+    const current=room({status:'playing',sessionId:'expense-session',flowSchemaVersion:1,syncSchemaVersion:2,financialHistoryStorage:'subcollection',memberUids:['coach','player','player2'],members:[{uid:'coach'},{uid:'player'},{uid:'player2'}],boardState:{...boardState('player'),currentEvent:{id:'expense-event',playerUid:'player',type:'opportunity',timestamp:1,squareIndex:3,summary:'C045'},currentCard:{cardId:'C045',deck:'opportunity'}}});
+    await testEnv.withSecurityRulesDisabled(async context=>{
+      await setDoc(doc(context.firestore(),'rooms/room-p0'),current);
+      await setDoc(doc(context.firestore(),'rooms/room-p0/players/player'),startupLoanPlayerState('Player'));
+    });
+    const db=testEnv.authenticatedContext('player').firestore();
+    const txData={boardFlow:'board-card',boardEventId:'expense-event:expense_update',name:'全體物價上漲',usage:'expense_update',source:'income',amount:3000,cashChange:0,expensePayload:{category:'basicLiving',amount:3000,isIncrease:true}} as any;
+    const submit=()=>runRoomBoardMutation({db:db as any,roomId:'room-p0',commandId:'expense-payment',playerStateUids:['player'],forcePrivatePlayerStates:true,onDuplicate:()=>({status:'duplicate'}),mutate:(latestRoom,board)=>{
+      expect(validateFinancialEvent(board,txData,'player')).toBeNull();
+      const state=latestRoom.playerStates!.player;
+      return {boardState:buildExpenseBroadcast(board,state,txData,'player','expense-payment',2)!,roomPatch:{playerStates:{player:{...state,expenses:{...state.expenses,basicLiving:3000}}}},result:{status:'applied'}};
+    }});
+    await assertSucceeds(submit());
+    const saved=(await getDoc(doc(db,'rooms/room-p0/players/player'))).data()!;
+    expect(saved.expenses.basicLiving).toBe(3000);
+    const effect=doc(db,'rooms/room-p0/financialEffects/expense-payment');
+    expect((await getDoc(effect)).data()).toMatchObject({kind:'expense',sourcePlayerUid:'player',payload:{amount:3000,category:'basicLiving'}});
+    const revision=(await getDoc(roomRef('player'))).data()!.boardState.revision;
+    await assertSucceeds(submit());
+    expect((await getDoc(roomRef('player'))).data()!.boardState.revision).toBe(revision);
+    await assertFails(updateDoc(effect,{timestamp:3}));
+  });
+
+  const seedMovement = async (startedAt = Date.now() - 20000) => {
+    const player = { ...startupLoanPlayerState('Player'), boardPosition: 5, skipTurns: 0 };
+    const movement = { playerUid: 'player', startPosition: 5, path: [6], remainingPath: [7],
+      rollTotal: 2, dice: [2], startedAt, stepDurationMs: 380, introDelayMs: 600, landingDelayMs: 600, isActive: true };
+    const data = room({ status: 'playing', sessionId: 'settlement-test', memberUids: ['coach', 'player', 'other'],
+      members: [{ uid: 'coach', name: 'Coach' }, { uid: 'player', name: 'Player' }, { uid: 'other', name: 'Other' }],
+      publicPlayerStates: { player: toPublicPlayerState('player', player) },
+      boardState: { ...boardState('player'), cardLog: [], playerPositions: { player: 5, other: 0 }, hasRolledThisTurn: true, movement } });
+    await testEnv.withSecurityRulesDisabled(async context => {
+      await setDoc(doc(context.firestore(), 'rooms/room-p0'), data);
+      await setDoc(doc(context.firestore(), 'rooms/room-p0/players/player'), player);
+    });
+    return { data, player, movement };
+  };
+  const settleAs = (uid: string, movement: any) => runRoomBoardMutation({
+    db: testEnv.authenticatedContext(uid).firestore() as any, roomId: 'room-p0',
+    commandId: movementCommandId(movement), readPromptResponses: false,
+    forcePrivatePlayerStates: true, playerStateUids: ['player'], onDuplicate: () => 'duplicate',
+    mutate: (latest, board) => {
+      if (!board.movement?.isActive) return { boardState: board, commit: false, result: 'already-done' };
+      const resolved = buildBoardMovementLegResolution(latest as Room, 'player')!;
+      return { boardState: resolved.boardState!, roomPatch: { playerStates: resolved.playerStates }, result: 'settled' };
+    }
+  });
+  it('allows overdue player takeover and simultaneous host settlement exactly once', async () => {
+    const { movement } = await seedMovement();
+    const outcomes = await Promise.all([settleAs('player', movement), settleAs('coach', movement)]);
+    expect(outcomes.filter(result => result === 'settled')).toHaveLength(1);
+    const snapshot = await getDoc(roomRef('coach'));
+    expect(snapshot.data()?.boardState.revision).toBe(1);
+    expect(snapshot.data()?.boardState.currentEvent.type).toBe('bank');
+    expect(snapshot.data()?.boardState.movement.isActive).toBe(false);
+    expect(snapshot.data()?.boardState.processedCommandIds).toEqual([movementCommandId(movement)]);
+  });
+  it.each(['player', 'coach'])('allows %s to settle a final bank landing with the exact service event ID', async actor => {
+    const { data, player, movement } = await seedMovement();
+    const finalMovement = { ...movement, remainingPath: [] };
+    await testEnv.withSecurityRulesDisabled(async context => {
+      await updateDoc(doc(context.firestore(), 'rooms/room-p0'), {
+        flowSchemaVersion: 1, financialHistoryStorage: 'subcollection', 'boardState.movement': finalMovement
+      });
+    });
+    expect(await settleAs(actor, finalMovement)).toBe('settled');
+    const snapshot = await getDoc(roomRef('coach'));
+    const state = (await getDoc(doc(testEnv.authenticatedContext('coach').firestore(), 'rooms/room-p0/players/player'))).data()!;
+    expect(snapshot.data()?.boardState.currentEvent.id).toBe(`player_${movement.startedAt}_bank_land`);
+    expect(state.bankServiceGrantedAtEventId).toBe(snapshot.data()?.boardState.currentEvent.id);
+    expect(state.cash).toBe(player.cash);
+    expect(snapshot.data()?.boardState.movement).toBeNull();
+    expect(await settleAs(actor, finalMovement)).toBe('duplicate');
+  });
+  it('rejects early settlement and an unrelated player', async () => {
+    const { movement } = await seedMovement(Date.now() + 10000);
+    await assertFails(settleAs('player', movement));
+    await assertFails(settleAs('coach', movement));
+    await assertFails(settleAs('other', movement));
+  });
+  it.each(['landing', 'turn', 'extra-room-field', 'other-position', 'cash'])('rejects forged settlement: %s', async tamper => {
+    const { data, player, movement } = await seedMovement();
+    const resolution = buildBoardMovementLegResolution({ ...data, playerStates: { player } } as unknown as Room, 'player')!;
+    const nextBoard = { ...resolution.boardState!, revision: 1, processedCommandIds: [movementCommandId(movement)] };
+    const db = testEnv.authenticatedContext('player').firestore();
+    const batch = writeBatch(db);
+    if (tamper === 'landing') nextBoard.playerPositions.player = 7;
+    if (tamper === 'turn') nextBoard.currentTurnUid = 'other';
+    if (tamper === 'other-position') nextBoard.playerPositions.other = 7;
+    batch.update(doc(db, 'rooms/room-p0'), { boardState: nextBoard, ...(tamper === 'extra-room-field' ? { gameTimeLeft: 999 } : {}) });
+    if (tamper === 'cash') batch.update(doc(db, 'rooms/room-p0/players/player'), { cash: 999999 });
+    await assertFails(batch.commit());
+  });
+
   it('requires the creator to be the first member', async () => {
     const db = testEnv.authenticatedContext('coach').firestore();
     await assertSucceeds(setDoc(doc(db, 'rooms/room-p0'), room()));
@@ -120,6 +341,23 @@ rulesDescribe('Firestore room P0 permissions', () => {
     await assertFails(updateDoc(roomRef('player'), {
       financialAcceleration: { multiplier: 3, updatedAt: 2, updatedByUid: 'player' }
     }));
+  });
+
+  it('keeps a room-wide subsidy receipt immutable and private after recipients change',async()=>{
+    await assertSucceeds(setDoc(roomRef('coach'),room()));
+    await assertSucceeds(updateDoc(roomRef('coach'),{status:'playing',flowSchemaVersion:1,sessionId:'s',members:[{uid:'coach',role:'coach'},{uid:'player',role:'player'}],memberUids:['coach','player']}));
+    const coachDb=testEnv.authenticatedContext('coach').firestore();
+    const receipt=doc(coachDb,'rooms/room-p0/coachCommands/subsidy-original');
+    const subsidy={sequence:1,amount:10000,grantedAt:1,grantedByUid:'coach',playerUids:['player']};
+    const batch=writeBatch(coachDb);
+    batch.update(doc(coachDb,'rooms/room-p0'),{financialSubsidy:subsidy});
+    batch.set(receipt,{commandId:'subsidy-original',sessionId:'s',coachUid:'coach',kind:'subsidy',result:subsidy});
+    await assertSucceeds(batch.commit());
+    await assertFails(updateDoc(receipt,{result:{...subsidy,amount:20000}}));
+    await assertFails(getDoc(doc(testEnv.authenticatedContext('player').firestore(),'rooms/room-p0/coachCommands/subsidy-original')));
+    await assertFails(setDoc(doc(testEnv.authenticatedContext('player').firestore(),'rooms/room-p0/coachCommands/forged'),{commandId:'forged',sessionId:'s',coachUid:'player',kind:'subsidy',result:subsidy}));
+    await assertSucceeds(updateDoc(roomRef('coach'),{members:[{uid:'coach',role:'coach'}],memberUids:['coach']}));
+    expect((await assertSucceeds(getDoc(receipt))).data()?.result).toEqual(subsidy);
   });
 
   it('allows sequential operator subsidies and blocks player subsidy writes', async () => {
@@ -624,6 +862,29 @@ rulesDescribe('Firestore room P0 permissions', () => {
     }));
   });
 
+  it('validates an own-response-only transaction against the current source event and rejects stale or overwritten responses', async () => {
+    const promptId='own-only-prompt';
+    await assertSucceeds(setDoc(roomRef('coach'), room()));
+    await assertSucceeds(updateDoc(roomRef('coach'), {
+      status:'playing',syncSchemaVersion:2,memberUids:['coach','player','player2'],
+      members:[{uid:'coach',name:'Coach',role:'coach'},{uid:'player',name:'Player',role:'player'},{uid:'player2',name:'Player2',role:'player'}],
+      boardState:{...boardState('player'),currentEvent:{id:'source-event',type:'news',playerUid:'player',playerName:'Player',timestamp:1,summary:'test',squareIndex:2},
+        sharedCardPrompt:{id:promptId,sourceEventId:'source-event',responseStorage:'subcollection',targetPlayerUids:['player','player2'],responses:{}}}
+    }));
+    const playerDb=testEnv.authenticatedContext('player').firestore();
+    const responseRef=doc(playerDb,`rooms/room-p0/events/${promptId}/responses/player`);
+    const response={promptId,playerUid:'player',playerName:'Player',status:'declined',respondedAt:1,commandId:'own-only'};
+    await assertSucceeds(runTransaction(playerDb,async transaction=>{
+      if(!(await transaction.get(responseRef)).exists()) transaction.set(responseRef,response);
+    }));
+    await assertFails(setDoc(responseRef,{...response,respondedAt:2}));
+    await assertSucceeds(updateDoc(roomRef('coach'),{'boardState.currentEvent.id':'next-event'}));
+    const otherDb=testEnv.authenticatedContext('player2').firestore();
+    await assertFails(setDoc(doc(otherDb,`rooms/room-p0/events/${promptId}/responses/player2`),{
+      ...response,playerUid:'player2',playerName:'Player2',commandId:'stale-response'
+    }));
+  });
+
   it('allows a schema v2 target to create a completed financial response document', async () => {
     const promptId = 'prompt-v2-financial';
     await assertSucceeds(setDoc(roomRef('coach'), room()));
@@ -672,6 +933,7 @@ rulesDescribe('Firestore room P0 permissions', () => {
       ],
       boardState: {
         ...boardState('player'),
+        currentEvent: {id: 'event-n055', type: 'news', playerUid: 'player', playerName: 'Player', timestamp: 1, summary: 'N055', squareIndex: 2},
         sharedCardPrompt: {
           id: promptId, kind: 'investment', sourceCardId: 'N055', sourceEventId: 'event-n055',
           responseStorage: 'subcollection', targetPlayerUids: ['player', 'player2'], responses: {}
@@ -1441,6 +1703,7 @@ rulesDescribe('Firestore room P0 permissions', () => {
         sourcePlayerName: 'P1',
         targetPlayerUids: ['p1', 'p2', 'p3'],
         responses: {},
+        responseStorage: 'subcollection',
         createdAt: 1
       }
     } as any;
@@ -1466,27 +1729,55 @@ rulesDescribe('Firestore room P0 permissions', () => {
       assertSucceeds(setDoc(doc(coachDb, `rooms/startup-room/players/${uid}`), startupLoanPlayerState(uid.toUpperCase())))
     ));
 
-    await testEnv.withSecurityRulesDisabled(async context => {
-      const emulatorDb = context.firestore();
-      await Promise.all(['p1', 'p2', 'p3'].map(uid => {
-        const commandId = `startup-loan:prompt-loan:${uid}`;
-        return runRoomBoardMutation<boolean, Room>({
-          db: emulatorDb,
-          roomId: 'startup-room',
-          commandId,
-          playerStateUids: [uid],
-          onDuplicate: () => true,
-          mutate: (latestRoom, latestBoard) => buildStartupLoanPromptMutation(
-            latestRoom,
-            latestBoard,
-            'prompt-loan',
-            uid,
-            uid.toUpperCase(),
-            commandId
-          )
-        });
+    await Promise.all(['p1', 'p2', 'p3'].map(uid => {
+      const playerDb = testEnv.authenticatedContext(uid).firestore();
+      const playerRef = doc(playerDb, `rooms/startup-room/players/${uid}`);
+      const responseRef = doc(playerDb, `rooms/startup-room/events/prompt-loan/responses/${uid}`);
+      const commandId = `startup-loan:prompt-loan:${uid}`;
+      return assertSucceeds(runTransaction(playerDb, async transaction => {
+        const roomDocument = doc(playerDb, 'rooms/startup-room');
+        const [roomSnapshot, playerSnapshot, responseSnapshot] = await Promise.all([
+          transaction.get(roomDocument), transaction.get(playerRef), transaction.get(responseRef)
+        ]);
+        expect(roomSnapshot.exists()).toBe(true);
+        expect(playerSnapshot.exists()).toBe(true);
+        expect(responseSnapshot.exists()).toBe(false);
+        const latestRoom = roomSnapshot.data() as Room;
+        const mutation = buildStartupLoanPromptMutation(
+          { ...latestRoom, playerStates: { ...(latestRoom.playerStates || {}), [uid]: playerSnapshot.data() as GameState } },
+          latestRoom.boardState!, 'prompt-loan', uid, uid.toUpperCase(), commandId
+        );
+        const nextPlayerState = mutation.roomPatch?.playerStates?.[uid];
+        const response = mutation.sharedResponse?.response;
+        expect(mutation.result).toBe(true);
+        expect(nextPlayerState).toBeTruthy();
+        expect(response).toBeTruthy();
+        transaction.set(playerRef, nextPlayerState!);
+        transaction.set(responseRef, { ...response, promptId: 'prompt-loan', commandId });
       }));
-    });
+    }));
+
+    await assertSucceeds(runTransaction(coachDb, async transaction => {
+      const roomDocument = doc(coachDb, 'rooms/startup-room');
+      const roomSnapshot = await transaction.get(roomDocument);
+      const currentRoom = roomSnapshot.data() as Room;
+      const prompt = currentRoom.boardState!.sharedCardPrompt!;
+      const responseSnapshots = await Promise.all(prompt.targetPlayerUids.map(uid =>
+        transaction.get(doc(coachDb, `rooms/startup-room/events/prompt-loan/responses/${uid}`))
+      ));
+      const responses = Object.fromEntries(responseSnapshots.map((snapshot, index) => [
+        prompt.targetPlayerUids[index], snapshot.data()
+      ]));
+      expect(Object.keys(responses)).toHaveLength(3);
+      const advanced = buildBoardEventAdvanceState({
+        ...currentRoom,
+        boardState: { ...currentRoom.boardState!, sharedCardPrompt: { ...prompt, responses } }
+      });
+      expect(advanced?.boardState).toBeTruthy();
+      transaction.update(roomDocument, {
+        boardState: applyBoardCommand(advanced!.boardState!, 'prompt:shared:finalize:prompt-loan').boardState
+      });
+    }));
 
     const finalRoom = (await getDoc(doc(coachDb, 'rooms/startup-room'))).data();
     expect(finalRoom?.boardState.sharedCardPrompt).toBeUndefined();
@@ -1595,6 +1886,71 @@ rulesDescribe('Firestore room P0 permissions', () => {
     }
   });
 
+  it('keeps H009 pending on a denied approval and grants happiness once under concurrent coach approval', async () => {
+    const event={id:'event-approval',playerUid:'player',type:'happiness',timestamp:1,squareIndex:1,summary:'H009'};
+    const initial=room({status:'playing',sessionId:'approval-session',flowSchemaVersion:1,syncSchemaVersion:2,financialHistoryStorage:'subcollection',memberUids:['coach','player'],members:[{uid:'coach'},{uid:'player'}],boardState:{...boardState('player'),currentEvent:event,currentCard:{cardId:'H009',deck:'happiness'}}});
+    const requestId='request_approval_happiness_player_H009';
+    const request={id:requestId,uid:'player',playerName:'Player',type:'happiness',amount:1,timestamp:1,status:'pending',boardEventId:event.id,boardCardId:'H009',happinessLabel:'分享回憶',sessionId:initial.sessionId};
+    await testEnv.withSecurityRulesDisabled(async ctx=>{
+      const db=ctx.firestore();await setDoc(doc(db,'rooms/room-p0'),initial);
+      await setDoc(doc(db,'rooms/room-p0/players/player'),startupLoanPlayerState('Player'));
+      await setDoc(doc(db,`rooms/room-p0/pendingRequests/${requestId}`),request);
+    });
+    const approve=(uid:string)=>{
+      const db=testEnv.authenticatedContext(uid).firestore();
+      return runTransaction(db,async tx=>{
+        const rr=doc(db,'rooms/room-p0'),qr=doc(db,`rooms/room-p0/pendingRequests/${requestId}`),pr=doc(db,'rooms/room-p0/players/player');
+        const [rs,qs,ps]=await Promise.all([tx.get(rr),tx.get(qr),tx.get(pr)]);
+        if(qs.data()!.status==='approved')return 'duplicate';
+        if((await tx.get(financialCommandRef(db as any,'room-p0','player',initial.sessionId,`approve-happiness:${requestId}`))).exists())return 'duplicate';
+        const applied=applyApprovedHappinessStory(ps.data() as GameState,request,HAPPINESS_CARD_MAP.H009.happinessPoints,2);
+        writePrivateFinancialState(tx,db as any,'room-p0','player',ps.data() as GameState,applied.state,rs.data() as Room,`approve-happiness:${requestId}`,true);
+        tx.update(qr,{status:'approved'});return 'applied';
+      }).catch(async error=>{
+        const receipt=await getDocFromServer(financialCommandRef(db as any,'room-p0','player',initial.sessionId,`approve-happiness:${requestId}`)).catch(()=>null);
+        if(receipt?.exists() && receipt.data().status==='applied')return 'duplicate';
+        throw error;
+      });
+    };
+    await assertFails(approve('player'));
+    expect((await getDoc(doc(testEnv.authenticatedContext('player').firestore(),`rooms/room-p0/pendingRequests/${requestId}`))).data()!.status).toBe('pending');
+    expect((await getDoc(doc(testEnv.authenticatedContext('player').firestore(),'rooms/room-p0/players/player'))).data()!.happiness).toEqual([]);
+    expect((await Promise.all([approve('coach'),approve('coach')])).sort()).toEqual(['applied','duplicate']);
+    const db=testEnv.authenticatedContext('coach').firestore();
+    const state=(await getDoc(doc(db,'rooms/room-p0/players/player'))).data()!;
+    expect(state.happiness).toHaveLength(1);expect(state.happinessTotal).toBe(HAPPINESS_CARD_MAP.H009.happinessPoints);
+    expect(state.history).toHaveLength(1);
+    expect((await getDoc(financialCommandRef(db as any,'room-p0','player',initial.sessionId,`approve-happiness:${requestId}`))).exists()).toBe(true);
+  });
+
+  it('retains C056 after a failed draw and commits one followup under concurrent continuation', async () => {
+    const event={id:'event-share',playerUid:'player',type:'opportunity',timestamp:1,squareIndex:3,summary:'C056'};
+    const initial=room({status:'playing',sessionId:'draw-session',flowSchemaVersion:1,syncSchemaVersion:2,memberUids:['coach','player'],members:[{uid:'coach'},{uid:'player'}],boardState:{...boardState('player'),currentEvent:event,currentCard:buildBoardCardResultById('C056'),pendingContinuation:null,deckState:createInitialDeckState()}});
+    const requestId='request_draw_board_share_player_C056';
+    const request={id:requestId,uid:'player',playerName:'Player',type:'board_share',amount:0,timestamp:1,status:'pending',boardEventId:event.id,boardCardId:'C056',sessionId:initial.sessionId};
+    await testEnv.withSecurityRulesDisabled(async ctx=>{
+      const db=ctx.firestore();await setDoc(doc(db,'rooms/room-p0'),initial);
+      await setDoc(doc(db,`rooms/room-p0/pendingRequests/${requestId}`),request);
+    });
+    const coach=testEnv.authenticatedContext('coach').firestore();
+    const approve=()=>runTransaction(coach,async tx=>{
+      const rr=doc(coach,'rooms/room-p0'),qr=doc(coach,`rooms/room-p0/pendingRequests/${requestId}`);
+      const [rs,qs]=await Promise.all([tx.get(rr),tx.get(qr)]);if(qs.data()!.status==='approved')return;
+      tx.update(rr,{'boardState.pendingContinuation':buildApprovedDrawContinuation(rs.data() as Room,request,2)});tx.update(qr,{status:'approved'});
+    });
+    await Promise.all([approve(),approve()]);
+    const db=testEnv.authenticatedContext('player').firestore();
+    const commandId=`draw-followup:${event.id}:news`;
+    await expect(runRoomBoardMutation({db:db as any,roomId:'room-p0',commandId,onDuplicate:()=>true,mutate:()=>{throw new Error('找不到可抽的後續卡片，待辦已保留');}})).rejects.toThrow('待辦已保留');
+    const pending=(await getDoc(doc(db,'rooms/room-p0'))).data()!.boardState.pendingContinuation;
+    expect(pending.phase).toBe('awaiting_draw');
+    const draw=()=>runRoomBoardMutation({db:db as any,roomId:'room-p0',commandId,onDuplicate:()=> 'duplicate',mutate:(_latest,board)=>({boardState:{...board,currentEvent:{...event,id:'followup-result',type:'followup'},currentCard:buildBoardCardResultById('N027')!,pendingContinuation:{...board.pendingContinuation!,phase:'completed' as const,result:{eventId:'followup-result',cardId:'N027'}}},result:'applied'})});
+    expect((await Promise.all([draw(),draw()])).sort()).toEqual(['applied','duplicate']);
+    const final=(await getDoc(doc(db,'rooms/room-p0'))).data()!.boardState;
+    expect(final.pendingContinuation).toMatchObject({...pending,phase:'completed' as const,result:{eventId:'followup-result',cardId:'N027'}});
+    expect(final.currentEvent.id).toBe('followup-result');expect(final.processedCommandIds.filter((id:string)=>id===commandId)).toHaveLength(1);
+  });
+
   it('allows H009 approval requests only for the requesting player', async () => {
     await assertSucceeds(setDoc(roomRef('coach'), room()));
     await assertSucceeds(updateDoc(roomRef('coach'), {
@@ -1650,6 +2006,18 @@ rulesDescribe('Firestore room P0 permissions', () => {
     await assertSucceeds(updateDoc(doc(coachDb, `rooms/room-p0/pendingRequests/${requestId}`), { status: 'approved' }));
     await assertFails(updateDoc(doc(playerDb, `rooms/room-p0/pendingRequests/${requestId}`), { status: 'rejected' }));
     await assertSucceeds(deleteDoc(doc(playerDb, `rooms/room-p0/pendingRequests/${requestId}`)));
+  });
+
+  it('allows an idempotent delete after an approval request is already gone', async () => {
+    await assertSucceeds(setDoc(roomRef('coach'), room()));
+    await assertSucceeds(updateDoc(roomRef('coach'), {
+      status: 'playing',
+      memberUids: ['coach', 'player'],
+      members: [{ uid: 'coach', name: 'Coach', role: 'coach' }, { uid: 'player', name: 'Player', role: 'player' }]
+    }));
+
+    const playerDb = testEnv.authenticatedContext('player').firestore();
+    await assertSucceeds(deleteDoc(doc(playerDb, 'rooms/room-p0/pendingRequests/already-cleared')));
   });
 
   it('allows a player to publish diagnostics while keeping them coach-readable only', async () => {

@@ -1,15 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { Suspense, useState, useEffect, useMemo } from 'react';
 import { useGame } from '../../context/GameContext';
 import { useAuth, isGM as authIsGM, getUserTitle, getCoachBadge, getPlayerBadge, getTitleColor, getAvatarBorderStyle, getBadgeGlowStyle } from '../../context/AuthContext';
 import { LogOut, Award, Play, History, BookOpen, Mail, Users, ShieldCheck, UserCircle, Trophy } from 'lucide-react';
 import { ProfileModal, TutorialModal, LetterToPlayersModal, CreateRoomModal, LeaderboardModal, FriendsModal } from '../../components/modals';
 import SafeImage from '../../components/common/SafeImage';
 import { RoomView } from './RoomView';
-import { CoachDashboard } from './CoachDashboard';
-import { DeveloperPortal } from './DeveloperPortal';
-import { CoachHistoryView } from '../history/CoachHistoryView';
-import { CoachReportView } from '../report/CoachReportView';
-import { RoomRecordsView } from '../report/RoomRecordsView';
 import { VERSION_DISPLAY, IS_DEV_VERSION } from '../../constants/version';
 import { useRoom } from '../../context/RoomContext';
 import { collection, getDocs } from 'firebase/firestore';
@@ -19,6 +14,20 @@ import { safeAsync } from '../../utils/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Terminal } from 'lucide-react';
 import { ACHIEVEMENTS } from '../../constants/achievements';
+
+// 執行師／GM 專用工具改用動態載入：一般玩家開啟大廳時不需要下載這些頁面
+// （CoachDashboard 約 114KB、RoomRecordsView 約 39KB、CoachHistoryView 約
+// 21KB），只有真正切換到這些畫面時才會抓取。
+const CoachDashboard = React.lazy(() => import('./CoachDashboard').then(module => ({ default: module.CoachDashboard })));
+const CoachHistoryView = React.lazy(() => import('../history/CoachHistoryView').then(module => ({ default: module.CoachHistoryView })));
+const CoachReportView = React.lazy(() => import('../report/CoachReportView').then(module => ({ default: module.CoachReportView })));
+const RoomRecordsView = React.lazy(() => import('../report/RoomRecordsView').then(module => ({ default: module.RoomRecordsView })));
+
+const SectionSpinner = () => (
+  <div className="flex flex-1 items-center justify-center bg-[#102f38] py-20">
+    <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+  </div>
+);
 
 interface LobbyViewProps {
   onLogout: () => void;
@@ -491,19 +500,35 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   }
 
   if (showCoachHistory) {
-    return <CoachHistoryView onBack={() => setShowCoachHistory(false)} />;
+    return (
+      <Suspense fallback={<SectionSpinner />}>
+        <CoachHistoryView onBack={() => setShowCoachHistory(false)} />
+      </Suspense>
+    );
   }
 
   if (showCoachReport) {
-    return <CoachReportView onBack={() => setShowCoachReport(false)} />;
+    return (
+      <Suspense fallback={<SectionSpinner />}>
+        <CoachReportView onBack={() => setShowCoachReport(false)} />
+      </Suspense>
+    );
   }
 
   if (showCoachSelfReport) {
-    return <CoachReportView onBack={() => setShowCoachSelfReport(false)} coachFilter={user?.uid} />;
+    return (
+      <Suspense fallback={<SectionSpinner />}>
+        <CoachReportView onBack={() => setShowCoachSelfReport(false)} coachFilter={user?.uid} />
+      </Suspense>
+    );
   }
 
   if (showRoomRecords) {
-    return <RoomRecordsView onBack={() => setShowRoomRecords(false)} />;
+    return (
+      <Suspense fallback={<SectionSpinner />}>
+        <RoomRecordsView onBack={() => setShowRoomRecords(false)} />
+      </Suspense>
+    );
   }
 
   return (
@@ -599,6 +624,24 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
               </div>
 
               {/* GM Dashboard Wrapper */}
+              <Suspense fallback={<SectionSpinner />}>
+                <CoachDashboard
+                  onCreateGame={() => { localStorage.removeItem('hf_practice_mode'); setShowCreateRoomModal(true); }}
+                  onViewHistory={onViewHistory}
+                  onViewCoachHistory={() => setShowCoachHistory(true)}
+                  onViewFriends={() => setShowFriendsModal(true)}
+                  onViewLeaderboard={() => setShowLeaderboardModal(true)}
+                  onViewTutorial={() => setShowTutorialModal(true)}
+                  userStats={userStats}
+                  isGMMode={true}
+                  onGMToolsStateChange={setIsGMToolsOpen}
+                  onViewCoachReport={() => setShowCoachReport(true)}
+                  onViewRoomRecords={() => setShowRoomRecords(true)}
+                />
+              </Suspense>
+            </div>
+          ) : viewMode === 'coach' ? (
+            <Suspense fallback={<SectionSpinner />}>
               <CoachDashboard
                 onCreateGame={() => { localStorage.removeItem('hf_practice_mode'); setShowCreateRoomModal(true); }}
                 onViewHistory={onViewHistory}
@@ -607,24 +650,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                 onViewLeaderboard={() => setShowLeaderboardModal(true)}
                 onViewTutorial={() => setShowTutorialModal(true)}
                 userStats={userStats}
-                isGMMode={true}
                 onGMToolsStateChange={setIsGMToolsOpen}
-                onViewCoachReport={() => setShowCoachReport(true)}
-                onViewRoomRecords={() => setShowRoomRecords(true)}
+                onViewCoachSelfReport={() => setShowCoachSelfReport(true)}
               />
-            </div>
-          ) : viewMode === 'coach' ? (
-            <CoachDashboard
-              onCreateGame={() => { localStorage.removeItem('hf_practice_mode'); setShowCreateRoomModal(true); }}
-              onViewHistory={onViewHistory}
-              onViewCoachHistory={() => setShowCoachHistory(true)}
-              onViewFriends={() => setShowFriendsModal(true)}
-              onViewLeaderboard={() => setShowLeaderboardModal(true)}
-              onViewTutorial={() => setShowTutorialModal(true)}
-              userStats={userStats}
-              onGMToolsStateChange={setIsGMToolsOpen}
-              onViewCoachSelfReport={() => setShowCoachSelfReport(true)}
-            />
+            </Suspense>
           ) : (
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-left-4 duration-500">
               {/* Stats Grid */}

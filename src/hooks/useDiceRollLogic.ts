@@ -3,10 +3,29 @@ import { useGame } from '../context/GameContext';
 
 export type PromotionType = 'normal' | 'lifelong' | 'enhance_profession' | 'stock_ability' | 'real_estate_ability';
 
+export type RemoteDiceRollResult = {
+    roll: number;
+    total?: number;
+    target?: number;
+    success?: boolean;
+    bonus?: number;
+    newTitle?: string;
+    presentationDurationMs?: number;
+};
+
+const waitForPresentation = async (durationMs?: number) => {
+    const duration = Math.max(0, durationMs ?? 0);
+    if (!duration) return;
+    await new Promise<void>(resolve => window.setTimeout(resolve, duration));
+};
+
 export const useDiceRollLogic = (
     onComplete: (success: boolean, bonus: number, newTitle: string) => void,
     formatMoney: (val: number) => string,
-    promotionType?: PromotionType | null
+    promotionType?: PromotionType | null,
+    remoteRoll?: () => Promise<RemoteDiceRollResult>,
+    onError?: (error: unknown) => void,
+    recoveredResult?: RemoteDiceRollResult
 ) => {
     const { gameState } = useGame();
     const [isRolling, setIsRolling] = useState(false);
@@ -14,6 +33,13 @@ export const useDiceRollLogic = (
     const [examResult, setExamResult] = useState<'idle' | 'success' | 'failure'>('idle');
     const [examLog, setExamLog] = useState<{ target: number, bonus: number, newTitle: string } | null>(null);
     const rollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+        if (!recoveredResult || isRolling) return;
+        setDiceValue(recoveredResult.roll);
+        setExamResult(recoveredResult.success ? 'success' : 'failure');
+        setExamLog({ target: recoveredResult.target || 2, bonus: recoveredResult.bonus || 0, newTitle: recoveredResult.newTitle || '' });
+    }, [recoveredResult?.roll, recoveredResult?.success, recoveredResult?.target, isRolling]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -24,10 +50,30 @@ export const useDiceRollLogic = (
         };
     }, []);
 
-    const handleDiceRoll = () => {
+    const handleDiceRoll = async () => {
         if (isRolling || examResult !== 'idle') return;
 
         setIsRolling(true);
+        if (remoteRoll) {
+            try {
+                const result = await remoteRoll();
+                await waitForPresentation(result.presentationDurationMs);
+                const target = result.target || (promotionType === 'normal' ? gameState.currentRankLevel + 1 : 2);
+                const success = result.success ?? result.roll >= target;
+                const bonus = success ? result.bonus || 0 : 0;
+                const newTitle = success ? result.newTitle || gameState.currentRankTitle : '';
+                setDiceValue(result.roll);
+                setExamResult(success ? 'success' : 'failure');
+                setExamLog({ target, bonus, newTitle });
+                onComplete(success, bonus, newTitle);
+            } catch (error) {
+                onError?.(error);
+            } finally {
+                setIsRolling(false);
+            }
+            return;
+        }
+
         const duration = 2000;
         const interval = 100;
         const startTime = Date.now();

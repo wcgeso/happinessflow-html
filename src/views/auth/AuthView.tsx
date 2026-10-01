@@ -6,6 +6,8 @@ import { VERSION_DISPLAY, IS_DEV_VERSION } from '../../constants/version';
 import SafeImage from '../../components/common/SafeImage';
 import { findUserByInviteCode } from '../../utils/referralUtils';
 
+const NICKNAME_MAX_LENGTH = 8;
+
 export const AuthView: React.FC = () => {
     const { login, register, loginWithGoogle, loginWithApple } = useAuth();
     const [isLogin, setIsLogin] = useState(true);
@@ -17,6 +19,7 @@ export const AuthView: React.FC = () => {
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [isAppleLoading, setIsAppleLoading] = useState(false);
     const [pendingRefCode, setPendingRefCode] = useState<string | null>(null);
+    const [referralCode, setReferralCode] = useState('');
     const [referrerName, setReferrerName] = useState<string | null>(null);
 
     useEffect(() => {
@@ -24,6 +27,7 @@ export const AuthView: React.FC = () => {
         const ref = params.get('ref');
         if (ref) {
             setPendingRefCode(ref);
+            setReferralCode(ref);
             setIsLogin(false);
             findUserByInviteCode(ref).then(u => { if (u) setReferrerName(u.name); });
         }
@@ -107,7 +111,7 @@ export const AuthView: React.FC = () => {
                     }
                 }
             } else {
-                await register(finalEmail, finalPassword, name, pendingRefCode || undefined);
+                await register(finalEmail, finalPassword, name, referralCode.trim() || undefined);
             }
         } catch (err: any) {
             let errorMessage = translateFirebaseError(err.code);
@@ -260,11 +264,11 @@ export const AuthView: React.FC = () => {
                                 <div className="flex justify-between items-end px-1">
                                     <label className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">暱稱</label>
                                     <span className={`text-[8px] font-bold ${
-                                        name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '').length >= ( /[\u4e00-\u9fa5]/.test(name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '')) ? 8 : 12) 
+                                        name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '').length >= NICKNAME_MAX_LENGTH
                                             ? 'text-amber-500' 
                                             : 'text-slate-500'
                                     }`}>
-                                        {name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '').length}/{/[\u4e00-\u9fa5]/.test(name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '')) ? 8 : 12}
+                                        {name.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '').length}/{NICKNAME_MAX_LENGTH}
                                     </span>
                                 </div>
                                 <Input
@@ -274,12 +278,11 @@ export const AuthView: React.FC = () => {
                                                 const val = e.target.value;
                                                 // 排除注音符號後的有效長度
                                                 const effectiveVal = val.replace(/[\u3100-\u312F\u31A0-\u31BF]/g, '');
-                                                // 無論中英文，上限統一為 8 字
-                                                const max = 8;
-                                                if (effectiveVal.length <= max) {
+                                                if (effectiveVal.length <= NICKNAME_MAX_LENGTH) {
                                                     setName(val);
                                                 }
                                             }}
+                                    maxLength={NICKNAME_MAX_LENGTH}
                                     onInvalid={handleInvalid}
                                     onInput={handleInput}
                                     onBlur={handleBlur}
@@ -288,29 +291,46 @@ export const AuthView: React.FC = () => {
                                 />
                             </div>
                         )}
+                        {!isLogin && (
+                            <div className="space-y-1">
+                                <label className="text-[9px] text-slate-500 font-bold uppercase tracking-widest ml-1">邀請碼（選填）</label>
+                                <Input
+                                    value={referralCode}
+                                    onChange={(e) => setReferralCode(e.target.value)}
+                                    autoComplete="off"
+                                    autoCapitalize="characters"
+                                    placeholder="輸入邀請碼"
+                                    className="bg-slate-950/50 border-white/5 focus:border-amber-500/50 transition-all h-10 text-sm uppercase"
+                                />
+                            </div>
+                        )}
                         <div className="space-y-1">
                             <label className="text-[9px] text-slate-500 font-bold uppercase tracking-widest ml-1">電子郵件 / 帳號</label>
                             <Input
-                                type="text"
+                                type={isLogin ? 'text' : 'email'}
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 onInvalid={handleInvalid}
                                 onInput={handleInput}
                                 onBlur={handleBlur}
+                                autoComplete="email"
+                                inputMode={isLogin ? 'text' : 'email'}
                                 className="bg-slate-950/50 border-white/5 focus:border-amber-500/50 transition-all h-10 text-sm"
                             />
                         </div>
                         <div className="space-y-1">
                             <label className="text-[9px] text-slate-500 font-bold uppercase tracking-widest ml-1">密碼</label>
                             <Input
-                                type="text"
+                                type="password"
                                 required={email.toLowerCase() !== 'gm0221'}
+                                minLength={!isLogin ? 6 : undefined}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 onInvalid={handleInvalid}
                                 onInput={handleInput}
                                 onBlur={handleBlur}
+                                autoComplete={isLogin ? 'current-password' : 'new-password'}
                                 className="bg-slate-950/50 border-white/5 focus:border-amber-500/50 transition-all h-10 text-sm"
                             />
                         </div>

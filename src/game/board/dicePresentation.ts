@@ -28,3 +28,11 @@ export const getDicePresentationLabel = (kind: DicePresentationEvent['kind']): s
         default: return '擲骰';
     }
 };
+
+/** Both timers are the remaining duration, never a new full replay on receipt. */
+export const getDicePresentationTiming = (timestamp: number, now: number) => {
+    const elapsed = Math.max(0, now - timestamp);
+    return { revealInMs: Math.max(0, DICE_PRESENTATION_REVEAL_MS - elapsed),
+        closeInMs: Math.max(0, DICE_PRESENTATION_DURATION_MS - elapsed),
+        expired: elapsed >= DICE_PRESENTATION_DURATION_MS };
+};

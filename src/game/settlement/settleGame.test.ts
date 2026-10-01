@@ -9,6 +9,7 @@ const firestore = vi.hoisted(() => ({
 
 vi.mock('firebase/firestore', () => firestore);
 vi.mock('../../../services/firebase', () => ({ db: {} }));
+vi.mock('../../../services/realtime', () => ({ realtimeDb: {} }));
 
 import { settleGame } from './settleGame';
 
