@@ -213,7 +213,7 @@ const RoomContent: React.FC<{
     };
 
     const getMemberBadge = (m: any) => {
-        if (isGM(m)) return '/assets/badges/傳奇執行師-去背.png';
+        if (isGM(m)) return '/assets/badges/傳奇執行師-去背.webp';
         const isSelf = m.uid === user?.uid;
         const isRoomHost = m.uid === room?.hostId;
         if (m.role === 'coach' && !isRoomHost) return getPlayerBadge(m, 'player');

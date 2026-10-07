@@ -152,30 +152,30 @@ export const getCoachBadge = (user: User | null, roleOverride?: 'coach' | 'playe
     if (!user) return '';
     const title = getUserTitle(user, roleOverride);
     // GM 帳號優先判斷
-    if (title === '遊戲管理員' || user.email?.toLowerCase() === 'gm0221@happinessflow.com') return '/assets/badges/傳奇執行師-去背.png';
+    if (title === '遊戲管理員' || user.email?.toLowerCase() === 'gm0221@happinessflow.com') return '/assets/badges/傳奇執行師-去背.webp';
     
     const currentRole = (roleOverride === 'gm' ? 'coach' : (roleOverride || user.role)) as 'coach' | 'player';
     if (currentRole !== 'coach') return '';
     
-    if (title === '傳奇執行師') return '/assets/badges/傳奇執行師-去背.png';
-    if (title === '資深執行師') return '/assets/badges/資深執行師-去背.png';
-    return '/assets/badges/蜂富執行師-去背.png';
+    if (title === '傳奇執行師') return '/assets/badges/傳奇執行師-去背.webp';
+    if (title === '資深執行師') return '/assets/badges/資深執行師-去背.webp';
+    return '/assets/badges/蜂富執行師-去背.webp';
 };
 
 export const getPlayerBadge = (user: User | null, roleOverride?: 'coach' | 'player' | 'gm'): string => {
     if (!user) return '';
     const title = getUserTitle(user, roleOverride);
     // GM 帳號優先判斷
-    if (title === '遊戲管理員' || user.email?.toLowerCase() === 'gm0221@happinessflow.com') return '/assets/badges/傳奇執行師-去背.png';
+    if (title === '遊戲管理員' || user.email?.toLowerCase() === 'gm0221@happinessflow.com') return '/assets/badges/傳奇執行師-去背.webp';
 
     // 移除 role !== 'player' 的限制，讓執行師以玩家身份進入時也能顯示玩家徽章
     switch (title) {
-        case '幸福實踐家': return '/assets/badges/幸福實踐家-去背.png';
-        case '蜂后傳奇': return '/assets/badges/蜂后傳奇-去背.png';
-        case '蜂饒大師': return '/assets/badges/蜂饒大師-去背.png';
-        case '築夢家': return '/assets/badges/築夢家-去背.png';
-        case '採蜜人': return '/assets/badges/採蜜人-去背.png';
-        case '尋夢者': return '/assets/badges/尋夢者-去背.png';
+        case '幸福實踐家': return '/assets/badges/幸福實踐家-去背.webp';
+        case '蜂后傳奇': return '/assets/badges/蜂后傳奇-去背.webp';
+        case '蜂饒大師': return '/assets/badges/蜂饒大師-去背.webp';
+        case '築夢家': return '/assets/badges/築夢家-去背.webp';
+        case '採蜜人': return '/assets/badges/採蜜人-去背.webp';
+        case '尋夢者': return '/assets/badges/尋夢者-去背.webp';
         default: return '';
     }
 };
