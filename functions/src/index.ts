@@ -36,7 +36,7 @@ import {onDocumentWritten} from 'firebase-functions/v2/firestore';
 import {onTaskDispatched} from 'firebase-functions/v2/tasks';
 import {AUTHORITY,key,executeCommand,parseCommand,type FinalizeCommand} from './commands';
 initializeApp();
-const region=defineString('GAME_FUNCTION_REGION',{default:'asia-southeast1'});
+const region=defineString('GAME_FUNCTION_REGION',{default:'asia-east1'});
 setGlobalOptions({region,maxInstances:5});
 const db=getFirestore();
 export const gameCommand=onCall({enforceAppCheck:process.env.FUNCTIONS_EMULATOR!=='true'},async request=>{

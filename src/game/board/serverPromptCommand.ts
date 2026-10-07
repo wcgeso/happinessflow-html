@@ -4,19 +4,28 @@ import {getAuth} from 'firebase/auth';
 import {submitPersistentGameCommand,type PendingGameCommand} from './pendingCommand';
 import type {Room} from '../../types';
 import {cleanObject} from '../../utils/utils';
+import {reportServerCommand} from '../../utils/clientRejection';
 export type PromptCommandResult={status:'applied'|'duplicate'|'waiting'|'stale';eventId:string;revision?:number;retryAt?:number;reason?:string};
 let client:ReturnType<typeof import('firebase/functions').getFunctions> | undefined;
 export async function callServerGameCommand<T>(data:unknown):Promise<T> {
   const {getFunctions,connectFunctionsEmulator,httpsCallable}=await import('firebase/functions');
   if(!client){
-    client=getFunctions(getApp(),import.meta.env.VITE_GAME_FUNCTION_REGION||'asia-southeast1');
+    client=getFunctions(getApp(),import.meta.env.VITE_GAME_FUNCTION_REGION||'asia-east1');
     if(import.meta.env.DEV && import.meta.env.VITE_USE_EMULATOR==='true'){
       const endpoint=new URL(import.meta.env.VITE_FUNCTIONS_EMULATOR_URL||'http://127.0.0.1:5301');
       connectFunctionsEmulator(client,endpoint.hostname,Number(endpoint.port));
     }
   }
   // Match the persisted command: omitted optional fields must not become null in Callable encoding.
-  return (await httpsCallable<unknown,T>(client,'gameCommand',{timeout:10000})(cleanObject({...data as object,clientProtocolVersion:GAME_CLIENT_PROTOCOL}))).data;
+  const type=String((data as {type?:unknown})?.type||'unknown'),started=performance.now();
+  try{
+    const result=(await httpsCallable<unknown,T>(client,'gameCommand',{timeout:10000})(cleanObject({...data as object,clientProtocolVersion:GAME_CLIENT_PROTOCOL}))).data;
+    reportServerCommand({type,durationMs:performance.now()-started,result:String((result as {status?:unknown})?.status||'ok')});
+    return result;
+  }catch(error){
+    reportServerCommand({type,durationMs:performance.now()-started,result:'error',code:String((error as {code?:unknown})?.code||'unknown')});
+    throw error;
+  }
 }
 
 export function submitServerGameCommand<T>(data:unknown):Promise<T> {

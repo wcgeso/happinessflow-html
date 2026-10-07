@@ -7,7 +7,7 @@ async function main(){
  assert.equal(process.env.FIRESTORE_EMULATOR_HOST,'127.0.0.1:8482');
  assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST,'127.0.0.1:9399');
  initializeApp({projectId});const db=getFirestore();
- const endpoint=`http://127.0.0.1:5301/${projectId}/asia-southeast1/gameCommand`;
+ const endpoint=`http://127.0.0.1:5301/${projectId}/asia-east1/gameCommand`;
  const unauth=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{}})});
  assert.equal(unauth.status,401);
  const signed=await fetch('http://127.0.0.1:9399/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({returnSecureToken:true})});

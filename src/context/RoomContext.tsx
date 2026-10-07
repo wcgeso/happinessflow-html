@@ -72,6 +72,7 @@ const onResponseSnapshot = observeSnapshots('responses');
 import { useAuth } from './AuthContext';
 import { Asset, BoardCardLogEntry, BoardCardResult, BoardDeckState, BoardEventLog, BoardQueuedEvent, BoardState, CoachExpenseCategory, DicePresentationEvent, FamilyMilestoneJoinPrompt, FamilyMilestoneJoinResponse, FinancialAccelerationMultiplier, FinancialAccelerationState, FinancialSubsidyState, GameState, PresenceState, PublicPlayerState, SharedCardPrompt, SharedCardPromptResponse, Transaction, TransactionData } from '../types';
 import { cleanObject, safeAsync } from '../utils/utils';
+import { reportClientRejection } from '../utils/clientRejection';
 import { runLockedBoardCommand } from '../game/board/commandLock';
 import { applyPaidLearningMove, buildApprovedDrawContinuation, buildPaidLearningContinuation, completeLearningContinuation, getContinuationRollResult } from '../game/board/continuation';
 import { createInitialMarketPrices, STOCK_SYMBOLS } from '../constants';
@@ -700,6 +701,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const executeWithLock = <T,>(action: () => Promise<T>, commandKey: string): Promise<T> => {
         if (room?.status === 'playing' && !isController) {
             const message = '此帳號已在其他分頁操作，這個分頁目前為唯讀';
+            reportClientRejection('read-only', commandKey);
             setError(message);
             return Promise.reject(Object.assign(new Error(message), { code: 'read-only' }));
         }

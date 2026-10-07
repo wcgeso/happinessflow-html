@@ -7,7 +7,7 @@ async function main(){
  const projectId='demo-happinessflow-backend';assert.equal(process.env.GCLOUD_PROJECT,projectId);assert.equal(process.env.FIRESTORE_EMULATOR_HOST,'127.0.0.1:8482');assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST,'127.0.0.1:9399');initializeApp({projectId});const db=getFirestore();
  const signup=async()=>{const a=await(await fetch('http://127.0.0.1:9399/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({returnSecureToken:true})})).json();assert.ok(a.idToken);return a;};const coach=await signup(),p=await signup();
  const profile=db.doc(`users/${coach.localId}`);await profile.set({name:'測試執行師',role:'player'});await db.doc(`users/${p.localId}`).set({name:'玩家',role:'player'});
- const post=async(data,auth=coach)=>{const r=await fetch(`http://127.0.0.1:5301/${projectId}/asia-southeast1/gameCommand`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.idToken}`},body:JSON.stringify({data})});return {status:r.status,body:await r.json()};};
+ const post=async(data,auth=coach)=>{const r=await fetch(`http://127.0.0.1:5301/${projectId}/asia-east1/gameCommand`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.idToken}`},body:JSON.stringify({data})});return {status:r.status,body:await r.json()};};
  const c={type:'createRoom',commandId:'create',name:'正式流程本機測試',maxPlayers:6,duration:60,clientProtocolVersion:1};
  assert.equal((await post(c)).status,403);assert.equal((await profile.get()).data().activeGame,undefined);
  await profile.update({role:'coach'}); // Admin fixture assigns the role; same signed token needs no refresh.

@@ -45,6 +45,7 @@ import { audioManager } from '../../utils/audio';
 import { PlayerModalFrame } from '../../components/common/PlayerModalFrame';
 import { DICE_PRESENTATION_DURATION_MS, getFamilyDicePresentationReadyAt } from '../../game/board/dicePresentation';
 import { debugWarn } from '../../utils/debugLog';
+import { useFrameJankReport } from '../../utils/frameMonitor';
 
 export const marketPricesMatch = (current: Record<string, number> | undefined, target: Record<string, number> | undefined) => {
     if (!current || !target) return false;
@@ -82,6 +83,7 @@ export const GameView: React.FC<{
     onFinishGame: (meta: any) => void;
     isDevMode?: boolean;
 }> = ({ onFinishGame, isDevMode = false }) => {
+    useFrameJankReport('player');
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
     const {financialSyncError,retryFinancialSync}=useGame();

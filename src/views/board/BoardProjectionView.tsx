@@ -33,6 +33,7 @@ import {
 import { getProjectionActionState } from './boardProjectionStatus';
 import { AUDIO_SETTINGS_EVENT, audioManager, getAudioSettings, setAudioSettings } from '../../utils/audio';
 import type { AudioCue } from '../../utils/audio';
+import { useFrameJankReport } from '../../utils/frameMonitor';
 const FIT_ZOOM_FALLBACK = 0.62;
 const VIEWPORT_PADDING_X = 64;
 const VIEWPORT_PADDING_TOP = 80;
@@ -732,6 +733,7 @@ const CardStage: React.FC<{
 };
 
 export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }) => {
+  useFrameJankReport('projection');
   const { user } = useAuth();
   const {room,syncState}=useProjectionRoom(roomCode,user?.uid);
   const [zoom, setZoom] = useState(FIT_ZOOM_FALLBACK);

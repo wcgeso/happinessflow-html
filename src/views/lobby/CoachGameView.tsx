@@ -47,9 +47,11 @@ import { canSkipDisconnectedPlayer, isPresenceOnline } from '../../utils/presenc
 import { hasIncompleteSharedPrompts } from '../../utils/boardCardActions';
 import { CoachExpenseCategory } from '../../types';
 import { debugLog } from '../../utils/debugLog';
+import { useFrameJankReport } from '../../utils/frameMonitor';
 import {coachIntentKey,readCoachIntent,clearCoachIntent,type CoachAction,type CoachIntent} from '../../game/finance/pendingIntent';
 
 export const CoachGameView: React.FC = () => {
+    useFrameJankReport('coach');
     const { room, pendingRequests: roomPendingRequests, playerStates, presenceStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, adjustPlayerCash, adjustPlayerInvestmentIncome, adjustPlayerLiability, adjustPlayerExpense, updateFinancialAcceleration, grantFinancialSubsidyToAllPlayers, updateRoomTimer, startRoomGame, approveRequest, rejectRequest, skipDisconnectedTurn, skipDisconnectedSharedPromptTarget, coachTriggerBoardCard, repeatCurrentBoardEvent, setCoachNextTurn, clearCurrentBoardEvent, forceEndBoardTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
     const { user } = useAuth();
 

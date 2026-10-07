@@ -1,4 +1,5 @@
 import {runLockedBoardCommand} from './commandLock';
+import {reportClientRejection} from '../../utils/clientRejection';
 export type PendingGameCommand={type:string;roomId:string;sessionId:string;commandId:string;[key:string]:unknown};
 const scopeKey=(uid:string,roomId:string,sessionId:string)=>`hf-server-command:${uid}:${roomId}:${sessionId}`;
 const stable=(value:unknown):unknown=>Array.isArray(value)?value.map(stable):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).filter(([,v])=>v!==undefined).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,stable(v)])):value;
@@ -29,7 +30,7 @@ export function submitPersistentGameCommand<T>(storage:Storage,uid:string,comman
  const existing=commands.get(command.commandId);
  // Check the saved content even when sharing an in-flight Promise.
  const old=readPendingGameCommand(storage,uid,command.roomId,command.sessionId);
- if(old?.commandId===command.commandId&&gameCommandContents(old)!==payload)return Promise.reject(Object.assign(new Error('同一操作不能更改內容，請保留原選擇'),{code:'already-exists'}));
+ if(old?.commandId===command.commandId&&gameCommandContents(old)!==payload){reportClientRejection('content-changed',command.commandId);return Promise.reject(Object.assign(new Error('同一操作不能更改內容，請保留原選擇'),{code:'already-exists'}));}
  if(existing)return existing as Promise<T>;
  const operation=runLockedBoardCommand<T>(commands,command.commandId,async()=>{
   let prior=readPendingGameCommand(storage,uid,command.roomId,command.sessionId);
@@ -37,7 +38,7 @@ export function submitPersistentGameCommand<T>(storage:Storage,uid:string,comman
    let confirmed;
    try{confirmed=await confirmPendingGameCommand(storage,uid,command.roomId,command.sessionId,call);}catch(error){throw Object.assign(new Error(`原操作尚未確認：${(error as Error).message}`),{code:'functions/deadline-exceeded'});}
    if(confirmed?.status==='confirmed') {if(prior.commandId===command.commandId)return confirmed.result;prior=null;}
-   else if(prior.commandId!==command.commandId)throw Object.assign(new Error('上一筆操作尚待確認，請先恢復原操作'),{code:'busy'});
+   else if(prior.commandId!==command.commandId){reportClientRejection('pending-unconfirmed',command.commandId);throw Object.assign(new Error('上一筆操作尚待確認，請先恢復原操作'),{code:'busy'});}
   }
   // Persist before submitting; a storage failure must stop the write.
   storage.setItem(scope,payload);notify();
