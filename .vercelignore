@@ -17,3 +17,6 @@ output/playwright
 .env*
 
 scripts/archive/
+
+# Archived assets that are not part of the app
+archive/
