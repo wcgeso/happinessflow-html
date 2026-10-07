@@ -32,6 +32,7 @@ describe('presence', () => {
     expect(states.p1.sessionId).toBe('s2');
     expect(states.p1.source).toBe('realtime');
     expect(isPresenceOnline(states.p1, 999_999)).toBe(true);
+    expect(canSkipDisconnectedPlayer(states.p1, 999_999)).toBe(false);
   });
 
   it('keeps the last online time after onDisconnect removes the connection node', () => {

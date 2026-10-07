@@ -4,15 +4,20 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "vite --configLoader runner",
+    "dev:tasks": "GCLOUD_PROJECT=demo-happinessflow-backend FIRESTORE_EMULATOR_HOST=127.0.0.1:8482 node scripts/runEmulatorTasks.cjs",
+    "build": "vite build --configLoader runner",
     "typecheck": "tsc -p tsconfig.release.json --pretty false",
-    "preview": "vite preview",
-    "test": "vitest",
-    "seed:emulator": "node scripts/e2e/seedAccounts.mjs",
-    "e2e": "node scripts/e2e/run.mjs",
-    "e2e:ui": "node scripts/e2e/run.mjs --ui",
-    "test:rules": "firebase emulators:exec --project demo-happinessflow --only firestore,database \"vitest run src/test/roomPermissions.test.ts src/test/realtimePermissions.test.ts\""
+    "preview": "vite preview --configLoader runner",
+    "test": "vitest --configLoader runner",
+    "test:unit": "vitest --configLoader runner run --exclude 'src/test/*Permissions.test.ts'",
+    "typecheck:functions": "npm --prefix functions run typecheck",
+    "build:functions": "npm --prefix functions run build",
+    "verify": "npm run typecheck && npm run typecheck:functions && npm run build:functions && npm run test:unit && npm run build",
+    "test:rules": "firebase emulators:exec --project demo-happinessflow-backend --only firestore,database \"vitest --configLoader runner run src/test/roomPermissions.test.ts src/test/realtimePermissions.test.ts && node functions/test/rules.cjs\"",
+    "test:backend": "firebase emulators:exec --project demo-happinessflow-backend --only auth,firestore,functions,database \"node functions/test/triggers.cjs\"",
+    "test:backend:core": "firebase emulators:exec --project demo-happinessflow-backend --only firestore \"node scripts/testBackendCore.mjs\"",
+    "test:backend:mixed": "node functions/test/build.mjs mixedTurns && firebase emulators:exec --project demo-happinessflow-backend --only firestore \"node functions/lib/mixedTurns-test.cjs\""
   },
   "dependencies": {
     "@google/genai": "^1.33.0",

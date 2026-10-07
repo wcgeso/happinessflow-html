@@ -19,6 +19,7 @@ import {
   connectFirestoreEmulator,
 } from 'firebase/firestore';
 import { debugLog } from '../src/utils/debugLog';
+import { initializeGameAppCheck } from './gameAppCheck';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyC9j-9nImSDSGgucGuaW6IHYBRiuvQ0-Mc",
@@ -33,6 +34,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
+initializeGameAppCheck(app);
 export const auth = getAuth(app);
 // 登入只保留在目前瀏覽器工作階段；關閉分頁／瀏覽器後，下一次開啟必須重新登入。
 // 同一分頁重新整理仍可保留登入，避免網路短暫中斷造成不必要的登出。

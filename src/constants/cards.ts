@@ -93,7 +93,7 @@ export const getHappinessMonthlyExpenseCategory = (cardId: string): MonthlyExpen
 
 export const getOpportunityMonthlyExpenseCategory = (cardId: string): MonthlyExpenseCategory => {
   if (cardId === 'C047') return 'transportEdu';
-  if (cardId === 'C055') return 'otherMedicalChild';
+  if (['C054','C055'].includes(cardId)) return 'otherMedicalChild';
   return 'basicLiving';
 };
 
@@ -258,8 +258,12 @@ export const CARD_REQUIREMENT_HANDLERS:Record<string,string> = {
 };
 export const CARD_REQUIREMENTS=Object.fromEntries([...happinessRawCards,...opportunityRawCards,...newsRawCards]
   .map(card=>[card.id,card.conditions?.requirements || []])) as Record<string,string[]>;
-export const getUnsupportedCardRequirements=(cardId:string)=>
-  (CARD_REQUIREMENTS[cardId] || []).filter(requirement=>!CARD_REQUIREMENT_HANDLERS[requirement]);
+export const getUnsupportedCardRequirements=(cardId:string)=>{
+  const requirements=CARD_REQUIREMENTS[cardId];
+  if(requirements===undefined)return [];
+  if(!Array.isArray(requirements))return ['invalid_requirements'];
+  return requirements.filter(requirement=>typeof requirement!=='string'||!Object.hasOwn(CARD_REQUIREMENT_HANDLERS,requirement)).map(String);
+};
 
 const rawEffectsSummary = (card: RawCardRecord) => normalizeCardCopy(card.effects?.summary);
 // 投影幕的卡片規則文字優先取 description 裡「*」後半段的規則段落；

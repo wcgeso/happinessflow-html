@@ -1,3 +1,4 @@
+import {loadScoreRecord} from '../../game/settlement/scoreRecord';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Button, Input } from '../../components/ui/ui';
 import {
@@ -21,7 +22,6 @@ import { GameRecord, GameState } from '../../types';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
 const ScoreView = React.lazy(() => import('../game/ScoreView').then(module => ({ default: module.ScoreView })));
 import { db } from '../../../services/firebase';
-import { safeAsync } from '../../utils/utils';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { debugLog } from '../../utils/debugLog';
 const formatDate = (dateStr: string) => {
@@ -72,7 +72,7 @@ const FullFinancialStatementModal: React.FC<{
 
     // Convert GameRecord's snapshot back to a partial GameState for FinancialStatement
     const dummyGameState: GameState = {
-        profession: record.professionData || {
+        profession: snapshot.profession || record.professionData || {
             title: record.profession,
             salary: restoredSalary,
             id: 'dummy',
@@ -89,18 +89,18 @@ const FullFinancialStatementModal: React.FC<{
             creditLoanTotal: 0,
             promotions: []
         },
-        selectedEnterprise: null,
-        selectedDream: null,
+        selectedEnterprise: snapshot.selectedEnterprise ?? null,
+        selectedDream: snapshot.selectedDream ?? null,
         expenses: snapshot.expenses,
         income: {
             ...snapshot.income,
             salary: restoredSalary
         },
         currentRankTitle: record.profession,
-        currentRankLevel: 1,
+        currentRankLevel: snapshot.currentRankLevel ?? 1,
         cash: snapshot.cash,
-        children: 0,
-        medicalInsuranceCount: 0,
+        children: snapshot.children ?? 0,
+        medicalInsuranceCount: snapshot.medicalInsuranceCount ?? 0,
         assets: snapshot.assets,
         liabilities: snapshot.liabilities,
         loans: snapshot.loans,
@@ -108,15 +108,15 @@ const FullFinancialStatementModal: React.FC<{
         history: snapshot.history,
         happiness: snapshot.happiness,
         happinessTotal: record.happinessScore,
-        marketPrices: {},
+        marketPrices: snapshot.marketPrices ?? {},
         previousMarketPrices: {},
         lastPublishedCode: '',
-        abilities: {
+        abilities: snapshot.abilities || {
             stockAbilityCount: 0,
             realEstateAbilityCount: 0,
             professionAbilityCount: 0
         },
-        completedHappinessEvents: [],
+        completedHappinessEvents: snapshot.completedHappinessEvents ?? [],
         playerName: record.playerName,
         reportName: record.reportName
     };
@@ -164,23 +164,24 @@ const FullFinancialStatementModal: React.FC<{
     );
 };
 
-const ScoreModal: React.FC<{
+export const ScoreModal: React.FC<{
     record: GameRecord | null;
     onClose: () => void;
 }> = ({ record, onClose }) => {
     if (!record) return null;
 
+    const snapshot = record.gameStateSnapshot;
     const dummyGameState: GameState = {
-        profession: { title: record.profession, id: 'dummy', initialRank: '', salary: 0, savings: 0, expenses: { tax: 0, basicLiving: 0, transportEdu: 0, otherMedicalChild: 0 }, mortgageTotal: 0, businessLoanTotal: 0, creditLoanTotal: 0, promotions: [] },
-        selectedEnterprise: null,
-        selectedDream: null,
+        profession: snapshot.profession || record.professionData || { title: record.profession, id: 'dummy', initialRank: '', salary: 0, savings: 0, expenses: { tax: 0, basicLiving: 0, transportEdu: 0, otherMedicalChild: 0 }, mortgageTotal: 0, businessLoanTotal: 0, creditLoanTotal: 0, promotions: [] },
+        selectedEnterprise: snapshot.selectedEnterprise ?? null,
+        selectedDream: snapshot.selectedDream ?? null,
         expenses: record.gameStateSnapshot.expenses,
         income: record.gameStateSnapshot.income,
         currentRankTitle: record.profession,
-        currentRankLevel: 1,
+        currentRankLevel: snapshot.currentRankLevel ?? 1,
         cash: record.gameStateSnapshot.cash,
-        children: 0,
-        medicalInsuranceCount: 0,
+        children: snapshot.children ?? 0,
+        medicalInsuranceCount: snapshot.medicalInsuranceCount ?? 0,
         assets: record.gameStateSnapshot.assets,
         liabilities: record.gameStateSnapshot.liabilities,
         loans: record.gameStateSnapshot.loans,
@@ -188,11 +189,11 @@ const ScoreModal: React.FC<{
         history: record.gameStateSnapshot.history,
         happiness: record.gameStateSnapshot.happiness,
         happinessTotal: record.happinessScore,
-        marketPrices: {},
+        marketPrices: snapshot.marketPrices ?? {},
         previousMarketPrices: {},
         lastPublishedCode: '',
-        abilities: { stockAbilityCount: 0, realEstateAbilityCount: 0, professionAbilityCount: 0 },
-        completedHappinessEvents: [],
+        abilities: snapshot.abilities || { stockAbilityCount: 0, realEstateAbilityCount: 0, professionAbilityCount: 0 },
+        completedHappinessEvents: snapshot.completedHappinessEvents ?? [],
         playerName: record.playerName,
         reportName: record.reportName
     };
@@ -273,9 +274,10 @@ const ScoreModal: React.FC<{
 
 
 export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }) => {
-    const { gameHistory: myHistory } = useGame();
+    const { gameHistory: myHistory,historyLoadError,retryHistory } = useGame();
     const [targetHistory, setTargetHistory] = useState<GameRecord[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [loadError,setLoadError]=useState(''),[retry,setRetry]=useState(0);
 
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [fullStatementRecord, setFullStatementRecord] = useState<GameRecord | null>(null);
@@ -285,8 +287,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
     const currentHistory = targetUserId ? (targetHistory || []) : myHistory;
 
     useEffect(() => {
+        let disposed=false;
+        setTargetHistory(null);setLoadError('');setExpandedId(null);setFullStatementRecord(null);setScoreRecord(null);
         if (!targetUserId) {
-            setTargetHistory(null);
+            setIsLoading(false);
             return;
         }
 
@@ -299,21 +303,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
                     collection(db, 'score_records', 'S1', 'records'),
                     where('playerUids', 'array-contains', targetUserId)
                 );
-                const querySnapshot = await safeAsync(getDocs(q));
-
-                if (!querySnapshot) {
-                    setTargetHistory([]);
-                    return;
-                }
+                const querySnapshot = await getDocs(q);
 
                 debugLog('[HistoryView] Query result size:', querySnapshot.size);
 
                 const records: GameRecord[] = [];
-                querySnapshot.forEach((doc) => {
-                    const data = doc.id.startsWith('MOCK_') ? doc.data() : doc.data();
-                    if (!data.players || !Array.isArray(data.players)) return;
+                const hydrated=await Promise.all(querySnapshot.docs.map(async snapshot=>({id:snapshot.id,data:await loadScoreRecord(db,snapshot.id,snapshot.data(),targetUserId)})));
+                if(disposed)return;
+                for(const doc of hydrated) {
+                    const data = doc.data;
+                    if (!data.players || !Array.isArray(data.players)) continue;
                     // 只顯示最終結算紀錄，排除自動存檔的中間快照
-                    if (data.isFinal !== true) return;
+                    if (data.isFinal !== true) continue;
 
                     const playerData = data.players.find((p: any) => p.uid === targetUserId);
                     if (playerData) {
@@ -340,7 +341,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
                             cash: playerData.cash || 0,
                             marketPrices: data.marketPrices || {}
                         };
-                        const freshSummary = calculateFinancialSummary(reconstructedGameState);
+                        const freshSummary = data.trustedSettlement===true&&playerData.summary?playerData.summary:calculateFinancialSummary(reconstructedGameState,data.financialAcceleration);
 
                         records.push({
                             id: doc.id,
@@ -357,6 +358,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
                             isWin: playerData.happiness >= 100,
                             financialSummary: freshSummary, // 使用重新計算後的精確摘要
                             gameStateSnapshot: {
+                                profession: playerData.professionData,
+                                selectedEnterprise: playerData.selectedEnterprise,
+                                selectedDream: playerData.selectedDream,
+                                currentRankLevel: playerData.currentRankLevel,
+                                children: playerData.children,
+                                medicalInsuranceCount: playerData.medicalInsuranceCount,
+                                abilities: playerData.abilities,
+                                completedHappinessEvents: playerData.completedHappinessEvents,
+                                marketPrices: playerData.marketPrices || data.marketPrices,
                                 assets: playerData.assets || [],
                                 liabilities: playerData.liabilities || [],
                                 income: income,
@@ -374,7 +384,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
                             }))
                         });
                     }
-                });
+                }
 
                 // Sort locally by date desc
                 records.sort((a, b) => {
@@ -385,15 +395,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
 
                 debugLog('[HistoryView] Processed records count:', records.length);
                 setTargetHistory(records);
-            } catch (error) {
-                console.error('[HistoryView] Error fetching target history:', error);
+            } catch (error:any) {
+                if(!disposed)setLoadError(`歷史紀錄載入失敗：${error.code||error.message}`);
             } finally {
-                setIsLoading(false);
+                if(!disposed)setIsLoading(false);
             }
         };
 
         fetchTargetHistory();
-    }, [targetUserId]);
+        return()=>{disposed=true;};
+    }, [targetUserId,retry]);
 
     const toggleExpand = (id: string) => {
         setExpandedId(expandedId === id ? null : id);
@@ -401,6 +412,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onBack, targetUserId }
 
     return (
         <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden touch-none pt-safe pb-safe">
+            {!targetUserId&&historyLoadError&&<div role="alert" className="p-4 text-rose-300">{historyLoadError}<button className="ml-4 underline" onClick={retryHistory}>重試載入</button></div>}
+            {loadError&&<div role="alert" className="p-4 text-rose-300">{loadError}<button className="ml-4 underline" onClick={()=>setRetry(value=>value+1)}>重試載入</button></div>}
             <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar touch-pan-y">
                 <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
                     {/* Header Section */}

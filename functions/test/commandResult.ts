@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {initializeApp} from 'firebase-admin/app';
+import {getFirestore} from 'firebase-admin/firestore';
+import {getCommandResult} from '../src/commandResult';
+import {key} from '../src/commands';
+import {commandError} from '../src/commandError';
+import {HttpsError} from 'firebase-functions/v2/https';
+async function main(){
+ for(const [grpc,callable] of [[10,'aborted'],[4,'deadline-exceeded'],[14,'unavailable'],[999,'internal']] as const)assert.equal(commandError({code:grpc}).code,callable);
+ const denied=new HttpsError('permission-denied','不符合資格');assert.equal(commandError(denied),denied);
+ assert.equal(process.env.GCLOUD_PROJECT,'demo-happinessflow-backend');assert.equal(process.env.FIRESTORE_EMULATOR_HOST,'127.0.0.1:8482');
+ initializeApp({projectId:process.env.GCLOUD_PROJECT});const db=getFirestore(),room=db.doc('rooms/result-pilot');
+ await db.recursiveDelete(room);await room.set({sessionId:'s',hostId:'coach',members:[{uid:'p'},{uid:'other'},{uid:'left',isLeft:true}]});
+ const command={type:'getCommandResult',roomId:room.id,sessionId:'s',commandId:'happiness-toggle:custom#1'},receipt=room.collection('gameCommands').doc(key('p:happiness-toggle:custom#1'));
+ await receipt.set({uid:'p',sessionId:'s',result:{status:'applied',cash:12000}});
+ const before=(await receipt.get()).data();
+ assert.deepEqual(await getCommandResult(db,command,'p'),{status:'confirmed',result:{status:'applied',cash:12000}});
+ assert.equal((await getCommandResult(db,command,'other')).status,'waiting');
+ assert.equal((await getCommandResult(db,{...command,commandId:'missing'},'p')).status,'waiting');
+ for(const uid of ['outsider','left'])await assert.rejects(getCommandResult(db,command,uid),{code:'permission-denied'});
+ await assert.rejects(getCommandResult(db,{...command,uid:'p'},'other'),{code:'invalid-argument'});
+ await assert.rejects(getCommandResult(db,{...command,sessionId:'old'},'p'),{code:'failed-precondition'});
+ await assert.rejects(getCommandResult(db,{...command,commandId:'../loan'},'p'),{code:'invalid-argument'});
+ assert.deepEqual((await receipt.get()).data(),before);assert.equal((await room.collection('gameCommands').get()).size,1);
+ await receipt.update({result:{status:'waiting',reason:'等待共享'}});assert.equal((await getCommandResult(db,command,'p')).result?.status,'waiting');
+ await receipt.update({sessionId:'old'});await assert.rejects(getCommandResult(db,command,'p'),{code:'failed-precondition'});
+ await receipt.update({sessionId:'s',result:{cash:0}});await assert.rejects(getCommandResult(db,command,'p'),{code:'failed-precondition'});
+ await db.recursiveDelete(room);await db.terminate();console.log('PASS 13 command-result checks + 5 error classification checks');
+}
+main().catch(e=>{console.error(e);process.exit(1)});

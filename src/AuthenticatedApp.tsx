@@ -28,8 +28,7 @@ import { debugLog } from './utils/debugLog';
 // 靜態 import、強制進主要進入點的打包內容；這裡動態 import 完全不會讓它們被拆進別的
 // chunk（Vite 建置會提示 "dynamic import will not move module into another chunk"），
 // 改回靜態 import 讓行為跟實際打包結果一致，也少一個沒有意義的 await。
-import { PROFESSIONS, ENTERPRISES, DREAMS, createInitialMarketPrices } from './constants';
-import { getInitialHappinessList } from './utils/gameUtils';
+import { buildPlayerSetup } from './game/finance/playerSetup';
 
 // Mock Spinner
 const Spinner = () => (
@@ -598,49 +597,7 @@ const MainRouting = ({
 
     const handleSelectionComplete = async (data: { professionId: string; enterpriseId: string; dreamId: string }) => {
         setIsDevRouting(false);
-        const profession = PROFESSIONS.find(item => item.id === data.professionId);
-        const enterprise = ENTERPRISES.find(item => item.id === data.enterpriseId);
-        const dream = DREAMS.find(item => item.id === data.dreamId);
-        if (!profession || !enterprise || !dream) throw new Error('選擇內容已不存在，請重新選擇。');
-
-        const initialMarketPrices = room?.marketPrices && Object.keys(room.marketPrices).length > 0
-            ? room.marketPrices
-            : createInitialMarketPrices();
-        const previousMarketPrices = room?.previousMarketPrices && Object.keys(room.previousMarketPrices).length > 0
-            ? room.previousMarketPrices
-            : initialMarketPrices;
-        const nextState: GameState = {
-            profession,
-            selectedEnterprise: enterprise,
-            selectedDream: dream,
-            selectionDraft: data,
-            currentRankTitle: profession.initialRank,
-            currentRankLevel: 1,
-            cash: profession.savings,
-            children: 0,
-            medicalInsuranceCount: 0,
-            assets: [],
-            liabilities: [],
-            loans: 0,
-            isSetup: true,
-            selectionStep: 'completed',
-            expenses: {},
-            income: {},
-            history: [],
-            happiness: getInitialHappinessList(enterprise, dream),
-            happinessTotal: 0,
-            marketPrices: initialMarketPrices,
-            previousMarketPrices,
-            abilities: {
-                stockAbilityCount: 0,
-                realEstateAbilityCount: 0,
-                professionAbilityCount: 0,
-            },
-            completedHappinessEvents: [],
-            boardGameStartedAt: room?.startedAt,
-            playerName: sessionMeta?.playerName || user.name,
-            reportName: sessionMeta?.reportName || '我的財報'
-        } as GameState;
+        const nextState = buildPlayerSetup(data, room || {}, sessionMeta?.playerName || user.name, sessionMeta?.reportName || '我的財報');
 
         await completePlayerSetup(nextState);
         setCurrentView('game');

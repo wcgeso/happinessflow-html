@@ -20,6 +20,7 @@ export function useSharedPromptResponses({ room, user, setRoom, setError, finali
     const promptId = prompt?.id;
     const responseStorage = prompt?.responseStorage;
     const schema = room?.syncSchemaVersion;
+    const completionAuthority = room?.promptCompletionAuthority;
     const uid = user?.uid;
 
     // Bind the subscription to its document scope, not the response contents.
@@ -59,11 +60,11 @@ export function useSharedPromptResponses({ room, user, setRoom, setError, finali
 
     const responsesKey = JSON.stringify(prompt?.responses || {});
     const targetsKey = JSON.stringify(prompt?.targetPlayerUids || []);
-    // Also observes the legacy room fallback. Completion remains a server transaction.
+    // Legacy rooms retain the coach fallback; backend rooms are finalized by triggers/tasks.
     useEffect(() => {
-        if (!isCoach || !roomId || !promptId || schema !== 2 || responseStorage !== 'subcollection') return;
+        if (completionAuthority === 'server-prompts-v1' || !isCoach || !roomId || !promptId || schema !== 2 || responseStorage !== 'subcollection') return;
         const responses = JSON.parse(responsesKey) as Record<string, SharedCardPromptResponse>;
         const targets = JSON.parse(targetsKey) as string[];
         if (targets.every(target => responses[target])) void finalize(roomId, promptId);
-    }, [isCoach, roomId, sessionId, promptId, schema, responseStorage, responsesKey, targetsKey, finalize]);
+    }, [completionAuthority, isCoach, roomId, sessionId, promptId, schema, responseStorage, responsesKey, targetsKey, finalize]);
 }

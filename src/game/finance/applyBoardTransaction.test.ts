@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GameState, TransactionData } from '../../types';
 import { normalizeGameState } from '../../utils/gameState';
+import {calculateFinancialSummary} from '../../utils/gameUtils';
 import {
   applyBoardTransaction, applyHappinessAdd, applyHappinessRemove, applyHappinessToggle,
   applyHouseConversion, applyPaydayCollection, createSequentialIdGenerator
@@ -170,7 +171,7 @@ describe('applyHouseConversion（自住／出租切換）', () => {
     if (backToRent.status !== 'applied') return;
     const houseAfterRent = backToRent.state.assets.find((a) => a.id === 'a-house')!;
     expect(houseAfterRent.isSelfUse).toBe(false);
-    expect(houseAfterRent.cashflow).toBe(-2500); // REAL_ESTATE_PRESETS['N038'].cashflow
+    expect(houseAfterRent.cashflow).toBe(10000); // N038 原始租金；房貸月付款另列支出。
     expect(houseAfterRent.conversionCount).toBe(2);
   });
 
@@ -180,6 +181,12 @@ describe('applyHouseConversion（自住／出租切換）', () => {
     expect(storeResult).toMatchObject({ status: 'error' });
     const missingResult = applyHouseConversion(s, 'not-exist', true);
     expect(missingResult).toMatchObject({ status: 'error' });
+  });
+  it('出租收益只扣一次房貸月付款',()=>{
+    const selfUse=state({assets:[{id:'house',name:'不動產 N038',type:'不動產',cost:2800000,cashflow:0,isSelfUse:true}],liabilities:[{id:'mortgage',name:'房貸',type:'不動產貸款',totalOwed:2500000,monthlyPayment:12500}]});
+    const rental=applyHouseConversion(selfUse,'house',false);expect(rental.status).toBe('applied');if(rental.status!=='applied')return;
+    const baseline=calculateFinancialSummary({...rental.state,assets:[],liabilities:[]});
+    expect(calculateFinancialSummary(rental.state).monthlyCashflow-baseline.monthlyCashflow).toBe(-2500);
   });
 });
 

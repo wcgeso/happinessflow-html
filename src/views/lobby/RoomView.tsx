@@ -107,6 +107,8 @@ const RoomContent: React.FC<{
     const [showConfirm, setShowConfirm] = useState(false);
     const [updatingSlot, setUpdatingSlot] = useState<number | null>(null);
     const [slotActionError, setSlotActionError] = useState('');
+    const [exitBusy, setExitBusy] = useState(false);
+    const [exitError, setExitError] = useState('');
 
     // Profile Menu State
     const [profileMenu, setProfileMenu] = useState<{ isOpen: boolean; x: number; y: number; user: any | null }>({ isOpen: false, x: 0, y: 0, user: null });
@@ -148,19 +150,25 @@ const RoomContent: React.FC<{
     };
 
     const handleCloseOrLeave = () => {
+        setExitError('');
         setShowConfirm(true);
     };
 
     const confirmCloseOrLeave = async () => {
-        onBack();
+        if (exitBusy) return;
+        setExitBusy(true);
+        setExitError('');
         try {
             if (isHost && room.id !== '888888') {
                 await closeRoom();
             } else if (!isHost && room.id !== '888888') {
                 await leaveRoom();
             }
-        } catch (err) {
-            console.error('離開房間操作失敗:', err);
+            onBack();
+        } catch (err: any) {
+            setExitError(err?.message || '離開房間未完成，請再試一次');
+        } finally {
+            setExitBusy(false);
         }
     };
 
@@ -296,6 +304,7 @@ const RoomContent: React.FC<{
                     </button>
                     <button
                         onClick={handleCloseOrLeave}
+                        aria-label={isHost ? '關閉房間' : '離開房間'}
                         className="p-3 bg-slate-900/50 hover:bg-red-500/10 text-slate-400 hover:text-red-500 rounded-2xl transition-all border border-slate-800"
                     >
                         {isHost ? <X size={20} /> : <LogOut size={20} />}
@@ -476,7 +485,7 @@ const RoomContent: React.FC<{
             {/* Confirmation Modal */}
             {showConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setShowConfirm(false)} />
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => {if (!exitBusy) setShowConfirm(false);}} />
                     <div className="relative bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
                         <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mb-6 mx-auto">
                             <X size={32} className="text-red-500" />
@@ -485,14 +494,17 @@ const RoomContent: React.FC<{
                             {isHost ? '確定要關閉房間嗎？' : '確定要離開房間嗎？'}
                         </h3>
                         <div className="flex flex-col gap-3">
+                            {exitError && <p role="alert" className="text-red-300 text-sm">{exitError}</p>}
                             <Button
                                 onClick={confirmCloseOrLeave}
+                                disabled={exitBusy}
                                 className="w-full py-4 bg-red-500 hover:bg-red-400 text-white font-black rounded-xl shadow-lg shadow-red-500/20"
                             >
-                                {isHost ? '確認關閉' : '確認離開'}
+                                {exitBusy ? '處理中…' : isHost ? '確認關閉' : '確認離開'}
                             </Button>
                             <button
                                 onClick={() => setShowConfirm(false)}
+                                disabled={exitBusy}
                                 className="w-full py-4 text-slate-500 hover:text-white font-bold transition-colors"
                             >
                                 取消

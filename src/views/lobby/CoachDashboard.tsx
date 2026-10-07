@@ -10,6 +10,7 @@ import { safeAsync } from '../../utils/utils';
 import { getPhotoPromotionConsentStatus } from '../../constants/photoPromotionConsent';
 import { handlePromotionToCoach } from '../../utils/referralUtils';
 import { debugLog } from '../../utils/debugLog';
+import {setAdminScore} from '../../game/settlement/adminScore';
 
 interface CoachDashboardProps {
   onCreateGame: () => void;
@@ -208,15 +209,14 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
 
   const handleUpdateScore = async () => {
     if (!searchResult || isUpdating) return;
-    const newScore = parseInt(editScoreValue, 10);
-    if (isNaN(newScore) || newScore < 0) {
+    const newScore = Number(editScoreValue);
+    if (!editScoreValue.trim() || !Number.isSafeInteger(newScore) || newScore < 0) {
       showToast('請輸入有效的積分數字（0 以上整數）', 'error');
       return;
     }
     setIsUpdating(true);
     try {
-      const userRef = doc(db, 'users', searchResult.id);
-      await safeAsync(updateDoc(userRef, { rankScore: newScore, experience: newScore }));
+      await setAdminScore({targetUid:searchResult.id,score:newScore,expectedExperience:searchResult.experience??0,expectedRankScore:searchResult.rankScore??0});
       setSearchResult({ ...searchResult, rankScore: newScore, experience: newScore });
       setShowScoreEdit(false);
       showToast(`積分已更新為 ${newScore}`, 'success');
@@ -1159,6 +1159,37 @@ export const CoachDashboard: React.FC<CoachDashboardProps> = ({
               </div>
               <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
                 {[
+                  {
+                    version: 'v4.25.2-beta',
+                    date: '2026-10-07',
+                    color: 'sky',
+                    items: [
+                      '修正家庭歷程未設定借款欄位的傳輸格式，保留後端金額驗證與交易防重',
+                      '共享尚未完成時可返回棋盤；所有必要操作完成並結案後才開放結束回合',
+                      '隱藏一般操作處理中提示，保留逾時查核、錯誤與安全重試入口',
+                      '維修費與財務檢核入口等待骰子展示期限結束，晚收到事件直接對齊結果',
+                    ],
+                  },
+                  {
+                    version: 'v4.25.1-beta',
+                    date: '2026-10-07',
+                    color: 'sky',
+                    items: [
+                      '後端開房資格與既有身分設定一致：執行師或管理員可直接開房，不需要另外設定個別開房權限',
+                      '保護角色與管理員標記，僅管理員可以授權或取消角色；保留一般玩家資料與私人子集合操作',
+                    ],
+                  },
+                  {
+                    version: 'v4.25-beta',
+                    date: '2026-10-05',
+                    color: 'sky',
+                    items: [
+                      '新增後端模式測試：新房間由伺服器處理財務、骰子、移動及回合推進，既有房間保留原流程',
+                      '家庭歷程與共享回覆由後端檢查並結案，減少對執行師頁面保持前景的依賴',
+                      '付款與待接續流程一起保存；重開或逾時後查核原命令，避免重複扣款、抽卡或發放效果',
+                      '補強審核、銀行、歷史報表及待辦復原；此為測試候選版，多端與雲端驗收仍在進行',
+                    ],
+                  },
                   {
                     version: 'v4.24',
                     date: '2026-10-02',

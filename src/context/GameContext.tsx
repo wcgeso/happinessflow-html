@@ -1,3 +1,4 @@
+import {loadScoreRecord} from '../game/settlement/scoreRecord';
 import {observeSnapshots} from '../utils/recoveringSnapshot';
 import {usePublicFinancialEffects} from '../hooks/usePublicFinancialEffects';
 import {withAutomaticHappiness} from '../game/finance/automaticHappiness';
@@ -30,6 +31,8 @@ import { runBoardTransactionWithRetry } from '../game/board/runBoardMutation';
 import { createDefaultGameState, normalizeGameState } from '../utils/gameState';
 import { trackGameEvent } from '../utils/telemetry';
 import { debugLog } from '../utils/debugLog';
+import {submitPlayerSetup} from '../game/board/serverPlayerSetup';
+import {getRoomCompatibilityError} from '../game/board/roomCompatibility';
 
 export { createDefaultGameState, normalizeGameState } from '../utils/gameState';
 
@@ -40,6 +43,8 @@ interface GameContextValue {
     setGameState: React.Dispatch<React.SetStateAction<GameState>>;
     completePlayerSetup: (state: GameState) => Promise<void>;
     gameHistory: GameRecord[];
+    historyLoadError: string;
+    retryHistory: () => void;
     setGameHistory: React.Dispatch<React.SetStateAction<GameRecord[]>>;
     summary: FinancialSummary;
     financialAcceleration: FinancialAccelerationState;
@@ -210,6 +215,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const [scoreRecords, setScoreRecords] = useState<GameRecord[]>([]);
     const [playerSessionRecords, setPlayerSessionRecords] = useState<GameRecord[]>([]);
+    const [officialHistoryError,setOfficialHistoryError]=useState(''),[savedHistoryError,setSavedHistoryError]=useState('');
+    const [historyRetry,setHistoryRetry]=useState(0);
+    const retryHistory=useCallback(()=>setHistoryRetry(value=>value+1),[]);
+    const historyLoadError=[officialHistoryError,savedHistoryError].filter(Boolean).join('；');
     const [alertInfo, setAlertInfo] = useState<{ message: string; type: 'info' | 'error' | 'success'; persist?: boolean } | null>(null);
     const alertTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const sessionIdRef = useRef<string | null>(null);
@@ -250,6 +259,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hydratedLocalStateUidRef.current = user.uid;
 
         sessionIdRef.current = null;
+        setScoreRecords([]);
+        setPlayerSessionRecords([]);
         setAlertInfo(null);
         setGameState(createDefaultGameState());
     }, [user?.uid]);
@@ -447,6 +458,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAlertInfo(null);
     }, []);
 
+    const setupCompatibilityError=getRoomCompatibilityError(room);
     const completePlayerSetup = useCallback(async (nextState: GameState) => {
         if (!room?.id || !user?.uid || user.uid === room.hostId) {
             setGameState(nextState);
@@ -455,6 +467,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const roomRef = doc(db, 'rooms', room.id);
         const playerRef = doc(db, 'rooms', room.id, 'players', user.uid);
+        if(setupCompatibilityError)throw new Error(setupCompatibilityError);
+        if(room.bankingAuthority==='server-banking-v1'){
+            const committedState=await submitPlayerSetup(room,user.uid,nextState);
+            lastAuthoritativePlayerStateRef.current=committedState;
+            lastSyncedPlayerStateHashRef.current=JSON.stringify(limitPlayerSyncHistory(pickPlayerStateForSync(committedState)));
+            setGameState(committedState);
+            return;
+        }
         const playerPatch = limitPlayerSyncHistory(pickPlayerStateForSync(withAutomaticHappiness(nextState,room.financialAcceleration)));
         const committedState = await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
             const [roomSnapshot, playerSnapshot] = await Promise.all([
@@ -501,7 +521,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastAuthoritativePlayerStateRef.current = committedState;
         lastSyncedPlayerStateHashRef.current = JSON.stringify(limitPlayerSyncHistory(pickPlayerStateForSync(committedState)));
         setGameState(committedState);
-    }, [room?.id, room?.hostId, user?.uid]);
+    }, [room?.id, room?.hostId, room?.sessionId, room?.startedAt, room?.bankingAuthority, setupCompatibilityError, user?.uid]);
 
     const showAlert = useCallback((message: string, type: 'info' | 'error' | 'success' = 'info', persist: boolean = false) => {
         if (alertTimeoutRef.current) {
@@ -570,6 +590,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             isWin: gameState.happinessTotal >= 100,
             financialSummary: summary,
             gameStateSnapshot: {
+                profession: gameState.profession,
+                selectedEnterprise: gameState.selectedEnterprise,
+                selectedDream: gameState.selectedDream,
+                currentRankLevel: gameState.currentRankLevel,
+                children: gameState.children,
+                medicalInsuranceCount: gameState.medicalInsuranceCount,
+                abilities: gameState.abilities,
+                completedHappinessEvents: gameState.completedHappinessEvents,
+                marketPrices: gameState.marketPrices,
                 assets: gameState.assets,
                 liabilities: gameState.liabilities,
                 income: gameState.income,
@@ -616,6 +645,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 歷史資料不是遊戲中的即時狀態；遊戲進行中不查詢，回到大廳／結算
     // 時只讀一次，避免歷史草稿更新觸發持續監聽。
     useEffect(() => {
+        setOfficialHistoryError('');
         if (!user) {
             setScoreRecords([]);
             return;
@@ -628,10 +658,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             limit(HISTORY_PAGE_SIZE)
         );
 
-        void getDocs(q).then((snapshot) => {
+        let disposed=false;
+        void getDocs(q).then(async(snapshot) => {
+            const hydrated=await Promise.all(snapshot.docs.map(async docSnap=>({id:docSnap.id,data:await loadScoreRecord(db,docSnap.id,docSnap.data(),user.uid)})));
+            if(disposed)return;
             const records: GameRecord[] = [];
-            snapshot.forEach((docSnap) => {
-                const data = docSnap.data();
+            hydrated.forEach((docSnap) => {
+                const data = docSnap.data;
                 if (!data.players || !Array.isArray(data.players)) return;
                 const playerData = data.players.find((p: any) => p.uid === user.uid);
                 if (!playerData) return;
@@ -646,6 +679,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     playerName: playerData.name,
                     reportName: data.roomName || `${playerData.name} 的財務報表`,
                     profession: playerData.profession,
+                    professionData: playerData.professionData,
                     finalScore: playerData.totalScore || 0,
                     happinessScore: playerData.happiness || 0,
                     isWin: playerData.happiness >= 100,
@@ -655,6 +689,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         passiveIncome: 0, totalAssets: 0, totalLiabilities: 0, payday: 0
                     },
                     gameStateSnapshot: {
+                        profession: playerData.professionData,
+                        selectedEnterprise: playerData.selectedEnterprise,
+                        selectedDream: playerData.selectedDream,
+                        currentRankLevel: playerData.currentRankLevel,
+                        children: playerData.children,
+                        medicalInsuranceCount: playerData.medicalInsuranceCount,
+                        abilities: playerData.abilities,
+                        completedHappinessEvents: playerData.completedHappinessEvents,
+                        marketPrices: playerData.marketPrices || data.marketPrices,
                         assets: playerData.assets || [],
                         liabilities: playerData.liabilities || [],
                         income: playerData.income || {},
@@ -676,12 +719,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             records.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             setScoreRecords(records);
         }).catch((error) => {
-            console.error("[GameContext] 獲取官方歷史紀錄失敗:", error);
+            if(!disposed)setOfficialHistoryError(`歷史紀錄載入失敗：${error.code||error.message}`);
         });
-    }, [room?.status, user]);
+        return()=>{disposed=true;};
+    }, [room?.status, user,historyRetry]);
 
     // 玩家自存紀錄只在非遊戲狀態讀取一次；官方紀錄在 gameHistory 合併時優先。
     useEffect(() => {
+        setSavedHistoryError('');
         if (!user) {
             setPlayerSessionRecords([]);
             return;
@@ -694,7 +739,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             limit(HISTORY_PAGE_SIZE)
         );
 
+        let disposed=false;
         void getDocs(q).then((snapshot) => {
+            if(disposed)return;
             const records: GameRecord[] = [];
             snapshot.forEach((docSnap) => {
                 const data = docSnap.data();
@@ -724,9 +771,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setPlayerSessionRecords(records);
         }).catch((error) => {
-            console.error("[GameContext] 獲取玩家自存紀錄失敗:", error);
+            if(!disposed)setSavedHistoryError(`自存紀錄載入失敗：${error.code||error.message}`);
         });
-    }, [room?.status, user]);
+        return()=>{disposed=true;};
+    }, [room?.status, user,historyRetry]);
 
     const saveGameRecord = useCallback(async (record: GameRecord) => {
         await saveToPlayerSessions('completed');
@@ -831,11 +879,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const sessionId = sessionIdRef.current;
     const contextValue = useMemo(() => ({
-        gameState, setGameState, completePlayerSetup, gameHistory, setGameHistory,
+        gameState, setGameState, completePlayerSetup, gameHistory, setGameHistory,historyLoadError,retryHistory,
         summary, financialAcceleration, scoreResult, alertInfo, showAlert, hideAlert,
         saveGameRecord, requestImmediatePlayerSync, updateMarketPrices, bubbleBurst,
         sessionId, financialSyncError, retryFinancialSync,
-    }), [gameState, completePlayerSetup, gameHistory, setGameHistory, summary, financialAcceleration,
+    }), [gameState, completePlayerSetup, gameHistory, setGameHistory,historyLoadError,retryHistory, summary, financialAcceleration,
         scoreResult, alertInfo, showAlert, hideAlert, saveGameRecord, requestImmediatePlayerSync,
         updateMarketPrices, bubbleBurst, sessionId, financialSyncError, retryFinancialSync]);
 

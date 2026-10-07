@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import {loadScoreRecord} from '../../game/settlement/scoreRecord';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button } from '../../components/ui/ui';
 import {
     ArrowLeft,
@@ -13,7 +14,7 @@ import { useAuth } from '../../context/AuthContext';
 import { db } from '../../../services/firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { CoachRecord, GameState } from '../../types';
-import { cn, safeAsync } from '../../utils/utils';
+import { cn } from '../../utils/utils';
 import { FinancialStatement } from '../../components/business/FinancialStatement';
 import { FileText, X } from 'lucide-react';
 
@@ -76,18 +77,18 @@ const FullFinancialStatementModal: React.FC<{
             creditLoanTotal: 0,
             promotions: []
         },
-        selectedEnterprise: null,
-        selectedDream: null,
+        selectedEnterprise: snapshot.selectedEnterprise ?? null,
+        selectedDream: snapshot.selectedDream ?? null,
         expenses: snapshot.expenses,
         income: {
             ...snapshot.income,
             salary: restoredSalary
         },
         currentRankTitle: snapshot.profession,
-        currentRankLevel: 1,
+        currentRankLevel: snapshot.currentRankLevel ?? 1,
         cash: snapshot.cash,
-        children: 0,
-        medicalInsuranceCount: 0,
+        children: snapshot.children ?? 0,
+        medicalInsuranceCount: snapshot.medicalInsuranceCount ?? 0,
         assets: snapshot.assets,
         liabilities: snapshot.liabilities,
         loans: snapshot.loans,
@@ -95,15 +96,15 @@ const FullFinancialStatementModal: React.FC<{
         history: snapshot.history,
         happiness: snapshot.happinessItems || snapshot.happiness || [],
         happinessTotal: snapshot.happiness,
-        marketPrices: {},
+        marketPrices: snapshot.marketPrices ?? {},
         previousMarketPrices: {},
         lastPublishedCode: '',
-        abilities: {
+        abilities: snapshot.abilities || {
             stockAbilityCount: 0,
             realEstateAbilityCount: 0,
             professionAbilityCount: 0
         },
-        completedHappinessEvents: [],
+        completedHappinessEvents: snapshot.completedHappinessEvents ?? [],
         playerName: snapshot.name,
         reportName: roomName
     };
@@ -163,9 +164,16 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
     const [selectedScoreRecord, setSelectedScoreRecord] = useState<any | null>(null);
     const [viewingPlayerUid, setViewingPlayerUid] = useState<string | null>(null);
     const [isFetchingDetail, setIsFetchingDetail] = useState(false);
+    const [detailError,setDetailError]=useState('');
+    const detailGeneration=useRef(0);
+    const listGeneration=useRef(0);
+    const [listError,setListError]=useState('');
+    useEffect(()=>{detailGeneration.current++;setRecords([]);setExpandedId(null);setSelectedScoreRecord(null);setViewingPlayerUid(null);return()=>{detailGeneration.current++;listGeneration.current++;};},[user?.uid]);
 
     const fetchRecords = async () => {
-        if (!user) return;
+        const generation=++listGeneration.current;
+        if (!user) {setLoading(false);return;}
+        setListError('');
         setLoading(true);
         try {
             const snapshot = await getDocs(query(
@@ -178,22 +186,26 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
                 ...recordDoc.data()
             })) as CoachRecord[];
             fetchedRecords.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-            setRecords(fetchedRecords);
-        } catch (error) {
-            console.error("Error fetching coach records:", error);
+            if(generation===listGeneration.current)setRecords(fetchedRecords);
+        } catch (error:any) {
+            if(generation===listGeneration.current)setListError(`執行紀錄載入失敗：${error.code||error.message}`);
         } finally {
-            setLoading(false);
+            if(generation===listGeneration.current)setLoading(false);
         }
     };
 
     useEffect(() => {
         void fetchRecords();
-    }, [user]);
+    }, [user?.uid]);
 
-    const toggleExpand = async (id: string) => {
-        if (expandedId === id) {
+    const toggleExpand = async (id: string, retry=false) => {
+        const generation=++detailGeneration.current;
+        setSelectedScoreRecord(null);
+        setViewingPlayerUid(null);
+        setDetailError('');
+        if (expandedId === id && !retry) {
             setExpandedId(null);
-            setSelectedScoreRecord(null);
+            setIsFetchingDetail(false);
             return;
         }
         
@@ -202,14 +214,14 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
         
         // Fetch detailed score record
         try {
-            const scoreDoc = await safeAsync(getDoc(doc(db, 'score_records', 'S1', 'records', id)));
-            if (scoreDoc && scoreDoc.exists()) {
-                setSelectedScoreRecord(scoreDoc.data());
-            }
-        } catch (error) {
-            console.error("Error fetching detailed score record:", error);
+            const scoreDoc = await getDoc(doc(db, 'score_records', 'S1', 'records', id));
+            if(!scoreDoc.exists())throw new Error('找不到結算紀錄');
+            const record=await loadScoreRecord(db,id,scoreDoc.data());
+            if(generation===detailGeneration.current)setSelectedScoreRecord(record);
+        } catch (error:any) {
+            if(generation===detailGeneration.current)setDetailError(`結算明細載入失敗：${error.code||error.message}`);
         } finally {
-            setIsFetchingDetail(false);
+            if(generation===detailGeneration.current)setIsFetchingDetail(false);
         }
     };
 
@@ -254,6 +266,7 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
                     </div>
 
                     {/* Stats Summary */}
+                    {listError&&<p role="alert" className="text-rose-300">{listError}，請按重新整理重試。</p>}
                     <div className="grid grid-cols-2 gap-4">
                         <Card className="bg-slate-900/40 border-slate-800 p-4 flex flex-col items-center justify-center text-center">
                             <div className="text-slate-500 text-[10px] uppercase tracking-wider mb-1">累計場次</div>
@@ -325,6 +338,7 @@ export const CoachHistoryView: React.FC<CoachHistoryViewProps> = ({ onBack }) =>
                                     {/* Expanded Player List */}
                                     {expandedId === record.id && record.players && (
                                         <div className="animate-in slide-in-from-top-2 duration-300">
+                                            {detailError&&<div role="alert" className="p-4 text-rose-300">{detailError}<button className="ml-4 underline" onClick={()=>void toggleExpand(record.id,true)}>重試載入</button></div>}
                                             <Card className="bg-slate-900/80 border-slate-800 p-4">
                                                 <div className="flex items-center gap-2 border-b border-slate-800 pb-3 mb-3">
                                                     <Users className="text-amber-400" size={18} />

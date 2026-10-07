@@ -1,6 +1,6 @@
 import type {Room, BoardState, FamilyMilestoneJoinPrompt} from '../../types';
 import {serverNow} from '../../utils/serverClock';
-import {hasIncompleteSharedPrompts} from '../../utils/boardCardActions';
+import {hasIncompleteSharedPrompts} from './promptCompletion';
 import {appendBoardCardLog, buildBoardEventAdvanceState} from './eventQueue';
 
 export const buildCompletedFamilyTransition = (

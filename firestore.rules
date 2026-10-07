@@ -11,15 +11,39 @@ service cloud.firestore {
         request.auth.token.email == 'gm0221@happinessflow.com';
     }
     
+    match /roomCreationCommands/{commandId} { allow read, write: if false; }
+    match /hostRoomAssignments/{uid} { allow read, write: if false; }
+    match /adminScoreCommands/{uid}/{allPaths=**} { allow read, write: if false; }
+
     // 2. 使用者資料規則
+    function canManageUserRoles() {
+      return request.auth != null && (
+        request.auth.token.get('gameAdmin', false) == true ||
+        request.auth.token.get('email', '') == 'gm0221@happinessflow.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'player') == 'gm' ||
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('title', '') in ['遊戲管理員', '管理員']))
+      );
+    }
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && (
+      function canWriteProfile() { return request.auth != null && (
         request.auth.uid == userId || 
+        canManageUserRoles() ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach'
-      );
+      ); }
+      allow create: if canWriteProfile() && (canManageUserRoles() ||
+        (request.resource.data.get('role', 'player') == 'player' &&
+         !(request.resource.data.get('title', '') in ['遊戲管理員', '管理員'])));
+      allow update: if canWriteProfile() && (canManageUserRoles() ||
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) &&
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['title']) ||
+            (!(resource.data.get('title', '') in ['遊戲管理員', '管理員']) &&
+             !(request.resource.data.get('title', '') in ['遊戲管理員', '管理員'])))));
+      allow delete: if canWriteProfile();
       
-      match /{allPaths=**} {
+      // Require a child document: Rules v2 recursive wildcards also match zero segments.
+      match /{collectionId}/{documentId}/{allPaths=**} {
         allow read, write: if request.auth != null && (
           request.auth.uid == userId || 
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach'
@@ -555,6 +579,11 @@ service cloud.firestore {
       }
 
       allow create: if signedIn() &&
+        request.resource.data.get('requiredClientProtocol', null) == null &&
+        request.resource.data.get('publicPlayerStorage', null) == null &&
+        request.resource.data.get('promptCompletionAuthority', null) == null &&
+        request.resource.data.get('bankingAuthority', null) == null &&
+        request.resource.data.get('movementAuthority', null) == null &&
         request.resource.data.id == roomId &&
         request.resource.data.hostId == request.auth.uid &&
         request.resource.data.memberUids == [request.auth.uid] &&
@@ -648,9 +677,136 @@ service cloud.firestore {
         );
       }
 
-      allow update: if isValidRoomUpdate();
+      function preservesServerPrompt() {
+        let previous = resource.data.get('boardState', {});
+        let next = request.resource.data.get('boardState', {});
+        let family = previous.get('familyMilestoneJoinPrompt', null);
+        let shared = previous.get('sharedCardPrompt', null);
+        return resource.data.get('promptCompletionAuthority', null) != 'server-prompts-v1' ||
+          (next.get('currentCardReveal', null) == previous.get('currentCardReveal', null) &&
+           next.get('currentCard', null) == previous.get('currentCard', null) &&
+           next.get('currentEvent', null) == previous.get('currentEvent', null) &&
+           next.get('familyMilestoneJoinPrompt', null) == family &&
+           next.get('sharedCardPrompt', null) == shared);
+      }
 
-      allow delete: if isHost(resource.data);
+      function preservesServerBank() {
+        let before=resource.data.get('boardState', {});
+        let after=request.resource.data.get('boardState', {});
+        let event=before.get('currentEvent', null);
+        return resource.data.get('bankingAuthority', null) != 'server-banking-v1' ||
+          (request.resource.data.get('members', []) == resource.data.get('members', []) &&
+           request.resource.data.get('memberUids', []) == resource.data.get('memberUids', []) &&
+           request.resource.data.get('maxPlayers', null) == resource.data.get('maxPlayers', null) &&
+           request.resource.data.get('closedPlayerSlots', []) == resource.data.get('closedPlayerSlots', []) &&
+           request.resource.data.get('sessionId', null) == resource.data.get('sessionId', null) &&
+           request.resource.data.get('startedAt', null) == resource.data.get('startedAt', null) &&
+           request.resource.data.status == resource.data.status &&
+           request.resource.data.get('financialAcceleration', null) == resource.data.get('financialAcceleration', null) && request.resource.data.get('financialSubsidy', null) == resource.data.get('financialSubsidy', null) && request.resource.data.get('marketPrices', {}) == resource.data.get('marketPrices', {}) && request.resource.data.get('previousMarketPrices', {}) == resource.data.get('previousMarketPrices', {}) && request.resource.data.get('marketUpdates', []) == resource.data.get('marketUpdates', []) &&
+           after.get('realEstateMarket', []) == before.get('realEstateMarket', []) && after.get('diceEvents', []) == before.get('diceEvents', []) && after.get('pendingContinuation', null) == before.get('pendingContinuation', null) && request.resource.data.get('playerStates', {}) == resource.data.get('playerStates', {}) &&
+           (event == null || !(event.get('type', '') in ['bank','school','hospital','repair']) || after.get('currentEvent', null) == event));
+      }
+
+      function preservesServerMovement() {
+        let before=resource.data.get('boardState', {});
+        let after=request.resource.data.get('boardState', {});
+        return resource.data.get('movementAuthority', null) != 'server-movement-v1' ||
+          (request.resource.data.get('timerEndsAtMs', null) == resource.data.get('timerEndsAtMs', null) &&
+           request.resource.data.get('gameTimeLeft', null) == resource.data.get('gameTimeLeft', null) &&
+           request.resource.data.get('isTimerPaused', null) == resource.data.get('isTimerPaused', null) &&
+           after.get('currentTurnUid', null) == before.get('currentTurnUid', null) &&
+           after.get('hasRolledThisTurn', false) == before.get('hasRolledThisTurn', false) &&
+           after.get('lastRoll', null) == before.get('lastRoll', null) &&
+           after.get('playerPositions', {}) == before.get('playerPositions', {}) &&
+           (before.get('movement', null) == null || before.movement.get('isActive', false) != true || after.get('movement', null) == before.movement));
+      }
+
+      allow update: if request.resource.data.get('requiredClientProtocol', null) == resource.data.get('requiredClientProtocol', null) &&
+        (resource.data.get('publicPlayerStorage', null) != 'subcollection' || request.resource.data.get('publicPlayerStates', {}) == resource.data.get('publicPlayerStates', {})) &&
+        request.resource.data.get('publicPlayerStorage', null) == resource.data.get('publicPlayerStorage', null) &&
+        request.resource.data.get('promptCompletionAuthority', null) == resource.data.get('promptCompletionAuthority', null) &&
+        request.resource.data.get('bankingAuthority', null) == resource.data.get('bankingAuthority', null) &&
+        request.resource.data.get('movementAuthority', null) == resource.data.get('movementAuthority', null) &&
+        preservesServerMovement() && preservesServerBank() && preservesServerPrompt() && isValidRoomUpdate();
+
+      match /publicPlayers/{playerUid} {
+        allow read: if signedIn() && canReadRoom(get(/databases/$(database)/documents/rooms/$(roomId)).data);
+        allow write: if false;
+      }
+      match /movementTasks/{taskId} { allow read, write: if false; }
+      match /movementResults/{receiptId} {
+        allow read: if signedIn() && canReadRoom(get(/databases/$(database)/documents/rooms/$(roomId)).data);
+        allow write: if false;
+      }
+      match /startupRolls/{receiptId} { allow read, write: if false; }
+      match /realEstateResults/{receiptId} { allow read, write: if false; }
+
+      match /bankSettlements/{settlementId} {
+        allow read: if signedIn() && (resource.data.uid == request.auth.uid || isCoach());
+        allow write: if false;
+      }
+      match /storyResults/{receiptId} {
+        allow read: if signedIn() && (resource.data.uid == request.auth.uid || isHost(get(/databases/$(database)/documents/rooms/$(roomId)).data));
+        allow write: if false;
+      }
+      match /followupResults/{receiptId} {
+        allow read: if signedIn() && (resource.data.uid == request.auth.uid || isHost(get(/databases/$(database)/documents/rooms/$(roomId)).data));
+        allow write: if false;
+      }
+      match /learningResults/{receiptId} {
+        allow read: if signedIn() && resource.data.uid == request.auth.uid;
+        allow write: if false;
+      }
+      match /familyActions/{receiptId} {
+        allow read: if signedIn() && resource.data.uid == request.auth.uid;
+        allow write: if false;
+      }
+      match /serviceResults/{receiptId} {
+        allow read: if signedIn() && resource.data.uid == request.auth.uid;
+        allow write: if false;
+      }
+      match /opportunityResults/{receiptId} {
+        allow read: if signedIn() && resource.data.uid == request.auth.uid;
+        allow write: if false;
+      }
+      match /medicalCardResults/{receiptId} {
+        allow read: if signedIn() && resource.data.uid == request.auth.uid;
+        allow write: if false;
+      }
+      match /medicalClaimResults/{receiptId} {
+        allow read: if signedIn() && resource.data.uid == request.auth.uid;
+        allow write: if false;
+      }
+      match /happinessResults/{receiptId} {
+        allow read: if signedIn() && resource.data.uid == request.auth.uid;
+        allow write: if false;
+      }
+      match /cardReveals/{receiptId} {
+        allow read: if signedIn() && resource.data.uid == request.auth.uid;
+        allow write: if false;
+      }
+      match /sharedActions/{receiptId} {
+        allow read: if signedIn() && resource.data.uid == request.auth.uid;
+        allow write: if false;
+      }
+      match /boardRecoveries/{recoveryId}/{document=**} {
+        allow read: if signedIn() && exists(/databases/$(database)/documents/rooms/$(roomId)) &&
+          get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId == request.auth.uid;
+        allow write: if false;
+      }
+      match /gameCommands/{commandId} {
+        allow read: if signedIn() && resource.data.uid == request.auth.uid;
+        allow write: if false;
+      }
+      match /promptFinalizations/{receiptId} {
+        allow read: if signedIn() && canReadRoom(get(/databases/$(database)/documents/rooms/$(roomId)).data);
+        allow write: if false;
+      }
+      match /promptFinalizationTasks/{taskId} {
+        allow read, write: if false;
+      }
+
+      allow delete: if resource.data.get('bankingAuthority', null) != 'server-banking-v1' && isHost(resource.data);
 
       match /players/{playerUid} {
         function roomData() {
@@ -708,22 +864,43 @@ service cloud.firestore {
               getAfter(/databases/$(database)/documents/rooms/$(roomId)/players/$(playerUid)/commandResults/$(command)).data.commandId == command);
         }
 
-        allow create: if ((isRoomMember() && request.auth.uid == playerUid) || isRoomCoach()) && !isCompletingMovement();
-        allow update: if ((isRoomMember() && request.auth.uid == playerUid) || isRoomCoach())
-          ? (validMovementPlayerWrite() && validFinancialCommit())
-          : false;
-        allow delete: if isRoomCoach();
+        function preservesServerFinance() {
+          return roomData().get('bankingAuthority', null) != 'server-banking-v1' ||
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'cash','assets','liabilities','loans','expenses','income','happiness','happinessTotal','profession','abilities','selectedEnterprise','selectedDream','currentRankLevel','currentRankTitle','pendingStartupUpgradeAction','pendingStartupUpgradeActions',
+              'medicalInsuranceCount','history','marketPrices','previousMarketPrices','lastFinancialCommandId','bankServiceWindowActive','bankServiceGrantedAtEventId',
+              'appliedBoardFinancialEventIds','storyApproval','followupApproval','schoolExam','bankSettlement','isSetup','lastMarketUpdateTimestamp','lastPublicEffectTimestamp','lastPublicEffectId']);
+        }
 
+        allow create: if roomData().get('bankingAuthority', null) != 'server-banking-v1' &&
+          ((isRoomMember() && request.auth.uid == playerUid) || isRoomCoach()) && !isCompletingMovement();
+        allow update: if ((isRoomMember() && request.auth.uid == playerUid) || isRoomCoach())
+          ? (preservesServerFinance() && validMovementPlayerWrite() && validFinancialCommit())
+          : false;
+        allow delete: if roomData().get('bankingAuthority', null) != 'server-banking-v1' && isRoomCoach();
+
+        function canReadFinancialHistory() {
+          let roomExists = exists(/databases/$(database)/documents/rooms/$(roomId));
+          let session = resource.data.get('sessionId','__missing__');
+          let archived = exists(/databases/$(database)/documents/room_archives/$(session));
+          return signedIn() && (request.auth.uid == playerUid ||
+            (roomExists && roomData().hostId == request.auth.uid) ||
+            (archived && get(/databases/$(database)/documents/room_archives/$(session)).data.get('backendArchived',false) &&
+              get(/databases/$(database)/documents/room_archives/$(session)).data.roomId == roomId &&
+              get(/databases/$(database)/documents/room_archives/$(session)).data.hostId == request.auth.uid) ||
+            ((!roomExists || roomData().get('bankingAuthority','') != 'server-banking-v1') &&
+              (!archived || !get(/databases/$(database)/documents/room_archives/$(session)).data.get('backendArchived',false)) && isCoach()));
+        }
         match /transactions/{transactionId} {
-          allow read: if signedIn() && (request.auth.uid==playerUid || isRoomCoach() || isCoach());
-          allow create: if ((isRoomMember() && request.auth.uid==playerUid) || isRoomCoach()) &&
+          allow read: if canReadFinancialHistory();
+          allow create: if roomData().get('bankingAuthority', null) != 'server-banking-v1' && ((isRoomMember() && request.auth.uid==playerUid) || isRoomCoach()) &&
             roomData().get('financialHistoryStorage','')=='subcollection' && request.resource.data.sessionId==roomData().sessionId &&
             request.resource.data.playerUid==playerUid && request.resource.data.id is string && request.resource.data.timestamp is number;
           allow update, delete: if false;
         }
         match /commandResults/{commandId} {
-          allow read: if signedIn() && (request.auth.uid==playerUid || isRoomCoach() || isCoach());
-          allow create: if ((isRoomMember() && request.auth.uid==playerUid) || isRoomCoach()) &&
+          allow read: if canReadFinancialHistory();
+          allow create: if roomData().get('bankingAuthority', null) != 'server-banking-v1' && ((isRoomMember() && request.auth.uid==playerUid) || isRoomCoach()) &&
             roomData().get('financialHistoryStorage','')=='subcollection' && request.resource.data.sessionId==roomData().sessionId &&
             request.resource.data.playerUid==playerUid && request.resource.data.commandId==commandId && request.resource.data.status=='applied';
           allow update, delete: if false;
@@ -734,7 +911,7 @@ service cloud.firestore {
       match /coachCommands/{commandId} {
         function roomData() {return get(/databases/$(database)/documents/rooms/$(roomId)).data;}
         allow read: if signedIn() && (isCoach() || isHost(roomData()));
-        allow create: if signedIn() && (isHost(roomData()) || isCoach()) && roomData().status=='playing' &&
+        allow create: if signedIn() && roomData().get('bankingAuthority',null) != 'server-banking-v1' && (isHost(roomData()) || isCoach()) && roomData().status=='playing' &&
           roomData().get('flowSchemaVersion',0)==1 && request.resource.data.sessionId==roomData().sessionId &&
           request.resource.data.coachUid==request.auth.uid && request.resource.data.kind=='subsidy' &&
           request.resource.data.commandId is string && request.resource.data.commandId.size()>0 &&
@@ -877,17 +1054,17 @@ service cloud.firestore {
         }
 
         allow read: if isRoomCoach() || (isRoomMember() && resource.data.uid == request.auth.uid);
-        allow create: if isRoomMember() &&
+        allow create: if (roomData().get('bankingAuthority', null) != 'server-banking-v1' || (request.resource.data.type != 'happiness' && !(request.resource.data.type == 'board_share' && request.resource.data.get('boardCardId', null) == 'C056'))) && isRoomMember() &&
           request.auth.uid == request.resource.data.uid &&
           validRequest() &&
           request.resource.data.status == 'pending';
-        allow update: if isRoomCoach() &&
+        allow update: if (roomData().get('bankingAuthority', null) != 'server-banking-v1' || (resource.data.type != 'happiness' && !(resource.data.type == 'board_share' && resource.data.get('boardCardId', null) == 'C056'))) && isRoomCoach() &&
           validRequest() &&
           request.resource.data.uid == resource.data.uid &&
           request.resource.data.sessionId == resource.data.sessionId &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
           request.resource.data.status in ['approved', 'rejected'];
-        allow delete: if signedIn() && (
+        allow delete: if signedIn() && (roomData().get('bankingAuthority', null) != 'server-banking-v1' || !exists(/databases/$(database)/documents/rooms/$(roomId)/pendingRequests/$(requestId)) || (resource.data.type != 'happiness' && !(resource.data.type == 'board_share' && resource.data.get('boardCardId', null) == 'C056'))) && (
           !exists(/databases/$(database)/documents/rooms/$(roomId)/pendingRequests/$(requestId))
             ? true
             : isRoomCoach() || (isRoomMember() && resource.data.uid == request.auth.uid)
@@ -1050,8 +1227,8 @@ service cloud.firestore {
           }
 
           allow read: if canReadResponse();
-          allow create: if canCreateResponse();
-          allow update: if canUpdateResponse();
+          allow create: if get(/databases/$(database)/documents/rooms/$(roomId)).data.get('promptCompletionAuthority', null) != 'server-prompts-v1' && canCreateResponse();
+          allow update: if get(/databases/$(database)/documents/rooms/$(roomId)).data.get('promptCompletionAuthority', null) != 'server-prompts-v1' && canUpdateResponse();
           allow delete: if false;
         }
       }
@@ -1061,30 +1238,47 @@ service cloud.firestore {
     match /score_records/S1/records/{recordId} {
       // 允許玩家讀取包含自己 UID 的記錄，或允許執行師讀取所有記錄
       allow read: if request.auth != null && (
-        request.auth.uid in resource.data.playerUids ||
+        request.auth.uid in resource.data.playerUids || resource.data.get('coachId','') == request.auth.uid ||
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach'
       );
       
-      // 只有執行師可以寫入記錄（新增/修改遊戲記錄）
-      allow write: if request.auth != null && 
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
+      // Trusted settlements are server-owned; legacy/manual records retain their existing route.
+      allow create: if request.auth != null && !request.resource.data.get('trustedSettlement', false) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach' &&
+        (!exists(/databases/$(database)/documents/rooms/$(request.resource.data.get('roomId','__manual__'))) || get(/databases/$(database)/documents/rooms/$(request.resource.data.get('roomId','__manual__'))).data.get('bankingAuthority','') != 'server-banking-v1');
+      allow update: if request.auth != null && !resource.data.get('trustedSettlement',false) && !request.resource.data.get('trustedSettlement',false) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
+      allow delete: if request.auth != null && !resource.data.get('trustedSettlement',false) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
+      match /players/{playerUid} {
+        allow read: if request.auth != null && exists(/databases/$(database)/documents/score_records/S1/records/$(recordId)) &&
+          (request.auth.uid == playerUid || get(/databases/$(database)/documents/score_records/S1/records/$(recordId)).data.coachId == request.auth.uid);
+        allow write: if false;
+      }
     }
     
     match /room_archives/{sessionId} {
       function coach() { return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['coach', 'gm']; }
-      allow read: if request.auth != null && (resource.data.hostId == request.auth.uid || coach());
-      allow create: if request.auth != null && request.resource.data.sessionId == sessionId &&
+      allow read: if request.auth != null && (resource.data.hostId == request.auth.uid || (!resource.data.get('backendArchived', false) && coach()));
+      allow create: if request.auth != null && !request.resource.data.get('backendArchived', false) && request.resource.data.sessionId == sessionId &&
         request.resource.data.hostId == request.auth.uid &&
+        get(/databases/$(database)/documents/rooms/$(request.resource.data.roomId)).data.get('bankingAuthority', null) != 'server-banking-v1' &&
         get(/databases/$(database)/documents/rooms/$(request.resource.data.roomId)).data.hostId == request.auth.uid;
-      allow update: if request.auth != null && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.roomId == resource.data.roomId;
-      allow delete: if coach();
+      allow update: if request.auth != null && !resource.data.get('backendArchived', false) && !request.resource.data.get('backendArchived', false) && resource.data.hostId == request.auth.uid && request.resource.data.hostId == resource.data.hostId && request.resource.data.roomId == resource.data.roomId;
+      allow delete: if !resource.data.get('backendArchived', false) && coach();
+      match /{archivedDocument=**} {
+        allow read: if request.auth != null && exists(/databases/$(database)/documents/room_archives/$(sessionId)) &&
+          (get(/databases/$(database)/documents/room_archives/$(sessionId)).data.hostId == request.auth.uid ||
+           (!get(/databases/$(database)/documents/room_archives/$(sessionId)).data.get('backendArchived', false) && coach()));
+        allow write: if false;
+      }
     }
 
     // 5. 執行師記錄規則
     match /coach_records/{recordId} {
       // 只有執行師可以讀寫
-      allow read, write: if request.auth != null && 
-                            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
+      allow read: if request.auth != null && (resource.data.get('coachId','') == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach');
+      allow create: if request.auth != null && !request.resource.data.get('trustedSettlement',false) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
+      allow update: if request.auth != null && !resource.data.get('trustedSettlement',false) && !request.resource.data.get('trustedSettlement',false) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
+      allow delete: if request.auth != null && !resource.data.get('trustedSettlement',false) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
     }
     
     // 6. 審計日誌規則

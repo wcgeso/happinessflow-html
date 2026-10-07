@@ -1,0 +1,21 @@
+const assert=require('node:assert/strict');
+const {initializeApp}=require('firebase-admin/app');
+const {getFirestore}=require('firebase-admin/firestore');
+async function main(){
+ const projectId='demo-happinessflow-backend';assert.equal(process.env.GCLOUD_PROJECT,projectId);assert.equal(process.env.FIRESTORE_EMULATOR_HOST,'127.0.0.1:8482');assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST,'127.0.0.1:9399');initializeApp({projectId});const db=getFirestore();
+ const signup=async()=>{const a=await(await fetch('http://127.0.0.1:9399/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({returnSecureToken:true})})).json();assert.ok(a.idToken);return a;};const coach=await signup(),p=await signup(),outsider=await signup();
+ const ref=db.doc('rooms/setup-callable'),player=ref.collection('players').doc(p.localId);await db.recursiveDelete(ref);
+ await ref.set({id:ref.id,hostId:coach.localId,sessionId:'s',status:'waiting',duration:60,maxPlayers:6,isBoardGame:true,requiredClientProtocol:1,publicPlayerStorage:'subcollection',movementAuthority:'server-movement-v1',promptCompletionAuthority:'server-prompts-v1',bankingAuthority:'server-banking-v1',syncSchemaVersion:2,flowSchemaVersion:1,financialHistoryStorage:'subcollection',members:[{uid:coach.localId},{uid:p.localId}]});
+ const post=async(data,auth=p)=>{const r=await fetch(`http://127.0.0.1:5301/${projectId}/asia-southeast1/gameCommand`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${auth.idToken}`},body:JSON.stringify({data})});return {status:r.status,body:await r.json()};};
+ const c={type:'setupPlayer',roomId:ref.id,sessionId:'s',commandId:'setup',professionId:'nest_builder',enterpriseId:'C01',dreamId:'D01',playerName:'玩家',reportName:'我的財報',clientProtocolVersion:1};
+ const start={type:'startRoom',roomId:ref.id,sessionId:'s',commandId:'start',clientProtocolVersion:1};
+ assert.equal((await post(start)).status,403);assert.equal((await post(start,outsider)).status,403);assert.equal((await post({...start,startedAt:1},coach)).status,400);
+ const starts=await Promise.all(Array.from({length:6},()=>post(start,coach)));assert.equal(starts.filter(r=>r.body.result?.status==='applied').length,1);assert.equal(starts.filter(r=>r.body.result?.status==='duplicate').length,5);assert.equal((await ref.get()).data().status,'playing');assert.equal((await ref.get()).data().sessionId,'s');assert.equal((await player.get()).data().isSetup,false);assert.equal((await post({...start,type:'getCommandResult'},coach)).body.result.status,'confirmed');
+ assert.equal((await post(c,coach)).status,403);assert.equal((await post(c,outsider)).status,403);assert.equal((await post({...c,cash:999999})).status,400);assert.equal((await post({...c,clientProtocolVersion:undefined})).body.error.status,'FAILED_PRECONDITION');assert.equal((await player.get()).data().isSetup,false);
+ const results=await Promise.all(Array.from({length:6},()=>post(c)));assert.equal(results.filter(r=>r.body.result?.status==='applied').length,1);assert.equal(results.filter(r=>r.body.result?.status==='duplicate').length,5);
+ const state=(await player.get()).data();assert.equal(state.cash,20000);assert.equal(state.profession.salary,30000);assert.equal(state.selectedDream.id,'D01');assert.equal(state.isSetup,true);assert.equal((await ref.collection('publicPlayers').doc(p.localId).get()).data().isSetup,true);
+ await player.update({cash:123});assert.equal((await post(start,coach)).body.result.status,'duplicate');assert.equal((await player.get()).data().cash,123);assert.equal((await post(c)).body.result.status,'duplicate');assert.equal((await player.get()).data().cash,123);assert.equal((await post({...c,commandId:'second'})).body.error.status,'FAILED_PRECONDITION');assert.equal((await post({...c,dreamId:'D02'})).status,409);
+ const query={type:'getCommandResult',roomId:ref.id,sessionId:'s',commandId:'setup'};assert.equal((await post(query)).body.result.status,'confirmed');assert.equal((await post(query,outsider)).status,403);
+ await db.recursiveDelete(ref);await db.terminate();console.log('PASS room start and setup Auth/Callable: six-way idempotency, protocol, canonical finance, replay, actor and result privacy');
+}
+main().catch(e=>{console.error(e);process.exit(1)});

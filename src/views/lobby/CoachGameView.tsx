@@ -114,6 +114,8 @@ export const CoachGameView: React.FC = () => {
                 case 'liability':await adjustPlayerLiability(action.playerUid,action.liabilityId,action.adjustments,id);break;
                 case 'expense':await adjustPlayerExpense(action.playerUid,action.category,action.amount,action.reason,id);break;
                 case 'subsidy':await grantFinancialSubsidyToAllPlayers(action.amount,id);break;
+                case 'timer':await updateRoomTimer(action.seconds,action.paused,action.paused?null:serverNow()+action.seconds*1000,id,action.mode);break;
+                case 'acceleration':await updateFinancialAcceleration(action.multiplier,id);break;
                 case 'market':await updateMarket(action.updates,action.code,action.isBubble,id);break;
             }
             clearCoachIntent(localStorage,scope,id);
@@ -121,7 +123,7 @@ export const CoachGameView: React.FC = () => {
             setPendingCoachIntent(null);
         } catch(error) {
             // A rejected transaction is definite; connection errors retain the original receipt key.
-            if(intent && ['permission-denied','invalid-argument','aborted','failed-precondition'].includes(String((error as {code?:string}).code))) {
+            if(intent && ['permission-denied','invalid-argument','failed-precondition'].includes(String((error as {code?:string}).code))) {
                 clearCoachIntent(localStorage,scope,intent.commandId);
                 if(currentCoachScope.current===scope)setPendingCoachIntent(null);
             }
@@ -244,7 +246,7 @@ export const CoachGameView: React.FC = () => {
                 await startRoomGame();
                 return;
             }
-            await updateRoomTimer(timeLeft, false, serverNow() + timeLeft * 1000);
+            await runCoachAction({kind:'timer',seconds:timeLeft,paused:false,mode:'set'});
             setIsPaused(false);
         } catch (error) {
             console.error('開始遊戲失敗:', error);
@@ -275,7 +277,7 @@ export const CoachGameView: React.FC = () => {
         const newPaused = !isPaused;
         setIsUpdatingTimer(true);
         try {
-            await updateRoomTimer(timeLeft, newPaused, newPaused ? null : serverNow() + timeLeft * 1000);
+            await runCoachAction({kind:'timer',seconds:timeLeft,paused:newPaused,mode:newPaused?'pause':'set'});
             setIsPaused(newPaused);
         } catch (error) {
             console.error('切換遊戲計時器失敗:', error);
@@ -284,19 +286,22 @@ export const CoachGameView: React.FC = () => {
         }
     };
 
-    const handleAdjustTime = (seconds: number) => {
-        if (timeLeft === 0) return; // 時間到不能再操作
+    const handleAdjustTime = async (seconds: number) => {
+        if (timeLeft === 0 || isUpdatingTimer) return;
         const newTime = Math.max(0, timeLeft + seconds);
-        setTimeLeft(newTime);
-        void updateRoomTimer(newTime, isPaused, isPaused ? null : serverNow() + newTime * 1000);
+        setIsUpdatingTimer(true);
+        try {await runCoachAction({kind:'timer',seconds:newTime,paused:isPaused,mode:'set'});setTimeLeft(newTime);}
+        catch(error){setCoachCommandError((error as Error).message || '計時器調整尚待確認');}
+        finally{setIsUpdatingTimer(false);}
     };
 
-    const handleResetTimer = () => {
-        if (timeLeft === 0) return; // 時間到不能再操作
+    const handleResetTimer = async () => {
+        if (timeLeft === 0 || isUpdatingTimer) return;
         const defaultTime = (room?.duration || 60) * 60;
-        setTimeLeft(defaultTime);
-        setIsPaused(true);
-        void updateRoomTimer(defaultTime, true, null);
+        setIsUpdatingTimer(true);
+        try {await runCoachAction({kind:'timer',seconds:defaultTime,paused:true,mode:'set'});setTimeLeft(defaultTime);setIsPaused(true);}
+        catch(error){setCoachCommandError((error as Error).message || '計時器重設尚待確認');}
+        finally{setIsUpdatingTimer(false);}
     };
 
     interface RoomPlayer {
@@ -463,6 +468,11 @@ export const CoachGameView: React.FC = () => {
     const saveRecords = async (isFinal: boolean = false, isSilent: boolean = false) => {
         if (!room || !user || !players.length) return;
         if (room.isPractice) return; // 練習模式不儲存（以房間本身的欄位為準）
+        if(room.bankingAuthority==='server-banking-v1'){
+            if(isFinal&&room.status!=='finished')throw new Error('請先由後端完成結算，再查閱正式紀錄');
+            if(isFinal)setUploadStatus('success');
+            return;
+        }
 
         flowLog({
             name: 'coach.settlement.save.requested',
@@ -773,7 +783,7 @@ export const CoachGameView: React.FC = () => {
             type: 'warning',
             onConfirm: () => {
                 setGenericConfirm(null);
-                void updateFinancialAcceleration(multiplier).catch(error => window.alert(error?.message || '收益倍率更新失敗'));
+                void runCoachAction({kind:'acceleration',multiplier}).catch(error => window.alert(error?.message || '收益倍率更新失敗'));
             }
         });
     };
@@ -842,7 +852,7 @@ export const CoachGameView: React.FC = () => {
     const confirmRepeatCurrentBoardEvent = () => {
         setGenericConfirm({
             title: '重複目前事件？',
-            description: '將重新顯示目前事件。若事件已完成部分財務操作，請避免重複套用同一筆結果。',
+            description: room?.movementAuthority==='server-movement-v1' ? '重新顯示原事件，保留已確認的付款、骰點、翻牌及待辦。' : '將重新顯示目前事件。若事件已完成部分財務操作，請避免重複套用同一筆結果。',
             type: 'warning',
             onConfirm: () => { void executeRepeatCurrentBoardEvent(); }
         });
@@ -883,7 +893,9 @@ export const CoachGameView: React.FC = () => {
         const forceEnd = mode === 'force_end';
         setGenericConfirm({
             title: forceEnd ? '強制結束目前回合？' : '解除目前事件？',
-            description: forceEnd
+            description: room?.movementAuthority==='server-movement-v1'
+                ? '後端會保存復原紀錄並解除尚未入帳的流程；已付款、待判定、共享或審核必須先接續完成。玩家財務保持原值。'
+                : forceEnd
                 ? '將清除所有未完成的棋盤流程並直接換到下一位玩家。已完成的財務異動不會回滾。'
                 : '將清除目前卡片、移動、排隊事件及共享等待，保留目前玩家與擲骰狀態，之後由玩家自行按結束回合。',
             type: forceEnd ? 'danger' : 'warning',
@@ -1147,10 +1159,10 @@ export const CoachGameView: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full bg-slate-950 text-white overflow-hidden relative pt-safe pb-safe">
-            <SubscriptionStatus flowSchemaVersion={room?.flowSchemaVersion} />
+            <SubscriptionStatus room={room} />
             {(pendingCoachIntent || coachCommandError) && <div role="status" className="shrink-0 bg-amber-950 p-3 text-sm">
-                {coachCommandError || (isCoachCommandBusy ? '正在確認執行師財務操作，請稍候' : '上一項財務操作尚待核對，請使用原操作安全接續')}
-                {pendingCoachIntent && <button disabled={isCoachCommandBusy} className="ml-3 underline disabled:opacity-50" onClick={() => void runCoachAction(pendingCoachIntent.action).catch(() => {})}>安全核對原財務操作</button>}
+                {coachCommandError || (isCoachCommandBusy ? '正在確認執行師操作，請稍候' : '上一項操作尚待核對，請使用原操作安全接續')}
+                {pendingCoachIntent && <button disabled={isCoachCommandBusy} className="ml-3 underline disabled:opacity-50" onClick={() => void runCoachAction(pendingCoachIntent.action).catch(() => {})}>安全核對原操作</button>}
             </div>}
             {/* Header */}
             <div className="h-16 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md flex items-center justify-between px-6 shrink-0 z-40">
@@ -1621,8 +1633,9 @@ export const CoachGameView: React.FC = () => {
                                                                         {!presenceStates[player.uid] ? '連線同步中' : isPresenceOnline(presenceStates[player.uid]) ? '在線' : '已離線'}
                                                                     </span>
                                                                     {room?.boardState?.currentTurnUid === player.uid &&
-                                                                        canSkipDisconnectedPlayer(presenceStates[player.uid]) &&
-                                                                        !room.boardState.movement?.isActive &&
+                                                                        canSkipDisconnectedPlayer(presenceStates[player.uid],serverNow()) &&
+                                                                        !(room.movementAuthority==='server-movement-v1'?room.boardState.movement:room.boardState.movement?.isActive) &&
+                                                                        (!room.boardState.pendingContinuation||room.boardState.pendingContinuation.phase==='completed') &&
                                                                         !room.boardState.currentEvent &&
                                                                         !room.boardState.pendingEvents?.length &&
                                                                         !hasIncompleteSharedPrompts(room.boardState) && (
@@ -1635,8 +1648,9 @@ export const CoachGameView: React.FC = () => {
                                                                         </button>
                                                                     )}
                                                                     {room?.boardState?.sharedCardPrompt?.targetPlayerUids.includes(player.uid) &&
+                                                                        (room.promptCompletionAuthority!=='server-prompts-v1'||room.boardState.sharedCardPrompt.sourcePlayerUid!==player.uid) &&
                                                                         !room.boardState.sharedCardPrompt.responses?.[player.uid] &&
-                                                                        canSkipDisconnectedPlayer(presenceStates[player.uid]) && (
+                                                                        canSkipDisconnectedPlayer(presenceStates[player.uid],serverNow()) && (
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => void handleSkipDisconnectedSharedPromptTarget(player.uid)}

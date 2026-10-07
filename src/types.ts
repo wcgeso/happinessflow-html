@@ -209,6 +209,7 @@ export interface BoardDeckState {
 
 export interface BoardEventLog {
   id: string;
+  presentationReplayId?: string;
   playerUid: string;
   playerName: string;
   type?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup';
@@ -460,6 +461,10 @@ export interface PlayerDiagnosticState {
 }
 
 export interface GameState {
+    storyApproval?: {sessionId:string;eventId:string;requestId:string;attempt:number;status:'pending'|'approved'|'rejected'|'declined'};
+    followupApproval?: {sessionId:string;eventId:string;requestId:string;attempt:number;status:'pending'|'approved'|'rejected'|'declined'};
+  schoolExam?: {sessionId:string;eventId:string;phase:'paid'|'completed';result?:{roll:number;target:number;success:boolean;bonus?:number;newTitle?:string}};
+  bankSettlement?: {sessionId:string;eventId:string;phase:'collected'|'completed'};
   profession: Profession | null;
   selectedEnterprise: Enterprise | null;
   selectedDream: Dream | null;
@@ -577,7 +582,7 @@ export interface GameRecord {
   isWin?: boolean;
   financialSummary: FinancialSummary;
   professionData?: Profession; // New: for full report restore
-  gameStateSnapshot: {
+  gameStateSnapshot: Partial<Pick<GameState, 'profession' | 'selectedEnterprise' | 'selectedDream' | 'currentRankLevel' | 'children' | 'medicalInsuranceCount' | 'abilities' | 'completedHappinessEvents' | 'marketPrices'>> & {
     assets: Asset[];
     liabilities: Liability[];
     income: IncomeDetails;
@@ -781,7 +786,9 @@ export interface TransactionData {
     sharesToSell: number;
     currentPrice: number;
   };
-  boardEventId?: string; // 棋盤事件 ID，用於財務檢核流程的事件級防重複套用
+  boardEventId?: string; // 財務操作識別，用於防重複套用
+  boardSourceCardId?: string; // 財務視窗開啟時的原始抽卡識別
+  boardSourceEventId?: string; // 綁定來源棋盤事件，舊視窗不能操作新事件
   boardFlow?: BoardFinancialFlow;
   /** 內部周轉流程：按下強制計入負債時，與原交易同一筆套用。 */
   forcedDebtAmount?: number;
@@ -837,6 +844,7 @@ export interface RoomMember {
 }
 
 export interface PendingRequest {
+    attempt?: number;
     id: string;
     uid: string;
     playerName: string;
@@ -855,6 +863,12 @@ export interface PendingRequest {
 }
 
 export interface Room {
+  bankingAuthority?: 'server-banking-v1';
+  movementAuthority?: 'server-movement-v1';
+  // Pilot only: set by trusted backend after compatible clients are installed.
+  promptCompletionAuthority?: 'server-prompts-v1';
+  publicPlayerStorage?: 'subcollection';
+  requiredClientProtocol?: number;
     id: string; // 房間碼 (6位數)
     name?: string; // 房間標題
     hostId: string;

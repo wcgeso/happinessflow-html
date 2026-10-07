@@ -1,4 +1,5 @@
 import type {GameState} from '../../types';
+export const isValidMarketPlayerState=(state:GameState):boolean=>!!state&&Array.isArray(state.assets)&&Array.isArray(state.history)&&Array.isArray(state.happiness)&&!!state.expenses&&Number.isSafeInteger(state.cash)&&state.cash>=0&&!state.assets.some(a=>a.type==='股票'&&(!Number.isSafeInteger(a.quantity??a.shares??0)||(a.quantity??a.shares??0)<0||(a.quantity!==undefined&&a.shares!==undefined&&a.quantity!==a.shares)||!Number.isSafeInteger(a.lastPurchasePrice??0)||(a.lastPurchasePrice??0)<0||!Number.isSafeInteger((a.quantity??a.shares??0)*(a.lastPurchasePrice??0))));
 export type PublicFinancialEffect = {id:string;sessionId:string;timestamp:number;kind:'market'|'expense';sourcePlayerUid:string;
   payload:{updates?:Record<string,number>;code?:string;isBubble?:boolean;amount?:number;category?:'basicLiving'|'transportEdu'|'otherMedicalChild';isIncrease?:boolean;summary?:string;detail?:string}};
 export const applyPublicFinancialEffect=(state:GameState,effect:PublicFinancialEffect,uid:string):GameState=>{

@@ -1,8 +1,12 @@
-import type {Asset,GameState,Transaction,TransactionData} from '../../types';
+import {findRelatedLiabilities,buildBoardAssetSaleFinancialAction} from '../../utils/boardCardActions';
+import {applyBoardTransaction,createSequentialIdGenerator} from './applyBoardTransaction';
+import type {Asset,GameState,Transaction,TransactionData,Dream} from '../../types';
 import {cleanObject} from '../../utils/utils';
 import {serverNow} from '../../utils/serverClock';
 import {extractAssetSymbol,getStockAssetLabel} from '../../utils/assetLabels';
 import {getLiabilityMonthlyPayment} from '../../utils/financialRules';
+export const CAR_PRICE=600000;
+export const MIN_CAR_DOWN_PAYMENT=CAR_PRICE*0.2;
 
 export const buildInsurancePurchaseState = (
     currentState: GameState,
@@ -383,3 +387,32 @@ export const buildCarPurchaseState = (
     }) as GameState;
 };
 
+export const buildManualAssetSaleState=(state:GameState,sales:{assetId:string;price:number}[],commandId:string,now=serverNow()):GameState=>{
+    const usedLoans=new Set<string>();
+    const items=sales.map(sale=>{
+        const matches=state.assets.filter(a=>a.id===sale.assetId),asset=matches[0];
+        if(matches.length!==1||!['不動產','企業','汽車','飛行器'].includes(asset.type))throw new Error('出售資產不存在或須使用股票／定存專用入口');
+        const relatedLoans=findRelatedLiabilities(asset,state.liabilities);
+        if(relatedLoans.length>1)throw new Error('資產對應多筆貸款，請先核對負債關聯');
+        const liability=relatedLoans[0],loanBalance=liability?.totalOwed||0;
+        if(liability&&usedLoans.has(liability.id))throw new Error('多項資產共用貸款，請先核對負債關聯');
+        if(liability)usedLoans.add(liability.id);
+        if(!Number.isSafeInteger(loanBalance)||loanBalance<0||sale.price<=loanBalance)throw new Error('售價必須大於最新貸款餘額');
+        return {id:asset.id,asset,liability,loanBalance,price:sale.price,netCash:sale.price-loanBalance,selectable:true,summary:''};
+    });
+    const action=buildBoardAssetSaleFinancialAction(`賣出資產 (${items.map(i=>i.asset.name).join(', ')})`,items);
+    if(!action||!Number.isSafeInteger(action.txData.amount)||action.txData.amount>1e12||!Number.isSafeInteger(state.cash+action.txData.cashChange))throw new Error('出售總額超出可處理範圍');
+    const result=applyBoardTransaction(state,{...action.txData,boardEventId:commandId},{now,generateId:createSequentialIdGenerator(commandId)});
+    if(result.status==='error')throw new Error(result.message);
+    return result.state;
+};
+
+export const buildDreamPurchaseState=(state:GameState,dream:Dream,commandId:string,now=serverNow()):GameState=>{
+    const items=state.happiness?.filter(h=>h.id==='h_dream');
+    if(!items||items.length!==1||typeof items[0].checked!=='boolean'||items[0].points!==dream.happyPoints)throw new Error('夢想目標資料不完整，請先核對');
+    if(items[0].checked)throw new Error('人生夢想已完成，不可重複付款');
+    if(!Number.isSafeInteger(state.cash)||state.cash<dream.cost)throw new Error('現金不足，夢想尚未完成');
+    const result=applyBoardTransaction(state,{name:`實現人生夢想：${dream.name}`,amount:dream.cost,cashChange:-dream.cost,source:'cash',usage:'expense',boardEventId:commandId},{now,generateId:createSequentialIdGenerator(commandId)});
+    if(result.status==='error')throw new Error(result.message);
+    return result.state;
+};

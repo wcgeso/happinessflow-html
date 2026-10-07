@@ -1,7 +1,7 @@
 import type {Room, BoardState, BoardQueuedEvent, BoardCardLogEntry, BoardCardResult, BoardEventLog} from '../../types';
 import {serverNow} from '../../utils/serverClock';
 import {cleanObject} from '../../utils/utils';
-import {hasIncompleteSharedPrompts} from '../../utils/boardCardActions';
+import {hasIncompleteSharedPrompts} from './promptCompletion';
 import {getSquareByIndex} from '../../constants/board';
 const BOARD_MOVE_CONTINUE_DELAY_MS = 500;
 const BOARD_CARD_LOG_LIMIT = 40;

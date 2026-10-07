@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { X, Share, PlusSquare, Download } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const STORAGE_KEY = 'hf_install_dismissed';
 
@@ -62,14 +61,9 @@ export const InstallPromptBanner: React.FC = () => {
     };
 
     return (
-        <AnimatePresence>
-            {show && (
-                <motion.div
-                    initial={{ y: 100, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 100, opacity: 0 }}
-                    transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-                    className="fixed bottom-0 left-0 right-0 z-[200] pb-safe px-4 pb-4"
+        show ? (
+                <div
+                    className="fixed bottom-0 left-0 right-0 z-[200] pb-safe px-4 pb-4 motion-safe:animate-in motion-safe:slide-in-from-bottom motion-safe:fade-in duration-200"
                 >
                     <div className="max-w-lg mx-auto bg-slate-900 border border-amber-500/20 rounded-2xl p-4 shadow-2xl shadow-black/50">
                         <div className="flex items-start gap-3">
@@ -116,14 +110,14 @@ export const InstallPromptBanner: React.FC = () => {
 
                             <button
                                 onClick={handleDismiss}
+                                aria-label="關閉安裝提示"
                                 className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded-lg transition-all shrink-0"
                             >
                                 <X size={16} />
                             </button>
                         </div>
                     </div>
-                </motion.div>
-            )}
-        </AnimatePresence>
+                </div>
+            ) : null
     );
 };

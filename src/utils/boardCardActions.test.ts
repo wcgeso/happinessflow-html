@@ -743,7 +743,7 @@ describe('resolveBoardCardAction', () => {
     expect(acceptOption?.action.kind).toBe('financial');
     if (!acceptOption || acceptOption.action.kind !== 'financial') return;
     expect(acceptOption.action.txData.expensePayload).toEqual({
-      category: 'basicLiving',
+      category: 'otherMedicalChild',
       amount: 500,
       isIncrease: false
     });

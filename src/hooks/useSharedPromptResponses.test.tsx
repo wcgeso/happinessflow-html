@@ -86,3 +86,19 @@ it('subscribes only to an ordinary player own response and never finalizes', () 
     expect(result.current.room?.boardState?.sharedCardPrompt?.responses?.p1.status).toBe('declined');
     expect(finalize).not.toHaveBeenCalled();
 });
+
+it('leaves backend completion to triggers after all replies, retaining the legacy fallback only in legacy rooms', () => {
+    const finalize = vi.fn(async () => {});
+    const {result} = renderHook(() => {
+        const [room,setRoom] = useState<Room|null>(() => ({...initialRoom(),promptCompletionAuthority:'server-prompts-v1'}));
+        const [,setError] = useState<string|null>(null);
+        useSharedPromptResponses({room,setRoom,setError,user:{uid:'coach',role:'coach'},finalize});
+        return {room,setRoom};
+    });
+    emit(0,['p1','p2']);
+    expect(result.current.room?.boardState?.sharedCardPrompt?.responses?.p2.status).toBe('declined');
+    expect(finalize).not.toHaveBeenCalled();
+    act(() => result.current.setRoom(previous => ({...previous!,promptCompletionAuthority:undefined})));
+    expect(finalize).toHaveBeenCalledExactlyOnceWith('123456','prompt');
+    expect(listeners.entries).toHaveLength(1);
+});

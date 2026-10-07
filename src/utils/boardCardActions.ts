@@ -11,48 +11,8 @@ import { getBusinessAssetLabel, getRealEstateAssetLabel } from './assetLabels';
  * 依 docs/gdd/CARD_SYSTEM.md Edge Cases 與 docs/gdd/FAMILY_SYSTEM.md 完成條件，
  * 只要仍有符合資格玩家未回覆，事件就不得結案。
  */
-type SharedPromptBoardState = Pick<BoardState, 'sharedCardPrompt' | 'familyMilestoneJoinPrompt'> &
-  Partial<Pick<BoardState, 'currentEvent' | 'currentCard'>>;
-
-export const isBoardPromptForCurrentEvent = (
-  prompt: Pick<FamilyMilestoneJoinPrompt | SharedCardPrompt, 'sourceEventId' | 'sourceCardId'> | null | undefined,
-  boardState: Partial<Pick<BoardState, 'currentEvent' | 'currentCard'>> | null | undefined
-) => !!prompt &&
-  prompt.sourceEventId === boardState?.currentEvent?.id &&
-  prompt.sourceCardId === boardState?.currentCard?.cardId;
-
-// 非抽卡玩家不一定持有抽卡者的 currentCard 投影；共享提示以事件 ID 為準。
-export const isBoardPromptVisibleForCurrentEvent = (
-  prompt: Pick<FamilyMilestoneJoinPrompt | SharedCardPrompt, 'sourceEventId'> | null | undefined,
-  boardState: Partial<Pick<BoardState, 'currentEvent'>> | null | undefined
-) => !!prompt && prompt.sourceEventId === boardState?.currentEvent?.id;
-
-export const hasIncompleteSharedPrompts = (
-  boardState: SharedPromptBoardState | null | undefined
-): boolean => {
-  if (!boardState) return false;
-  const hasEventContext = 'currentEvent' in boardState || 'currentCard' in boardState;
-
-  const sharedPrompt = boardState.sharedCardPrompt;
-  if (sharedPrompt && (!hasEventContext || isBoardPromptForCurrentEvent(sharedPrompt, boardState)) &&
-    !sharedPrompt.targetPlayerUids.every(uid => !!sharedPrompt.responses?.[uid])) {
-    return true;
-  }
-
-  const familyPrompt = boardState.familyMilestoneJoinPrompt;
-  if (familyPrompt && (!hasEventContext || isBoardPromptForCurrentEvent(familyPrompt, boardState)) && (
-    !familyPrompt.targetPlayerUids.every(uid => {
-      const response = familyPrompt.responses?.[uid];
-      if (!response) return false;
-      if (response.presentationReadyAt && response.presentationReadyAt > Date.now()) return false;
-      return response.status !== 'passed' || response.actionCompleted === true;
-    }) || familyPrompt.sourceActionCompleted !== true
-  )) {
-    return true;
-  }
-
-  return false;
-};
+import {type SharedPromptBoardState, hasIncompleteSharedPrompts, isBoardPromptForCurrentEvent, isBoardPromptVisibleForCurrentEvent} from '../game/board/promptCompletion';
+export {hasIncompleteSharedPrompts, isBoardPromptForCurrentEvent, isBoardPromptVisibleForCurrentEvent} from '../game/board/promptCompletion';
 
 export const isFamilyMilestoneReadyForSourceCompletion = (
   boardState: SharedPromptBoardState | null | undefined,
@@ -239,12 +199,12 @@ const hasInsuredVehicle = (assets: Asset[]) => assets.some(
   asset => (asset.type === '汽車' || asset.type === '飛行器') && asset.isInsured
 );
 
-const findRelatedLiability = (asset: Asset, liabilities: Liability[] = []) => {
-  const byAssetId = liabilities.find(liability => liability.linkedAssetId === asset.id);
-  if (byAssetId) return byAssetId;
+export const findRelatedLiabilities = (asset: Asset, liabilities: Liability[] = []) => {
+  const byAssetId = liabilities.filter(liability => liability.linkedAssetId === asset.id);
+  if (byAssetId.length) return byAssetId;
 
   const symbol = extractAssetSymbol(asset.name);
-  return liabilities.find(liability =>
+  return liabilities.filter(liability =>
     !liability.linkedAssetId && (
       (asset.type === '不動產' && liability.type === '不動產貸款' && symbol && liability.name.includes(symbol)) ||
       (asset.type === '企業' && liability.type === '企業貸款' && symbol && liability.name.includes(symbol)) ||
@@ -252,6 +212,8 @@ const findRelatedLiability = (asset: Asset, liabilities: Liability[] = []) => {
     )
   );
 };
+
+export const findRelatedLiability = (asset: Asset, liabilities: Liability[] = []) => findRelatedLiabilities(asset, liabilities)[0];
 
 const realEstateKind = (asset: Asset) => {
   const symbol = extractAssetSymbol(asset.name);
@@ -373,6 +335,11 @@ export const isForcedBoardCard = (cardId: string) => {
     }
   }
   return false;
+};
+
+export const isStandaloneOpportunityCard = (cardId:string):boolean => {
+  const card=OPPORTUNITY_CARD_MAP[cardId];
+  return !!card&&['aircraft_damage','property_repair','theft','penalty','reward'].includes(card.type)&&!card.affectsAllPlayers&&!card.requiresStorySharing;
 };
 
 export const getSharedOpportunityKind = (cardId: string): SharedCardPrompt['kind'] | null => {

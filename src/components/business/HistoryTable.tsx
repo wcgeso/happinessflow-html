@@ -20,24 +20,24 @@ export const HistoryTable: React.FC<HistoryTableProps> = ({ history, onDeleteTra
     const [confirmId, setConfirmId] = useState<string | null>(null);
 
     const [older,setOlder]=useState<Transaction[]>([]),[loading,setLoading]=useState(false),[hasMore,setHasMore]=useState(false),[loadError,setLoadError]=useState('');
-    const cursor=useRef<QueryDocumentSnapshot|null>(null),scope=useRef('');
+    const cursor=useRef<QueryDocumentSnapshot|null>(null),scope=useRef(''),generation=useRef(0),inFlight=useRef<number|null>(null);
     const key=source ? `${source.roomId}:${source.uid}:${source.sessionId}` : '';
     scope.current=key;
     const load=async(first=false)=>{
         if(!source)return;
-        const requested=key;setLoading(true);setLoadError('');
+        const requested=key,epoch=generation.current;if(inFlight.current===epoch)return;inFlight.current=epoch;setLoading(true);setLoadError('');
         try {
             const pageSize=first?100:50;
             const page=await getDocs(query(collection(db,'rooms',source.roomId,'players',source.uid,'transactions'),
                 where('sessionId','==',source.sessionId),orderBy('timestamp','desc'),...(cursor.current&&!first?[startAfter(cursor.current)]:[]),limit(pageSize)));
-            if(scope.current!==requested)return;
+            if(scope.current!==requested||generation.current!==epoch)return;
             cursor.current=page.docs.at(-1)||cursor.current;
             setOlder(previous=>first?page.docs.map(row=>row.data() as Transaction):[...previous,...page.docs.map(row=>row.data() as Transaction)]);
             setHasMore(page.size===pageSize);
-        } catch(error:any) {if(scope.current===requested)setLoadError(`歷史載入失敗：${error.code || error.message}`);}
-        finally {if(scope.current===requested)setLoading(false);}
+        } catch(error:any) {if(scope.current===requested&&generation.current===epoch)setLoadError(`歷史載入失敗：${error.code || error.message}`);}
+        finally {if(inFlight.current===epoch)inFlight.current=null;if(scope.current===requested&&generation.current===epoch)setLoading(false);}
     };
-    useEffect(()=>{cursor.current=null;setOlder([]);setHasMore(false);if(source)void load(true);return()=>{scope.current='';};},[key]);
+    useEffect(()=>{generation.current++;scope.current=key;cursor.current=null;setOlder([]);setHasMore(false);setLoadError('');setLoading(false);if(source)void load(true);return()=>{generation.current++;scope.current='';};},[key]);
     const rows=[...new Map([...older,...history].map(entry=>[entry.id,entry])).values()].sort((a,b)=>b.timestamp-a.timestamp);
 
     const handleDeleteClick = (id: string) => {

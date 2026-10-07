@@ -1,27 +1,47 @@
 {
-    "database": {
-        "rules": "database.rules.json"
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs22",
+    "predeploy": [
+      "npm --prefix functions run build"
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "auth": {
+      "host": "127.0.0.1",
+      "port": 9399
+    },
+    "functions": {
+      "host": "127.0.0.1",
+      "port": 5301
     },
     "firestore": {
-        "rules": "firestore.rules",
-        "indexes": "firestore.indexes.json"
+      "host": "127.0.0.1",
+      "port": 8482,
+      "websocketPort": 9182
     },
-    "emulators": {
-        "auth": {
-            "host": "0.0.0.0",
-            "port": 9099
-        },
-        "firestore": {
-            "host": "0.0.0.0",
-            "port": 8080
-        },
-        "database": {
-            "host": "0.0.0.0",
-            "port": 9000
-        },
-        "ui": {
-            "enabled": true,
-            "port": 4000
-        }
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true,
+    "hub": {
+      "host": "127.0.0.1",
+      "port": 4482
+    },
+    "logging": {
+      "host": "127.0.0.1",
+      "port": 4582
+    },
+    "database": {
+      "host": "127.0.0.1",
+      "port": 9499
     }
+  },
+  "database": {
+    "rules": "database.rules.json"
+  }
 }

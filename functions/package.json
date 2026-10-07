@@ -1,0 +1,22 @@
+{
+  "name": "happinessflow-game-backend",
+  "private": true,
+  "main": "lib/index.cjs",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.1.0",
+    "firebase-functions": "^7.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "typescript": "5.8.3",
+    "vite": "6.4.3",
+    "@types/node": "22.20.0"
+  }
+}

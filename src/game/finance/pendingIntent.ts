@@ -45,6 +45,8 @@ export type CoachAction =
     | {kind:'liability';playerUid:string;liabilityId:string;adjustments:{totalOwedDelta:number;monthlyPaymentDelta:number;reason:string}}
     | {kind:'expense';playerUid:string;category:'basicLiving'|'transportEdu'|'otherMedicalChild';amount:number;reason:string}
     | {kind:'subsidy';amount:number}
+    | {kind:'acceleration';multiplier:1|1.5|2|3}
+    | {kind:'timer';seconds:number;paused:boolean;mode:'set'|'pause'}
     | {kind:'market';updates:Record<string,number>;code:string;isBubble:boolean};
 export type CoachIntent = {commandId:string;action:CoachAction};
 export const coachIntentKey = (scope:string) => `hf-coach-intent:${scope}`;
@@ -58,6 +60,8 @@ export const readCoachIntent = (storage:Storage,scope:string):CoachIntent|null =
         (a.kind==='liability' && player && typeof a.liabilityId==='string' && typeof a.adjustments?.reason==='string' && Number.isFinite(a.adjustments.totalOwedDelta) && Number.isFinite(a.adjustments.monthlyPaymentDelta)) ||
         (a.kind==='expense' && player && ['basicLiving','transportEdu','otherMedicalChild'].includes(a.category) && Number.isFinite(a.amount) && typeof a.reason==='string') ||
         (a.kind==='subsidy' && Number.isFinite(a.amount) && a.amount>0) ||
+        (a.kind==='timer' && Number.isSafeInteger(a.seconds) && a.seconds>=0 && a.seconds<=86400 && typeof a.paused==='boolean' && ['set','pause'].includes(a.mode) && (a.mode!=='pause'||a.paused)) ||
+        (a.kind==='acceleration' && [1,1.5,2,3].includes(a.multiplier)) ||
         (a.kind==='market' && typeof a.code==='string' && typeof a.isBubble==='boolean' && a.updates && typeof a.updates==='object' && !Array.isArray(a.updates) && Object.values(a.updates).every(Number.isFinite))
     );
     if(typeof intent?.commandId!=='string' || !intent.commandId || !valid) throw new Error('執行師操作識別資料無法讀取，請保留資料並核對交易紀錄');

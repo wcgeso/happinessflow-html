@@ -1,3 +1,4 @@
+import {getNextBoardSquare} from './movementResolution';
 import { describe, expect, it, vi } from 'vitest';
 import { buildMovementEffects, describeMovementEffects } from './movementEffects';
 
@@ -27,4 +28,12 @@ describe('movement effects', () => {
             { type: 'repair_fee', squareIndex: 27 }
         ]);
     });
+});
+
+it('selects the next hospital clockwise, skipping the current square and wrapping',()=>{
+ expect(getNextBoardSquare(0,'hospital').index).toBe(13);
+ expect(getNextBoardSquare(13,'hospital').index).toBe(39);
+ expect(getNextBoardSquare(39,'hospital').index).toBe(13);
+ expect(getNextBoardSquare(51,'hospital').index).toBe(13);
+ expect(()=>getNextBoardSquare(-1,'hospital')).toThrow('位置無效');
 });

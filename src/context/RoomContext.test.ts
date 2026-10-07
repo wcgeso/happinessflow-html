@@ -1301,3 +1301,11 @@ it('ties a final bank service window to the actual bank landing event without ch
   expect(result.playerStates.player.bankServiceGrantedAtEventId).toBe(result.boardState.currentEvent?.id);
   expect(result.playerStates.player.cash).toBe(10000);
 });
+
+it('preserves authoritative public subscriptions across room snapshots but clears them for a new session',()=>{
+ const current={id:'room',sessionId:'s',publicPlayerStorage:'subcollection',publicPlayerStates:{p:{uid:'p',happinessTotal:10}}} as any;
+ const snapshot={...current,publicPlayerStates:{p:{uid:'p',happinessTotal:0}}};
+ expect(mergeRoomSnapshotWithPrivateStates(snapshot,current).publicPlayerStates).toBe(current.publicPlayerStates);
+ expect(mergeRoomSnapshotWithPrivateStates({...snapshot,sessionId:'next'},current).publicPlayerStates).toEqual({});
+ expect(mergeRoomSnapshotWithPrivateStates({...snapshot,publicPlayerStorage:undefined},current).publicPlayerStates).toEqual(snapshot.publicPlayerStates);
+});

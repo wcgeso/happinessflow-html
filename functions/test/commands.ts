@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict';
+import {initializeApp} from 'firebase-admin/app';
+import {getFirestore} from 'firebase-admin/firestore';
+import {AUTHORITY,executeCommand,parseCommand,finalizationKey} from '../src/commands';
+async function main(){
+const projectId='demo-happinessflow-backend';
+assert.equal(process.env.GCLOUD_PROJECT,projectId);
+assert.equal(process.env.FIRESTORE_EMULATOR_HOST,'127.0.0.1:8482');
+initializeApp({projectId});
+const db=getFirestore();
+const c={type:'finalizePrompt' as const,roomId:'pilot',sessionId:'session',eventId:'event',promptId:'prompt',commandId:'one'};
+const room=db.doc('rooms/pilot');
+const base=()=>({id:'pilot',sessionId:'session',promptCompletionAuthority:AUTHORITY,status:'playing',hostId:'coach',members:[{uid:'p1'},{uid:'p2'},{uid:'coach'}],boardState:{revision:1,currentTurnUid:'p1',currentEvent:{id:'event',playerUid:'p1',playerName:'P1',timestamp:1,summary:'card'},currentCard:{cardId:'H020',deck:'happiness'},pendingEvents:[],familyMilestoneJoinPrompt:{id:'prompt',sourceEventId:'event',sourceCardId:'H020',sourcePlayerUid:'p1',sourceActionCompleted:false,targetPlayerUids:['p2'],responses:{},responseStorage:'subcollection'}}});
+async function reset(){await db.recursiveDelete(room);await room.set(base());}
+const response=()=>room.collection('events').doc('prompt').collection('responses').doc('p2');
+let checks=0;
+const check=(value:unknown)=>{assert.ok(value);checks++;};
+assert.throws(()=>parseCommand({...c,amount:100}),/識別值/);checks++;
+await reset();
+await assert.rejects(executeCommand(db,c,'outsider'),{code:'permission-denied'});checks++;
+await assert.rejects(executeCommand(db,{...c,sessionId:'old'},'p1'),{code:'failed-precondition'});checks++;
+check((await executeCommand(db,c,'p1')).status==='waiting');
+await response().set({playerUid:'p2',status:'passed',actionCompleted:false});
+await room.update({'boardState.familyMilestoneJoinPrompt.sourceActionCompleted':true});
+check((await executeCommand(db,c,'p1')).status==='waiting');
+await response().update({actionCompleted:true,presentationReadyAt:Date.now()+60000});
+const waiting=await executeCommand(db,c,'p1');check(waiting.status==='waiting' && !!waiting.retryAt);
+check((await room.collection('promptFinalizationTasks').doc(finalizationKey(c)).get()).data()?.status==='pending');
+await response().update({presentationReadyAt:0});
+const outcomes=await Promise.all(Array.from({length:8},(_,i)=>executeCommand(db,{...c,commandId:`same-${i}`},i%2?'p1':'p2')));
+check(outcomes.filter(r=>r.status==='applied').length===1);
+check(outcomes.filter(r=>r.status==='duplicate').length===7);
+const after=(await room.get()).data()!;
+check(after.boardState.revision===2 && after.boardState.currentEvent===null && after.boardState.currentTurnUid==='p1');
+check((await room.collection('promptFinalizations').get()).size===1);
+check((await executeCommand(db,{...c,commandId:'new-retry'},'p2')).status==='duplicate');
+await assert.rejects(executeCommand(db,{...c,eventId:'different',commandId:'different'},'p2'),{code:'failed-precondition'});checks++;
+await assert.rejects(executeCommand(db,{...c,commandId:'new-retry',promptId:'other'},'p2'),{code:'already-exists'});checks++;
+await reset();await response().set({playerUid:'forged',status:'declined'});
+await assert.rejects(executeCommand(db,c,'p1'),{code:'failed-precondition'});checks++;
+check((await room.get()).data()!.boardState.revision===1);
+await reset();await response().set({playerUid:'p2',status:'declined'});
+await room.update({'boardState.familyMilestoneJoinPrompt.sourceActionCompleted':true,'boardState.pendingContinuation':{phase:'awaiting_roll'}});
+check((await executeCommand(db,c,'p1')).status==='waiting');
+await room.update({'boardState.pendingContinuation':{phase:'completed'},'boardState.pendingEvents':[{event:{id:'next',playerUid:'p1',timestamp:2},card:{cardId:'C056',deck:'chance'}}]});
+check((await executeCommand(db,c,'p1')).status==='applied');
+check((await room.get()).data()!.boardState.currentEvent.id==='next');
+await reset();await room.update({'boardState.familyMilestoneJoinPrompt':null,'boardState.sharedCardPrompt':{id:'prompt',sourceEventId:'event',sourceCardId:'H020',targetPlayerUids:['p2'],responseStorage:'subcollection',responses:{}}});
+await response().set({playerUid:'p2',status:'no_effect'});
+check((await executeCommand(db,c,'p2')).status==='applied');
+console.log(`PASS ${checks} backend invariants (demo emulator only)`);
+await db.recursiveDelete(room);await db.terminate();
+
+}
+main().catch(error=>{console.error(error);process.exit(1);});

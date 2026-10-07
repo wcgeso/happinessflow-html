@@ -1,3 +1,5 @@
+import {validateFinancialEvent} from '../../game/finance/cardState';
+import {isBankPaydayCollected} from '../../game/finance/serverBankingCommand';
 import {readFinancialIntent, saveFinancialIntent, clearFinancialIntent, readPersonalIntent, clearPersonalIntent, personalIntentKey, type PersonalAction, type PersonalIntent} from '../../game/finance/pendingIntent';
 import {getPersonalFinancialHandler} from '../../game/finance/transactionRoute';
 import { SubscriptionStatus } from '../../components/common/SubscriptionStatus';
@@ -31,12 +33,13 @@ import { HappinessWinAnimation } from '../../components/game/HappinessWinAnimati
 import { hydrateBoardCardResult, isCurrentBoardCardRevealed } from '../../utils/boardCardDisplay';
 import { formatMoney } from '../../utils/gameUtils';
 import { Asset, BoardCardResult, BoardFinancialFlow, FamilyMilestoneJoinPrompt, GameState, TransactionData } from '../../types';
-import { BoardAssetSaleCandidate, BoardFinancialAction, BoardInvestmentAction, buildBoardAssetSaleFinancialAction, getSharedOpportunityKind, hasIncompleteSharedPrompts, isBoardPromptForCurrentEvent, isBoardPromptVisibleForCurrentEvent, isForcedBoardCard, resolveBoardCardAction, shouldBlockBoardCardDismissal } from '../../utils/boardCardActions';
+import { BoardAssetSaleCandidate, BoardFinancialAction, BoardInvestmentAction, buildBoardAssetSaleFinancialAction, getSharedOpportunityKind, hasIncompleteSharedPrompts, isBoardPromptForCurrentEvent, isBoardPromptVisibleForCurrentEvent, isForcedBoardCard, isStandaloneOpportunityCard, resolveBoardCardAction, shouldBlockBoardCardDismissal } from '../../utils/boardCardActions';
 import { getFamilyMilestoneStageByProgressId, getFamilyMilestoneStatus, isFamilyMilestoneComplete } from '../../utils/familyMilestones';
 import { buildNewsCardMetaFromSchema, HAPPINESS_CARD_MAP, NEWS_CARD_MAP, OPPORTUNITY_CARD_MAP } from '../../constants/cards';
 import { flowLog } from '../../utils/flowLog';
 import { trackBoardStage } from '../../utils/telemetry';
 import { serverNow } from '../../utils/serverClock';
+import { useDicePresentationReady } from '../../hooks/useDicePresentationReady';
 import { getBoardActionAvailability } from '../../utils/experienceState';
 import { audioManager } from '../../utils/audio';
 import { PlayerModalFrame } from '../../components/common/PlayerModalFrame';
@@ -64,9 +67,9 @@ const ensureTransactionOperationId = <T extends { boardEventId?: string; command
     return {...data,commandId};
 };
 
-const withBoardFlow = (action: BoardFinancialAction, boardFlow: BoardFinancialFlow): BoardFinancialAction => ({
+const withBoardFlow = (action: BoardFinancialAction, boardFlow: BoardFinancialFlow, sourceEventId?:string, sourceCardId?:string): BoardFinancialAction => ({
     ...action,
-    txData: { ...action.txData, boardFlow }
+    txData: { ...action.txData, boardFlow, ...(sourceEventId?{boardSourceEventId:sourceEventId}:{}), ...(sourceCardId?{boardSourceCardId:sourceCardId}:{}) }
 });
 
 const createMarketPurchaseAttemptId = (): string => (
@@ -82,7 +85,7 @@ export const GameView: React.FC<{
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
     const {financialSyncError,retryFinancialSync}=useGame();
-    const { room, isController, connectionState, roomSyncState, subscriptionError, movementSettlementError, isSettlingMovement, retryStaleBoardMovement, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeBoardTransaction, completePlayerOnlyTransaction, completeSharedTransactionAction, completePaydayCollection, completeHouseConversion, completeHappinessToggle, completeHappinessAdd, completeHappinessRemove, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
+    const { room, isController, connectionState, roomSyncState, subscriptionError, movementSettlementError, isSettlingMovement, retryStaleBoardMovement, pendingRequests, leaveToLobby, rollBoardDice, rollRepairFee, rollHospitalFee, rollSkillDice, rollFamilyMilestoneJoin, rollStartupUpgradeDice, revealBoardCard, dismissBoardCard, advanceBoardEventQueue, endTurn, drawPostExamHappinessCard, drawBoardFollowupCard, openFamilyMilestoneJoinPrompt, openSharedCardPrompt, submitFamilyMilestoneJoinResponse, clearPendingFamilyMilestoneJoinAction, markFamilyMilestoneSourceActionCompleted, completeFamilyMilestoneAction, submitSharedCardPromptResponse, completeSharedInvestmentAction, completeSharedAssetSaleAction, completeStartupLoanAction, completeTargetEnterprisePurchase, completeOpportunityCard, completeMedicalBoardCardAction, completeDirectHappinessCard, completeInsurancePurchase, completeDepositPurchase, completeStockTrade, completeLoanBorrow, completeBoardTransaction, completePlayerOnlyTransaction, completeSharedTransactionAction, completePaydayCollection, completeBankEvent, completeHouseConversion, completeHappinessToggle, completeHappinessAdd, completeHappinessRemove, completeLoanRepayment, completeDepositWithdrawal, completeCarPurchase, deferStartupUpgrade, completeStartupUpgradeAction, applyVehicleLoss, applyBoardExpenseToAllPlayers, moveCurrentPlayerToSquare, applyBoardMarketPrices, buyCurrentRealEstateCard, buyRealEstateFromMarket, submitRequest, clearRequest } = useRoom();
 
     useEffect(() => {
         if (room?.status === 'finished') {
@@ -178,7 +181,7 @@ export const GameView: React.FC<{
     const [shouldResumeBankFollowup, setShouldResumeBankFollowup] = useState(false);
     const [isBoardFinancialCompleted, setIsBoardFinancialCompleted] = useState(false);
     const [pendingHandledBoardCard, setPendingHandledBoardCard] = useState<{ key: string; card: BoardCardResult | null } | null>(null);
-    const [pendingBoardStepAdvance, setPendingBoardStepAdvance] = useState<'hospital' | 'repair' | null>(null);
+    const [pendingBoardStepAdvance, setPendingBoardStepAdvance] = useState<{kind:'hospital' | 'repair';eventId:string} | null>(null);
     const [pendingBoardLifelongRoll, setPendingBoardLifelongRoll] = useState<PromotionType | null>(null);
     const [pendingCashEventRoll, setPendingCashEventRoll] = useState<PromotionType | null>(null);
     const [pendingMarketPurchase, setPendingMarketPurchase] = useState<{ cardId: string; attemptId: string } | null>(null);
@@ -471,6 +474,10 @@ export const GameView: React.FC<{
     const onPromotionRegister = (type: PromotionType) => {
         if (type === 'normal') {
             const boardEventId = room?.isBoardGame ? boardState?.currentEvent?.id : undefined;
+            const exam=currentPlayerRoomState?.schoolExam;
+            if(room?.bankingAuthority==='server-banking-v1'&&exam?.sessionId===room.sessionId&&exam.eventId===boardEventId) {
+                setPromotionType(type);setShowPromotionModal(false);setShowDiceModal(true);return;
+            }
             const result = handlePromotionConfirm(type, {
                 boardEventId,
                 deferCommit: room?.isBoardGame === true
@@ -556,8 +563,17 @@ export const GameView: React.FC<{
             }
             if (!await markBoardCardHandled()) return;
         }
+        const exam=currentPlayerRoomState?.schoolExam;
+        if(room?.bankingAuthority==='server-banking-v1'&&promotionType==='normal'&&exam?.phase!=='completed') {
+            showAlert('請先完成升等考試判定', 'info');return;
+        }
+        const confirmedSuccess=exam?.sessionId===room?.sessionId&&exam.eventId===boardState?.currentEvent?.id?exam.result?.success??lastDiceSuccess:lastDiceSuccess;
         const currentPromotionType = promotionType;
         const shouldDrawExamHappiness = currentPromotionType === 'normal' && !activeBoardCard;
+        if(shouldDrawExamHappiness&&room?.bankingAuthority==='server-banking-v1') {
+            try {if(!await drawPostExamHappinessCard(confirmedSuccess))return;}
+            catch(error:any){showAlert(error?.message||'考試接續未完成，請安全重試','error');return;}
+        }
         setShowDiceModal(false);
 
         // 如果是終身學習且成功，在此時顯示 Alert
@@ -574,9 +590,9 @@ export const GameView: React.FC<{
         setLastDiceSuccess(false);
         setPromotionType(null);
 
-        if (shouldDrawExamHappiness) {
-            void drawPostExamHappinessCard(lastDiceSuccess);
-        } else if (currentPromotionType === 'normal' && boardState?.currentEvent?.type === 'school') {
+        if (shouldDrawExamHappiness && room?.bankingAuthority!=='server-banking-v1') {
+            void drawPostExamHappinessCard(confirmedSuccess);
+        } else if (!shouldDrawExamHappiness && currentPromotionType === 'normal' && boardState?.currentEvent?.type === 'school') {
             void advanceBoardEventQueue('school');
         }
     };
@@ -719,6 +735,11 @@ export const GameView: React.FC<{
         boardState?.currentEvent?.type === 'repair'
         ? `${boardState.currentEvent.id}_repair`
         : null;
+    const repairDiceEvent = [...(boardState?.diceEvents || [])].reverse().find(event => event.kind === 'repair' &&
+        event.sourceEventId === boardState?.currentEvent?.id && event.playerUid === user?.uid);
+    const repairPresentationKey = activeRepairPromptKey && boardState?.currentEvent?.repairRoll
+        ? `${room?.sessionId}:${activeRepairPromptKey}:${boardState.currentEvent.repairRoll}` : null;
+    const isRepairPresentationComplete = useDicePresentationReady(repairPresentationKey, repairDiceEvent?.timestamp);
 
     const activeBoardCardKey = activeBoardCard && boardState?.currentEvent
         ? `${boardState.currentEvent.id}_${activeBoardCard.cardId}`
@@ -1066,7 +1087,7 @@ export const GameView: React.FC<{
     }, [room?.id, boardState?.currentEvent?.id, visibleFlowModal, isBoardCardRevealed,
         boardActionAvailability.endTurnBlocker?.code, boardActionAvailability.canEndTurn]);
 
-    const visualEventScope = `${room?.sessionId}:${boardState?.currentTurnUid}:${boardState?.currentEvent?.id || ''}`;
+    const visualEventScope = `${room?.sessionId}:${boardState?.currentTurnUid}:${boardState?.currentEvent?.id || ''}:${boardState?.currentEvent?.presentationReplayId || ''}`;
     const visualEventScopeRef=useRef(visualEventScope);visualEventScopeRef.current=visualEventScope;
     useEffect(() => {
         // Animation state is scoped to the cloud event; a new event cannot inherit the previous timer.
@@ -1079,6 +1100,11 @@ export const GameView: React.FC<{
         setIsBoardCardDrawerOpen(false);
         setPendingHandledBoardCard(null);
         setLastBoardCardKey(null);
+        if(boardState?.currentEvent?.presentationReplayId&&activeBoardCardKey)setHandledBoardCardKeys(current=>current.filter(key=>key!==activeBoardCardKey));
+        setLastBankPromptKey(null);
+        setLastSchoolPromptKey(null);
+        setLastHospitalPromptKey(null);
+        setLastRepairPromptKey(null);
         setBoardFinancialAction(current => current?.txData?.boardFlow && current.txData.boardFlow!=='manual-bank' ? null : current);
         setShowPaydayModal(false);
         setPaydayStep('confirm');
@@ -1115,7 +1141,7 @@ export const GameView: React.FC<{
         setIsBoardCardDrawerOpen(false);
         setPromotionType(pending.learningType);
         setShowDiceModal(true);
-    }, [boardState?.pendingContinuation?.commandId, boardState?.pendingContinuation?.phase, user?.uid, canOpenNextBoardStep]);
+    }, [boardState?.pendingContinuation?.commandId, boardState?.pendingContinuation?.phase, boardState?.currentEvent?.presentationReplayId, user?.uid, canOpenNextBoardStep]);
 
     const handleBoardDiceRoll = async (diceCount?: 1 | 2) => {
         trackBoardStage('clicked', room?.id || '', boardState, { surface: 'player',
@@ -1413,7 +1439,7 @@ export const GameView: React.FC<{
                     ? activeBoardCardAction.options.find(option => option.id === 'accept')?.action : activeBoardCardAction;
                 if (action?.kind === 'financial') {
                     setProcessedStoryRequestIds(prev => prev.includes(requestKey) ? prev : [...prev, requestKey]);
-                    setBoardFinancialAction(withBoardFlow(action, 'board-card'));
+                    setBoardFinancialAction(withBoardFlow(action, 'board-card', boardState?.currentEvent?.id, activeBoardCard?.cardId));
                     setIsBoardFinancialCompleted(false);
                     return;
                 }
@@ -1486,11 +1512,11 @@ export const GameView: React.FC<{
         if (!activeBankPromptKey || activeBankPromptKey === lastBankPromptKey || !isActiveBankPromptPending) return;
         if (!canOpenNextBoardStep) return;
         setLastBankPromptKey(activeBankPromptKey);
-        const alreadyCollected = currentPlayerRoomState?.appliedBoardFinancialEventIds?.includes(`payday:${activeBankPromptKey}`);
+        const alreadyCollected = isBankPaydayCollected(currentPlayerRoomState,room?.sessionId,boardState?.currentEvent?.id,room?.bankingAuthority==='server-banking-v1');
         setPaydayStep(alreadyCollected ? 'followup' : 'confirm');
         hideAlert();
         setShowPaydayModal(true);
-    }, [activeBankPromptKey, lastBankPromptKey, isActiveBankPromptPending, summary.monthlyCashflow, canOpenNextBoardStep, hideAlert, currentPlayerRoomState?.appliedBoardFinancialEventIds]);
+    }, [activeBankPromptKey, lastBankPromptKey, isActiveBankPromptPending, summary.monthlyCashflow, canOpenNextBoardStep, hideAlert, currentPlayerRoomState?.appliedBoardFinancialEventIds, currentPlayerRoomState?.bankSettlement, room?.sessionId, room?.bankingAuthority, boardState?.currentEvent?.id]);
 
     useEffect(() => {
         if (!activeSchoolPromptKey || activeSchoolPromptKey === lastSchoolPromptKey || !isActiveSchoolPromptPending) return;
@@ -1638,6 +1664,10 @@ export const GameView: React.FC<{
     };
 
     const handleCloseBoardCardDrawer = () => {
+        if (hasIncompleteSharedBoardPrompt) {
+            setIsBoardCardDrawerOpen(false);
+            return;
+        }
         if (activeBoardCardKey && !isActiveBoardCardHandled) {
             void (async () => {
                 await markBoardCardHandled(activeBoardCardKey, activeBoardCard, true);
@@ -1738,6 +1768,12 @@ export const GameView: React.FC<{
         };
     }) => {
         const scope=visualEventScope;
+        if(room?.bankingAuthority==='server-banking-v1'&&activeBoardCard&&boardState?.currentEvent?.id&&isStandaloneOpportunityCard(activeBoardCard.cardId)){
+            const result=await completeOpportunityCard(boardState.currentEvent.id,activeBoardCard.cardId,'accept');
+            const completed=['applied','duplicate'].includes(result.status);
+            if(visualEventScopeRef.current===scope){setIsBoardCardDrawerOpen(!completed);if(!completed)showAlert(result.message||'機運卡尚未完成，請沿用原操作重試','error');}
+            return completed;
+        }
         if (afterApply?.moveToSquare) {
             const move = afterApply.moveToSquare;
             const nextIndex = await moveCurrentPlayerToSquare(move);
@@ -1825,6 +1861,8 @@ export const GameView: React.FC<{
             ? `${boardEventId}:${txData.usage}:${txData.name}:${txData.amount}:${txData.relatedAssetId || ''}`
             : undefined);
         const resolvedTxData = operationId ? { ...txData, boardEventId: operationId } : ensureTransactionOperationId(txData);
+        const sourceError=room?.isBoardGame&&boardState&&user?validateFinancialEvent(boardState,resolvedTxData,user.uid):null;
+        if(sourceError)return {status:'failed',message:sourceError};
         if (room?.isBoardGame && resolvedTxData.boardFlow === 'manual-bank') {
             if (!room.sessionId || !user?.uid) return {status: 'failed', message: '場次或登入資料尚未完成，請等待同步'};
             try { saveFinancialIntent(localStorage, room.id, room.sessionId, user.uid, resolvedTxData); }
@@ -1975,14 +2013,14 @@ export const GameView: React.FC<{
             }
             applied = true;
             sharedResponseCommitted = true;
-        } else if (resolvedTxData.name.includes('達成事業成就')) {
+        } else if (personalFinancialHandler==='completeTargetEnterprisePurchase') {
             const targetResult = await completeTargetEnterprisePurchase(transactionData);
             if (targetResult.status === 'requires_funding') return targetResult;
             if ((targetResult.status === 'failed' || targetResult.status === 'waiting')) {
                 showAlert(targetResult.message || '目標企業購買失敗，請稍後再試', 'error');
                 return targetResult;
             }
-            applied = true;
+            applied = targetResult.status==='applied'||targetResult.status==='duplicate';
         } else if (room?.isBoardGame && personalFinancialHandler === 'completeInsurancePurchase') {
             const insuranceResult = await completeInsurancePurchase(transactionData);
             if ((insuranceResult.status === 'failed' || insuranceResult.status === 'waiting')) {
@@ -2033,6 +2071,12 @@ export const GameView: React.FC<{
                 return carResult;
             }
             applied = carResult.status === 'applied' || carResult.status === 'duplicate';
+        } else if (room?.isBoardGame && ['completeAssetSale','completeDreamPurchase'].includes(personalFinancialHandler||'') && (!resolvedTxData.boardFlow || resolvedTxData.boardFlow==='manual-bank')) {
+            const saleResult=await completePlayerOnlyTransaction(ensureTransactionOperationId(transactionData));
+            if(saleResult.status==='failed'||saleResult.status==='waiting'){
+                showAlert(saleResult.message||'交易尚未確認，請保留目前選擇後再試','error');return saleResult;
+            }
+            applied=saleResult.status==='applied'||saleResult.status==='duplicate';
         } else if (room?.isBoardGame && resolvedTxData.boardFlow === 'shared-card' && pendingSharedCardCompletion) {
             // 共享股利／股息／全體支出：財務結算與本人的共享回覆放進同一筆交易。
             const sharedTxResult = await completeSharedTransactionAction(
@@ -2094,7 +2138,8 @@ export const GameView: React.FC<{
             });
         }
 
-        if (boardFinancialAction?.afterApply?.moveToSquare && !(room?.flowSchemaVersion === 1 && resolvedTxData.usage === 'lifelong_learning')) {
+        const opportunityCommitted=room?.bankingAuthority==='server-banking-v1'&&isStandaloneOpportunityCard(resolvedTxData.boardSourceCardId||'');
+        if (boardFinancialAction?.afterApply?.moveToSquare && !opportunityCommitted && !(room?.bankingAuthority==='server-banking-v1'&&medicalCard?.type==='medical'&&resolvedTxData.boardFlow==='board-card') && !(room?.flowSchemaVersion === 1 && resolvedTxData.usage === 'lifelong_learning')) {
             const move = boardFinancialAction.afterApply.moveToSquare;
             const nextIndex = await moveCurrentPlayerToSquare(move);
             if (nextIndex === null) return {status: 'failed', message: '款項已確認，移動接續尚未完成；請沿用原操作重試'};
@@ -2108,7 +2153,7 @@ export const GameView: React.FC<{
             }
         }
 
-        if (boardFinancialAction?.afterApply?.drawCard) {
+        if (boardFinancialAction?.afterApply?.drawCard && !opportunityCommitted) {
             const drawn = await drawBoardFollowupCard(
                 boardFinancialAction.afterApply.drawCard,
                 `${boardFinancialAction.txData.name} 後續抽卡`,
@@ -2173,8 +2218,9 @@ export const GameView: React.FC<{
     const finishBankEvent = async () => {
         const scope=visualEventScope;
         try {
-            if (!await advanceBoardEventQueue('bank')) {
-                showAlert('銀行事件尚未完成，請重試結束；已領款不會重複發放', 'error');
+            const outcome=activeBankPromptKey?await completeBankEvent(activeBankPromptKey.slice(0,-5)):{status:'failed',message:'銀行事件不存在'};
+            if (outcome.status!=='applied' && outcome.status!=='duplicate') {
+                showAlert(outcome.message || '銀行事件尚未完成，請重試結束；已領款不會重複發放', 'error');
                 return false;
             }
             if (activeBankPromptKey) setHandledBankPromptKeys(previous => previous.includes(activeBankPromptKey) ? previous : [...previous, activeBankPromptKey]);
@@ -2233,6 +2279,17 @@ export const GameView: React.FC<{
         const familyJoinActionKey = activeFamilyJoinActionKey;
         let handledBoardCard = true;
 
+        // Returning to the board only closes presentation. Shared completion remains cloud-owned.
+        if (isBoardFinancialCompleted && hasIncompleteSharedBoardPrompt) {
+            if (activeBoardCardKey && boardState?.currentEvent?.playerUid === user?.uid) {
+                setPendingHandledBoardCard({ key: activeBoardCardKey, card: activeBoardCard });
+            }
+            setIsBoardFinancialCompleted(false);
+            setBoardFinancialAction(null);
+            setIsBoardCardDrawerOpen(false);
+            return;
+        }
+
         if (familyJoinPromptId) {
             const cleared = await clearPendingFamilyMilestoneJoinAction(familyJoinPromptId);
             if (!cleared) {
@@ -2253,7 +2310,7 @@ export const GameView: React.FC<{
         if (approvedRequestId && !await clearRequest(approvedRequestId)) setPendingRequestCleanup(approvedRequestId);
         if (pendingBoardStepAdvance) {
             try {
-                if (!await advanceBoardEventQueue(pendingBoardStepAdvance)) {
+                if (!await advanceBoardEventQueue(pendingBoardStepAdvance.kind,pendingBoardStepAdvance.eventId)) {
                     showAlert('財務已入帳，事件尚未結束，請安全重試結案', 'error');
                     return;
                 }
@@ -2375,7 +2432,7 @@ export const GameView: React.FC<{
             return;
         }
 
-        setBoardFinancialAction(withBoardFlow(action, 'board-card'));
+        setBoardFinancialAction(withBoardFlow(action, 'board-card', boardState?.currentEvent?.id, activeBoardCard?.cardId));
         setIsBoardFinancialCompleted(false);
     };
 
@@ -2459,7 +2516,7 @@ export const GameView: React.FC<{
 
         const medicalFee = event.hospitalFee || currentRoll * 1000;
         setShowHospitalRollModal(false);
-        setPendingBoardStepAdvance('hospital');
+        setPendingBoardStepAdvance({kind:'hospital',eventId:event.id});
         setBoardFinancialAction({
             kind: 'financial',
             label: '進入財務檢核',
@@ -2470,6 +2527,7 @@ export const GameView: React.FC<{
                 source: 'cash',
                 usage: 'expense',
                 boardFlow: 'hospital',
+                boardSourceEventId: event.id,
                 impacts: [
                     `醫療支出 ${medicalFee.toLocaleString()}`,
                     `醫藥費骰點 ${currentRoll} 點`
@@ -2485,11 +2543,11 @@ export const GameView: React.FC<{
     const handleRepairConfirmation = () => {
         const event = boardState?.currentEvent;
         const repairFee = event?.repairFee || 0;
-        if (!event || event.type !== 'repair' || !event.repairHasCar || repairFee <= 0) return;
+        if (!event || event.type !== 'repair' || !event.repairHasCar || repairFee <= 0 || !isRepairPresentationComplete) return;
 
         const repairRoll = event.repairRoll || Math.max(1, Math.floor(repairFee / 2000));
         setShowRepairConfirmationModal(false);
-        setPendingBoardStepAdvance('repair');
+        setPendingBoardStepAdvance({kind:'repair',eventId:event.id});
         setBoardFinancialAction({
             kind: 'financial',
             label: '進入財務檢核',
@@ -2500,6 +2558,7 @@ export const GameView: React.FC<{
                 source: 'cash',
                 usage: 'expense',
                 boardFlow: 'repair',
+                boardSourceEventId: event.id,
                 boardEventId: event.id,
                 impacts: [
                     `汽車保養費 ${repairFee.toLocaleString()}`,
@@ -2952,7 +3011,7 @@ export const GameView: React.FC<{
         if (boardState.currentEvent?.playerUid !== user.uid) return;
         if (activeBoardCard.cardId !== activeSharedCardPrompt.sourceCardId) return;
         const hasAllResponses = activeSharedCardPrompt.targetPlayerUids.every(uid => !!activeSharedCardPrompt.responses?.[uid]);
-        if (!hasAllResponses) return;
+        if (!hasAllResponses || hasIncompleteSharedBoardPrompt) return;
         if (isActiveBoardCardHandled) return;
 
         void finalizeBoardFinancialFlow();
@@ -2960,6 +3019,7 @@ export const GameView: React.FC<{
         activeBoardCard,
         activeBoardCardKey,
         activeSharedCardPrompt,
+        hasIncompleteSharedBoardPrompt,
         finalizeBoardFinancialFlow,
         isActiveBoardCardHandled,
         room?.isBoardGame,
@@ -2969,7 +3029,7 @@ export const GameView: React.FC<{
 
     return (
         <div className="player-ui h-[100dvh] flex flex-col overflow-hidden animate-in fade-in duration-500">
-            <SubscriptionStatus flowSchemaVersion={room?.flowSchemaVersion} />
+            <SubscriptionStatus room={room} />
             {(requestContinuationError || pendingRequestCleanup) && <div role="alert" className="fixed inset-x-4 bottom-32 z-[10090] rounded-xl bg-amber-100 p-3 text-amber-950 shadow-lg">
                 <p>{requestContinuationError || '效果已完成，審核紀錄尚未清理'}</p>
                 <button type="button" onClick={()=>void retryRequestContinuation()} className="mt-2 rounded-lg bg-amber-900 px-3 py-2 text-white">安全接續分享流程</button>
@@ -3531,6 +3591,12 @@ export const GameView: React.FC<{
                                 >
                                     {hasIncompleteSharedBoardPrompt ? '等待其他玩家完成' : '完成卡片'}
                                 </button>
+                                {hasIncompleteSharedBoardPrompt && (
+                                    <button type="button" onClick={handleCloseBoardCardDrawer}
+                                        className="mt-3 w-full rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 hover:bg-slate-700">
+                                        返回遊戲
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <div className="space-y-3 px-2 pt-1">
@@ -3550,7 +3616,9 @@ export const GameView: React.FC<{
                                             setIsBoardCardDrawerOpen(false);
                                             setBoardFinancialAction(withBoardFlow(
                                                 activeBoardCardAction,
-                                                activeBoardCardAction.txData.boardFlow || 'board-card'
+                                                activeBoardCardAction.txData.boardFlow || 'board-card',
+                                                boardState?.currentEvent?.id,
+                                                activeBoardCard.cardId
                                             ));
                                             setIsBoardFinancialCompleted(false);
                                         }}
@@ -3703,7 +3771,9 @@ export const GameView: React.FC<{
                                                         setIsBoardCardDrawerOpen(false);
                                                         setBoardFinancialAction(withBoardFlow(
                                                             option.action,
-                                                            option.action.txData.boardFlow || 'board-card'
+                                                            option.action.txData.boardFlow || 'board-card',
+                                                            boardState?.currentEvent?.id,
+                                                            activeBoardCard.cardId
                                                         ));
                                                         setIsBoardFinancialCompleted(false);
                                                     }}
@@ -3906,9 +3976,9 @@ export const GameView: React.FC<{
             {showRepairConfirmationModal && visibleFlowModal === 'repair' && (
                 <PlayerModalFrame
                     eyebrow="維修廠事件"
-                    title={boardState?.currentEvent?.repairRoll ? '確認汽車保養費' : '擲骰決定汽車保養費'}
+                    title={isRepairPresentationComplete ? '確認汽車保養費' : '擲骰決定汽車保養費'}
                     description={boardState?.currentEvent?.repairRoll
-                        ? '請確認本次保養費，再進入財務檢核。'
+                        ? isRepairPresentationComplete ? '請確認本次保養費，再進入財務檢核。' : '請等待大螢幕骰子動畫結束。'
                         : '你已經過維修廠，請先擲骰決定本次保養費。'}
                     accent="medical"
                     closeDisabled
@@ -3916,11 +3986,11 @@ export const GameView: React.FC<{
                         <button
                             type="button"
                             onClick={boardState?.currentEvent?.repairRoll ? handleRepairConfirmation : () => { void handleRepairRoll(); }}
-                            disabled={isRollingRepairFee}
+                            disabled={isRollingRepairFee || (!!boardState?.currentEvent?.repairRoll && !isRepairPresentationComplete)}
                             className="min-h-11 w-full rounded-xl bg-[#b6544b] px-4 py-2.5 text-base font-black text-white transition hover:bg-[#943f38]"
                         >
                             {boardState?.currentEvent?.repairRoll
-                                ? '確認並進入財務檢核'
+                                ? isRepairPresentationComplete ? '確認並進入財務檢核' : '大螢幕擲骰中…'
                                 : isRollingRepairFee ? '擲骰中…' : '擲骰子'}
                         </button>
                     )}
@@ -3928,11 +3998,11 @@ export const GameView: React.FC<{
                     <div className="space-y-3">
                         <div className="rounded-2xl border border-[#e7c1b6] bg-[#fbe9e3] px-4 py-4 text-center">
                             <div className="text-sm font-black text-[#875047]">保養費骰點</div>
-                            <div className="mt-1 text-xl font-black text-[#b6544b]">{boardState?.currentEvent?.repairRoll ? '骰點已同步，請看大螢幕' : '請看大螢幕'}</div>
+                            <div className="mt-1 text-xl font-black text-[#b6544b]">{isRepairPresentationComplete ? `擲出 ${boardState?.currentEvent?.repairRoll} 點` : boardState?.currentEvent?.repairRoll || isRollingRepairFee ? '大螢幕擲骰中…' : '請看大螢幕'}</div>
                         </div>
                         <div className="rounded-2xl border border-[#ead7b8] bg-[#fffaf2] px-4 py-4 text-center">
                             <div className="text-sm font-black text-[#765f47]">本次應付保養費</div>
-                            <div className="mt-1 text-3xl font-black text-[#293a38]">{boardState?.currentEvent?.repairFee ? formatMoney(boardState.currentEvent.repairFee) : '尚未擲骰'}</div>
+                            <div className="mt-1 text-3xl font-black text-[#293a38]">{isRepairPresentationComplete && boardState?.currentEvent?.repairFee ? formatMoney(boardState.currentEvent.repairFee) : boardState?.currentEvent?.repairRoll || isRollingRepairFee ? '等待骰子結果' : '尚未擲骰'}</div>
                             <div className="mt-2 text-xs font-bold text-[#7a6958]">維修廠規則：骰點 × 2,000；抵達維修廠另暫停一回合。</div>
                         </div>
                     </div>
@@ -4325,7 +4395,7 @@ export const GameView: React.FC<{
                     onClose={handleDiceModalClose}
                     onResult={onDiceComplete}
                     promotionType={promotionType}
-                    recoveredResult={boardState?.pendingContinuation?.kind === 'lifelong-learning' ? boardState.pendingContinuation.result : undefined}
+                    recoveredResult={boardState?.pendingContinuation?.kind === 'lifelong-learning' ? boardState.pendingContinuation.result : (currentPlayerRoomState?.schoolExam?.sessionId===room?.sessionId&&currentPlayerRoomState.schoolExam.eventId===boardState?.currentEvent?.id?currentPlayerRoomState.schoolExam.result:undefined)}
                     onRemoteRoll={room?.isBoardGame ? () => rollSkillDice({
                         kind: promotionType === 'normal'
                             ? 'normal'
@@ -4346,6 +4416,7 @@ export const GameView: React.FC<{
                     isOpen={showBizUpgradeModal}
                     asset={bizUpgradeAssetSnapshot}
                     onClose={async () => {
+                        if(!await deferStartupUpgrade(bizUpgradeAssetSnapshot.id,bizUpgradeCardIdSnapshot||''))return;
                         // 依 CARD_DECISION.md DEC-005：擲骰未達標（或尚未擲骰）時必須保留
                         // pendingStartupUpgradeAction，玩家下次經過銀行才能再次嘗試升級，
                         // 不得在此清除待升級狀態。

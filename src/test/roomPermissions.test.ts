@@ -101,7 +101,7 @@ rulesDescribe('Firestore room P0 permissions', () => {
   beforeEach(async () => {
     if (!testEnv) {
       testEnv = await initializeTestEnvironment({
-        projectId: 'happinessflow-p0',
+        projectId: 'demo-happinessflow-backend',
         firestore: { rules }
       });
     }

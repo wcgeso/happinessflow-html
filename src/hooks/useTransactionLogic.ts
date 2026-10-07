@@ -1,3 +1,4 @@
+import {findRelatedLiability} from '../utils/boardCardActions';
 import { useState, useMemo } from 'react';
 import {
     Liability, Asset, Profession, Enterprise, Dream, HappinessItem,
@@ -376,12 +377,7 @@ export const useTransactionLogic = ({
                     if (!asset) continue;
 
                     // 查找該資產對應的貸款
-                    const assetSymbol = asset.name.match(/[A-Z]\d+/)?.[0];
-                    const relatedLoan = liabilities.find(l =>
-                        (asset.type === '不動產' && l.type === '不動產貸款' && assetSymbol && l.name.includes(assetSymbol)) ||
-                        (asset.type === '企業' && l.type === '企業貸款' && assetSymbol && l.name.includes(assetSymbol)) ||
-                        ((asset.type === '汽車' || asset.type === '飛行器') && (l.type === '汽車貸款' || l.type === '飛行器貸款'))
-                    );
+                    const relatedLoan = findRelatedLiability(asset,liabilities);
 
                     const sellPrice = Number(price);
                     const loanBalance = relatedLoan ? relatedLoan.totalOwed : 0;

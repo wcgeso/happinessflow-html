@@ -5,7 +5,7 @@ import { serverNow } from '../../utils/serverClock';
 import { trackBoardStage } from '../../utils/telemetry';
 import { DiceFace } from '../game/DiceFace';
 import { DicePresentationEvent, FamilyMilestoneJoinPrompt } from '../../types';
-import { DICE_PRESENTATION_DURATION_MS, DICE_PRESENTATION_REVEAL_MS, getDicePresentationTiming, getDicePresentationLabel, getFamilyDicePresentationReadyAt } from '../../game/board/dicePresentation';
+import { getDicePresentationTiming, getDicePresentationLabel, getFamilyDicePresentationReadyAt } from '../../game/board/dicePresentation';
 
 export const DicePresentationOverlay: React.FC<{
     events?: DicePresentationEvent[];
@@ -16,12 +16,16 @@ export const DicePresentationOverlay: React.FC<{
     familyPrompt?: FamilyMilestoneJoinPrompt | null;
     familyParticipants?: Array<{ uid: string; name: string; isSource?: boolean }>;
 }> = ({ events = [], scopeKey = '', roomId = '', turnStartedAt = 0, prefersReducedMotion = false, familyPrompt = null, familyParticipants = [] }) => {
-    const [activeEvent, setActiveEvent] = useState<DicePresentationEvent | null>(null);
-    const [isRevealed, setIsRevealed] = useState(false);
+    const presentationScope = `${roomId}:${scopeKey}`;
+    const [presentation, setPresentation] = useState<{scope: string; event: DicePresentationEvent; revealed: boolean} | null>(null);
+    const activeEvent = presentation?.scope === presentationScope && presentation.event.timestamp >= turnStartedAt ? presentation.event : null;
+    const isRevealed = !!activeEvent && !!presentation?.revealed;
     const [isFamilyDockCollapsed, setIsFamilyDockCollapsed] = useState(false);
     const [familyRollingUids, setFamilyRollingUids] = useState<Set<string>>(new Set());
     const seenIdsRef = useRef(new Set<string>());
+    const seenScopeRef = useRef<string | null>(null);
 
+    const familyScope = familyPrompt?.id ? `${presentationScope}:${familyPrompt.id}` : null;
     const familyPromptIdRef = useRef<string | null>(null);
     const familySeenResponseKeysRef = useRef(new Set<string>());
     const familyRollTimersRef = useRef(new Map<string, number>());
@@ -36,11 +40,8 @@ export const DicePresentationOverlay: React.FC<{
             : [];
 
     useEffect(() => {
-        setActiveEvent(null);
-    }, [scopeKey]);
-
-    useEffect(() => {
         const now = serverNow();
+        if (seenScopeRef.current !== presentationScope) { seenScopeRef.current = presentationScope; seenIdsRef.current.clear(); }
         // Retain only current history IDs, bounding memory for long games.
         const eventIds = new Set(events.map(event => event.id));
         seenIdsRef.current = new Set([...seenIdsRef.current].filter(id => eventIds.has(id)));
@@ -49,15 +50,17 @@ export const DicePresentationOverlay: React.FC<{
         candidates.forEach(event => { if (getDicePresentationTiming(event.timestamp, now).expired) seenIdsRef.current.add(event.id); });
         const next = candidates.filter(event => !getDicePresentationTiming(event.timestamp, now).expired)
             .sort((a, b) => b.sequence - a.sequence)[0];
-        if (!next) return;
+        if (!next) {
+            setPresentation(current => current?.scope === presentationScope && current.event.timestamp >= turnStartedAt && eventIds.has(current.event.id) && !getDicePresentationTiming(current.event.timestamp, now).expired ? current : null);
+            return;
+        }
         candidates.forEach(event => seenIdsRef.current.add(event.id));
-        setIsRevealed(getDicePresentationTiming(next.timestamp, now).revealInMs === 0);
-        setActiveEvent(next);
-    }, [events, scopeKey, turnStartedAt]);
+        setPresentation({scope: presentationScope, event: next, revealed: getDicePresentationTiming(next.timestamp, now).revealInMs === 0});
+    }, [events, presentationScope, turnStartedAt]);
 
     useEffect(() => {
-        if (familyPromptIdRef.current !== familyPrompt?.id) {
-            familyPromptIdRef.current = familyPrompt?.id || null;
+        if (familyPromptIdRef.current !== familyScope) {
+            familyPromptIdRef.current = familyScope;
             setIsFamilyDockCollapsed(false);
             familySeenResponseKeysRef.current = new Set();
             familyRollTimersRef.current.forEach(timer => window.clearTimeout(timer));
@@ -66,7 +69,7 @@ export const DicePresentationOverlay: React.FC<{
             if (!familyPrompt?.id) return;
 
             Object.entries(familyPrompt.responses || {}).forEach(([uid, response]) => {
-                familySeenResponseKeysRef.current.add(`${familyPrompt.id}:${uid}:${response.respondedAt}`);
+                familySeenResponseKeysRef.current.add(`${familyScope}:${uid}:${response.respondedAt}`);
             });
             return;
         }
@@ -74,10 +77,11 @@ export const DicePresentationOverlay: React.FC<{
         if (!familyPrompt?.id) return;
         const newlyRolledUids: string[] = [];
         Object.entries(familyPrompt.responses || {}).forEach(([uid, response]) => {
-            const responseKey = `${familyPrompt.id}:${uid}:${response.respondedAt}`;
+            const responseKey = `${familyScope}:${uid}:${response.respondedAt}`;
             if (familySeenResponseKeysRef.current.has(responseKey)) return;
             familySeenResponseKeysRef.current.add(responseKey);
-            if (typeof response.roll === 'number') newlyRolledUids.push(uid);
+            const readyAt = response.presentationReadyAt || getFamilyDicePresentationReadyAt(response.respondedAt);
+            if (typeof response.roll === 'number' && readyAt > serverNow()) newlyRolledUids.push(uid);
         });
 
         if (newlyRolledUids.length === 0) return;
@@ -86,7 +90,7 @@ export const DicePresentationOverlay: React.FC<{
             const response = familyPrompt.responses?.[uid];
             const presentationReadyAt = response?.presentationReadyAt
                 || (response?.respondedAt ? getFamilyDicePresentationReadyAt(response.respondedAt) : serverNow());
-            const responseKey = `${familyPrompt.id}:${uid}:${response?.respondedAt || 'pending'}`;
+            const responseKey = `${familyScope}:${uid}:${response?.respondedAt || 'pending'}`;
             const timer = window.setTimeout(() => {
                 familyRollTimersRef.current.delete(responseKey);
                 setFamilyRollingUids(current => {
@@ -97,7 +101,7 @@ export const DicePresentationOverlay: React.FC<{
             }, Math.max(0, presentationReadyAt - serverNow()));
             familyRollTimersRef.current.set(responseKey, timer);
         });
-    }, [familyPrompt]);
+    }, [familyPrompt, familyScope]);
 
     useEffect(() => () => {
         familyRollTimersRef.current.forEach(timer => window.clearTimeout(timer));
@@ -105,18 +109,55 @@ export const DicePresentationOverlay: React.FC<{
     }, []);
 
     useEffect(() => {
-        if (!activeEvent) return;
-        const timing = getDicePresentationTiming(activeEvent.timestamp, serverNow());
-        if (timing.expired) { setActiveEvent(null); return; }
-        trackBoardStage('presented', roomId, undefined, { surface: 'projection', event_id: activeEvent.id,
-            command_id: activeEvent.id, phase: timing.revealInMs ? 'dice_animation' : 'dice_result' });
-        const revealTimer = window.setTimeout(() => setIsRevealed(true), prefersReducedMotion ? 0 : timing.revealInMs);
-        const closeTimer = window.setTimeout(() => setActiveEvent(null), timing.closeInMs);
-        return () => {
-            window.clearTimeout(revealTimer);
-            window.clearTimeout(closeTimer);
+        const resume = () => {
+            if (document.visibilityState === 'hidden') return;
+            const now = serverNow();
+            setFamilyRollingUids(current => {
+                const remaining = new Set([...current].filter(uid => {
+                    const response = familyPrompt?.responses?.[uid];
+                    return !!response && (response.presentationReadyAt || getFamilyDicePresentationReadyAt(response.respondedAt)) > now;
+                }));
+                return remaining.size === current.size ? current : remaining;
+            });
         };
-    }, [activeEvent, prefersReducedMotion]);
+        window.addEventListener('online', resume); window.addEventListener('hf-clock-sync', resume);
+        document.addEventListener('visibilitychange', resume);
+        return () => {
+            window.removeEventListener('online', resume); window.removeEventListener('hf-clock-sync', resume);
+            document.removeEventListener('visibilitychange', resume);
+        };
+    }, [familyPrompt, familyScope]);
+
+    useEffect(() => {
+        if (!activeEvent) return;
+        let alive = true;
+        let revealTimer: number | undefined, closeTimer: number | undefined;
+        const align = () => {
+            if (!alive) return;
+            window.clearTimeout(revealTimer); window.clearTimeout(closeTimer);
+            const timing = getDicePresentationTiming(activeEvent.timestamp, serverNow());
+            const revealed = !!prefersReducedMotion || timing.revealInMs === 0;
+            setPresentation(current => {
+                if (current?.scope !== presentationScope || current.event.id !== activeEvent.id) return current;
+                if (timing.expired) return null;
+                return current.revealed === revealed ? current : {...current, revealed};
+            });
+            if (timing.expired) return;
+            if (!revealed) revealTimer = window.setTimeout(align, timing.revealInMs);
+            closeTimer = window.setTimeout(align, timing.closeInMs);
+        };
+        const resume = () => { if (document.visibilityState !== 'hidden') align(); };
+        trackBoardStage('presented', roomId, undefined, { surface: 'projection', event_id: activeEvent.id,
+            command_id: activeEvent.id, phase: getDicePresentationTiming(activeEvent.timestamp, serverNow()).revealInMs ? 'dice_animation' : 'dice_result' });
+        align();
+        window.addEventListener('online', resume); window.addEventListener('hf-clock-sync', resume);
+        document.addEventListener('visibilitychange', resume);
+        return () => {
+            alive = false; window.clearTimeout(revealTimer); window.clearTimeout(closeTimer);
+            window.removeEventListener('online', resume); window.removeEventListener('hf-clock-sync', resume);
+            document.removeEventListener('visibilitychange', resume);
+        };
+    }, [activeEvent, presentationScope, roomId, prefersReducedMotion]);
 
     const isFamilyOverlayVisible = !!familyPrompt?.id;
     const familyCompletedCount = familySlots.filter(participant => typeof familyResponses[participant.uid]?.roll === 'number').length;
@@ -125,7 +166,7 @@ export const DicePresentationOverlay: React.FC<{
         <AnimatePresence>
             {isFamilyOverlayVisible && (
                 <motion.div
-                    key={`family-dice-${familyPrompt.id}`}
+                    key={`family-dice-${familyScope}`}
                     initial={prefersReducedMotion ? false : { opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={prefersReducedMotion ? undefined : { opacity: 0 }}

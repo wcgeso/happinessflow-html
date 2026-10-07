@@ -1,3 +1,17 @@
+import {isUncertainGameCommandError} from '../game/board/pendingCommand';
+import {shouldAcceptBoardSnapshot,mergeRoomSnapshotWithPrivateStates} from '../game/board/roomSnapshot';
+import {submitRoomLifecycle} from '../game/board/serverRoomLifecycle';
+import {submitRoomMembership} from '../game/board/serverRoomMembership';
+import {createInitialBoardState} from '../game/board/initialState';
+import {createRoomOnServer,recoverRoomCreationOnServer} from '../game/board/serverRoomCreation';
+import {RoomCreationRecovery} from '../components/RoomCreationRecovery';
+import {getPersonalFinancialHandler} from '../game/finance/transactionRoute';
+import {submitServerGameCommand} from '../game/board/serverPromptCommand';
+import {ServerCommandRecovery,RoomLifecycleRecovery} from '../components/ServerCommandRecovery';
+import {getNextBoardSquare,buildBoardMovementLegResolution,drawBoardCard,hasCarAsset,resolveBoardDiceCount,buildBoardCardResultById} from '../game/board/movementResolution';
+export {buildBoardMovementLegResolution,resolveBoardDiceCount,buildBoardCardResultById} from '../game/board/movementResolution';
+import {submitServerBanking} from '../game/finance/serverBankingCommand';
+import {finalizeServerPrompt} from '../game/board/serverPromptCommand';
 import type {Room, RoomMember, PendingRequest, BoardCardRevealResult} from '../types';
 export type {Room, PendingRequest, BoardCardRevealResult} from '../types';
 import {buildPendingRequestId, isPendingRequestDocumentId, getPendingRequestExecutionKey, applyApprovedHappinessStory} from '../game/requests/state';
@@ -48,7 +62,7 @@ import {
     type DataSnapshot,
     type DatabaseReference,
 } from 'firebase/database';
-import { db } from '../../services/firebase';
+import { db,auth } from '../../services/firebase';
 import { realtimeDb } from '../../services/realtime';
 import { observeSnapshots, subscribeSubscriptionHealth, getSubscriptionErrors, type SubscriptionHealth } from '../utils/recoveringSnapshot';
 const onRoomSnapshot = observeSnapshots('room');
@@ -66,10 +80,12 @@ import { trackGameEvent, trackBoardStage } from '../utils/telemetry';
 import { serverNow, subscribeServerClock } from '../utils/serverClock';
 import { useGameDiagnostics } from '../hooks/useGameDiagnostics';
 import { APP_VERSION, BUILD_ID, RULES_HASH } from '../constants/version';
+import {getRoomCompatibilityError} from '../game/board/roomCompatibility';
+import {usePublicPlayerStates} from '../hooks/usePublicPlayerStates';
 import { useSharedPromptResponses } from '../hooks/useSharedPromptResponses';
 import { useMovementSettlement } from '../hooks/useMovementSettlement';
 import { canSettleMovement, movementCommandId } from '../game/board/movementSettlement';
-import { BOARD_SQUARES, createInitialDeckState, getSquareByIndex } from '../constants/board';
+import { BOARD_SQUARES, getSquareByIndex } from '../constants/board';
 import {
     buildHappinessCardMetaFromSchema,
     buildNewsCardMetaFromSchema,
@@ -78,10 +94,11 @@ import {
     HAPPINESS_CARDS,
     NEWS_CARD_MAP,
     NEWS_CARDS,
-    OPPORTUNITY_CARDS
+    OPPORTUNITY_CARDS,
+    OPPORTUNITY_CARD_MAP
 } from '../constants/cards';
 import { applyFamilyMilestoneStage, getFamilyMilestoneStageByCardId, getFamilyMilestoneStageByProgressId, getFamilyMilestoneStatus, isFamilyMilestoneComplete } from '../utils/familyMilestones';
-import { getSharedOpportunityKind, resolveBoardCardAction, hasIncompleteSharedPrompts, isBoardPromptForCurrentEvent } from '../utils/boardCardActions';
+import { getSharedOpportunityKind, isStandaloneOpportunityCard, resolveBoardCardAction, hasIncompleteSharedPrompts, isBoardPromptForCurrentEvent } from '../utils/boardCardActions';
 import { buildMovementEffects, describeMovementEffects } from '../game/board/movementEffects';
 import { appendDicePresentation, DICE_PRESENTATION_DURATION_MS, getFamilyDicePresentationReadyAt } from '../game/board/dicePresentation';
 import { submitFamilyMilestoneResponse } from '../game/board/familyMilestoneResponse';
@@ -192,107 +209,10 @@ export const getCarPurchaseGateError = (
     return null;
 };
 
-export const shouldAcceptBoardSnapshot = (
-    previous: Pick<Room, 'id' | 'sessionId' | 'boardState'> | null | undefined,
-    next: Pick<Room, 'id' | 'sessionId' | 'boardState'>
-): boolean => {
-    if (!previous || previous.id !== next.id || !previous.boardState || !next.boardState) return true;
-    if (previous.sessionId !== next.sessionId) return true;
-
-    const previousRevision = Number(previous.boardState.revision);
-    const nextRevision = Number(next.boardState.revision);
-    if (Number.isFinite(previousRevision) && Number.isFinite(nextRevision)) {
-        if (nextRevision < previousRevision) return false;
-        if (nextRevision > previousRevision) return true;
-    }
-
-    const previousUpdatedAt = Number(previous.boardState.updatedAt);
-    const nextUpdatedAt = Number(next.boardState.updatedAt);
-    return !Number.isFinite(previousUpdatedAt) ||
-        !Number.isFinite(nextUpdatedAt) ||
-        nextUpdatedAt >= previousUpdatedAt;
-};
-
-export const mergeRoomSnapshotWithPrivateStates = (snapshotRoom: Room, currentRoom: Room | null): Room => {
-    const isSameRoomSession = currentRoom?.id === snapshotRoom.id &&
-        currentRoom.sessionId === snapshotRoom.sessionId;
-    const snapshotPrompt = snapshotRoom.boardState?.sharedCardPrompt;
-    const currentPrompt = currentRoom?.boardState?.sharedCardPrompt;
-    const snapshotFamilyPrompt = snapshotRoom.boardState?.familyMilestoneJoinPrompt;
-    const currentFamilyPrompt = currentRoom?.boardState?.familyMilestoneJoinPrompt;
-    const preserveSubcollectionResponses = isSameRoomSession &&
-        snapshotPrompt?.id === currentPrompt?.id &&
-        snapshotPrompt?.responseStorage === 'subcollection';
-    const preserveFamilySubcollectionResponses = isSameRoomSession &&
-        snapshotFamilyPrompt?.id === currentFamilyPrompt?.id &&
-        snapshotFamilyPrompt?.responseStorage === 'subcollection';
-    const boardState = snapshotRoom.boardState && (preserveSubcollectionResponses || preserveFamilySubcollectionResponses)
-        ? {
-            ...snapshotRoom.boardState,
-            ...(preserveSubcollectionResponses && snapshotPrompt && currentPrompt ? {
-                sharedCardPrompt: {
-                    ...snapshotPrompt,
-                    responses: {
-                        ...(snapshotPrompt.responses || {}),
-                        ...(currentPrompt.responses || {})
-                    }
-                }
-            } : {}),
-            ...(preserveFamilySubcollectionResponses && snapshotFamilyPrompt && currentFamilyPrompt ? {
-                familyMilestoneJoinPrompt: {
-                    ...snapshotFamilyPrompt,
-                    responses: {
-                        ...(snapshotFamilyPrompt.responses || {}),
-                        ...(currentFamilyPrompt.responses || {})
-                    }
-                }
-            } : {})
-        }
-        : snapshotRoom.boardState;
-
-    return {
-        ...snapshotRoom,
-        ...(boardState ? { boardState } : {}),
-        ...(isSameRoomSession && currentRoom?.playerStates
-            ? { playerStates: currentRoom.playerStates }
-            : {})
-    };
-};
+export {shouldAcceptBoardSnapshot,mergeRoomSnapshotWithPrivateStates} from '../game/board/roomSnapshot';
 
 const getRoomSessionScope = (room: Pick<Room, 'id' | 'sessionId'>): string =>
     `${room.id}:${room.sessionId || 'no-session'}`;
-
-const buildHappinessCardMeta = (cardId: string, playerState?: GameState | null) => {
-    return buildHappinessCardMetaFromSchema(cardId, playerState);
-};
-
-const buildOpportunityCardMeta = (cardId: string) => {
-    return buildOpportunityCardMetaFromSchema(cardId);
-};
-
-const buildNewsCardMeta = (cardId: string) => {
-    return buildNewsCardMetaFromSchema(cardId);
-};
-
-export const buildBoardCardResultById = (cardId: string, playerState?: GameState | null): BoardCardResult | null => {
-    const meta = cardId.startsWith('H')
-        ? buildHappinessCardMeta(cardId, playerState)
-        : cardId.startsWith('C')
-            ? buildOpportunityCardMeta(cardId)
-            : cardId.startsWith('N')
-                ? buildNewsCardMeta(cardId)
-                : null;
-    if (!meta) return null;
-
-    return {
-        deck: meta.deck,
-        cardId,
-        title: meta.title,
-        description: meta.description,
-        subtitle: meta.subtitle,
-        effectLines: meta.effectLines
-    };
-};
 
 // 保留既有測試與舊呼叫端使用的純 helper；線上寫入流程改用欄位更新，
 // 不再把 helper 產生的整份 state 直接覆蓋回 Firestore。
@@ -314,12 +234,6 @@ export const isCurrentPlayerBankEvent = (boardState: BoardState, playerUid: stri
     boardState.currentEvent?.type === 'bank' &&
     boardState.currentEvent.playerUid === playerUid
 );
-
-const toUsedKey = (deck: keyof Pick<BoardDeckState, 'happiness' | 'opportunity' | 'news'>) => {
-    if (deck === 'happiness') return 'usedHappiness';
-    if (deck === 'opportunity') return 'usedOpportunity';
-    return 'usedNews';
-};
 
 export const stockSymbolFromAssetName = (name: string) => {
     const match = name.match(/[A-Z]\d+/);
@@ -346,45 +260,6 @@ export const hasEligibleStockDividend = (playerState: GameState | undefined, div
             return rate > 0 && Math.ceil((asset.quantity || 0) * rate) > 0;
         });
 };
-
-const drawBoardCard = (
-    deckState: BoardDeckState,
-    deck: keyof Pick<BoardDeckState, 'happiness' | 'opportunity' | 'news'>,
-    playerState?: GameState | null
-) => {
-    let activeDeck = [...deckState[deck]];
-    let usedDeck = [...deckState[toUsedKey(deck)]];
-
-    if (activeDeck.length === 0) {
-        activeDeck = [...usedDeck].sort(() => Math.random() - 0.5);
-        usedDeck = [];
-    }
-
-    const cardId = activeDeck.shift();
-    if (!cardId) return null;
-
-    const card = buildBoardCardResultById(cardId, playerState);
-    if (!card) return null;
-
-    usedDeck.push(cardId);
-
-    return {
-        card,
-        deckState: {
-            ...deckState,
-            [deck]: activeDeck,
-            [toUsedKey(deck)]: usedDeck
-        } as BoardDeckState
-    };
-};
-
-const hasCarAsset = (state?: GameState | null) => {
-    return !!state?.assets?.some(asset => asset.type === '汽車' || asset.type === '飛行器');
-};
-
-export const resolveBoardDiceCount = (hasCar: boolean, requestedDiceCount?: 1 | 2): 1 | 2 => (
-    hasCar && requestedDiceCount !== 1 ? 2 : 1
-);
 
 const normalizeMarketPrices = (
     updates: Record<string, number>,
@@ -429,38 +304,7 @@ const getBoardMovementSettleMs = (movement: {
     landingDelayMs: number;
 }) => movement.introDelayMs + movement.path.length * movement.stepDurationMs + movement.landingDelayMs;
 
-export const createInitialBoardState = (members: RoomMember[], hostId: string, playerStates?: Record<string, GameState>): BoardState => {
-    // 棋盤上該顯示誰，判斷依據是「是不是這個房間的主持人」，而不是帳號的
-    // 全域角色（role）。執行師帳號也可能以參與者身分加入別人開的房間，
-    // 這種情況下他就是玩家，理應出現在棋盤上；只有真正主持這場遊戲的人
-    // （room.hostId）才不需要棋偶。
-    const playerMembers = members.filter(member => member.uid !== hostId);
-    const turnOrder = playerMembers.map(member => member.uid);
-    const positions = Object.fromEntries(turnOrder.map(uid => [uid, 0]));
-    const skipTurns = Object.fromEntries(turnOrder.map(uid => [uid, playerStates?.[uid]?.skipTurns || 0]));
-
-    return {
-        currentTurnUid: turnOrder[0] || null,
-        turnOrder,
-        playerPositions: positions,
-        skipTurns,
-        hasRolledThisTurn: false,
-        revision: 0,
-        processedCommandIds: [],
-        lastRoll: null,
-        currentCard: null,
-        currentCardReveal: null,
-        currentEvent: null,
-        pendingEvents: [],
-        movement: null,
-        familyMilestoneJoinPrompt: null,
-        sharedCardPrompt: null,
-        deckState: createInitialDeckState(),
-        realEstateMarket: [],
-        cardLog: [],
-        updatedAt: serverNow()
-    };
-};
+export {createInitialBoardState} from '../game/board/initialState';
 
 // 找出已在 room.members 裡、但因為加入時序競態而漏掉沒被寫進
 // boardState.turnOrder 的玩家 uid（例如玩家剛加入、房主端監聽還沒同步到，
@@ -478,258 +322,6 @@ const getMissingTurnOrderPlayerUids = (room: Room): string[] => {
 // （銀行/學校/維修廠）就在那裡切一段（legPath），該格之後剩下的步數留到
 // 下一段再走（remainingPath）；如果整段都沒有經過事件格，代表這段直接
 // 走到真正的終點（remainingPath 為空）。
-export const buildBoardMovementLegResolution = (roomData: Room, playerUid: string) => {
-    const boardState = roomData.boardState;
-    const movement = boardState?.movement;
-    if (!boardState || !movement || movement.playerUid !== playerUid) return null;
-
-    const playerState = roomData.playerStates?.[playerUid];
-    const movementEffects = movement.effects || buildMovementEffects(
-        movement.path,
-        hasCarAsset(playerState)
-    );
-    const nextPosition = movement.path[movement.path.length - 1] ?? movement.startPosition;
-    const playerName = roomData.members.find(member => member.uid === playerUid)?.name || '玩家';
-    const eventTimestamp = movement.startedAt;
-    const nextPlayerStates = { ...(roomData.playerStates || {}) };
-
-    // 這段路徑是否在「經過事件」格停下（而不是走到真正的終點）。
-    const isIntermediateStop = !!(movement.remainingPath && movement.remainingPath.length > 0);
-
-    if (isIntermediateStop) {
-        const square = getSquareByIndex(nextPosition);
-        let event: BoardEventLog;
-        let extraFields: Partial<GameState> = {};
-
-        if (square.type === 'bank') {
-            event = {
-                id: `${playerUid}_${eventTimestamp}_bank`,
-                playerUid,
-                playerName,
-                type: 'bank',
-                summary: `${playerName} 經過${square.label}`,
-                detail: '先領取月結餘，再決定是否購買保險或定存',
-                squareIndex: nextPosition,
-                timestamp: eventTimestamp,
-                rollTotal: movement.rollTotal
-            };
-            extraFields = { bankServiceWindowActive: true, bankServiceGrantedAtEventId: event.id };
-        } else if (square.type === 'school') {
-            event = {
-                id: `${playerUid}_${eventTimestamp}_school`,
-                playerUid,
-                playerName,
-                type: 'school',
-                summary: `${playerName} 經過${square.label}`,
-                detail: '請完成升等考試',
-                squareIndex: nextPosition,
-                timestamp: eventTimestamp,
-                rollTotal: movement.rollTotal
-            };
-        } else {
-            event = {
-                id: `${playerUid}_${eventTimestamp}_repair`,
-                playerUid,
-                playerName,
-                type: 'repair',
-                summary: `${playerName} 經過維修廠`,
-                detail: '經過維修廠，請擲骰決定汽車保養費',
-                squareIndex: nextPosition,
-                timestamp: eventTimestamp,
-                rollTotal: movement.rollTotal,
-                repairHasCar: true
-            };
-        }
-        const updatedPlayerState = playerState ? cleanObject({
-            ...playerState,
-            boardPosition: nextPosition,
-            lastBoardEvent: event.summary,
-            pendingCardAction: event.detail,
-            ...extraFields
-        }) : undefined;
-        if (updatedPlayerState) {
-            nextPlayerStates[playerUid] = updatedPlayerState;
-        }
-
-        return cleanObject({
-            boardState: {
-                ...boardState,
-                playerPositions: {
-                    ...boardState.playerPositions,
-                    [playerUid]: nextPosition
-                },
-                ...activateBoardQueueEntry({ event }),
-                pendingEvents: [],
-                // 先暫停在這格（isActive:false），記住剩下要走的步數；
-                // 事件結案後由 advanceBoardEventQueue 觸發下一段動畫。
-                movement: {
-                    ...movement,
-                    path: movement.remainingPath || [],
-                    remainingPath: undefined,
-                    isActive: false
-                },
-                updatedAt: eventTimestamp
-            },
-            ...(Object.keys(nextPlayerStates).length > 0 ? { playerStates: nextPlayerStates } : {})
-        });
-    }
-
-    // 這是最後一段：真正走到終點，比照原本落點事件邏輯處理
-    // （抽卡／醫院／維修廠停留／學校停留／銀行停留）。
-    const nextSkipTurns = { ...boardState.skipTurns };
-    let passedBankThisTurn = false;
-    const detailMessages: string[] = [];
-    const landedSquare = getSquareByIndex(nextPosition);
-    let deckState = boardState.deckState;
-    const queuedEvents: BoardQueuedEvent[] = [];
-
-    if (landedSquare.type === 'happiness' || landedSquare.type === 'opportunity' || landedSquare.type === 'news') {
-        const drawResult = drawBoardCard(deckState, landedSquare.type, playerState);
-        if (drawResult) {
-            deckState = drawResult.deckState;
-            detailMessages.push(`抽到${landedSquare.label}卡：${drawResult.card.title}`);
-            queuedEvents.push({
-                event: {
-                    id: `${playerUid}_${eventTimestamp}_${landedSquare.type}`,
-                    playerUid,
-                    playerName,
-                    type: 'card',
-                    summary: `${playerName} 停在${landedSquare.label}`,
-                    detail: `抽到${landedSquare.label}卡：${drawResult.card.title}`,
-                    squareIndex: nextPosition,
-                    timestamp: eventTimestamp,
-                    rollTotal: movement.rollTotal
-                },
-                card: drawResult.card
-            });
-        }
-    } else if (landedSquare.type === 'hospital') {
-        const hospitalFeeCoveredByInsurance = (playerState?.medicalInsuranceCount || 0) > 0;
-        detailMessages.push(hospitalFeeCoveredByInsurance
-            ? '抵達醫院，醫療保險已抵免醫藥費，並暫停一回合'
-            : '抵達醫院，請再擲一次骰子決定醫藥費，並暫停一回合');
-        queuedEvents.push({
-            event: {
-                id: `${playerUid}_${eventTimestamp}_hospital`,
-                playerUid,
-                playerName,
-                type: 'hospital',
-                summary: `${playerName} 抵達醫院`,
-                detail: hospitalFeeCoveredByInsurance
-                    ? '醫療保險已抵免本次醫藥費，仍暫停一回合'
-                    : '棋子到達後再擲一次骰子，醫藥費 = 點數 x 1000',
-                squareIndex: nextPosition,
-                timestamp: eventTimestamp,
-                rollTotal: movement.rollTotal,
-                hospitalSkipTurns: landedSquare.pauseTurns || 1,
-                hospitalFeeCoveredByInsurance
-            }
-        });
-    } else if (landedSquare.type === 'repair') {
-        const hasCar = hasCarAsset(playerState);
-        if (hasCarAsset(playerState)) {
-            detailMessages.push('踩到維修廠，請擲骰決定保養費，並暫停一回合');
-        } else {
-            detailMessages.push('踩到維修廠，但目前沒有汽車');
-        }
-        queuedEvents.push({
-            event: {
-                id: `${playerUid}_${eventTimestamp}_repair`,
-                playerUid,
-                playerName,
-                type: 'repair',
-                summary: `${playerName} 停留在維修廠`,
-                detail: hasCar
-                    ? `棋子到達後保養費 = 點數 x 2000，並停回合 1 次`
-                    : '目前沒有汽車，本次維修廠無效果',
-                squareIndex: nextPosition,
-                timestamp: eventTimestamp,
-                rollTotal: movement.rollTotal,
-                repairHasCar: hasCar,
-                repairSkipTurns: hasCar ? (landedSquare.pauseTurns || 1) : undefined
-            }
-        });
-    } else if (landedSquare.type === 'school') {
-        detailMessages.push('可選擇報名升等考試');
-        queuedEvents.push({
-            event: {
-                id: `${playerUid}_${eventTimestamp}_school_land`,
-                playerUid,
-                playerName,
-                type: 'school',
-                summary: `${playerName} 停留在學校`,
-                detail: '請完成升等考試',
-                squareIndex: nextPosition,
-                timestamp: eventTimestamp,
-                rollTotal: movement.rollTotal
-            }
-        });
-    } else if (landedSquare.type === 'bank') {
-        passedBankThisTurn = true;
-        detailMessages.push('請確認本回合月結餘');
-        queuedEvents.push({
-            event: {
-                id: `${playerUid}_${eventTimestamp}_bank_land`,
-                playerUid,
-                playerName,
-                type: 'bank',
-                summary: `${playerName} 停留在銀行`,
-                detail: '先領取月結餘，再決定是否購買保險或定存',
-                squareIndex: nextPosition,
-                timestamp: eventTimestamp,
-                rollTotal: movement.rollTotal
-            }
-        });
-    }
-
-    const event: BoardEventLog = {
-        id: `${playerUid}_${eventTimestamp}`,
-        playerUid,
-        playerName,
-        summary: `${playerName} 擲出 ${movement.rollTotal} 點，停在 ${landedSquare.label}`,
-        detail: detailMessages.join('｜'),
-        squareIndex: nextPosition,
-        timestamp: eventTimestamp,
-        rollTotal: movement.rollTotal
-    };
-    const [currentQueueEntry, ...remainingQueue] = queuedEvents;
-
-    const updatedPlayerState = playerState ? cleanObject({
-        ...playerState,
-        boardPosition: nextPosition,
-        skipTurns: nextSkipTurns[playerUid] || 0,
-        lastBoardEvent: event.summary,
-        pendingCardAction: detailMessages.join('\n'),
-        bankServiceWindowActive: passedBankThisTurn ? true : playerState.bankServiceWindowActive,
-        bankServiceGrantedAtEventId: passedBankThisTurn ? currentQueueEntry?.event.id : playerState.bankServiceGrantedAtEventId
-    }) : undefined;
-
-    if (updatedPlayerState) {
-        nextPlayerStates[playerUid] = updatedPlayerState;
-    }
-
-    // 回合不再於移動/事件結算後自動換人：玩家自己按「結束回合」才會真正切換到
-    // 下一位，這裡無論有沒有排隊事件，currentTurnUid 都維持在移動的玩家身上。
-    return cleanObject({
-        boardState: {
-            ...boardState,
-            playerPositions: {
-                ...boardState.playerPositions,
-                [playerUid]: nextPosition
-            },
-            skipTurns: nextSkipTurns,
-            currentTurnUid: playerUid,
-            lastRoll: boardState.lastRoll,
-            ...activateBoardQueueEntry(currentQueueEntry),
-            pendingEvents: remainingQueue,
-            movement: null,
-            deckState,
-            cardLog: appendBoardCardLog(boardState, currentQueueEntry?.card || null, currentQueueEntry?.event || null),
-            updatedAt: eventTimestamp
-        },
-        ...(Object.keys(nextPlayerStates).length > 0 ? { playerStates: nextPlayerStates } : {})
-    });
-};
 
 interface RoomContextValue {
     room: Room | null;
@@ -744,6 +336,7 @@ interface RoomContextValue {
     presenceStates: Record<string, PresenceState>;
     pendingRequests: Record<string, PendingRequest>;
     createRoom: (settings?: { name: string; maxPlayers: number; duration: number; isPractice?: boolean; isBoardGame?: boolean }) => Promise<string>;
+    recoverRoomCreation: (retry?:boolean) => Promise<boolean>;
     setRoomPlayerSlotOpen: (slotIndex: number, isOpen: boolean) => Promise<void>;
     joinRoom: (roomCode: string) => Promise<void>;
     leaveRoom: () => Promise<void>;
@@ -756,9 +349,9 @@ interface RoomContextValue {
     adjustPlayerInvestmentIncome: (playerUid: string, amount: number, commandId?: string) => Promise<void>;
     adjustPlayerLiability: (playerUid: string, liabilityId: string, adjustments: { totalOwedDelta: number; monthlyPaymentDelta: number; reason: string }, commandId?: string) => Promise<void>;
     adjustPlayerExpense: (playerUid: string, category: CoachExpenseCategory, amountDelta: number, reason: string, commandId?: string) => Promise<void>;
-    updateFinancialAcceleration: (multiplier: FinancialAccelerationMultiplier) => Promise<void>;
+    updateFinancialAcceleration: (multiplier: FinancialAccelerationMultiplier, commandId?:string) => Promise<void>;
     grantFinancialSubsidyToAllPlayers: (amount: number, commandId?: string) => Promise<void>;
-    updateRoomTimer: (timeLeft: number, isPaused: boolean, timerEndsAtMs?: number | null) => Promise<void>;
+    updateRoomTimer: (timeLeft: number, isPaused: boolean, timerEndsAtMs?: number | null, commandId?:string, mode?:'set'|'pause') => Promise<void>;
     submitRequest: (request: Omit<PendingRequest, 'id' | 'status' | 'timestamp'>) => Promise<boolean>;
     approveRequest: (requestId: string) => Promise<boolean>;
     rejectRequest: (requestId: string) => Promise<boolean>;
@@ -771,9 +364,9 @@ interface RoomContextValue {
     rollStartupUpgradeDice: (payload: { assetId: string; cardId: string; stage: 1 | 2; sourceEventId?: string }) => Promise<{ roll: number; eligible?: boolean; presentationDurationMs?: number }>;
     revealBoardCard: (eventId: string, cardId: string) => Promise<BoardCardRevealResult>;
     dismissBoardCard: (eventId: string, cardId: string, addToRealEstateMarket?: boolean) => Promise<boolean>;
-    advanceBoardEventQueue: (expectedType?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup') => Promise<boolean | undefined>;
+    advanceBoardEventQueue: (expectedType?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup', expectedEventId?:string) => Promise<boolean | undefined>;
     endTurn: () => Promise<void>;
-    drawPostExamHappinessCard: (success: boolean) => Promise<void>;
+    drawPostExamHappinessCard: (success: boolean) => Promise<boolean | void>;
     drawBoardFollowupCard: (deck: 'happiness' | 'news', summary: string, detail?: string) => Promise<boolean>;
     openFamilyMilestoneJoinPrompt: (eventId: string, cardId: string, sourceStageProgressId?: string) => Promise<void>;
     openSharedCardPrompt: (eventId: string, cardId: string) => Promise<'opened' | 'no_target' | false>;
@@ -801,6 +394,7 @@ interface RoomContextValue {
     completeSharedAssetSaleAction: (promptId: string, selectedAssetIds: string[]) => Promise<BoardFinancialMutationResult>;
     completeStartupLoanAction: (promptId: string) => Promise<boolean>;
     completeTargetEnterprisePurchase: (data: TransactionData) => Promise<BoardFinancialMutationResult>;
+    completeOpportunityCard: (eventId:string,cardId:string,choice:'accept'|'dismiss',payload?:{assetId?:string;fundingLoanAmount?:number;forcedDebtAmount?:number}) => Promise<BoardFinancialMutationResult>;
     completeMedicalBoardCardAction: (eventId: string, cardId: string, txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     completeDirectHappinessCard: (eventId: string, cardId: string, txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     completeInsurancePurchase: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
@@ -811,6 +405,7 @@ interface RoomContextValue {
     completeBoardTransaction: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     /** 棋盤「銀行」事件的每月結餘：金額由伺服器依玩家最新資料重新計算，不信任前端金額。 */
     completePaydayCollection: (boardEventId: string) => Promise<BoardFinancialMutationResult>;
+    completeBankEvent: (boardEventId: string) => Promise<BoardFinancialMutationResult>;
     /** 房屋自住／出租切換。 */
     completeHouseConversion: (assetId: string, toSelfUse: boolean, operationId?: string) => Promise<BoardFinancialMutationResult>;
     /** 勾選／取消幸福清單項目。 */
@@ -830,6 +425,7 @@ interface RoomContextValue {
     completeLoanRepayment: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     completeDepositWithdrawal: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
     completeCarPurchase: (txData: TransactionData) => Promise<BoardFinancialMutationResult>;
+    deferStartupUpgrade: (assetId:string,cardId:string) => Promise<boolean>;
     completeStartupUpgradeAction: (payload: {
         assetId: string;
         cardId: string;
@@ -929,7 +525,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isProcessingRef = useRef<boolean>(false);
 
     const runRoomBoardMutation = async <T, R extends BoardRoomSnapshot>(params: RunRoomBoardMutationParams<T, R>): Promise<T> => {
-        if (room?.flowSchemaVersion && room.flowSchemaVersion !== 1) throw new Error('此房間需要更新遊戲版本，請重新載入');
+        const compatibilityError=getRoomCompatibilityError(room);
+        if(compatibilityError)throw new Error(compatibilityError);
         if (room?.status === 'playing' && !isController) {
             throw new Error('此帳號已在其他分頁操作，這個分頁目前為唯讀');
         }
@@ -937,7 +534,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const canMutateCurrentRoom = (): boolean => {
-        if (room?.flowSchemaVersion && room.flowSchemaVersion !== 1) {setError('此房間需要更新遊戲版本，請重新載入');return false;}
+        const compatibilityError=getRoomCompatibilityError(room);
+        if(compatibilityError){setError(compatibilityError);return false;}
         if (room?.status === 'playing' && !isController) {
             setError('此帳號已在其他分頁操作，這個分頁目前為唯讀');
             return false;
@@ -1113,6 +711,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const finalizeSubcollectionSharedPrompt = useCallback(async (roomId: string, promptId: string) => {
+        if (room?.promptCompletionAuthority === 'server-prompts-v1') {
+            await finalizeServerPrompt(room, promptId);
+            return;
+        }
         if (finalizingSubcollectionPromptRef.current === promptId) return;
         finalizingSubcollectionPromptRef.current = promptId;
         try {
@@ -1170,7 +772,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             finalizingSubcollectionPromptRef.current = null;
         }
-    }, []);
+    }, [room?.id, room?.sessionId, room?.promptCompletionAuthority, room?.boardState?.currentEvent?.id]);
 
 
     // 補救措施：即使開始遊戲時已改用 transaction 讀最新 room.members，仍有極小
@@ -1298,7 +900,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 mutate: (latestRoom, latestBoard) => {
                     const latestFamilyPrompt = latestBoard.familyMilestoneJoinPrompt;
                     const latestSharedPrompt = latestBoard.sharedCardPrompt;
-                    const shouldCompleteFamily = !!latestFamilyPrompt &&
+                    const shouldCompleteFamily = latestRoom.promptCompletionAuthority !== 'server-prompts-v1' && !!latestFamilyPrompt &&
                         isBoardPromptForCurrentEvent(latestFamilyPrompt, latestBoard) &&
                         !hasIncompleteSharedPrompts(latestBoard);
                     if (shouldCompleteFamily) {
@@ -1717,6 +1319,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
     }, [room?.id, room?.sessionId, room?.startedAt, room?.status, room?.hostId, user?.role, user?.uid]);
 
+    usePublicPlayerStates(room,!!user&&roomSyncState==='synced',setRoom,setError);
     useSharedPromptResponses({ room, user, setRoom, setError, finalize: finalizeSubcollectionSharedPrompt });
 
     // 生成 6 位數房間碼
@@ -1744,6 +1347,23 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         return code;
     }, []);
+
+    const adoptCreatedRoom = useCallback((createdRoom:Room) => {
+        resumeSuppressedRoomRef.current=null;
+        roomListenerTokenRef.current=createdRoom.id;
+        activeRoomScopeRef.current=getRoomSessionScope(createdRoom);
+        localStorage.setItem(`active_room_${createdRoom.hostId}`,createdRoom.id);
+        setRoom(createdRoom);
+    },[]);
+
+    const recoverRoomCreation = useCallback(async (retry=false):Promise<boolean> => {
+        if(!user?.uid)return false;
+        const recovered=await recoverRoomCreationOnServer(retry);
+        if(!recovered)return false;
+        if(recovered.room.hostId!==user.uid)throw new Error('登入帳號已變更，請登入原帳號恢復房間。');
+        if(room?.id&&room.id!==recovered.roomId&&room.status!=='finished')throw new Error('請先處理目前房間，再恢復原開房操作。');
+        adoptCreatedRoom(recovered.room);setError(null);return true;
+    },[user?.uid,room?.id,room?.status,adoptCreatedRoom]);
 
     const createRoom = useCallback(async (settings?: { name: string; maxPlayers: number; duration: number; isPractice?: boolean; isBoardGame?: boolean }) => {
         if (!user) throw new Error('請先登入');
@@ -1782,6 +1402,12 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
             }
 
+            if(settings?.isBoardGame&&!settings.isPractice&&import.meta.env.VITE_SERVER_GAME_ROOMS==='true'){
+                const created=await createRoomOnServer({name:settings.name,maxPlayers:settings.maxPlayers,duration:settings.duration});
+                if(created.room.hostId!==user.uid)throw new Error('登入帳號已變更，請登入原帳號恢復房間。');
+                adoptCreatedRoom(created.room);
+                return created.roomId;
+            }
             const roomCode = await generateRoomCode();
             const newRoom: Room = {
                 id: roomCode,
@@ -1850,10 +1476,17 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             setIsLoadingRoom(false);
         }
-    }, [room, user, generateRoomCode]);
+    }, [room, user, generateRoomCode,adoptCreatedRoom]);
 
     const setRoomPlayerSlotOpen = async (slotIndex: number, isOpen: boolean) => {
         if (!room?.id || !user) throw new Error('請先進入房間');
+        const compatibilityError=getRoomCompatibilityError(room);
+        if(compatibilityError){setError(compatibilityError);throw new Error(compatibilityError);}
+        if(room.bankingAuthority==='server-banking-v1'){
+            try{await submitRoomMembership(room,user.uid,{type:'setRoomSlot',slotIndex,isOpen});setError(null);}
+            catch(error){setError((error as Error).message);throw error;}
+            return;
+        }
         const roomRef = doc(db, 'rooms', room.id);
         try {
             await runTransaction(db, async transaction => {
@@ -1885,6 +1518,21 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoadingRoom(true);
         setError(null);
         try {
+            const initial=await getDocFromServer(doc(db,'rooms',roomCode));
+            if(!initial.exists())throw new Error('此房間不存在');
+            const candidate=initial.data() as Room,compatibilityError=getRoomCompatibilityError(candidate);
+            if(compatibilityError)throw new Error(compatibilityError);
+            if(candidate.bankingAuthority==='server-banking-v1'){
+                if(auth.currentUser?.uid!==user.uid)throw new Error('登入帳號已變更，請重新確認房間。');
+                if(!candidate.members.some(member=>member.uid===user.uid&&!member.isLeft))await submitRoomMembership(candidate,user.uid,{type:'joinRoom'});
+                const latest=await getDocFromServer(doc(db,'rooms',roomCode)),joined=latest.data() as Room;
+                if(auth.currentUser?.uid!==user.uid||!latest.exists()||joined.sessionId!==candidate.sessionId||!joined.members.some(member=>member.uid===user.uid&&!member.isLeft))throw new Error('加入結果尚待確認，請沿用原房號重試。');
+                resumeSuppressedRoomRef.current=null;
+                roomListenerTokenRef.current=roomCode;
+                activeRoomScopeRef.current=getRoomSessionScope(joined);
+                localStorage.setItem(`active_room_${user.uid}`,roomCode);setRoom(joined);
+                return;
+            }
             const newMember: RoomMember = {
                 uid: user.uid,
                 name: user.name,
@@ -1940,7 +1588,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setRoom(joinedRoom);
         } catch (err: any) {
             const message = err?.code === 'permission-denied'
-                ? '目前頁面的登入狀態無法讀取房間，請在此網址重新登入後再試一次'
+                ? '目前無法讀取此房間，請核對房號、是否已開始，以及登入帳號資格'
                 : err?.message || '加入房間失敗';
             setError(message);
             throw new Error(message);
@@ -1951,6 +1599,14 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const leaveRoom = async () => {
         if (!user || !room) return;
+        const compatibilityError=getRoomCompatibilityError(room);
+        if(compatibilityError){setError(compatibilityError);throw new Error(compatibilityError);}
+        if(room.bankingAuthority==='server-banking-v1'){
+            try{if(room.status!=='playing')await submitRoomMembership(room,user.uid,{type:'leaveRoom'});}
+            catch(error){setError((error as Error).message);throw error;}
+            // During a game, leaving the screen retains the seat and confirmed workflow.
+            resumeSuppressedRoomRef.current=room.id;setRoom(null);localStorage.removeItem(`active_room_${user.uid}`);return;
+        }
         const roomId = room.id;
         try {
             const roomRef = doc(db, 'rooms', roomId);
@@ -1983,6 +1639,16 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const startRoomGame = async () => {
         if (!room || user?.uid !== room.hostId) return;
+        const compatibilityError=getRoomCompatibilityError(room);
+        if(compatibilityError){setError(compatibilityError);return;}
+        if(room.bankingAuthority==='server-banking-v1'){
+            try{
+                const result=await submitServerGameCommand<any>({type:'startRoom',roomId:room.id,sessionId:room.sessionId,commandId:`start:${room.sessionId}:${user.uid}`});
+                if(!['applied','duplicate'].includes(result.status))throw new Error(result.reason||'開始遊戲尚待確認，請查核原操作。');
+                setError(null);
+            }catch(error){setError((error as Error).message||'開始遊戲失敗，請查核原操作。');}
+            return;
+        }
         const targetRoomId = room.id;
         const requestedStartedAt = serverNow();
         const requestedSessionId = `${targetRoomId}_${requestedStartedAt}`;
@@ -2095,6 +1761,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         const boardState = room.boardState;
+        if(room.movementAuthority==='server-movement-v1') {
+            const result=await submitServerGameCommand<any>({type:'rollBoard',roomId:room.id,sessionId:room.sessionId,commandId:`roll:${user.uid}:${boardState.revision||0}`,revision:boardState.revision||0,...(requestedDiceCount?{diceCount:requestedDiceCount}:{})});
+            if(!['applied','duplicate'].includes(result.status))throw new Error(result.message||'擲骰結果尚待確認');
+            return result;
+        }
         if (boardState.movement?.isActive) {
             throw new Error('目前角色仍在移動中');
         }
@@ -2280,6 +1951,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const rollRepairFee = async (eventId: string): Promise<{ roll: number; fee: number }> => {
         if (!room?.id || !user) throw new Error('維修廠事件尚未準備完成');
+        if(room.bankingAuthority==='server-banking-v1')return submitServerGameCommand({type:'rollService',roomId:room.id,sessionId:room.sessionId,eventId,kind:'repair',commandId:`repair-roll:${eventId}:${user.uid}`});
         const candidateRoll = rollBoardDie();
         const commandId = `repair-roll:${eventId}:${user.uid}`;
         const result = await runRoomBoardMutation({
@@ -2339,6 +2011,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const rollHospitalFee = async (eventId: string): Promise<{ roll: number; fee: number }> => {
         if (!room?.id || !room.isBoardGame || !user) throw new Error('醫院事件尚未準備完成');
+        if(room.bankingAuthority==='server-banking-v1')return submitServerGameCommand({type:'rollService',roomId:room.id,sessionId:room.sessionId,eventId,kind:'hospital',commandId:`hospital-roll:${eventId}:${user.uid}`});
         const candidateRoll = rollBoardDie();
         const commandId = `hospital-roll:${eventId}:${user.uid}`;
         const result = await runRoomBoardMutation<{ roll: number; fee: number }, Room>({
@@ -2403,6 +2076,12 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sourceEventId?: string;
     }): Promise<BoardDiceRollResult> => {
         if (!room?.id || !room.isBoardGame || !room.boardState || !user) throw new Error('升等骰子尚未準備完成');
+        if(room.bankingAuthority==='server-banking-v1') {
+            if(!canMutateCurrentRoom()||!payload.sourceEventId)throw new Error('學習事件尚未準備完成');
+            const result=await submitServerGameCommand<BoardDiceRollResult & {status:string}>({type:payload.kind==='normal'?'rollSchool':'rollLearning',roomId:room.id,sessionId:room.sessionId,eventId:payload.sourceEventId,commandId:`skill-roll:${room.sessionId}:${user.uid}:${payload.kind}:${payload.sourceEventId}`});
+            if(!['applied','duplicate'].includes(result.status))throw new Error('學習結果尚待確認');
+            return result;
+        }
         const candidateRoll = rollBoardDie();
         const commandId = `skill-roll:${room.sessionId || room.id}:${user.uid}:${payload.kind}:${payload.sourceEventId || room.boardState.revision || 0}`;
         const presentationKind: DicePresentationEvent['kind'] = payload.kind === 'normal' ? 'school-exam' : 'lifelong-learning';
@@ -2535,9 +2214,14 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const finishRoomGame = async () => {
-        if (!canMutateCurrentRoom()) return;
-        if (!room || user?.uid !== room.hostId) return;
+        if (!canMutateCurrentRoom()) throw new Error('此分頁目前無法結束遊戲');
+        if (!room || user?.uid !== room.hostId) throw new Error('只有本場執行師可以結束遊戲');
         try {
+            if(room.bankingAuthority==='server-banking-v1'){
+                await submitRoomLifecycle(room,user.uid,'finishRoom');
+                setError(null);
+                return;
+            }
             await safeAsync(updateDoc(doc(db, 'rooms', room.id), {
                 status: 'finished'
             }));
@@ -2550,15 +2234,25 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await batch.commit();
         } catch (err: any) {
             setError(err.message);
+            throw err;
         }
     };
 
     const closeRoom = async () => {
-        if (!canMutateCurrentRoom()) return;
-        if (!room || user?.uid !== room.hostId) return;
+        if (!canMutateCurrentRoom()) throw new Error('此分頁目前無法關閉房間');
+        if (!room || user?.uid !== room.hostId) throw new Error('只有本場執行師可以關閉房間');
         const roomId = room.id;
         isClosingRoomRef.current = true;
         try {
+            if(room.bankingAuthority==='server-banking-v1'){
+                await submitRoomLifecycle(room,user.uid,'closeRoom');
+                resumeSuppressedRoomRef.current=roomId;
+                if(roomListenerTokenRef.current===roomId)roomListenerTokenRef.current=null;
+                setRoom(current=>current?.id===roomId&&current.sessionId===room.sessionId?null:current);
+                if(localStorage.getItem(`active_room_${user.uid}`)===roomId)localStorage.removeItem(`active_room_${user.uid}`);
+                setError(null);
+                return;
+            }
             const roomRef = doc(db,'rooms',roomId);
             const [snapshot,diagnostics,requests] = await Promise.all([getDoc(roomRef),
                 getDocs(collection(db,'rooms',roomId,'diagnostics')),getDocs(collection(db,'rooms',roomId,'pendingRequests'))]);
@@ -2597,6 +2291,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!canMutateCurrentRoom()) return {status:'failed',message:'此分頁目前為唯讀'};
         if (!room?.id || !user) return {status:'failed',message:'房間或登入資料尚未完成'};
         const commandId = `card-purchase:${eventId}:${user.uid}:${cardId}`;
+        if(room.bankingAuthority==='server-banking-v1')return submitServerBanking(room,user.uid,commandId,{type:'purchaseRealEstate',source:'current',eventId,cardId,toSelfUse:txData.assetDetails?.isSelfUse===true,...(txData.fundingLoanAmount?{fundingLoanAmount:txData.fundingLoanAmount}:{})});
         try { return await runRoomBoardMutation<BoardFinancialMutationResult,Room>({
             db,
             roomId: room.id,
@@ -2649,6 +2344,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!room || !user) return { status: 'failed', message: '目前沒有可用的房間連線' };
 
         const commandId = `market-purchase:${room.id}:${user.uid}:${cardId}:${attemptId}`;
+        if(room.bankingAuthority==='server-banking-v1')return submitServerBanking(room,user.uid,commandId,{type:'purchaseRealEstate',source:'market',cardId,toSelfUse:txData.assetDetails?.isSelfUse===true,...(txData.fundingLoanAmount?{fundingLoanAmount:txData.fundingLoanAmount}:{})});
         try {
             return await runRoomBoardMutation<BoardFinancialMutationResult, Room>({
                 db,
@@ -2714,6 +2410,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!canMutateCurrentRoom()) return { status: 'failed', message: '此分頁目前為唯讀' };
         if (!room || !user) return { status: 'failed', message: '目前沒有可用的房間連線' };
 
+        if(room.bankingAuthority==='server-banking-v1')return completeOpportunityCard(eventId,cardId,'accept',assetId?{assetId}:{});
         const commandId = `vehicle-loss:${room.id}:${eventId}:${user.uid}`;
         try {
             return await runRoomBoardMutation<BoardFinancialMutationResult, Room>({
@@ -2769,6 +2466,18 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const completeOpportunityCard = async (eventId:string,cardId:string,choice:'accept'|'dismiss',payload:{assetId?:string;fundingLoanAmount?:number;forcedDebtAmount?:number}={}):Promise<BoardFinancialMutationResult> => {
+        if(!room?.id||!user||!canMutateCurrentRoom()||room.bankingAuthority!=='server-banking-v1')return {status:'failed',message:'目前分頁或房間無法提交機運卡'};
+        try{return await submitServerGameCommand<BoardFinancialMutationResult>({type:'opportunityCard',roomId:room.id,sessionId:room.sessionId,eventId,cardId,choice,commandId:`opportunity:${room.sessionId}:${eventId}:${choice}`,...payload});}
+        catch(error:any){return {status:isUncertainGameCommandError(error)?'waiting':'failed',message:error?.message||'機運卡尚待確認'};}
+    };
+
+    const submitMedicalCardOperation = async (data:{type:'payMedicalCard'|'finishMedicalCard'|'claimMedical';commandId:string;eventId?:string;cardId?:string;claimId?:string;fundingLoanAmount?:number;forcedDebtAmount?:number}):Promise<BoardFinancialMutationResult> => {
+        if(!room?.id||!user||!canMutateCurrentRoom())return {status:'failed',message:'目前分頁或房間無法提交'};
+        try{return await submitServerGameCommand<BoardFinancialMutationResult>({...data,roomId:room.id,sessionId:room.sessionId});}
+        catch(error:any){const status=isUncertainGameCommandError(error)?'waiting':'failed';setError(error?.message||'醫療事件尚待確認');return {status,message:error?.message||'醫療事件尚待確認'};}
+    };
+
     const completeMedicalBoardCardAction = async (
         eventId: string,
         cardId: string,
@@ -2779,6 +2488,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return { status: 'failed', message: '目前沒有可用的棋盤房間' };
         }
 
+        if(room.bankingAuthority==='server-banking-v1'){
+            const sourceEventId=txData.boardSourceEventId||eventId,sourceCardId=txData.boardSourceCardId||cardId;
+            return submitMedicalCardOperation({type:'payMedicalCard',eventId:sourceEventId,cardId:sourceCardId,commandId:`medical-pay:${room.sessionId}:${sourceEventId}`,...(txData.fundingLoanAmount?{fundingLoanAmount:txData.fundingLoanAmount}:{}),...(txData.forcedDebtAmount?{forcedDebtAmount:txData.forcedDebtAmount}:{})});
+        }
         const commandId = `medical-card:${room.sessionId || room.id}:${eventId}:${user.uid}:${cardId}`;
         try {
             return await runRoomBoardMutation<BoardFinancialMutationResult, Room>({
@@ -2854,6 +2567,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const roomRef = doc(db, 'rooms', room.id);
             const commandId = originalCommandId || `coach-market:${user.uid}:${crypto.randomUUID()}`;
+            if(room.bankingAuthority==='server-banking-v1')return submitCoachFinancialCommand(commandId,{type:'coachMarket',code});
             const timestamp = serverNow();
             const sessionId = room.sessionId;
             const nextMarketState = await executeWithLock(() => runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
@@ -2891,6 +2605,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return executeWithLock(async () => {
             if (!room?.id || !room.isBoardGame || !room.boardState || !user) {
                 throw new Error('棋盤房間尚未準備完成');
+            }
+            if(room.promptCompletionAuthority==='server-prompts-v1') {
+                if(!canMutateCurrentRoom())throw new Error('此分頁目前無法提交翻牌');
+                return submitServerGameCommand<BoardCardRevealResult>({type:'revealCard',roomId:room.id,sessionId:room.sessionId,eventId,cardId,commandId:`reveal:${eventId}:${cardId}:atomic`});
             }
 
             const familyCard = HAPPINESS_CARD_MAP[cardId];
@@ -2942,10 +2660,27 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }, `reveal:${room?.id}:${eventId}:${cardId}`);
     };
 
-    const advanceBoardEventQueue = async (expectedType?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup') => executeWithLock(async () => {
+    const advanceBoardEventQueue = async (expectedType?: 'bank' | 'school' | 'hospital' | 'repair' | 'card' | 'exam_happiness' | 'followup', expectedEventId?:string) => executeWithLock(async () => {
+        if(room?.bankingAuthority==='server-banking-v1'&&(expectedType==='hospital'||expectedType==='repair')) {
+            if(!user||!canMutateCurrentRoom()||(!expectedEventId&&room.boardState?.currentEvent?.type!==expectedType))return false;
+            const eventId=expectedEventId||room.boardState!.currentEvent!.id;
+            try {const result=await submitServerGameCommand<{status:string;message?:string}>({type:'finishService',roomId:room.id,sessionId:room.sessionId,eventId,kind:expectedType,commandId:`service-finish:${room.sessionId}:${eventId}`});if(!['applied','duplicate'].includes(result.status)){setError(result.message||'格子事件尚未完成');return false;}return true;}
+            catch(error:any){setError(error?.message||'格子事件尚未確認');return false;}
+        }
+        if(room?.bankingAuthority==='server-banking-v1'&&expectedType==='school') {
+            if(!user||!canMutateCurrentRoom()||!room.boardState?.currentEvent)return false;
+            const eventId=room.boardState.currentEvent.id;
+            try {
+                const result=await submitServerGameCommand<{status:string;message?:string}>({type:'skipSchool',roomId:room.id,sessionId:room.sessionId,eventId,commandId:`school-skip:${room.sessionId}:${eventId}`});
+                if(!['applied','duplicate'].includes(result.status)){setError(result.message||'學校流程尚未完成');return false;}
+                return true;
+            } catch(error:any){setError(error?.message||'學校流程尚未完成');return false;}
+        }
+
         if (!room?.id || !room.isBoardGame || !room.boardState) return false;
 
         const { boardState } = room;
+        if(expectedEventId&&boardState.currentEvent?.id!==expectedEventId)return false;
         if (expectedType && boardState.currentEvent?.type !== expectedType) return false;
 
         // Event Completion Guard: Ensure no pending shared events
@@ -3039,6 +2774,12 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             throw new Error('棋盤房間尚未同步完成');
         }
         const commandId = `turn-end:${user.uid}:${room.boardState.revision || 0}`;
+        if(room.movementAuthority==='server-movement-v1') {
+            const result=await submitServerGameCommand<any>({type:'endTurn',roomId:room.id,sessionId:room.sessionId,commandId,revision:room.boardState.revision||0});
+            if(!['applied','duplicate'].includes(result.status))throw new Error(result.message||'回合尚未完成');
+            return;
+        }
+
 
         await runRoomBoardMutation({
             db,
@@ -3060,7 +2801,42 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             boardState.currentEvent?.id === eventId &&
             boardState.currentCard?.cardId === cardId;
 
+        if(room.bankingAuthority==='server-banking-v1'&&HAPPINESS_CARD_MAP[cardId]?.requiresStorySharing) {
+            const approved=Object.values(pendingRequests).some(r=>r.type==='happiness'&&r.boardEventId===eventId&&r.status==='approved');
+            const type=approved?'finishStory':'declineStory';
+            return submitSharingOperation({type,eventId,cardId,commandId:`${type}:${room.sessionId}:${eventId}`});
+        }
+        const happiness=HAPPINESS_CARD_MAP[cardId];
+        if(room.bankingAuthority==='server-banking-v1'&&happiness&&(happiness.category!=='家庭重要歷程'||!boardState.familyMilestoneJoinPrompt)&&!happiness.requiresStorySharing){
+            const result=await submitHappinessCardOperation(eventId,cardId,'dismiss');return ['applied','duplicate'].includes(result.status);
+        }
+        if(room.bankingAuthority==='server-banking-v1'&&OPPORTUNITY_CARD_MAP[cardId]?.type==='medical'){
+            const result=await submitMedicalCardOperation({type:'finishMedicalCard',eventId,cardId,commandId:`medical-finish:${room.sessionId}:${eventId}`});return ['applied','duplicate'].includes(result.status);
+        }
+        if(room.bankingAuthority==='server-banking-v1'&&isStandaloneOpportunityCard(cardId)){const result=await completeOpportunityCard(eventId,cardId,'dismiss');return ['applied','duplicate'].includes(result.status);}
+        if(room.bankingAuthority==='server-banking-v1'&&cardId==='C054')return submitSharingOperation({type:'declineFollowup',cardId,eventId,commandId:`followup-decline:${room.sessionId}:${eventId}`});
         if (!isCurrentCard) return false;
+        if(room.bankingAuthority==='server-banking-v1'&&boardState.currentCard?.deck==='news'&&NEWS_CARD_MAP[cardId]?.type==='real_estate'){
+            if(!user||!canMutateCurrentRoom())return false;
+            const result=await submitServerBanking(room,user.uid,`real-estate-decline:${room.sessionId}:${eventId}`,{type:'declineRealEstate',eventId,cardId});
+            if(!['applied','duplicate'].includes(result.status)){setError(result.message||'不動產卡片尚未結案');return false;}return true;
+        }
+        if(room.bankingAuthority==='server-banking-v1'&&boardState.currentCard?.deck==='news'&&NEWS_CARD_MAP[cardId]?.type==='stock_price'){
+            if(!user||!canMutateCurrentRoom())return false;
+            try{
+                const result=await submitServerGameCommand<{status:string;message?:string}>({type:'finishMarket',roomId:room.id,sessionId:room.sessionId,eventId,cardId,commandId:`market-finish:${room.sessionId}:${eventId}`});
+                if(!['applied','duplicate'].includes(result.status)){setError(result.message||'股市事件尚未結案');return false;}return true;
+            }catch(error:any){setError(error?.message||'股市事件尚未結案');return false;}
+        }
+        if(room.bankingAuthority==='server-banking-v1'&&cardId==='C056')return submitSharingOperation({type:'declineFollowup',eventId,commandId:`followup-decline:${room.sessionId}:${eventId}`});
+        if(room.bankingAuthority==='server-banking-v1'&&boardState.currentCard?.deck==='opportunity'&&['ability_profession','ability_stock','ability_realestate'].includes(OPPORTUNITY_CARD_MAP[cardId]?.type)) {
+            const type=boardState.pendingContinuation?.kind==='lifelong-learning'?'finishLearning':'declineLearning';
+            try {
+                const result=await submitServerGameCommand<{status:string;message?:string}>({type,roomId:room.id,sessionId:room.sessionId,eventId,commandId:`${type}:${room.sessionId}:${eventId}`});
+                if(!['applied','duplicate'].includes(result.status)){setError(result.message||'學習卡尚未完成');return false;}
+                return true;
+            }catch(error:any){setError(error?.message||'學習卡尚未完成');return false;}
+        }
 
         if (hasIncompleteSharedPrompts(boardState)) return false;
         const commandId = `dismiss:${eventId}:${cardId}${addToRealEstateMarket ? ':market' : ''}`;
@@ -3112,6 +2888,14 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, `dismiss:${room?.id}:${eventId}:${cardId}`)) ?? false;
 
     const drawPostExamHappinessCard = async (success: boolean) => {
+        if(room?.bankingAuthority==='server-banking-v1') {
+            if(!user||!canMutateCurrentRoom()||!room.boardState?.currentEvent)return false;
+            const eventId=room.boardState.currentEvent.id;
+            const result=await submitServerGameCommand<{status:string;message?:string}>({type:'finishSchool',roomId:room.id,sessionId:room.sessionId,eventId,commandId:`school-finish:${room.sessionId}:${eventId}`});
+            if(!['applied','duplicate'].includes(result.status))throw new Error(result.message||'考試接續尚未完成');
+            return true;
+        }
+
         if (!canMutateCurrentRoom()) return;
         if (!room?.id || !room.isBoardGame || !user) return;
         const commandId = `draw-post:${room.boardState?.currentEvent?.id || 'none'}:${success ? 'success' : 'failure'}`;
@@ -3177,6 +2961,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const pending = room.boardState?.pendingContinuation;
         const sourceEventId = pending?.kind === 'followup-card' ? pending.sourceEventId : room.boardState?.currentEvent?.id;
         const commandId = `draw-followup:${sourceEventId || 'none'}:${deck}`;
+        if(room.bankingAuthority==='server-banking-v1'&&pending?.cardId==='C056')return submitSharingOperation({type:'drawFollowup',eventId:sourceEventId,commandId});
 
         // H1：同 drawPostExamHappinessCard，改用交易避免用過期的本地 deckState
         // 快照覆寫掉並發寫入的 boardState，或抽到已經被抽走的卡片。
@@ -3371,6 +3156,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
 const finalizeFamilyMilestoneJoinPrompt = useCallback(async (promptId: string) => {
+        if (room?.promptCompletionAuthority === 'server-prompts-v1') {
+            const result = await safeAsync(finalizeServerPrompt(room, promptId), null);
+            return result?.status === 'applied' || result?.status === 'duplicate';
+        }
         if (!room?.id || !user) return false;
         if (room.hostId !== user.uid && user.role !== 'coach' && user.role !== 'gm') return false;
 
@@ -3408,7 +3197,7 @@ const finalizeFamilyMilestoneJoinPrompt = useCallback(async (promptId: string) =
             }
         }), false);
     return result === true;
-}, [room?.id, room?.hostId, room?.sessionId, user?.uid, user?.role]);
+}, [room?.id, room?.hostId, room?.sessionId, room?.promptCompletionAuthority, room?.boardState?.currentEvent?.id, user?.uid, user?.role]);
 
 // schema v2 家庭歷程回覆各自監聽 response 文件；房主／執行師讀完整集合，
 // 玩家只讀自己的文件，避免多人同時擲骰改寫同一個房間 Map。
@@ -3498,6 +3287,12 @@ useEffect(() => {
         if (!prompt.targetPlayerUids.includes(user.uid)) return false;
         if (payload.roll !== undefined && (!Number.isInteger(payload.roll) || payload.roll < 1 || payload.roll > 6)) return false;
 
+        if(room.promptCompletionAuthority==='server-prompts-v1') {
+            try {
+                const result=await submitServerGameCommand<{response:FamilyMilestoneJoinResponse}>({type:'familyRespond',roomId:room.id,sessionId:room.sessionId,eventId:prompt.sourceEventId,promptId:prompt.id,commandId:`family-response:${prompt.id}:${user.uid}`,choice:payload.status==='declined'?'decline':'roll'});
+                return result.response;
+            } catch(error:any) {familyJoinSubmitErrorRef.current=error?.message||'家庭回覆未確認';setError(familyJoinSubmitErrorRef.current);return false;}
+        }
         let shouldFinalizeFamilyPrompt = false;
         familyJoinSubmitErrorRef.current = '';
         let result: FamilyMilestoneJoinResponse | false;
@@ -3623,6 +3418,11 @@ useEffect(() => {
         if (!user?.uid || !room.boardState.familyMilestoneJoinPrompt.targetPlayerUids.includes(user.uid)) {
             throw new Error('目前玩家不是此家庭歷程的參與對象');
         }
+        if(room.promptCompletionAuthority==='server-prompts-v1') {
+            const response=await submitFamilyMilestoneJoinResponse({promptId,cardId,status:'failed'});
+            if(!response || response.roll===undefined || !['passed','failed'].includes(response.status))throw new Error(familyJoinSubmitErrorRef.current||'家庭骰點尚未確認');
+            return {roll:response.roll,status:response.status as 'passed'|'failed',presentationReadyAt:response.presentationReadyAt||getFamilyDicePresentationReadyAt(response.respondedAt)};
+        }
         const roll = rollBoardDie();
         const status = roll >= room.boardState.familyMilestoneJoinPrompt.requiredRoll ? 'passed' : 'failed';
         const submitted = await submitFamilyMilestoneJoinResponse({
@@ -3646,7 +3446,17 @@ useEffect(() => {
         };
     };
 
+    const confirmServerFamilyAction = async (promptId:string):Promise<boolean> => {
+        if(!room || !user)return false;
+        try {
+            const result=await submitServerGameCommand<{status:string;message?:string}>({type:'familyConfirm',roomId:room.id,sessionId:room.sessionId,eventId:promptId,promptId,commandId:`family-confirm:${promptId}:${user.uid}`});
+            if(result.status==='waiting'){setError(result.message||'家庭歷程結果尚待確認');return false;}
+            return result.status==='duplicate';
+        } catch(error:any){setError(error?.message||'家庭歷程結果尚待確認');return false;}
+    };
+
     const clearPendingFamilyMilestoneJoinAction = async (promptId: string) => {
+        if(room?.promptCompletionAuthority==='server-prompts-v1')return confirmServerFamilyAction(promptId);
         if (!canMutateCurrentRoom()) return false;
         if (!room?.id || !user) return false;
 
@@ -3723,6 +3533,7 @@ useEffect(() => {
     };
 
     const markFamilyMilestoneSourceActionCompleted = async (promptId: string) => {
+        if(room?.promptCompletionAuthority==='server-prompts-v1')return confirmServerFamilyAction(promptId);
         if (!canMutateCurrentRoom()) return false;
         if (!room?.id || !room.isBoardGame || !user) return false;
 
@@ -3765,6 +3576,13 @@ useEffect(() => {
         const failedResult = (message: string) => ({ status: 'failed' as const, message });
         if (!canMutateCurrentRoom()) return failedResult('此分頁目前為唯讀');
         if (!room?.id || !room.isBoardGame || !user) return failedResult('目前沒有可同步的家庭歷程事件');
+
+        if(room.promptCompletionAuthority==='server-prompts-v1') {
+            const prompt=room.boardState?.familyMilestoneJoinPrompt;
+            if(!prompt || prompt.id!==payload.promptId)return failedResult('家庭歷程事件已更新');
+            try {return await submitServerGameCommand<{status:'applied'|'duplicate'|'requires_funding'|'waiting'|'failed';shortfall?:number;message?:string}>({type:'familyAction',roomId:room.id,sessionId:room.sessionId,eventId:prompt.sourceEventId,...payload,commandId:`family-action:${prompt.id}:${user.uid}:${payload.accepted?'accept':'decline'}`});}
+            catch(error:any){return {status:isUncertainGameCommandError(error)?'waiting' as const:'failed' as const,message:error?.message||'家庭歷程結果尚待確認'};}
+        }
 
         try {
             const result = await runRoomBoardMutation<{
@@ -3938,6 +3756,15 @@ useEffect(() => {
         }
     };
 
+    const submitServerSharedAction = async (promptId:string,choice:'accept'|'decline'|'no_effect',selection:Record<string,unknown>={}):Promise<BoardFinancialMutationResult> => {
+        if(!room||!user||!canMutateCurrentRoom())return {status:'failed',message:'目前分頁無法提交共享操作'};
+        const prompt=room.boardState?.sharedCardPrompt;
+        if(prompt?.id!==promptId)return {status:'failed',message:'共享事件已更新，請核對最新狀態'};
+        try {
+            return await submitServerGameCommand<BoardFinancialMutationResult>({type:'sharedAction',roomId:room.id,sessionId:room.sessionId,eventId:prompt.sourceEventId,promptId,commandId:`shared:${room.sessionId}:${promptId}:${user.uid}`,choice,...selection});
+        }catch(error:any){const message=error?.message||'共享操作尚未確認，請保留原選擇重試',code=String(error?.code||'internal').replace(/^functions\//,'');setError(message);return {status:isUncertainGameCommandError(error)?'waiting':'failed',code,message};}
+    };
+
     const submitSharedCardPromptResponse = async (payload: {
         promptId: string;
         status: 'completed' | 'declined' | 'no_effect';
@@ -3946,6 +3773,11 @@ useEffect(() => {
         note?: string;
     }): Promise<boolean> => {
         if (!room?.id || !room.isBoardGame || !room.boardState || !user) return false;
+        if(room.promptCompletionAuthority==='server-prompts-v1') {
+            if(payload.status==='completed'){setError('共享財務尚未確認，請從本人財務檢核完成');return false;}
+            const result=await submitServerSharedAction(payload.promptId,payload.status==='declined'?'decline':'no_effect');
+            return result.status==='applied'||result.status==='duplicate';
+        }
 
         const prompt = room.boardState.sharedCardPrompt;
         if (!prompt || prompt.id !== payload.promptId) return false;
@@ -4149,6 +3981,7 @@ useEffect(() => {
         if (!room?.id || !room.isBoardGame || !user) return { status: 'failed', message: '目前沒有可用的棋盤房間' };
 
         const commandId = `shared-investment:${promptId}:${user.uid}`;
+        if(room.promptCompletionAuthority==='server-prompts-v1')return submitServerSharedAction(promptId,'accept',{amount:txData.amount,...(txData.fundingLoanAmount?{fundingLoanAmount:txData.fundingLoanAmount}:{}),...(txData.forcedDebtAmount?{forcedDebtAmount:txData.forcedDebtAmount}:{})});
         try {
             return await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
                 const roomRef = doc(db, 'rooms', room.id);
@@ -4222,7 +4055,14 @@ useEffect(() => {
         }
     };
 
+    const completeManualFinancialTransaction = (txData:TransactionData):Promise<BoardFinancialMutationResult> => {
+        const handler=getPersonalFinancialHandler(txData);
+        const handlers={completeTargetEnterprisePurchase,completeDreamPurchase,completeAssetSale,completeInsurancePurchase,completeDepositPurchase,completeStockTrade,completeLoanBorrow,completeLoanRepayment,completeDepositWithdrawal,completeCarPurchase};
+        return handler?handlers[handler](txData):Promise.resolve({status:'failed',code:'unsupported-server-operation',message:'此交易尚未有受驗證的後端處理，未提交入帳'});
+    };
+
     const completePlayerOnlyTransaction = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
+        if(room?.bankingAuthority==='server-banking-v1')return completeManualFinancialTransaction(txData);
         const operationId=txData.boardEventId || txData.commandId;
         if(!operationId) return {status:'failed',message:'交易缺少識別碼，請重新操作'};
         const commandId=`fin-player:${room?.sessionId || room?.id}:${user?.uid}:${operationId}`;
@@ -4242,6 +4082,7 @@ useEffect(() => {
         if (!room?.id || !room.isBoardGame || !user) return { status: 'failed', message: '目前沒有可用的棋盤房間' };
 
         const commandId = `shared-tx:${promptId}:${user.uid}`;
+        if(room.promptCompletionAuthority==='server-prompts-v1')return submitServerSharedAction(promptId,'accept',{...(txData.fundingLoanAmount?{fundingLoanAmount:txData.fundingLoanAmount}:{}),...(txData.forcedDebtAmount?{forcedDebtAmount:txData.forcedDebtAmount}:{})});
         const sharedKinds: SharedCardPrompt['kind'][] = ['cash_dividend', 'stock_dividend', 'expense_adjustment'];
         try {
             return await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
@@ -4322,6 +4163,7 @@ useEffect(() => {
         if (!room?.id || !room.isBoardGame || !user) return false;
 
         const commandId = `startup-loan:${promptId}:${user.uid}`;
+        if(room.promptCompletionAuthority==='server-prompts-v1'){const result=await submitServerSharedAction(promptId,'accept');return result.status==='applied'||result.status==='duplicate';}
         if (room.syncSchemaVersion === 2 && room.boardState?.sharedCardPrompt?.responseStorage === 'subcollection') {
             try {
                 return await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
@@ -4403,6 +4245,7 @@ useEffect(() => {
         }
 
         const commandId = `shared-asset-sale:${promptId}:${user.uid}`;
+        if(room.promptCompletionAuthority==='server-prompts-v1')return submitServerSharedAction(promptId,'accept',{selectedAssetIds});
         try {
             if (room.syncSchemaVersion === 2 && room.boardState?.sharedCardPrompt?.responseStorage === 'subcollection') {
                 return await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
@@ -4477,7 +4320,8 @@ useEffect(() => {
         if (!canMutateCurrentRoom()) return { status: 'failed', message: '目前分頁為唯讀，無法購買目標企業' };
         if (!room?.id || !room.isBoardGame || !user) return { status: 'failed', message: '房間資料尚未準備完成' };
         const enterpriseId = room.playerStates?.[user.uid]?.selectedEnterprise?.id || 'unknown';
-        const commandId = data.boardEventId || `target-enterprise:${room.sessionId || room.id}:${user.uid}:${enterpriseId}`;
+        const commandId = data.commandId || data.boardEventId || `target-enterprise:${room.sessionId || room.id}:${user.uid}:${enterpriseId}`;
+        if(room.bankingAuthority==='server-banking-v1')return submitServerBanking(room,user.uid,commandId,{type:'purchaseEnterprise',enterpriseId,fundingLoanAmount:data.fundingLoanAmount,forcedDebtAmount:data.forcedDebtAmount});
         try {
             return await runRoomBoardMutation<BoardFinancialMutationResult, Room>({
                 db,
@@ -4503,6 +4347,12 @@ useEffect(() => {
         }
     };
 
+    const submitHappinessCardOperation = async (eventId:string,cardId:string,choice:'accept'|'dismiss',fundingLoanAmount?:number):Promise<BoardFinancialMutationResult> => {
+        if(!room?.id||!user||!canMutateCurrentRoom())return {status:'failed',message:'目前分頁或房間無法提交'};
+        try{return await submitServerGameCommand<BoardFinancialMutationResult>({type:'happinessCard',roomId:room.id,sessionId:room.sessionId,eventId,cardId,choice,commandId:`happiness:${room.sessionId}:${eventId}:${choice}`,...(fundingLoanAmount?{fundingLoanAmount}:{})});}
+        catch(error:any){const status=isUncertainGameCommandError(error)?'waiting':'failed';setError(error?.message||'幸福卡尚待確認');return {status,message:error?.message||'幸福卡尚待確認'};}
+    };
+
     const completeDirectHappinessCard = async (
         eventId: string,
         cardId: string,
@@ -4513,6 +4363,7 @@ useEffect(() => {
             return { status: 'failed', message: '目前沒有可用的棋盤房間' };
         }
 
+        if(room.bankingAuthority==='server-banking-v1')return submitHappinessCardOperation(eventId,cardId,'accept');
         const commandId = `happiness-card:${room.sessionId || room.id}:${eventId}:${user.uid}:${cardId}`;
         try {
             return await runRoomBoardMutation<BoardFinancialMutationResult, Room>({
@@ -4571,6 +4422,7 @@ useEffect(() => {
 
     const runPersonalFinance = (commandId: string, apply: (state: GameState, latestRoom: Room) => BoardFinancialMutationResult & {state?:GameState}) => {
         if (!canMutateCurrentRoom() || !room?.id || !user) return Promise.resolve({status:'failed' as const,message:'目前分頁或房間無法提交'});
+        if(room.bankingAuthority==='server-banking-v1')return Promise.resolve({status:'failed' as const,code:'unsupported-server-operation',message:'這項財務操作尚未移轉後端，未提交本機交易'});
         return runPrivateFinancialCommand<Room>({db,roomId:room.id,uid:user.uid,commandId,sessionId:room.sessionId,apply});
     };
 
@@ -4578,6 +4430,10 @@ useEffect(() => {
         const operationId = txData.commandId || txData.boardEventId;
         if (!operationId) return {status:'failed',message:'保險交易缺少操作識別碼'};
         const commandId = `insurance:${room?.sessionId || room?.id}:${user?.uid}:${operationId}`;
+        if(room?.bankingAuthority==='server-banking-v1'){
+            if(!user||!canMutateCurrentRoom())return {status:'failed',message:'目前無法提交保險交易'};
+            return submitServerBanking(room,user.uid,commandId,{type:'purchaseInsurance',insuranceType:txData.insuranceType as 'medical'|'house'|'aircraft',...(txData.insuranceType==='house'?{targetAssetIds:txData.insurancePayload?.targetAssetIds}: {})});
+        }
         return runPersonalFinance(commandId, (state, latestRoom) => {
             if (!state.bankServiceWindowActive && !isCurrentPlayerBankEvent(latestRoom.boardState!,user!.uid)) return {status:'failed',message:'請先經過銀行以辦理保險'};
             return {status:'applied',state:buildInsurancePurchaseState(state,txData,commandId)};
@@ -4588,6 +4444,10 @@ useEffect(() => {
         const operationId = txData.commandId || txData.boardEventId;
         if (!operationId) return {status:'failed',message:'定存交易缺少操作識別碼'};
         const commandId = `deposit:${room?.sessionId || room?.id}:${user?.uid}:${operationId}`;
+        if(room?.bankingAuthority==='server-banking-v1'){
+            if(!user||!canMutateCurrentRoom())return {status:'failed',message:'目前無法提交定存交易'};
+            return submitServerBanking(room,user.uid,commandId,{type:'purchaseDeposit',amount:Number(txData.amount)});
+        }
         return runPersonalFinance(commandId, (state, latestRoom) => {
             if (!state.bankServiceWindowActive && !isCurrentPlayerBankEvent(latestRoom.boardState!,user!.uid)) return {status:'failed',message:'請先經過銀行以辦理定存'};
             if (state.cash+txData.cashChange<0) return {status:'requires_funding',shortfall:Math.abs(state.cash+txData.cashChange),message:'現金不足，無法辦理定存'};
@@ -4595,9 +4455,27 @@ useEffect(() => {
         });
     };
 
+    const completeDreamPurchase = async (txData:TransactionData):Promise<BoardFinancialMutationResult> => {
+        if(!room||!user||!canMutateCurrentRoom()||(!txData.commandId&&!txData.boardEventId))return {status:'failed',message:'夢想付款缺少操作識別碼或資格'};
+        const dreamId=room.playerStates?.[user.uid]?.selectedDream?.id;
+        if(!dreamId)return {status:'failed',message:'夢想選擇尚未同步，請保留操作'};
+        return submitServerBanking(room,user.uid,`dream:${room.sessionId||room.id}:${user.uid}:${txData.commandId||txData.boardEventId}`,{type:'purchaseDream',dreamId});
+    };
+
+    const completeAssetSale = async (txData:TransactionData):Promise<BoardFinancialMutationResult> => {
+        if(!room||!user||!canMutateCurrentRoom()||(!txData.commandId&&!txData.boardEventId))return {status:'failed',message:'資產出售缺少操作識別碼或資格'};
+        const commandId=`asset-sale:${room.sessionId||room.id}:${user.uid}:${txData.commandId||txData.boardEventId}`;
+        return submitServerBanking(room,user.uid,commandId,{type:'sellAssets',sales:txData.batchSellList?.map(item=>({assetId:item.asset.id,price:item.price}))});
+    };
+
     const completeStockTrade = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
         if (!txData.commandId && !txData.boardEventId) return {status:'failed',message:'股票交易缺少操作識別碼'};
         const commandId=`stock:${room?.sessionId || room?.id}:${user?.uid}:${txData.commandId || txData.boardEventId}`;
+        if(room?.bankingAuthority==='server-banking-v1'){
+            if(!user||!canMutateCurrentRoom())return {status:'failed',message:'目前無法提交股票交易'};
+            if(!['asset','cash'].includes(txData.usage))return {status:'failed',message:'股票買賣方向無效'};
+            return submitServerBanking(room,user.uid,commandId,{type:'tradeStock',mode:txData.usage==='asset'?'buy':'sell',trades:txData.stockList?.map(t=>({symbol:t.symbol,qty:t.qty,expectedPrice:t.price}))});
+        }
         return runPersonalFinance(commandId,state=>({status:'applied',state:buildStockTradeState(state,txData,commandId)}));
     };
 
@@ -4614,6 +4492,7 @@ useEffect(() => {
     }): Promise<BoardFinancialMutationResult> => {
         if (!canMutateCurrentRoom()) return { status: 'failed', message: '此分頁目前為唯讀' };
         if (!room?.id || !room.isBoardGame || !user) return { status: 'failed', message: '目前沒有可用的棋盤房間' };
+        if(room.bankingAuthority==='server-banking-v1')return {status:'failed',code:'unsupported-server-operation',message:'這項財務操作尚未移轉後端'};
 
         try {
             return await runRoomBoardMutation<BoardFinancialMutationResult, Room>({
@@ -4665,6 +4544,10 @@ useEffect(() => {
 
     const completePaydayCollection = async (boardEventId: string): Promise<BoardFinancialMutationResult> => {
         const commandId = `fin-payday:${room?.sessionId || room?.id}:${user?.uid}:${boardEventId}`;
+        if(room?.bankingAuthority==='server-banking-v1') {
+            if(!user || !canMutateCurrentRoom() || !boardEventId.endsWith('_bank'))return {status:'failed',message:'目前無法提交銀行領款'};
+            return submitServerBanking(room,user.uid,commandId,{type:'collectPayday',eventId:boardEventId.slice(0,-5)});
+        }
         return runPersonalFinance(commandId,
             (state, latestRoom) => {
                 const result = applyPaydayCollection(
@@ -4679,8 +4562,18 @@ useEffect(() => {
         );
     };
 
+    const completeBankEvent = async (boardEventId:string):Promise<BoardFinancialMutationResult> => {
+        if(!room || !user || !canMutateCurrentRoom())return {status:'failed',message:'目前無法提交銀行結案'};
+        if(room.bankingAuthority!=='server-banking-v1')return (await advanceBoardEventQueue('bank'))?{status:'applied'}:{status:'failed',message:'銀行事件尚未完成'};
+        return submitServerBanking(room,user.uid,`bank-finish:${room.sessionId}:${boardEventId}`,{type:'finishBank',eventId:boardEventId});
+    };
+
     const completeHouseConversion = async (assetId: string, toSelfUse: boolean, operationId?: string): Promise<BoardFinancialMutationResult> => {
         const commandId = operationId || `house-conv:${room?.sessionId || room?.id}:${user?.uid}:${assetId}:${serverNow()}`;
+        if(room?.bankingAuthority==='server-banking-v1'){
+            if(!user||!canMutateCurrentRoom())return {status:'failed',message:'目前無法提交房屋用途轉換'};
+            return submitServerBanking(room,user.uid,commandId,{type:'convertHouse',assetId,toSelfUse});
+        }
         return runPersonalFinance(commandId,
             (state) => {
                 const result = applyHouseConversion(state, assetId, toSelfUse);
@@ -4690,8 +4583,15 @@ useEffect(() => {
         );
     };
 
+    const submitPersonalHappiness = async (commandId:string,data:{action:'toggle'|'add'|'remove';itemId?:string;checked?:boolean;label?:string;points?:number}):Promise<BoardFinancialMutationResult> => {
+        if(!room||!user||!canMutateCurrentRoom())return {status:'failed',message:'目前無法提交幸福清單操作'};
+        try{return await submitServerGameCommand<BoardFinancialMutationResult>({type:'personalHappiness',roomId:room.id,sessionId:room.sessionId,commandId,...data});}
+        catch(error:any){const code=String(error?.code||'internal').replace(/^functions\//,'');return {status:isUncertainGameCommandError(error)?'waiting':'failed',code,message:error?.message||'幸福清單操作尚待確認'};}
+    };
+
     const completeHappinessToggle = async (id: string, checked?: boolean, operationId?: string): Promise<BoardFinancialMutationResult> => {
         const commandId = operationId || `happiness-toggle:${room?.sessionId || room?.id}:${user?.uid}:${id}:${serverNow()}`;
+        if(room?.bankingAuthority==='server-banking-v1'){if(typeof checked!=='boolean')return {status:'failed',message:'請明確指定幸福項目狀態'};return submitPersonalHappiness(commandId,{action:'toggle',itemId:id,checked});}
         return runPersonalFinance(commandId,
             (state) => ({ status: 'applied', state: applyHappinessToggle(state, id, checked) })
         );
@@ -4699,6 +4599,7 @@ useEffect(() => {
 
     const completeHappinessAdd = async (label: string, points: number, operationId?: string): Promise<BoardFinancialMutationResult> => {
         const commandId = operationId || `happiness-add:${room?.sessionId || room?.id}:${user?.uid}:${serverNow()}`;
+        if(room?.bankingAuthority==='server-banking-v1')return submitPersonalHappiness(commandId,{action:'add',label,points});
         return runPersonalFinance(commandId,
             (state) => ({
                 status: 'applied',
@@ -4709,15 +4610,42 @@ useEffect(() => {
 
     const completeHappinessRemove = async (id: string, operationId?: string): Promise<BoardFinancialMutationResult> => {
         const commandId = operationId || `happiness-remove:${room?.sessionId || room?.id}:${user?.uid}:${id}:${serverNow()}`;
+        if(room?.bankingAuthority==='server-banking-v1')return submitPersonalHappiness(commandId,{action:'remove',itemId:id});
         return runPersonalFinance(commandId,
             (state) => ({ status: 'applied', state: applyHappinessRemove(state, id) })
         );
     };
 
     const completeBoardTransaction = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
+        if(room?.bankingAuthority==='server-banking-v1'&&txData.boardFlow==='manual-bank')return completeManualFinancialTransaction(txData);
         const operationId = txData.boardEventId || txData.commandId;
         if (!operationId) return { status: 'failed', message: '交易缺少識別碼，請重新操作' };
         const commandId = `fin:${room?.sessionId || room?.id}:${user?.uid}:${operationId}`;
+        if(room?.bankingAuthority==='server-banking-v1'&&txData.boardFlow==='insurance-claim'&&txData.medicalClaimId)return submitMedicalCardOperation({type:'claimMedical',claimId:txData.medicalClaimId,commandId});
+        if(room?.bankingAuthority==='server-banking-v1'&&(txData.boardFlow==='hospital'||txData.boardFlow==='repair')) {
+            if(!user||!canMutateCurrentRoom()||!txData.boardSourceEventId)return {status:'failed',message:'格子付款缺少來源事件，請重新開啟財務檢核'};
+            try {return await submitServerGameCommand<BoardFinancialMutationResult>({type:'payService',roomId:room.id,sessionId:room.sessionId,eventId:txData.boardSourceEventId,kind:txData.boardFlow,commandId,...(txData.fundingLoanAmount?{fundingLoanAmount:txData.fundingLoanAmount}:{}),...(txData.forcedDebtAmount?{forcedDebtAmount:txData.forcedDebtAmount}:{})});}
+            catch(error:any){return {status:isUncertainGameCommandError(error)?'waiting':'failed',message:error?.message||'格子付款尚待確認'};}
+        }
+        if(room?.bankingAuthority==='server-banking-v1'&&(txData.usage==='lifelong_learning'||(room.boardState?.currentEvent?.type==='school'&&txData.name==='升等考試報名費'))) {
+            if(!user||!canMutateCurrentRoom()||!room.boardState?.currentEvent?.id)return {status:'failed',message:'學習事件尚未準備完成'};
+            try {return await submitServerGameCommand<BoardFinancialMutationResult>({type:txData.usage==='lifelong_learning'?'payLearning':'paySchool',roomId:room.id,sessionId:room.sessionId,eventId:room.boardState.currentEvent.id,commandId,fundingLoanAmount:txData.fundingLoanAmount,forcedDebtAmount:txData.forcedDebtAmount});}
+            catch(error:any){return {status:isUncertainGameCommandError(error)?'waiting':'failed',message:error?.message||'學習付款尚待確認'};}
+        }
+        if(room?.bankingAuthority==='server-banking-v1'&&txData.boardFlow==='board-card'&&txData.usage==='happiness_event'){
+            const cardId=txData.boardSourceCardId||txData.happinessEventPayload?.sourceCardId,eventId=txData.boardSourceEventId;
+            if(!cardId||!eventId)return {status:'failed',message:'幸福卡付款缺少來源事件，請重新開啟財務檢核'};
+            return submitHappinessCardOperation(eventId,cardId,'accept',txData.fundingLoanAmount);
+        }
+        if(room?.bankingAuthority==='server-banking-v1'&&txData.boardFlow==='board-card'&&isStandaloneOpportunityCard(txData.boardSourceCardId||'')){
+            if(!txData.boardSourceEventId||!txData.boardSourceCardId)return {status:'failed',message:'機運卡付款缺少來源事件'};
+            return completeOpportunityCard(txData.boardSourceEventId,txData.boardSourceCardId,'accept',{...(txData.fundingLoanAmount?{fundingLoanAmount:txData.fundingLoanAmount}:{}),...(txData.forcedDebtAmount?{forcedDebtAmount:txData.forcedDebtAmount}:{})});
+        }
+        if(room?.bankingAuthority==='server-banking-v1'&&txData.boardFlow==='board-card'&&txData.boardSourceCardId==='C054'){
+            if(!user||!canMutateCurrentRoom()||!txData.boardSourceEventId)return {status:'failed',message:'分享財務檢核缺少来源事件'};
+            try{return await submitServerGameCommand<BoardFinancialMutationResult>({type:'applyFollowup',cardId:'C054',roomId:room.id,sessionId:room.sessionId,eventId:txData.boardSourceEventId,commandId});}
+            catch(error:any){return {status:isUncertainGameCommandError(error)?'waiting':'failed',message:error?.message||'分享財務尚待確認'};}
+        }
         const apply: Parameters<typeof runPlayerFinancialCommand>[0]['apply'] = (state, latestRoom) => {
                 const eventError=validateFinancialEvent(latestRoom.boardState!,txData,user!.uid);
                 if(eventError)return {status:'failed',message:eventError};
@@ -4745,6 +4673,10 @@ useEffect(() => {
     const completeLoanBorrow = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
         if (!txData.commandId && !txData.boardEventId) return {status:'failed',message:'信用貸款缺少操作識別碼'};
         const commandId=`loan:${room?.sessionId || room?.id}:${user?.uid}:${txData.commandId || txData.boardEventId}`;
+        if(room?.bankingAuthority==='server-banking-v1') {
+            if(!user || !canMutateCurrentRoom())return {status:'failed',message:'目前無法提交借款'};
+            return submitServerBanking(room,user.uid,commandId,{type:'borrowLoan',amount:Number(txData.amount)});
+        }
         return runPersonalFinance(commandId,state=>{
             const amount=Number(txData.amount);
             const remaining=getRemainingCreditCapacity(state.profession?.salary || 0,state.liabilities || [],state.loans || 0);
@@ -4756,17 +4688,30 @@ useEffect(() => {
     const completeLoanRepayment = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
         if (!txData.commandId && !txData.boardEventId) return {status:'failed',message:'還款缺少操作識別碼'};
         const commandId=`repay:${room?.sessionId || room?.id}:${user?.uid}:${txData.commandId || txData.boardEventId}`;
+        if(room?.bankingAuthority==='server-banking-v1') {
+            if(!user || !canMutateCurrentRoom())return {status:'failed',message:'目前無法提交還款'};
+            return submitServerBanking(room,user.uid,commandId,{type:'repayLoan',amount:Number(txData.amount),liabilityId:txData.liabilityId});
+        }
         return runPersonalFinance(commandId,state=>({status:'applied',state:buildLoanRepaymentState(state,txData,commandId)}));
     };
 
     const completeDepositWithdrawal = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
+        if(room?.bankingAuthority==='server-banking-v1'&&!txData.commandId&&!txData.boardEventId)return {status:'failed',message:'定存解約缺少操作識別碼'};
         const commandId=`deposit-withdrawal:${room?.sessionId || room?.id}:${user?.uid}:${txData.commandId || `${txData.relatedAssetId}:${txData.amount}`}`;
+        if(room?.bankingAuthority==='server-banking-v1'){
+            if(!user||!canMutateCurrentRoom())return {status:'failed',message:'目前無法提交解約交易'};
+            return submitServerBanking(room,user.uid,commandId,{type:'withdrawDeposit',amount:Number(txData.amount),assetId:txData.relatedAssetId});
+        }
         return runPersonalFinance(commandId,state=>({status:'applied',state:buildDepositWithdrawalState(state,txData,commandId)}));
     };
 
     const completeCarPurchase = async (txData: TransactionData): Promise<BoardFinancialMutationResult> => {
         if (!txData.commandId && !txData.boardEventId) return {status:'failed',message:'汽車交易缺少操作識別碼'};
         const commandId=`car-purchase:${room?.sessionId || room?.id}:${user?.uid}:${txData.commandId || txData.boardEventId}`;
+        if(room?.bankingAuthority==='server-banking-v1'){
+            if(!user||!canMutateCurrentRoom())return {status:'failed',message:'目前無法提交汽車交易'};
+            return submitServerBanking(room,user.uid,commandId,{type:'purchaseCar',cashContribution:Number(txData.assetDetails?.downPayment)});
+        }
         return runPersonalFinance(commandId,state=>({status:'applied',state:buildCarPurchaseState(state,txData,commandId)}));
     };
 
@@ -4777,6 +4722,12 @@ useEffect(() => {
         sourceEventId?: string;
     }): Promise<{ roll: number; eligible?: boolean; presentationDurationMs?: number }> => {
         if (!room?.id || !room.isBoardGame || !room.boardState || !user) throw new Error('企業升級骰子尚未準備完成');
+        if(room.bankingAuthority==='server-banking-v1') {
+            const eventId=room.boardState.currentEvent?.id;
+            const result=await submitServerBanking(room,user.uid,`startup-roll:${room.sessionId}:${eventId}:${payload.assetId}:${payload.stage}`,{type:'rollStartup',assetId:payload.assetId,cardId:payload.cardId,stage:payload.stage,eventId}) as import('../game/finance/privateCommand').FinancialCommandResult & {roll?:number;eligible?:boolean};
+            if(!['applied','duplicate'].includes(result.status) || !result.roll)throw new Error(result.message||'企業升級骰點尚待確認');
+            return {roll:result.roll,eligible:result.eligible,presentationDurationMs:DICE_PRESENTATION_DURATION_MS};
+        }
         const roll = rollBoardDie();
         const sourceEventId = payload.sourceEventId || room.boardState.currentEvent?.id;
         const retryKey = payload.stage === 1
@@ -4844,6 +4795,15 @@ useEffect(() => {
         return { ...result, presentationDurationMs: DICE_PRESENTATION_DURATION_MS };
     };
 
+    const deferStartupUpgrade = async (assetId:string,cardId:string):Promise<boolean> => {
+        if(room?.bankingAuthority!=='server-banking-v1')return true;
+        if(!user || !canMutateCurrentRoom())return false;
+        const eventId=room.boardState?.currentEvent?.id;
+        const result=await submitServerBanking(room,user.uid,`startup-defer:${room.sessionId}:${eventId}:${assetId}`,{type:'deferStartup',assetId,cardId,eventId});
+        if(!['applied','duplicate'].includes(result.status)){setError(result.message||'企業升級選擇尚待確認');return false;}
+        return true;
+    };
+
     const completeStartupUpgradeAction = async (payload: {
         assetId: string;
         cardId: string;
@@ -4855,6 +4815,7 @@ useEffect(() => {
         }
 
         const commandId = `startup-upgrade:${room.sessionId || room.id}:${user.uid}:${payload.assetId}`;
+        if(room.bankingAuthority==='server-banking-v1')return submitServerBanking(room,user.uid,commandId,{type:'upgradeStartup',assetId:payload.assetId,cardId:payload.cardId,eventId:room.boardState?.currentEvent?.id});
         try {
             return await runRoomBoardMutation<BoardFinancialMutationResult, Room>({
                 db,
@@ -4989,8 +4950,6 @@ useEffect(() => {
         if (!canMutateCurrentRoom()) return null;
         if (!room?.id || !room.isBoardGame || !user) return null;
 
-        const boardLength = BOARD_SQUARES.length;
-
         // H1：原本直接把本地 room.boardState/room.playerStates 整包（含所有其他
         // 玩家的欄位）覆寫回去，若跟其他玩家並發的寫入交錯，會用過期的本地
         // 快照蓋掉他們剛寫入的新資料。改用交易讀最新狀態算出正確的
@@ -5010,15 +4969,7 @@ useEffect(() => {
                 // 找「順時針方向最近」的目標格，不是陣列裡第一個同類型格——
                 // 原本的寫法 (index - currentPosition + N) % N > 0 對任何
                 // index !== currentPosition 恆為真，等於沒有真正比較距離。
-                const nextSquare = BOARD_SQUARES
-                    .filter(square => square.type === payload.squareType && square.index !== currentPosition)
-                    .reduce<typeof BOARD_SQUARES[number] | null>((closest, square) => {
-                        const distance = (square.index - currentPosition + boardLength) % boardLength;
-                        if (!closest) return square;
-                        const closestDistance = (closest.index - currentPosition + boardLength) % boardLength;
-                        return distance < closestDistance ? square : closest;
-                    }, null);
-                if (!nextSquare) throw new Error('找不到目標棋盤格');
+                const nextSquare = getNextBoardSquare(currentPosition,payload.squareType);
 
                 const playerState = currentRoom.playerStates?.[user.uid];
                 if (!playerState) throw new Error('玩家資料尚未同步，已付款事件可安全接續，請勿建立新付款');
@@ -5049,6 +5000,11 @@ useEffect(() => {
     };
 
     const applyBoardMarketPrices = async (updates: Record<string, number>, code: string, isBubble: boolean = false) => {
+        if(room?.bankingAuthority==='server-banking-v1'){
+            if(room.boardState?.currentCard?.cardId!==code||!room.boardState.currentCardReveal?.isRevealed||room.marketUpdates?.code!==code)throw new Error('等待後端確認股市事件');
+            return;
+        }
+
         if (!canMutateCurrentRoom()) return;
         if (!room || !user) return;
         if (!room.isBoardGame) return;
@@ -5112,6 +5068,12 @@ useEffect(() => {
         }
     };
 
+    const submitCoachFinancialCommand = async (commandId:string,data:{playerUid:string;action:'cash'|'income'|'liability'|'expense';amount?:number;liabilityId?:string;totalOwedDelta?:number;monthlyPaymentDelta?:number;category?:CoachExpenseCategory;reason?:string}|{type:'coachSubsidy';amount:number}|{type:'coachMarket';code:string}|{type:'coachAcceleration';multiplier:FinancialAccelerationMultiplier}|{type:'setTimer';seconds:number;paused:boolean;mode?:'set'|'pause'}):Promise<void> => {
+        if(!room||!user||!canMutateCurrentRoom())throw new Error('目前無法提交執行師調整');
+        try{const result=await submitServerGameCommand<BoardFinancialMutationResult>({type:'coachAdjustment',roomId:room.id,sessionId:room.sessionId,commandId,...data});if(!['applied','duplicate'].includes(result.status))throw Object.assign(new Error(result.message||'調整尚待確認，請查核原命令'),{code:'waiting-confirmation'});}
+        catch(error:any){setError(error?.message||'調整尚待確認');if(typeof error?.code==='string')error.code=error.code.replace(/^functions\//,'');throw error;}
+    };
+
     const adjustPlayerCash = async (playerUid: string, amount: number, originalCommandId?: string) => {
         if (!canMutateCurrentRoom()) throw new Error('此分頁無法提交，請確認遊戲版本及操作控制權');
         if (!room?.id || !user || (user.role !== 'coach' && user.role !== 'gm')) {
@@ -5123,6 +5085,7 @@ useEffect(() => {
 
         const playerRef = doc(db, 'rooms', room.id, 'players', playerUid);
         const operationId = originalCommandId || `coach-cash:${room.sessionId || room.id}:${user.uid}:${playerUid}:${serverNow()}:${crypto.randomUUID()}`;
+        if(room.bankingAuthority==='server-banking-v1')return submitCoachFinancialCommand(operationId,{action:'cash',playerUid,amount:delta});
         let nextState: GameState;
         try {
             nextState = await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
@@ -5184,6 +5147,7 @@ useEffect(() => {
 
         const playerRef = doc(db, 'rooms', room.id, 'players', playerUid);
         const operationId = originalCommandId || `coach-investment-income:${room.sessionId || room.id}:${user.uid}:${playerUid}:${serverNow()}:${crypto.randomUUID()}`;
+        if(room.bankingAuthority==='server-banking-v1')return submitCoachFinancialCommand(operationId,{action:'income',playerUid,amount:delta});
         let nextState: GameState;
         try {
             nextState = await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
@@ -5251,7 +5215,8 @@ useEffect(() => {
         if (!reason) throw new Error('請填寫負債調整原因');
 
         const playerRef = doc(db, 'rooms', room.id, 'players', playerUid);
-        const operationId = originalCommandId || `coach-liability:${user.uid}:${playerUid}:${liabilityId}:${serverNow()}`;
+        const operationId = originalCommandId || `coach-liability:${user.uid}:${playerUid}:${crypto.randomUUID()}`;
+        if(room.bankingAuthority==='server-banking-v1')return submitCoachFinancialCommand(operationId,{action:'liability',playerUid,liabilityId,totalOwedDelta:adjustments.totalOwedDelta,monthlyPaymentDelta:adjustments.monthlyPaymentDelta,reason});
         let nextState: GameState;
         try {
             nextState = await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
@@ -5324,6 +5289,7 @@ useEffect(() => {
         };
         const playerRef = doc(db, 'rooms', room.id, 'players', playerUid);
         const operationId = originalCommandId || `coach-expense:${user.uid}:${playerUid}:${category}:${serverNow()}`;
+        if(room.bankingAuthority==='server-banking-v1')return submitCoachFinancialCommand(operationId,{action:'expense',playerUid,category,amount:amountDelta,reason:trimmedReason});
         let nextState: GameState;
         try {
             nextState = await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
@@ -5370,11 +5336,12 @@ useEffect(() => {
         } : prev);
     };
 
-    const updateFinancialAcceleration = async (multiplier: FinancialAccelerationMultiplier) => {
-        if (!canMutateCurrentRoom()) return;
+    const updateFinancialAcceleration = async (multiplier: FinancialAccelerationMultiplier, originalCommandId?:string) => {
+        if (!canMutateCurrentRoom()) throw new Error('此分頁無法提交，請確認遊戲版本及操作控制權');
         if (!room?.id || !user || (user.role !== 'coach' && user.role !== 'gm')) {
             throw new Error('只有執行師可以調整全局財務加速器');
         }
+        if(room.bankingAuthority==='server-banking-v1')return submitCoachFinancialCommand(originalCommandId||`coach-acceleration:${crypto.randomUUID()}`,{type:'coachAcceleration',multiplier});
 
         const roomRef = doc(db, 'rooms', room.id);
         let nextAcceleration: FinancialAccelerationState;
@@ -5416,6 +5383,7 @@ useEffect(() => {
 
         const roomRef = doc(db, 'rooms', room.id);
         const grantId = originalCommandId || `financial-subsidy:${room.sessionId || room.id}:${crypto.randomUUID()}`;
+        if(room.bankingAuthority==='server-banking-v1')return submitCoachFinancialCommand(grantId,{type:'coachSubsidy',amount:subsidyAmount});
         let result: { subsidy: FinancialSubsidyState; states: Record<string, GameState> };
         try {
             result = await runBoardTransactionWithRetry(() => runTransaction(db, async transaction => {
@@ -5494,8 +5462,12 @@ useEffect(() => {
         } : prev);
     };
 
-    const updateRoomTimer = async (timeLeft: number, isPaused: boolean, timerEndsAtMs: number | null = null) => {
-        if (!room || user?.role !== 'coach') return;
+    const updateRoomTimer = async (timeLeft: number, isPaused: boolean, timerEndsAtMs: number | null = null, originalCommandId?:string, mode?:'set'|'pause') => {
+        if (!canMutateCurrentRoom())throw new Error('此分頁無法提交計時器操作');
+        if (!room || user?.role !== 'coach')throw new Error('只有執行師可以控制計時器');
+        if(room.movementAuthority==='server-movement-v1') {
+            return submitCoachFinancialCommand(originalCommandId||`timer:${crypto.randomUUID()}`,{type:'setTimer',seconds:timeLeft,paused:isPaused,...(mode?{mode}:{})});
+        }
         try {
             const roomRef = doc(db, 'rooms', room.id);
             await runTransaction(db, async transaction => {
@@ -5531,6 +5503,11 @@ useEffect(() => {
     const settleCurrentMovement = async () => {
         if (!room?.id || !settlementMovement?.isActive || !user) return;
         const movement = settlementMovement;
+        if(room.movementAuthority==='server-movement-v1') {
+            const result=await submitServerGameCommand<any>({type:'settleMovement',roomId:room.id,sessionId:room.sessionId,commandId:movementCommandId(movement),playerUid:movement.playerUid,startedAt:movement.startedAt});
+            if(!['applied','duplicate','stale'].includes(result.status))throw new Error(result.message||'等待後端移動結算');
+            return;
+        }
         await runRoomBoardMutation({
             db, roomId: room.id, commandId: movementCommandId(movement),
             readPromptResponses: false, playerStateUids: [movement.playerUid], forcePrivatePlayerStates: true,
@@ -5555,15 +5532,37 @@ useEffect(() => {
     };
     const movementSettlement = useMovementSettlement({
         scope: settlementScope, movement: settlementMovement, actorUid: user?.uid || '', hostUid: room?.hostId || '',
-        enabled: !!user && isController && room?.status === 'playing'
+        enabled: room?.movementAuthority !== 'server-movement-v1' && !!user && isController && room?.status === 'playing'
             && (room.hostId === user.uid || settlementMovement?.playerUid === user.uid),
         settle: settleCurrentMovement,
     });
-    const retryStaleBoardMovement = movementSettlement.retry;
+    const retryStaleBoardMovement = room?.movementAuthority==='server-movement-v1'?settleCurrentMovement:movementSettlement.retry;
     useGameDiagnostics({roomId:room?.id,sessionId:room?.sessionId,uid:user?.uid,
         surface:room?.hostId===user?.uid?'coach':'player',controller:isController});
 
+    const submitSharingOperation = async (data:Record<string,unknown>):Promise<boolean> => {
+        if(!room||!user||!canMutateCurrentRoom())return false;
+        try {
+            const result=await submitServerGameCommand<{status:string;message?:string}>({...data,roomId:room.id,sessionId:room.sessionId});
+            if(!['applied','duplicate'].includes(result.status)){setError(result.message||'分享與接續尚未完成');return false;}
+            return true;
+        }catch(error:any){setError(error?.message||'分享與接續尚未確認，請沿用原操作重試');return false;}
+    };
+
     const submitRequest = async (request: Omit<PendingRequest, 'id' | 'status' | 'timestamp'>): Promise<boolean> => {
+        if(room?.bankingAuthority==='server-banking-v1'&&request.type==='board_share'&&['C054','C056'].includes(request.boardCardId||'')) {
+            const marker=user?room.playerStates?.[user.uid]?.followupApproval:undefined;
+            const attempt=marker?.sessionId===room.sessionId&&marker.eventId===request.boardEventId?(marker.status==='rejected'?marker.attempt+1:marker.attempt):1;
+            return submitSharingOperation({type:'submitFollowup',...(request.boardCardId==='C054'?{cardId:'C054'}:{}),eventId:request.boardEventId,commandId:`followup-submit:${request.boardEventId}:${attempt}`});
+        }
+        if(room?.bankingAuthority==='server-banking-v1'&&request.type==='happiness') {
+            const previous=Object.values(pendingRequests).find(r=>r.type==='happiness'&&r.uid===user?.uid&&r.boardEventId===request.boardEventId);
+            const approval=user?room.playerStates?.[user.uid]?.storyApproval:undefined;
+            const last=approval?.sessionId===room.sessionId&&approval.eventId===request.boardEventId?approval:previous;
+            const attempt=last?.status==='rejected'?(last.attempt||0)+1:last?.attempt||1;
+            return submitSharingOperation({type:'submitStory',eventId:request.boardEventId,cardId:request.boardCardId,commandId:`story-submit:${request.boardEventId}:${attempt}`});
+        }
+
         if (!canMutateCurrentRoom()) return false;
         if (!room) return false;
         try {
@@ -5620,6 +5619,9 @@ useEffect(() => {
         if (!room || (user?.role !== 'coach' && user?.role !== 'gm')) return false;
         try {
             const request = pendingRequests[requestId] || room.pendingRequests?.[requestId];
+            if(room.bankingAuthority==='server-banking-v1'&&request?.type==='board_share'&&['C054','C056'].includes(request.boardCardId||''))return submitSharingOperation({type:'approveFollowup',...(request.boardCardId==='C054'?{cardId:'C054'}:{}),eventId:request.boardEventId,requestId,attempt:request.attempt,commandId:`followup-approve:${requestId}:${request.attempt}`});
+            if(room.bankingAuthority==='server-banking-v1'&&request?.type==='happiness')return submitSharingOperation({type:'approveStory',eventId:request.boardEventId,requestId,attempt:request.attempt,commandId:`story-approve:${requestId}:${request.attempt}`});
+
             if (isPendingRequestDocumentId(requestId)) {
                 if (!request) throw new Error('這筆審核請求不存在，請重新整理');
                 const requestRef = doc(db, 'rooms', room.id, 'pendingRequests', requestId);
@@ -5755,6 +5757,10 @@ useEffect(() => {
     const approveRequest = (requestId:string):Promise<boolean> => executeWithLock(()=>approveRequestOperation(requestId),`approve:${requestId}`).catch(err=>{setError(err?.message || '審核尚未完成');return false;});
 
     const rejectRequest = async (requestId: string): Promise<boolean> => {
+        const story=pendingRequests[requestId]||room?.pendingRequests?.[requestId];
+        if(room?.bankingAuthority==='server-banking-v1'&&story?.type==='happiness')return submitSharingOperation({type:'rejectStory',eventId:story.boardEventId,requestId,attempt:story.attempt,commandId:`story-rejectStory:${requestId}:${story.attempt}`});
+        if(room?.bankingAuthority==='server-banking-v1'&&story?.type==='board_share'&&['C054','C056'].includes(story.boardCardId||''))return submitSharingOperation({type:'rejectFollowup',...(story.boardCardId==='C054'?{cardId:'C054'}:{}),eventId:story.boardEventId,requestId,attempt:story.attempt,commandId:`followup-reject:${requestId}:${story.attempt}`});
+
         if (!canMutateCurrentRoom()) return false;
         if (!room || (user?.role !== 'coach' && user?.role !== 'gm')) return false;
         try {
@@ -5778,6 +5784,10 @@ useEffect(() => {
     };
 
     const clearRequest = async (requestId: string): Promise<boolean> => {
+        const story=pendingRequests[requestId]||room?.pendingRequests?.[requestId];
+        if(room?.bankingAuthority==='server-banking-v1'&&story?.type==='happiness')return submitSharingOperation({type:'clearStory',eventId:story.boardEventId,requestId,attempt:story.attempt,commandId:`story-clearStory:${requestId}:${story.attempt}`});
+        if(room?.bankingAuthority==='server-banking-v1'&&story?.type==='board_share'&&['C054','C056'].includes(story.boardCardId||''))return submitSharingOperation({type:'clearFollowup',...(story.boardCardId==='C054'?{cardId:'C054'}:{}),eventId:story.boardEventId,requestId,attempt:story.attempt,commandId:`followup-clear:${requestId}:${story.attempt}`});
+
         if (!canMutateCurrentRoom()) return false;
         if (!room) return false;
         try {
@@ -5798,6 +5808,13 @@ useEffect(() => {
     };
 
     const skipDisconnectedTurn = async (playerUid: string) => {
+        if(room?.movementAuthority==='server-movement-v1'){
+            if(!canMutateCurrentRoom()||!user||!room.boardState)throw new Error('此分頁目前無法處理離線回合');
+            const commandId=`coach-offline-turn:${room.sessionId}:${playerUid}:${room.boardState.revision||0}`;
+            const result=await executeWithLock(()=>submitServerGameCommand<{status:string;reason?:string}>({type:'skipDisconnectedTurn',roomId:room.id,sessionId:room.sessionId,commandId,playerUid,revision:room.boardState!.revision||0}),commandId);
+            if(!['applied','duplicate'].includes(result.status))throw new Error(result.reason||'離線回合處理尚待確認，請查核原操作');
+            return;
+        }
         if (!canMutateCurrentRoom()) return;
         if (!room?.id || !room.boardState || !user || (user.role !== 'coach' && user.role !== 'gm')) return;
 
@@ -5868,6 +5885,14 @@ useEffect(() => {
     };
 
     const skipDisconnectedSharedPromptTarget = async (playerUid: string) => {
+        if(room?.promptCompletionAuthority==='server-prompts-v1'){
+            const prompt=room.boardState?.sharedCardPrompt;
+            if(!canMutateCurrentRoom()||!user||!prompt)throw new Error('共享事件尚未準備完成或此分頁為唯讀');
+            const commandId=`coach-offline-shared:${room.sessionId}:${prompt.id}:${playerUid}`;
+            const result=await executeWithLock(()=>submitServerGameCommand<{status:string;reason?:string}>({type:'skipDisconnectedSharedTarget',roomId:room.id,sessionId:room.sessionId,commandId,playerUid,promptId:prompt.id,eventId:prompt.sourceEventId}),commandId);
+            if(!['applied','duplicate'].includes(result.status))throw new Error(result.reason||'離線回覆處理尚待確認，請查核原操作');
+            return;
+        }
         if (!canMutateCurrentRoom()) return;
         if (!room?.id || !room.boardState?.sharedCardPrompt || !user || room.hostId !== user.uid) return;
 
@@ -5939,6 +5964,13 @@ useEffect(() => {
     };
 
     const coachTriggerBoardCard = async (playerUid: string, cardId: string) => {
+        if(room?.movementAuthority==='server-movement-v1'){
+            if(!canMutateCurrentRoom()||!user||!room.boardState)throw new Error('此分頁目前無法發送測試卡片');
+            const commandId=`coach-card-test:${room.sessionId}:${playerUid}:${cardId}:${room.boardState.revision||0}`;
+            const result=await executeWithLock(()=>submitServerGameCommand<{status:string;reason?:string}>({type:'coachTestCard',roomId:room.id,sessionId:room.sessionId,commandId,playerUid,cardId,revision:room.boardState!.revision||0}),commandId);
+            if(!['applied','duplicate'].includes(result.status))throw new Error(result.reason||'測試發卡尚待確認，請查核原操作');
+            return;
+        }
         if (!room?.id || !room.isBoardGame || !room.boardState || !user || (user.role !== 'coach' && user.role !== 'gm')) {
             throw new Error('只有執行師可以觸發測試卡片');
         }
@@ -5999,6 +6031,13 @@ useEffect(() => {
     };
 
     const repeatCurrentBoardEvent = async () => {
+        if(room?.movementAuthority==='server-movement-v1'){
+            if(!canMutateCurrentRoom()||!user||!room.boardState?.currentEvent)throw new Error('目前沒有可重新顯示的事件');
+            const event=room.boardState.currentEvent,commandId=`coach-repeat:${room.sessionId}:${event.id}:${room.boardState.revision||0}`;
+            const result=await executeWithLock(()=>submitServerGameCommand<{status:string;reason?:string}>({type:'coachReplayEvent',roomId:room.id,sessionId:room.sessionId,commandId,playerUid:event.playerUid,eventId:event.id,revision:room.boardState!.revision||0}),commandId);
+            if(!['applied','duplicate'].includes(result.status))throw new Error(result.reason||'事件重新顯示尚待確認，請查核原操作');
+            return;
+        }
         if (!room?.id || !room.isBoardGame || !room.boardState || !user || (user.role !== 'coach' && user.role !== 'gm')) {
             throw new Error('只有執行師可以重複目前事件');
         }
@@ -6040,6 +6079,13 @@ useEffect(() => {
     };
 
     const setCoachNextTurn = async (playerUid: string) => {
+        if(room?.movementAuthority==='server-movement-v1'){
+            if(!canMutateCurrentRoom()||!user||!room.boardState)throw new Error('此分頁目前無法指定下一回合');
+            const commandId=`coach-turn:${room.sessionId}:${playerUid}:${room.boardState.revision||0}`;
+            const result=await executeWithLock(()=>submitServerGameCommand<{status:string;reason?:string}>({type:'setCoachNextTurn',roomId:room.id,sessionId:room.sessionId,commandId,playerUid,revision:room.boardState!.revision||0}),commandId);
+            if(!['applied','duplicate'].includes(result.status))throw new Error(result.reason||'回合指定尚待確認，請查核原操作');
+            return;
+        }
         if (!room?.id || !room.isBoardGame || !room.boardState || !user || (user.role !== 'coach' && user.role !== 'gm')) {
             throw new Error('只有執行師可以指定下一回合');
         }
@@ -6075,6 +6121,13 @@ useEffect(() => {
     };
 
     const runCoachBoardRecovery = async (mode: 'clear_event' | 'force_end') => {
+        if(room?.movementAuthority==='server-movement-v1'){
+            if(!canMutateCurrentRoom()||!user||!room.boardState?.currentTurnUid)throw new Error('此分頁目前無法復原回合');
+            const board=room.boardState,commandId=`coach-${mode}:${room.sessionId}:${board.currentTurnUid}:${board.revision||0}`;
+            const result=await executeWithLock(()=>submitServerGameCommand<{status:string;reason?:string}>({type:mode==='clear_event'?'coachClearEvent':'coachForceEnd',roomId:room.id,sessionId:room.sessionId,commandId,playerUid:board.currentTurnUid!,eventId:board.currentEvent?.id||'none',revision:board.revision||0}),commandId);
+            if(!['applied','duplicate'].includes(result.status))throw new Error(result.reason||'回合復原尚待確認，請查核原操作');
+            return;
+        }
         if (!room?.id || !room.boardState || !user || (user.role !== 'coach' && user.role !== 'gm')) {
             throw new Error('只有執行師可以執行回合解鎖');
         }
@@ -6146,6 +6199,7 @@ useEffect(() => {
             presenceStates,
             pendingRequests,
             createRoom,
+            recoverRoomCreation,
             setRoomPlayerSlotOpen,
             joinRoom,
             leaveRoom,
@@ -6188,6 +6242,7 @@ useEffect(() => {
             completeSharedAssetSaleAction,
             completeStartupLoanAction,
             completeTargetEnterprisePurchase,
+            completeOpportunityCard,
             completeMedicalBoardCardAction,
             completeDirectHappinessCard,
             completeInsurancePurchase,
@@ -6196,6 +6251,7 @@ useEffect(() => {
             completeLoanBorrow,
             completeBoardTransaction,
             completePaydayCollection,
+            completeBankEvent,
             completeHouseConversion,
             completeHappinessToggle,
             completeHappinessAdd,
@@ -6206,6 +6262,7 @@ useEffect(() => {
             completeDepositWithdrawal,
             completeCarPurchase,
             completeStartupUpgradeAction,
+            deferStartupUpgrade,
             clearSharedCardPrompt,
             setPendingStartupUpgradeAction,
             clearPendingStartupUpgradeAction,
@@ -6228,6 +6285,9 @@ useEffect(() => {
             isSettlingMovement: movementSettlement.busy
         }}>
             {children}
+            {user&&!room?.id&&<RoomLifecycleRecovery key={`lifecycle:${user.uid}`} uid={user.uid}/>}
+            {user&&!room?.id&&<RoomCreationRecovery key={user.uid} uid={user.uid} recover={recoverRoomCreation}/> }
+            {user&&room?.sessionId&&(room.promptCompletionAuthority==='server-prompts-v1'||room.bankingAuthority==='server-banking-v1'||room.movementAuthority==='server-movement-v1')&&<ServerCommandRecovery key={`${user.uid}:${room.id}:${room.sessionId}`} uid={user.uid} roomId={room.id} sessionId={room.sessionId} canRetry={isController&&!getRoomCompatibilityError(room)}/>}
         </RoomContext.Provider>
     );
 };

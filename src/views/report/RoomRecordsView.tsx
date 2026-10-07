@@ -1,3 +1,4 @@
+import {loadScoreRecord} from '../../game/settlement/scoreRecord';
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Trash2, Search, ChevronRight, AlertTriangle, Database, Users, Calendar, Hash, Plus, FileText } from 'lucide-react';
 import { db } from '../../../services/firebase';
@@ -31,19 +32,26 @@ interface PlayerFinancialModalProps {
   onClose: () => void;
 }
 
-const PlayerFinancialModal: React.FC<PlayerFinancialModalProps> = ({ recordId, playerName, playerIndex, onClose }) => {
+export const PlayerFinancialModal: React.FC<PlayerFinancialModalProps> = ({ recordId, playerName, playerIndex, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [summary, setSummary] = useState<any>(null);
   const [displayName, setDisplayName] = useState(playerName);
   const [profession, setProfession] = useState('');
+  const [loadError,setLoadError]=useState(''),[retry,setRetry]=useState(0);
+  const [historySource,setHistorySource]=useState<{roomId:string;sessionId:string;uid:string}|undefined>();
 
   useEffect(() => {
+    let disposed=false;
     const fetchData = async () => {
-      setLoading(true);
-      const snap = await safeAsync(getDoc(doc(db, 'score_records', 'S1', 'records', recordId)));
-      if (snap?.exists()) {
-        const data = snap.data();
+      setLoading(true);setLoadError('');setGameState(null);setSummary(null);setHistorySource(undefined);
+      try{
+      const snap = await getDoc(doc(db, 'score_records', 'S1', 'records', recordId));
+      if (snap.exists()) {
+        const compact=snap.data(),target=compact.players?.[playerIndex]?.name===playerName?compact.players[playerIndex]:compact.players?.find((player:any)=>player.name===playerName);
+        if(compact.playerStorage==='subcollection'&&!target?.uid)throw new Error('找不到指定玩家的結算明細');
+        const data = await loadScoreRecord(db,recordId,compact,target?.uid);
+        if(disposed)return;
         const players: any[] = data.players || [];
         const p = players[playerIndex]?.name === playerName
           ? players[playerIndex]
@@ -71,7 +79,7 @@ const PlayerFinancialModal: React.FC<PlayerFinancialModalProps> = ({ recordId, p
             cash: p.cash || 0,
             marketPrices: data.marketPrices || {}
           };
-          const freshSummary = calculateFinancialSummary(reconstructed);
+          const freshSummary = data.trustedSettlement===true&&p.summary?p.summary:calculateFinancialSummary(reconstructed,data.financialAcceleration);
 
           const dummyGameState: GameState = {
             profession: p.professionData || {
@@ -91,15 +99,15 @@ const PlayerFinancialModal: React.FC<PlayerFinancialModalProps> = ({ recordId, p
               creditLoanTotal: 0,
               promotions: []
             },
-            selectedEnterprise: null,
-            selectedDream: null,
+            selectedEnterprise: p.selectedEnterprise ?? null,
+            selectedDream: p.selectedDream ?? null,
             expenses: p.expenses || {},
             income: { ...income },
             currentRankTitle: p.profession,
-            currentRankLevel: 1,
+            currentRankLevel: p.currentRankLevel || 1,
             cash: p.cash || 0,
-            children: 0,
-            medicalInsuranceCount: 0,
+            children: p.children ?? 0,
+            medicalInsuranceCount: p.medicalInsuranceCount || 0,
             assets: p.assets || [],
             liabilities: p.liabilities || [],
             loans: p.loans || 0,
@@ -107,24 +115,28 @@ const PlayerFinancialModal: React.FC<PlayerFinancialModalProps> = ({ recordId, p
             history: p.history || [],
             happiness: p.happinessItems || [],
             happinessTotal: p.happiness || 0,
-            marketPrices: {},
+            marketPrices: p.marketPrices ?? {},
             previousMarketPrices: {},
             lastPublishedCode: '',
-            abilities: { stockAbilityCount: 0, realEstateAbilityCount: 0, professionAbilityCount: 0 },
-            completedHappinessEvents: [],
+            abilities: p.abilities || { stockAbilityCount: 0, realEstateAbilityCount: 0, professionAbilityCount: 0 },
+            completedHappinessEvents: p.completedHappinessEvents ?? [],
             playerName: p.name,
           };
 
+          if(disposed)return;
+          setHistorySource(data.financialHistoryStorage==='subcollection'?{roomId:data.roomId,sessionId:data.sessionId,uid:p.uid}:undefined);
           setGameState(dummyGameState);
           setSummary(freshSummary);
           setDisplayName(p.name);
           setProfession(p.profession || '');
         }
       }
-      setLoading(false);
+      }catch(error:any){if(!disposed)setLoadError(`財務報表載入失敗：${error.code||error.message}`);}
+      finally{if(!disposed)setLoading(false);}
     };
-    fetchData();
-  }, [recordId, playerName, playerIndex]);
+    void fetchData();
+    return()=>{disposed=true;};
+  }, [recordId, playerName, playerIndex,retry]);
 
   return (
     <div className="fixed inset-0 z-[10003] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
@@ -155,7 +167,7 @@ const PlayerFinancialModal: React.FC<PlayerFinancialModalProps> = ({ recordId, p
               <div className="w-10 h-10 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
               <p className="text-slate-500 font-bold text-sm">載入財務資料中...</p>
             </div>
-          ) : !gameState || !summary ? (
+          ) : loadError ? (<div className="p-6 text-center"><p role="alert" className="text-rose-300">{loadError}</p><button onClick={()=>setRetry(value=>value+1)} className="mt-4 px-4 py-2 rounded bg-slate-800 text-white">重試載入</button></div>) : !gameState || !summary ? (
             <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-500">
               <FileText size={40} className="opacity-30" />
               <p className="font-bold">此場次無財務報表數據</p>
@@ -164,6 +176,7 @@ const PlayerFinancialModal: React.FC<PlayerFinancialModalProps> = ({ recordId, p
           ) : (
             <FinancialStatement
               gameState={gameState}
+              historySource={historySource}
               summary={summary}
               hideSummary={true}
               defaultShowDetails={true}

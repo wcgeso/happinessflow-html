@@ -28,7 +28,7 @@
           "$clientId": {
             ".read": "auth != null",
             ".write": "auth != null && auth.uid === $uid",
-            ".validate": "newData.val() === null || newData.hasChildren(['uid', 'updatedAt'])"
+            ".validate": "newData.val() === null || (newData.hasChildren(['uid', 'updatedAt']) && newData.child('uid').val() === $uid && newData.child('updatedAt').isNumber())"
           }
         }
       }

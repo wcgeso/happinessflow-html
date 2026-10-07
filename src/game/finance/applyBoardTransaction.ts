@@ -10,8 +10,8 @@ import { normalizeGameState } from '../../utils/gameState';
 import { calculateFinancialSummary, formatMoney, getFinancialAccelerationMultiplier } from '../../utils/gameUtils';
 import { extractAssetSymbol, getAssetDisplayLabel, getStockAssetLabel } from '../../utils/assetLabels';
 import { getLiabilityMonthlyPayment, getRemainingCreditCapacity } from '../../utils/financialRules';
-import { OPPORTUNITY_CARD_MAP } from '../../constants/cards';
-import { REAL_ESTATE_PRESETS, REAL_ESTATE_TYPES } from '../../constants';
+import { OPPORTUNITY_CARD_MAP,NEWS_CARD_MAP } from '../../constants/cards';
+import { REAL_ESTATE_TYPES } from '../../constants';
 
 export interface BoardTransactionEnv {
   /** 交易時間戳（毫秒）。 */
@@ -890,7 +890,8 @@ export const applyHouseConversion = (
 
   const symbolMatch = asset.name.match(/[A-Z]\d+/);
   const symbol = symbolMatch ? symbolMatch[0] : '';
-  const preset = REAL_ESTATE_PRESETS[symbol];
+  const card = NEWS_CARD_MAP[symbol];
+  if(card?.type!=='real_estate'||!card.canSelfUse)return {status:'error',message:'房屋卡片資料不完整或不支援轉換'};
 
   return {
     status: 'applied',
@@ -899,7 +900,7 @@ export const applyHouseConversion = (
       assets: state.assets.map(a => a.id === assetId ? {
         ...a,
         isSelfUse: toSelfUse,
-        cashflow: toSelfUse ? 0 : (preset?.cashflow || 0),
+        cashflow: toSelfUse ? 0 : card.rent,
         conversionCount: (a.conversionCount || 0) + 1
       } : a)
     }

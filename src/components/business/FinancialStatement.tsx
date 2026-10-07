@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameState, FinancialSummary, Asset, BoardCardLogEntry } from '../../types';
-import { REAL_ESTATE_PRESETS, REAL_ESTATE_TYPES } from '../../constants';
+import { REAL_ESTATE_TYPES } from '../../constants';
+import {applyHouseConversion} from '../../game/finance/applyBoardTransaction';
 import { TrendingUp, Building, ChevronDown, ShieldCheck, ExternalLink, Wallet, Landmark, BarChart3, PieChart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { HistoryTable } from './HistoryTable';
@@ -119,26 +120,8 @@ export const FinancialStatement: React.FC<FinancialStatementProps> = ({
       return onConvertHouse(assetId, toSelfUse);
     }
     setGameState(prev => {
-      const updatedAssets = prev.assets.map(asset => {
-        if (asset.id === assetId) {
-          const symbolMatch = asset.name.match(/[A-Z]\d+/);
-          const symbol = symbolMatch ? symbolMatch[0] : '';
-          const preset = REAL_ESTATE_PRESETS[symbol];
-
-          return {
-            ...asset,
-            isSelfUse: toSelfUse,
-            cashflow: toSelfUse ? 0 : (preset?.cashflow || 0),
-            conversionCount: (asset.conversionCount || 0) + 1
-          };
-        }
-        return asset;
-      });
-
-      return {
-        ...prev,
-        assets: updatedAssets
-      };
+      const converted=applyHouseConversion(prev,assetId,toSelfUse);
+      return converted.status==='applied'?converted.state:prev;
     });
   };
 

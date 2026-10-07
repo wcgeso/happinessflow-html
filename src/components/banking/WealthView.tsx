@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Car, PiggyBank, Shield, ShieldCheck } from 'lucide-react';
 import { Asset, TransactionData } from '../../types';
+import {CAR_PRICE,MIN_CAR_DOWN_PAYMENT} from '../../game/finance/personalState';
 
 interface WealthViewProps {
   cash: number;
@@ -23,8 +24,8 @@ export const WealthView: React.FC<WealthViewProps> = ({
   canUseBankProducts,
   onTransaction
 }) => {
-  const carPrice = 600000;
-  const minCarDownPayment = Math.floor(carPrice * 0.2);
+  const carPrice = CAR_PRICE;
+  const minCarDownPayment = MIN_CAR_DOWN_PAYMENT;
   const [productType, setProductType] = useState<'insurance' | 'deposit' | 'car'>(initialProductType);
   const [depositUnits, setDepositUnits] = useState<number>(1);
   const [depositWithdrawUnits, setDepositWithdrawUnits] = useState<Record<string, number>>({});

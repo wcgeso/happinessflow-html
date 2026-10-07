@@ -77,6 +77,7 @@ export const buildLifelongLearningSuccessState = (
 };
 
 export const hasSchoolPromotionFee = (state: GameState, eventId: string) =>
+    state.schoolExam?.eventId === eventId ||
     (state.history || []).some(transaction => {
         if (transaction.name !== '升等考試報名費') return false;
         if (transaction.id === `school-fee:${eventId}` || transaction.boardEventId === eventId) return true;
@@ -587,7 +588,7 @@ export const buildTargetEnterprisePurchaseState = (
         flowType: '投資'
     });
     const happiness = currentState.happiness.map(item => item.id === 'h_career' ? { ...item, checked: true } : item);
-    const { [enterprise.name]: _legacyDuplicateIncome, ...income } = currentState.income;
+    const { [enterprise.name]: _legacyDuplicateIncome, ...income } = currentState.income || {};
 
     return {
         status: 'applied',
@@ -736,6 +737,8 @@ export const buildVehicleLossState = (
 
 // Bind event finances to the cloud event; receipt lookup happens before this check so committed old commands remain recoverable.
 export const validateFinancialEvent = (board:BoardState,tx:TransactionData,uid:string):string|null => {
+    if(tx.boardSourceEventId&&tx.boardSourceEventId!==board.currentEvent?.id)return '原財務事件已更新，尚未扣款；請核對目前事件';
+    if(tx.boardSourceCardId&&tx.boardSourceCardId!==board.currentCard?.cardId)return '原財務卡片已更新，尚未扣款；請核對目前卡片';
     if(!['board-card','hospital','repair'].includes(tx.boardFlow || ''))return null;
     const event=board.currentEvent;
     if(tx.boardFlow==='board-card' && isBoardPromptForCurrentEvent(board.sharedCardPrompt,board))return '共享事件已就緒，尚未扣款；請從共享視窗完成本人財務檢核';

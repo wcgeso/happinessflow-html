@@ -1,0 +1,23 @@
+import React from 'react';
+import {act,cleanup,fireEvent,render,screen} from '@testing-library/react';
+import {afterEach,expect,it,vi} from 'vitest';
+const mocks=vi.hoisted(()=>({room:{id:'123456',name:'測試房',hostId:'coach',status:'waiting',maxPlayers:6,members:[]},user:{uid:'player'},leave:vi.fn(),close:vi.fn()}));
+vi.mock('../../context/RoomContext',()=>({useRoom:()=>({room:mocks.room,leaveRoom:mocks.leave,closeRoom:mocks.close,startRoomGame:vi.fn(),setRoomPlayerSlotOpen:vi.fn(),error:null})}));
+vi.mock('../../context/AuthContext',()=>({useAuth:()=>({user:mocks.user}),getUserTitle:()=>'',getAvatarBorderStyle:()=>'',getCoachBadge:()=>'',getPlayerBadge:()=>'',getTitleColor:()=>'',getBadgeGlowStyle:()=>''}));
+vi.mock('../../components/modals/ProfileModal',()=>({ProfileModal:()=>null}));
+import {RoomView} from './RoomView';
+afterEach(()=>{cleanup();vi.resetAllMocks();mocks.user.uid='player';});
+it.each(['player','coach'])('keeps %s in the room on failure, blocks repeats and navigates only after confirmation',async uid=>{
+ mocks.user.uid=uid;const operation=uid==='coach'?mocks.close:mocks.leave;
+ let reject!:(error:Error)=>void;
+ operation.mockImplementationOnce(()=>new Promise((_,r)=>{reject=r;})).mockResolvedValueOnce(undefined);
+ const back=vi.fn();render(<RoomView onBack={back}/>);
+ fireEvent.click(screen.getByRole('button',{name:uid==='coach'?'關閉房間':'離開房間'}));
+ const label=uid==='coach'?'確認關閉':'確認離開';fireEvent.click(screen.getByRole('button',{name:label}));
+ expect((screen.getByRole('button',{name:'處理中…'}) as HTMLButtonElement).disabled).toBe(true);
+ fireEvent.click(screen.getByRole('button',{name:'處理中…'}));expect(operation).toHaveBeenCalledTimes(1);expect(back).not.toHaveBeenCalled();
+ await act(async()=>reject(new Error('操作尚待確認，請查核原結果')));
+ expect(screen.getByRole('alert').textContent).toContain('操作尚待確認');expect(back).not.toHaveBeenCalled();
+ await act(async()=>fireEvent.click(screen.getByRole('button',{name:label})));
+ expect(operation).toHaveBeenCalledTimes(2);expect(back).toHaveBeenCalledTimes(1);
+});

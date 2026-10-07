@@ -22,6 +22,8 @@ const serializedByteLength = (value: unknown): number => {
 };
 
 export interface BoardRoomSnapshot {
+  bankingAuthority?: 'server-banking-v1';
+  promptCompletionAuthority?: 'server-prompts-v1';
   hostId?: string;
   members?: Array<{ uid: string; isLeft?: boolean }>;
   status?: 'waiting' | 'playing' | 'finished';

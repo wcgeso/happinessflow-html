@@ -48,3 +48,14 @@ it('preserves coach subsidy and market receipt identities across reload and reje
  storage.setItem(coachIntentKey('r:s:coach'),JSON.stringify({...market,action:{...market.action,updates:{stock:'bad'}}}));
  expect(()=>readCoachIntent(storage,'r:s:coach')).toThrow('無法讀取');
 });
+
+it('restores the original acceleration choice and rejects unsupported multipliers',async()=>{
+ const {coachIntentKey,readCoachIntent,clearCoachIntent}=await import('./pendingIntent');localStorage.clear();
+ for(const multiplier of [1,1.5,2,3]){const intent={commandId:'acceleration-original',action:{kind:'acceleration',multiplier}};localStorage.setItem(coachIntentKey('r:s:coach'),JSON.stringify(intent));expect(readCoachIntent(localStorage,'r:s:coach')).toEqual(intent);clearCoachIntent(localStorage,'r:s:coach','other');expect(readCoachIntent(localStorage,'r:s:coach')).toEqual(intent);}
+ localStorage.setItem(coachIntentKey('r:s:coach'),JSON.stringify({commandId:'invalid',action:{kind:'acceleration',multiplier:2.5}}));expect(()=>readCoachIntent(localStorage,'r:s:coach')).toThrow('無法讀取');
+});
+it('restores timer reset and pause commands without conflating their identities',async()=>{
+ const {coachIntentKey,readCoachIntent,clearCoachIntent}=await import('./pendingIntent');localStorage.clear();const scope='r:s:coach';
+ for(const mode of ['set','pause']){const intent={commandId:`timer-${mode}`,action:{kind:'timer',seconds:60,paused:true,mode}};localStorage.setItem(coachIntentKey(scope),JSON.stringify(intent));expect(readCoachIntent(localStorage,scope)).toEqual(intent);clearCoachIntent(localStorage,scope,'older');expect(readCoachIntent(localStorage,scope)).toEqual(intent);}
+ localStorage.setItem(coachIntentKey(scope),JSON.stringify({commandId:'invalid',action:{kind:'timer',seconds:60,paused:false,mode:'pause'}}));expect(()=>readCoachIntent(localStorage,scope)).toThrow('無法讀取');
+});

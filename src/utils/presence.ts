@@ -88,5 +88,5 @@ export const isPresenceOnline = (presence?: PresenceState | null, now = Date.now
 
 export const canSkipDisconnectedPlayer = (presence?: PresenceState | null, now = Date.now()): boolean => {
   const age = getPresenceAgeMs(presence, now);
-  return age !== null && age >= PRESENCE_SKIP_AFTER_MS;
+  return !isPresenceOnline(presence, now) && age !== null && age >= PRESENCE_SKIP_AFTER_MS;
 };

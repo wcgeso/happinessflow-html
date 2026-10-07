@@ -1,3 +1,4 @@
+import {serverNow} from '../../utils/serverClock';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X, Dices, Music2, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -79,30 +80,22 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // 倒數計時邏輯 (同步執行師設定)
+    // Shared deadline survives reload, background timer throttling and reconnect.
     useEffect(() => {
         if (room?.gameTimeLeft === undefined) return;
-
-        // 本地倒數邏輯，避免過度依賴 Firestore 更新頻率
-        let localTime = room.gameTimeLeft;
-        const isPaused = room.isTimerPaused ?? true;
-        
-        // 初始設定
-        setTimeLeft(formatTime(localTime));
-
-        if (isPaused || localTime <= 0) return;
-
-        const timer = setInterval(() => {
-            localTime = Math.max(0, localTime - 1);
-            setTimeLeft(formatTime(localTime));
-            
-            if (localTime <= 0) {
-                clearInterval(timer);
-            }
-        }, 1000);
-
-        return () => clearInterval(timer);
-    }, [room?.gameTimeLeft, room?.isTimerPaused]);
+        const anchor=serverNow(),remaining=room.gameTimeLeft;
+        const update=()=>{
+            const seconds=room.isTimerPaused ? remaining : Number.isFinite(room.timerEndsAtMs)
+                ? Math.max(0,Math.ceil((room.timerEndsAtMs!-serverNow())/1000))
+                : Math.max(0,remaining-Math.floor((serverNow()-anchor)/1000));
+            setTimeLeft(formatTime(seconds));
+        };
+        update();
+        const timer=window.setInterval(update,1000);
+        document.addEventListener('visibilitychange',update);
+        window.addEventListener('hf-clock-sync',update);
+        return ()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',update);window.removeEventListener('hf-clock-sync',update);};
+    }, [room?.id,room?.sessionId,room?.gameTimeLeft,room?.isTimerPaused,room?.timerEndsAtMs]);
 
     const sortedPlayers = useMemo(() => {
         if (!room || !room.members) return [];

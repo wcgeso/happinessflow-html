@@ -10,6 +10,8 @@ it('binds an unpaid financial command to its current event while allowing indepe
  expect(validateFinancialEvent(board,tx,'p1')).toBeNull();
  expect(validateFinancialEvent({...board,currentEvent:{...board.currentEvent!,id:'next'}},tx,'p1')).toContain('尚未扣款');
  expect(validateFinancialEvent(board,tx,'other')).toContain('已更新');
+ expect(validateFinancialEvent(board,{...tx,boardSourceEventId:'old'},'p1')).toContain('已更新');
+ expect(validateFinancialEvent(board,{...tx,boardSourceCardId:'C036'},'p1')).toContain('卡片已更新');
  const shared={...board,sharedCardPrompt:{id:'prompt',sourceEventId:'source',sourceCardId:'C045'}} as BoardState;
  expect(validateFinancialEvent(shared,tx,'p1')).toContain('尚未扣款');
  expect(validateFinancialEvent(shared,{...tx,boardFlow:'manual-bank'},'p1')).toBeNull();

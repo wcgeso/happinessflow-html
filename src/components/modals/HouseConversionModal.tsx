@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Home, Key, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Asset } from '../../types';
-import { REAL_ESTATE_PRESETS } from '../../constants';
+import {extractAssetSymbol} from '../../utils/assetLabels';
 import { cn, formatMoney } from '../../utils/gameUtils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -23,11 +23,8 @@ export const HouseConversionModal: React.FC<HouseConversionModalProps> = ({
     const [error,setError] = useState('');
     const [step, setStep] = useState<'options' | 'confirm'>('options');
     const [targetType, setTargetType] = useState<boolean | null>(null);
+    const symbol=extractAssetSymbol(asset.name);
 
-    const symbolMatch = asset.name.match(/[A-Z]\d+/);
-    const symbol = symbolMatch ? symbolMatch[0] : '';
-    const preset = REAL_ESTATE_PRESETS[symbol];
-    
     const canConvert = (asset.conversionCount || 0) < 1;
     const isCurrentlySelfUse = !!asset.isSelfUse;
 
