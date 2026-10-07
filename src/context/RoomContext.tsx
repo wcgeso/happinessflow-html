@@ -1206,7 +1206,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     healMissingTurnOrderPlayers(data).catch(err => {
                         console.error('自動補齊 turnOrder 失敗:', err);
                     });
-                    healStaleBoardPrompts(data).catch(err => {
+                    // Server-prompt rooms finalize prompts on the backend and Rules reject client prompt
+                    // edits, so a client cleanup could only fail and retry on the coach's device.
+                    if (data.promptCompletionAuthority !== 'server-prompts-v1') healStaleBoardPrompts(data).catch(err => {
                         console.error('自動清理過期共享事件失敗:', err);
                     });
                 }
