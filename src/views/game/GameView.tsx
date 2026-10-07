@@ -47,6 +47,7 @@ import { DICE_PRESENTATION_DURATION_MS, getFamilyDicePresentationReadyAt } from 
 import { debugWarn } from '../../utils/debugLog';
 import { useFrameJankReport } from '../../utils/frameMonitor';
 import { usePendingAction } from '../../hooks/usePendingAction';
+import { useStableActions } from '../../hooks/useStableActions';
 
 export const marketPricesMatch = (current: Record<string, number> | undefined, target: Record<string, number> | undefined) => {
     if (!current || !target) return false;
@@ -3031,6 +3032,28 @@ export const GameView: React.FC<{
         user?.uid
     ]);
 
+    // Stable props for the memoized statement and action bar: identity never changes,
+    // the latest logic always runs, so room updates no longer re-render these subtrees.
+    const stable = useStableActions({
+        showAlert: (...args: Parameters<typeof showAlert>) => showAlert(...args),
+        deleteTransaction: (...args: Parameters<typeof handleDeleteTransactionRecord>) => handleDeleteTransactionRecord(...args),
+        upgradeBiz: (...args: Parameters<typeof handleBizUpgrade>) => handleBizUpgrade(...args),
+        convertHouse: (assetId: string, toSelfUse: boolean) => handleBoardHouseConversion(assetId, toSelfUse),
+        rollBoardDice: (diceCount?: 1 | 2) => handleBoardDiceRoll(diceCount),
+        rollAnimationComplete: (result: any) => handleBoardDiceAnimationComplete(result),
+        showMedical: () => setShowMedicalClaimModal(true),
+        showTargetDream: () => setShowTargetDreamModal(true),
+        showTransaction: () => { setTransactionQuickPreset(null); setShowTransactionModal(true); },
+        showRealEstateMarket: () => handleOpenRealEstateMarket(),
+        showPayday: () => setShowPaydayModal(true),
+        showSettlement: () => { setShowScoreView(true); setIsSettlement(true); },
+        endTurn: () => handleEndTurn(),
+    });
+    const statementCardLog = useMemo(() => (room?.boardState?.cardLog || []).slice(0, 12), [room?.boardState?.cardLog]);
+    const statementHistorySource = useMemo(() => (
+        room?.financialHistoryStorage === 'subcollection' && user?.uid && room.sessionId
+            ? { roomId: room.id, uid: user.uid, sessionId: room.sessionId } : undefined
+    ), [room?.financialHistoryStorage, room?.id, room?.sessionId, user?.uid]);
     return (
         <div className="player-ui h-[100dvh] flex flex-col overflow-hidden animate-in fade-in duration-500">
             <SubscriptionStatus room={room} />
@@ -3534,13 +3557,13 @@ export const GameView: React.FC<{
                             defaultShowDetails={true}
                             navPosition="inline"
                             showCardLogTab={room?.isBoardGame}
-                            cardLogEntries={(room?.boardState?.cardLog || []).slice(0, 12)}
+                            cardLogEntries={statementCardLog}
                             financialAccelerationMultiplier={room?.financialAcceleration?.multiplier || 1}
-                            historySource={room?.financialHistoryStorage==='subcollection' && user?.uid && room.sessionId ? {roomId:room.id,uid:user.uid,sessionId:room.sessionId} : undefined}
-                            onShowAlert={showAlert}
-                            onDeleteTransaction={room?.isBoardGame ? undefined : handleDeleteTransactionRecord}
-                            onUpgradeBiz={handleBizUpgrade}
-                            onConvertHouse={room?.isBoardGame ? handleBoardHouseConversion : undefined}
+                            historySource={statementHistorySource}
+                            onShowAlert={stable.showAlert}
+                            onDeleteTransaction={room?.isBoardGame ? undefined : stable.deleteTransaction}
+                            onUpgradeBiz={stable.upgradeBiz}
+                            onConvertHouse={room?.isBoardGame ? stable.convertHouse : undefined}
                             disabled={room?.status === 'finished'}
                         />
                     </div>
@@ -3548,21 +3571,15 @@ export const GameView: React.FC<{
             </main>
 
             <GameActions
-                onRollBoardDice={room?.isBoardGame ? handleBoardDiceRoll : undefined}
-                onRollAnimationComplete={room?.isBoardGame ? handleBoardDiceAnimationComplete : undefined}
-                onShowMedical={() => setShowMedicalClaimModal(true)}
-                onShowTargetDream={() => setShowTargetDreamModal(true)}
-                onShowTransaction={() => {
-                    setTransactionQuickPreset(null);
-                    setShowTransactionModal(true);
-                }}
-                onShowRealEstateMarket={handleOpenRealEstateMarket}
-                onShowPayday={() => setShowPaydayModal(true)}
-                onShowSettlement={() => {
-                    setShowScoreView(true);
-                    setIsSettlement(true);
-                }}
-                onEndTurn={handleEndTurn}
+                onRollBoardDice={room?.isBoardGame ? stable.rollBoardDice : undefined}
+                onRollAnimationComplete={room?.isBoardGame ? stable.rollAnimationComplete : undefined}
+                onShowMedical={stable.showMedical}
+                onShowTargetDream={stable.showTargetDream}
+                onShowTransaction={stable.showTransaction}
+                onShowRealEstateMarket={stable.showRealEstateMarket}
+                onShowPayday={stable.showPayday}
+                onShowSettlement={stable.showSettlement}
+                onEndTurn={stable.endTurn}
                 canRoll={boardActionAvailability.canRoll && !financialSyncError}
                 canEndTurn={canEndTurn && !isEndingTurn && !financialSyncError}
                 rollBlockReason={financialSyncError ? '等待公共財務效果完成，請核對並重試同步' : boardActionAvailability.rollBlocker?.message}

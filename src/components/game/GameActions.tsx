@@ -24,7 +24,7 @@ interface GameActionsProps {
     disabled?: boolean;
 }
 
-export const GameActions: React.FC<GameActionsProps> = ({
+const GameActionsBase: React.FC<GameActionsProps> = ({
     onRollBoardDice,
     onRollAnimationComplete,
     onShowMedical,
@@ -360,3 +360,6 @@ export const GameActions: React.FC<GameActionsProps> = ({
         </div>
     );
 };
+
+// Memoized: the game view re-renders on every room update; this subtree only when its props change.
+export const GameActions = React.memo(GameActionsBase);

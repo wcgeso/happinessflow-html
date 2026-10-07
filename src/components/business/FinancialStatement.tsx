@@ -88,7 +88,7 @@ const NumericalValue: React.FC<{ value: number, colorClass?: string, prefix?: st
   );
 };
 
-export const FinancialStatement: React.FC<FinancialStatementProps> = ({
+const FinancialStatementBase: React.FC<FinancialStatementProps> = ({
   gameState,
   summary,
   onShowAlert,
@@ -791,3 +791,6 @@ const AssetCategoryList = ({ title, items, color, isStock = false, marketPrices 
     })}
   </div >
 );
+
+// Memoized: the game view re-renders on every room update; this subtree only when its props change.
+export const FinancialStatement = React.memo(FinancialStatementBase);
