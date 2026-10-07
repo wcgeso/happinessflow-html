@@ -478,3 +478,25 @@ input[type='number'] {
     scroll-behavior: auto !important;
   }
 }
+
+/* Performance mode (src/utils/performanceMode.ts): decorative GPU work off on slow devices.
+   Gameplay animation (dice, tokens, card reveal) is unchanged. */
+html[data-perf="lite"] *,
+html[data-perf="lite"] *::before,
+html[data-perf="lite"] *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html[data-perf="lite"] [class~="blur-xl"],
+html[data-perf="lite"] [class~="blur-2xl"],
+html[data-perf="lite"] [class~="blur-3xl"],
+html[data-perf="lite"] [class~="blur-[40px]"],
+html[data-perf="lite"] [class~="blur-[80px]"],
+html[data-perf="lite"] [class~="blur-[120px]"] {
+  display: none !important;
+}
+html[data-perf="lite"] .animate-pulse,
+html[data-perf="lite"] .animate-ping,
+html[data-perf="lite"] .animate-bounce {
+  animation: none !important;
+}

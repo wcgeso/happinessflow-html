@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import './src/styles/global.css';
+import { startPerformanceMode } from './src/utils/performanceMode';
+
+startPerformanceMode();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

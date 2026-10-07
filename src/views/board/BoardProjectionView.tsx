@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { Activity, GraduationCap, Heart, HeartCrack, Landmark, Music2, Newspaper, ScrollText, Sparkles, TrendingDown, TrendingUp, Volume2, VolumeX, Wrench } from 'lucide-react';
+import { Activity, GraduationCap, Heart, HeartCrack, Landmark, Music2, Newspaper, ScrollText, Sparkles, TrendingDown, TrendingUp, Volume2, VolumeX, Wrench, Gauge } from 'lucide-react';
 import { SubscriptionStatus } from '../../components/common/SubscriptionStatus';
 import { trackBoardStage } from '../../utils/telemetry';
 import { serverNow, subscribeServerClock } from '../../utils/serverClock';
@@ -34,6 +34,7 @@ import { getProjectionActionState } from './boardProjectionStatus';
 import { AUDIO_SETTINGS_EVENT, audioManager, getAudioSettings, setAudioSettings } from '../../utils/audio';
 import type { AudioCue } from '../../utils/audio';
 import { useFrameJankReport } from '../../utils/frameMonitor';
+import { usePerformanceSetting } from '../../utils/performanceMode';
 const FIT_ZOOM_FALLBACK = 0.62;
 const VIEWPORT_PADDING_X = 64;
 const VIEWPORT_PADDING_TOP = 80;
@@ -795,6 +796,7 @@ const BoardTile = React.memo(({ square, isCurrentEventSquare, isMovementTrailSqu
 
 export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }) => {
   useFrameJankReport('projection');
+  const performanceSetting = usePerformanceSetting();
   const { user } = useAuth();
   const {room,syncState}=useProjectionRoom(roomCode,user?.uid);
   const [zoom, setZoom] = useState(FIT_ZOOM_FALLBACK);
@@ -805,6 +807,8 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const boardFrameRef = useRef<HTMLDivElement | null>(null);
   const prefersReducedMotion = useReducedMotion();
+  // Ambient background drift is decoration only; lite mode keeps it still.
+  const ambientMotion = performanceSetting.mode === 'full' && !prefersReducedMotion;
   const dragStateRef = useRef<{
     pointerId: number;
     startX: number;
@@ -1334,6 +1338,15 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
             {audioSettings.soundEnabled ? <Volume2 size={15} className="text-[#e8c37a]" /> : <VolumeX size={15} className="text-[#bfa879]" />}
             <span>音效</span>
           </button>
+          <button
+            type="button"
+            onClick={performanceSetting.cycle}
+            aria-label={`畫面效果：${performanceSetting.label}`}
+            className="flex items-center gap-2 rounded-full border border-[#f0cf86]/55 bg-[#173943]/95 px-3 py-2 text-xs font-black text-[#fff8e9] shadow-[0_12px_24px_-18px_rgba(0,0,0,0.8)]"
+          >
+            <Gauge size={15} className="text-[#e8c37a]" />
+            <span>{performanceSetting.label}</span>
+          </button>
         </div>
         <div className="shrink-0 text-right text-[10px] font-black tracking-[0.14em] text-[#bfa879]">
           <div>{roomName}</div>
@@ -1407,13 +1420,13 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
                 className="absolute inset-0 h-full w-full object-cover"
               />
               <motion.div
-                animate={prefersReducedMotion ? { opacity: 0.08 } : { opacity: [0.07, 0.14, 0.07], x: [0, 6, 0] }}
-                transition={{ duration: 15, ease: 'easeInOut', repeat: Infinity }}
+                animate={ambientMotion ? { opacity: [0.07, 0.14, 0.07], x: [0, 6, 0] } : { opacity: 0.08, x: 0 }}
+                transition={ambientMotion ? { duration: 15, ease: 'easeInOut', repeat: Infinity } : { duration: 0 }}
                 className="absolute inset-0 bg-[radial-gradient(ellipse_at_58%_8%,rgba(225,251,238,0.55),transparent_30%),radial-gradient(ellipse_at_76%_78%,rgba(139,220,213,0.38),transparent_24%)]"
               />
               <motion.div
-                animate={prefersReducedMotion ? { opacity: 0.06 } : { opacity: [0.05, 0.1, 0.05], y: [0, 4, 0] }}
-                transition={{ duration: 18, ease: 'easeInOut', repeat: Infinity }}
+                animate={ambientMotion ? { opacity: [0.05, 0.1, 0.05], y: [0, 4, 0] } : { opacity: 0.06, y: 0 }}
+                transition={ambientMotion ? { duration: 18, ease: 'easeInOut', repeat: Infinity } : { duration: 0 }}
                 className="absolute inset-0 bg-[radial-gradient(ellipse_at_18%_44%,rgba(41,82,52,0.42),transparent_22%),radial-gradient(ellipse_at_84%_45%,rgba(41,82,52,0.3),transparent_18%)]"
               />
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(255,245,214,0.12),rgba(17,55,58,0.1)_62%,rgba(9,35,40,0.28))]" />

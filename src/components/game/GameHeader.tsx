@@ -1,6 +1,6 @@
 import {serverNow} from '../../utils/serverClock';
 import React, { useState, useEffect, useMemo } from 'react';
-import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X, Dices, Music2, Volume2, VolumeX } from 'lucide-react';
+import { Star, Settings, Heart, LogOut, TrendingUp, HelpCircle, Trophy, Users, Home, ChevronDown, X, Dices, Music2, Volume2, VolumeX, Gauge } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getProfessionIcon } from '../common/IconHelpers';
 import { cn, formatMoney } from '../../utils/gameUtils';
@@ -12,6 +12,7 @@ import { DevSettingsModal } from '../modals/DevSettingsModal';
 import { selectExperienceState } from '../../utils/experienceState';
 import { isPresenceOnline } from '../../utils/presence';
 import { audioManager, getAudioSettings, setAudioSettings, AUDIO_SETTINGS_EVENT, AudioSettings } from '../../utils/audio';
+import { usePerformanceSetting } from '../../utils/performanceMode';
 
 interface GameHeaderProps {
     gameState: any;
@@ -54,6 +55,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
     const [showRoomInfo, setShowRoomInfo] = useState(false);
     const [showDevSettings, setShowDevSettings] = useState(false);
     const [audioSettings, setAudioSettingsState] = useState<AudioSettings>(() => getAudioSettings());
+    const performanceSetting = usePerformanceSetting();
     const [timeLeft, setTimeLeft] = useState<string>('--:--');
 
     const isGM = user?.role === 'coach' || checkIsGM(user);
@@ -343,6 +345,13 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
                                                 <span className={audioSettings.soundEnabled ? 'text-[#2e806d]' : 'text-[#8b7b68]'}>
                                                     {audioSettings.soundEnabled ? '開啟' : '關閉'}
                                                 </span>
+                                            </button>
+                                            <button
+                                                onClick={performanceSetting.cycle}
+                                                className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f3e4cc] text-[#6f6253] hover:text-[#293a38] transition-colors text-sm font-bold"
+                                            >
+                                                <span className="flex items-center gap-2"><Gauge size={16} className="text-[#2e6570]" />畫面效果</span>
+                                                <span className="text-[#2e806d]">{performanceSetting.label}</span>
                                             </button>
                                             <button onClick={() => { onFinishGame(); setShowSettings(false); }} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#f3e4cc] text-[#6f6253] hover:text-[#293a38] transition-colors text-sm font-bold">
                                                 <Trophy size={16} className="text-[#b88a43]" />
