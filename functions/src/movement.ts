@@ -70,7 +70,12 @@ export async function executeMovementCommand(db:Firestore,c:MovementCommand,uid?
       result.eventId=next.currentEvent?.id||null;
     }else {
       if(room.isTimerPaused)throw new HttpsError('failed-precondition','遊戲暫停中');
-      if(c.revision!==board.revision)throw new HttpsError('failed-precondition','棋盤狀態已更新，請重新同步');
+      // No exact revision match: other players' replies and server settlement bump the revision,
+      // which used to reject valid taps. The turn/event preconditions below decide validity.
+      const fromOlderView=(c.revision??0)<(board.revision||0);
+      if(c.type==='rollBoard' && fromOlderView && board.hasRolledThisTurn && board.lastRoll?.uid===actor)
+        // A second tap sent before this client saw its own roll: report the roll that already happened.
+        return {status:'duplicate',dice:board.lastRoll.dice,total:board.lastRoll.total,timestamp:board.lastRoll.timestamp,revision:board.revision};
       if(c.type==='endTurn') {
         try {next=buildNextBoardTurnState(board,actor,now);}catch(e){throw new HttpsError('failed-precondition',e instanceof Error?e.message:'回合尚未完成');}
       }else {

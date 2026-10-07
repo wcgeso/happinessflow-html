@@ -22,6 +22,10 @@ async function main(){
  let room=(await ref.get()).data()!,movement=room.boardState.movement;
  check(movement.dice.length===1 && movement.dice[0]>=1 && movement.dice[0]<=6);
  check((await ref.collection('movementTasks').get()).size===1);
+ // A second tap sent from the pre-roll view reports the existing roll instead of failing.
+ const repeat=await executeMovementCommand(db,cmd('rollBoard','r-repeat',{revision:0}),'p1',1000);
+ check(repeat.status==='duplicate' && JSON.stringify(repeat.dice)===JSON.stringify(movement.dice));
+ await assert.rejects(executeMovementCommand(db,cmd('rollBoard','r-seen',{revision:room.boardState.revision}),'p1',1000),{code:'failed-precondition'});count++;
  await assert.rejects(executeMovementCommand(db,{...roll,diceCount:2},'p1'),{code:'already-exists'});count++;
  const settle=cmd('settleMovement','settle',{playerUid:'p1',startedAt:movement.startedAt});
  check((await executeMovementCommand(db,settle,'p1',1001)).status==='waiting');
@@ -43,6 +47,9 @@ async function main(){
  check((await executeMovementCommand(db,end,'p1')).status==='duplicate');check((await ref.get()).data()!.boardState.currentTurnUid==='p2');
  // Delayed job from the previous session can never touch a new game.
  await ref.update({sessionId:'new'});check((await executeMovementCommand(db,settle)).status==='stale');
+ // A roll from a view that is a few revisions behind (other players replied meanwhile) still applies.
+ await reset();await ref.update({'boardState.revision':5});
+ check((await executeMovementCommand(db,cmd('rollBoard','behind',{revision:3}),'p1',1000)).status==='applied');
  await reset();await ref.update({publicPlayerStorage:'subcollection'});await executeMovementCommand(db,roll,'p1',1000);room=(await ref.get()).data()!;movement=room.boardState.movement;await executeMovementCommand(db,cmd('settleMovement','public-settle',{playerUid:'p1',startedAt:movement.startedAt}),undefined,movementEndsAt(movement));const publicState=(await ref.collection('publicPlayers').doc('p1').get()).data()!;check(publicState.uid==='p1'&&publicState.sessionId==='s');check(publicState.boardPosition===(await player.get()).data()!.boardPosition);check(!(await ref.get()).data()!.publicPlayerStates);
  await reset();
  const timer={type:'setTimer',roomId:ref.id,sessionId:'s',commandId:'timer',seconds:60,paused:false};
