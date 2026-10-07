@@ -2,6 +2,26 @@
 
 ## 狀態
 
+## 2026-10-08 效能優化分支 perf/production-ready（本機完成，未部署）
+
+目標：正式環境延遲與「按鈕要按好幾次」。正式日誌顯示後端 gameCommand p95 約 97ms、0 失敗，問題在前端擋點擊、渲染過量與冷啟動。
+
+**已完成**
+- 點擊：最新分頁接手控制權（不再 30 秒唯讀）；不同操作排隊而非報錯；未確認指令以原 ID 自動重送；擲骰／結束回合不因 revision 落後被拒；送出按鈕即時「處理中…」。
+- 後端：上課時段常駐（warmOnRoomCreated、maintainWarmPool，Cloud Run 服務層 minInstanceCount）；warmup 指令；落點結算由前端在動畫結束時送出，Cloud Tasks 退為備援且早到不再退避。
+- 渲染：大螢幕只在棋子到下一格時重繪、40 格 memo；自動效能模式（精緻／流暢）；執行師倒數只更新文字；RoomContext 操作身分固定（useRoomActions／useRoomState）；財務報表與行動列 memo。
+- 資料量：房間文件 38.6KB → 21.4KB（卡片日誌只存顯示的 12 筆）；靜態檔快取（雜湊檔一年 immutable）；徽章 WebP（4.9MB → 0.4MB）；移除 8 個未使用套件。
+- 監控：server_command、command_rejected_client、frame_jank、client_error 遙測。
+- 測試：e2e 新增後端模式 `E2E_SERVER_MODE=true FIREBASE_PROJECT_ID=demo-happinessflow-backend node scripts/e2e/run.mjs`。
+
+**部署前置（尚未執行，需使用者確認）**
+1. 函式執行帳號需有 `run.services.update`（常駐設定用），否則 warm pool 只記錄失敗、不影響遊戲。
+2. 部署 Functions（新增 warmOnRoomCreated、maintainWarmPool 共 11 個函式；Scheduler 每 5 分鐘）與前端；Rules 未修改。
+3. 先發布到 2ife-backend-test，看 GA4 的 server_command／command_rejected_client／frame_jank 再切正式。
+
+**尚未完成**：前端直接寫入路徑全面移除（需先列出並結束舊格式房間）、processedCommandIds 移出房間文件、Cloud Logging 警示、實機 6 人＋投影驗收。
+「不同帳號分頁隔離」e2e 在 v4.25.2-beta 原始碼即失敗（照片同意視窗），非本分支造成。
+
 ## 2026-10-07 v4.25.2-beta 前端發布
 
 - 已發布至 https://2ife-backend-test.vercel.app，deployment dpl_GssxbUTtYdSEsGtvpQpzTp4caTkM，READY；前一版 dpl_3dcGpzdZacv4q9bmXx8Dgz1b1F3h 保留。
