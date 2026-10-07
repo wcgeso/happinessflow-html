@@ -1103,8 +1103,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         movement_active: !!data.boardState?.movement?.isActive,
                         from_cache: snapshot.metadata.fromCache,
                         pending_writes: snapshot.metadata.hasPendingWrites,
-                        room_bytes: new TextEncoder().encode(JSON.stringify(data)).length,
-                        board_bytes: new TextEncoder().encode(JSON.stringify(data.boardState || null)).length,
+                        // Size sampling re-serializes the whole room; measure every 20th revision only.
+                        ...((data.boardState?.revision || 0) % 20 === 0 ? {
+                            room_bytes: snapshotHash.length,
+                            board_bytes: JSON.stringify(data.boardState || null).length,
+                        } : {}),
                         trace_id: snapshotTraceId
                     }).catch(() => undefined);
                 }
@@ -1182,7 +1185,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             trace_id: snapshotTraceId,
                             ui_ready_ms: Math.max(0, Math.round(performance.now() - listenerReceivedAt)),
                             revision: data.boardState?.revision || 0,
-                            room_bytes: new TextEncoder().encode(JSON.stringify(data)).length
+                            room_bytes: snapshotHash.length
                         }).catch(() => undefined);
                     };
                     if (typeof window.requestAnimationFrame === 'function') {
