@@ -13,7 +13,7 @@ import { spawn } from 'node:child_process';
 import net from 'node:net';
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PROJECT_ID } from './adminClient.mjs';
 
@@ -69,25 +69,36 @@ const run = (command, args, options = {}) =>
   });
 
 const extraArgs = process.argv.slice(2);
+// E2E_SERVER_MODE=true runs the same backend-authority path as production: Functions emulator,
+// VITE_SERVER_GAME_ROOMS and the local Cloud Tasks/Scheduler runner. Requires a demo- project, e.g.
+//   E2E_SERVER_MODE=true FIREBASE_PROJECT_ID=demo-happinessflow-backend node scripts/e2e/run.mjs
+const serverMode = process.env.E2E_SERVER_MODE === 'true';
+if (serverMode && !PROJECT_ID.startsWith('demo-')) throw new Error('E2E_SERVER_MODE requires FIREBASE_PROJECT_ID=demo-...');
 const firestorePort = await findAvailablePort(Number(process.env.E2E_FIRESTORE_PORT || 8080));
 const authPort = await findAvailablePort(Number(process.env.E2E_AUTH_PORT || 9099));
 const databasePort = await findAvailablePort(Number(process.env.E2E_DATABASE_PORT || 9000));
 const uiPort = await findAvailablePort(Number(process.env.E2E_UI_PORT || 4000));
 const hubPort = await findAvailablePort(Number(process.env.E2E_HUB_PORT || uiPort + 100));
 const loggingPort = await findAvailablePort(Number(process.env.E2E_LOGGING_PORT || uiPort + 200));
+const functionsPort = serverMode ? await findAvailablePort(Number(process.env.E2E_FUNCTIONS_PORT || 5001)) : 0;
 const firestoreHost = `localhost:${firestorePort}`;
 const authHost = `localhost:${authPort}`;
 const databaseHost = `localhost:${databasePort}`;
 const configSource = JSON.parse(readFileSync(fileURLToPath(new URL('../../firebase.json', import.meta.url)), 'utf8'));
 configSource.emulators.firestore.port = firestorePort;
+configSource.emulators.firestore.websocketPort = await findAvailablePort(Number(process.env.E2E_FIRESTORE_WS_PORT || 9150));
 configSource.emulators.auth.port = authPort;
 configSource.emulators.database.port = databasePort;
 configSource.emulators.ui.port = uiPort;
 configSource.emulators.hub = {host: '127.0.0.1', port: hubPort};
 configSource.emulators.logging = {host: '127.0.0.1', port: loggingPort};
+if (serverMode) configSource.emulators.functions = {host: '127.0.0.1', port: functionsPort};
+
 configSource.firestore.rules = fileURLToPath(new URL('../../firestore.rules', import.meta.url));
 configSource.database.rules = fileURLToPath(new URL('../../database.rules.json', import.meta.url));
 const temporaryConfigPath = join(tmpdir(), `happinessflow-e2e-${process.pid}.json`);
+// firebase.json paths resolve against the config file's directory, so point back at this repo.
+configSource.functions.source = relative(dirname(temporaryConfigPath), fileURLToPath(new URL('../../functions', import.meta.url)));
 writeFileSync(temporaryConfigPath, JSON.stringify(configSource));
 
 const emulatorEnv = {
@@ -99,12 +110,25 @@ const emulatorEnv = {
   VITE_AUTH_EMULATOR_URL: `http://${authHost}`,
   VITE_REALTIME_DATABASE_EMULATOR_URL: `http://${databaseHost}`,
   FIREBASE_PROJECT_ID: PROJECT_ID,
+  ...(serverMode ? {
+    GCLOUD_PROJECT: PROJECT_ID,
+    VITE_FIREBASE_PROJECT_ID: PROJECT_ID,
+    VITE_SERVER_GAME_ROOMS: 'true',
+    VITE_FUNCTIONS_EMULATOR_URL: `http://127.0.0.1:${functionsPort}`,
+  } : {}),
 };
 
 console.log(`[e2e/run] Starting Firebase emulators on Firestore ${firestoreHost}, Auth ${authHost}, RTDB ${databaseHost}...`);
+if (serverMode) {
+  // `emulators:start` prompts for unset params, which blocks function loading; pin them for the demo project.
+  writeFileSync(fileURLToPath(new URL(`../../functions/.env.${PROJECT_ID}`, import.meta.url)),
+    'GAME_FUNCTION_REGION=asia-east1\nWARM_SERVICES=gamecommand,enqueuemovementsettlement,settlemovementtask,onpromptresponse\n');
+  console.log('[e2e/run] Building functions for server mode...');
+  await run('npm', ['--prefix', 'functions', 'run', 'build']);
+}
 const emulator = spawn(
   'npx',
-  ['firebase', 'emulators:start', '--config', temporaryConfigPath, '--project', PROJECT_ID, '--only', 'auth,firestore,database'],
+  ['firebase', 'emulators:start', '--config', temporaryConfigPath, '--project', PROJECT_ID, '--only', serverMode ? 'auth,firestore,database,functions' : 'auth,firestore,database'],
   { stdio: 'inherit', detached: process.platform !== 'win32', env: {...process.env,JAVA_TOOL_OPTIONS:process.env.JAVA_TOOL_OPTIONS || '-Xmx4g'} }
 );
 const emulatorExited = () => new Promise((resolve) => {
@@ -121,6 +145,7 @@ const signalEmulator = (signal) => {
 };
 
 let exitCode = 0;
+let taskRunner;
 for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
   exitCode = 130;
   signalEmulator(signal);
@@ -135,15 +160,22 @@ try {
   await waitForPort('localhost', firestorePort);
   await waitForPort('localhost', authPort);
   await waitForPort('localhost', databasePort);
+  if (serverMode) await waitForPort('127.0.0.1', functionsPort, 120_000);
   console.log('[e2e/run] Emulators ready. Seeding accounts...');
   await run('node', ['scripts/e2e/seedAccounts.mjs'], { env: emulatorEnv });
 
+  if (serverMode) {
+    // The emulator suite does not dispatch Cloud Tasks or Scheduler jobs; run the deployed handlers locally.
+    taskRunner = spawn('node', ['scripts/runEmulatorTasks.cjs'], { stdio: 'inherit', detached: process.platform !== 'win32',
+      env: { ...emulatorEnv, FIRESTORE_EMULATOR_HOST: `127.0.0.1:${firestorePort}` } });
+  }
   console.log('[e2e/run] Running Playwright...');
   await run('npx', ['playwright', 'test', ...extraArgs], { env: emulatorEnv });
 } catch (err) {
   console.error('[e2e/run] Failed:', err.message);
   if (!exitCode) exitCode = 1;
 } finally {
+  if (taskRunner?.pid) { try { process.kill(process.platform === 'win32' ? taskRunner.pid : -taskRunner.pid, 'SIGTERM'); } catch {} }
   console.log('[e2e/run] Shutting down emulators...');
   signalEmulator('SIGINT');
   if (!await emulatorExited()) {
