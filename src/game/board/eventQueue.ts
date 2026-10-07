@@ -4,7 +4,9 @@ import {cleanObject} from '../../utils/utils';
 import {hasIncompleteSharedPrompts} from './promptCompletion';
 import {getSquareByIndex} from '../../constants/board';
 const BOARD_MOVE_CONTINUE_DELAY_MS = 500;
-const BOARD_CARD_LOG_LIMIT = 40;
+// Only the latest 12 entries are ever shown (player statement, big screen); storing more only
+// grew the room document that every device downloads on each update.
+export const BOARD_CARD_LOG_LIMIT = 12;
 
 export const activateBoardQueueEntry = (entry?: BoardQueuedEvent | null) => ({
     currentEvent: entry?.event || null,

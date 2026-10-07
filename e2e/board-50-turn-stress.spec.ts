@@ -242,7 +242,7 @@ const validateRoomSnapshot = async (roomCode: string, previousRevision: number |
   const cardLog = board.cardLog || [];
   const logKeys = cardLog.map((entry: any) => `${entry.eventId}:${entry.cardId}`);
   expect(new Set(logKeys).size).toBe(logKeys.length);
-  expect(cardLog.length).toBeLessThanOrEqual(40);
+  expect(cardLog.length).toBeLessThanOrEqual(12);
 
   for (const uid of turnOrder) {
     const state = room.playerStates?.[uid] || await readPrivatePlayerState(roomCode, uid);
