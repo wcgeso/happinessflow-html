@@ -73,6 +73,7 @@ import { useAuth } from './AuthContext';
 import { Asset, BoardCardLogEntry, BoardCardResult, BoardDeckState, BoardEventLog, BoardQueuedEvent, BoardState, CoachExpenseCategory, DicePresentationEvent, FamilyMilestoneJoinPrompt, FamilyMilestoneJoinResponse, FinancialAccelerationMultiplier, FinancialAccelerationState, FinancialSubsidyState, GameState, PresenceState, PublicPlayerState, SharedCardPrompt, SharedCardPromptResponse, Transaction, TransactionData } from '../types';
 import { cleanObject, safeAsync } from '../utils/utils';
 import { reportClientRejection } from '../utils/clientRejection';
+import { useStableActions } from '../hooks/useStableActions';
 import { runLockedBoardCommand } from '../game/board/commandLock';
 import { applyPaidLearningMove, buildApprovedDrawContinuation, buildPaidLearningContinuation, completeLearningContinuation, getContinuationRollResult } from '../game/board/continuation';
 import { createInitialMarketPrices, STOCK_SYMBOLS } from '../constants';
@@ -467,6 +468,11 @@ interface RoomContextValue {
 }
 
 const RoomContext = createContext<RoomContextValue | undefined>(undefined);
+type RoomStateKeys = 'room' | 'isLoadingRoom' | 'error' | 'playerStates' | 'playerStatesHydrated' | 'roomSyncState' | 'subscriptionError' | 'connectionState' | 'isController' | 'presenceStates' | 'pendingRequests' | 'movementSettlementError' | 'isSettlingMovement';
+export type RoomStateValue = Pick<RoomContextValue, RoomStateKeys>;
+export type RoomActionsValue = Omit<RoomContextValue, RoomStateKeys>;
+const RoomStateContext = createContext<RoomStateValue | undefined>(undefined);
+const RoomActionsContext = createContext<RoomActionsValue | undefined>(undefined);
 
 export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user } = useAuth();
@@ -6215,115 +6221,140 @@ useEffect(() => {
     const clearCurrentBoardEvent = () => runCoachBoardRecovery('clear_event');
     const forceEndBoardTurn = () => runCoachBoardRecovery('force_end');
 
+    // State changes re-render consumers; actions keep one identity for the provider's lifetime,
+    // so components that only call actions (memoized children, effect deps) are not re-rendered.
+    const roomActions = useStableActions({
+        createRoom,
+        recoverRoomCreation,
+        setRoomPlayerSlotOpen,
+        joinRoom,
+        leaveRoom,
+        leaveToLobby,
+        startRoomGame,
+        finishRoomGame,
+        closeRoom,
+        updateMarket,
+        adjustPlayerCash,
+        adjustPlayerInvestmentIncome,
+        adjustPlayerLiability,
+        adjustPlayerExpense,
+        updateFinancialAcceleration,
+        grantFinancialSubsidyToAllPlayers,
+        updateRoomTimer,
+        submitRequest,
+        approveRequest,
+        rejectRequest,
+        clearRequest,
+        rollBoardDice,
+        rollRepairFee,
+        rollHospitalFee,
+        rollSkillDice,
+        rollFamilyMilestoneJoin,
+        rollStartupUpgradeDice,
+        revealBoardCard,
+        dismissBoardCard,
+        advanceBoardEventQueue,
+        endTurn,
+        drawPostExamHappinessCard,
+        drawBoardFollowupCard,
+        openFamilyMilestoneJoinPrompt,
+        openSharedCardPrompt,
+        submitFamilyMilestoneJoinResponse,
+        clearPendingFamilyMilestoneJoinAction,
+        markFamilyMilestoneSourceActionCompleted,
+        completeFamilyMilestoneAction,
+        submitSharedCardPromptResponse,
+        completeSharedInvestmentAction,
+        completeSharedAssetSaleAction,
+        completeStartupLoanAction,
+        completeTargetEnterprisePurchase,
+        completeOpportunityCard,
+        completeMedicalBoardCardAction,
+        completeDirectHappinessCard,
+        completeInsurancePurchase,
+        completeDepositPurchase,
+        completeStockTrade,
+        completeLoanBorrow,
+        completeBoardTransaction,
+        completePaydayCollection,
+        completeBankEvent,
+        completeHouseConversion,
+        completeHappinessToggle,
+        completeHappinessAdd,
+        completeHappinessRemove,
+        completePlayerOnlyTransaction,
+        completeSharedTransactionAction,
+        completeLoanRepayment,
+        completeDepositWithdrawal,
+        completeCarPurchase,
+        completeStartupUpgradeAction,
+        deferStartupUpgrade,
+        clearSharedCardPrompt,
+        setPendingStartupUpgradeAction,
+        clearPendingStartupUpgradeAction,
+        applyBoardExpenseToAllPlayers,
+        moveCurrentPlayerToSquare,
+        applyBoardMarketPrices,
+        buyCurrentRealEstateCard,
+        buyRealEstateFromMarket,
+        applyVehicleLoss,
+        skipDisconnectedTurn,
+        skipDisconnectedSharedPromptTarget,
+        coachTriggerBoardCard,
+        repeatCurrentBoardEvent,
+        setCoachNextTurn,
+        clearCurrentBoardEvent,
+        forceEndBoardTurn,
+        resyncRoom,
+        retryStaleBoardMovement,
+    });
+    const roomState = useMemo(() => ({
+        room,
+        isLoadingRoom,
+        error,
+        playerStates,
+        playerStatesHydrated,
+        roomSyncState,
+        subscriptionError,
+        connectionState,
+        isController,
+        presenceStates,
+        pendingRequests,
+        movementSettlementError: movementSettlement.error,
+        isSettlingMovement: movementSettlement.busy
+    }), [room, isLoadingRoom, error, playerStates, playerStatesHydrated, roomSyncState, subscriptionError, connectionState, isController, presenceStates, pendingRequests, movementSettlement.error, movementSettlement.busy]);
+    const contextValue = useMemo<RoomContextValue>(() => ({...roomState, ...roomActions}), [roomState, roomActions]);
+
     return (
-        <RoomContext.Provider value={{
-            room,
-            isLoadingRoom,
-            error,
-            playerStates,
-            playerStatesHydrated,
-            roomSyncState,
-            subscriptionError,
-            connectionState,
-            isController,
-            presenceStates,
-            pendingRequests,
-            createRoom,
-            recoverRoomCreation,
-            setRoomPlayerSlotOpen,
-            joinRoom,
-            leaveRoom,
-            leaveToLobby,
-            startRoomGame,
-            finishRoomGame,
-            closeRoom,
-            updateMarket,
-            adjustPlayerCash,
-            adjustPlayerInvestmentIncome,
-            adjustPlayerLiability,
-            adjustPlayerExpense,
-            updateFinancialAcceleration,
-            grantFinancialSubsidyToAllPlayers,
-            updateRoomTimer,
-            submitRequest,
-            approveRequest,
-            rejectRequest,
-            clearRequest,
-            rollBoardDice,
-            rollRepairFee,
-            rollHospitalFee,
-            rollSkillDice,
-            rollFamilyMilestoneJoin,
-            rollStartupUpgradeDice,
-            revealBoardCard,
-            dismissBoardCard,
-            advanceBoardEventQueue,
-            endTurn,
-            drawPostExamHappinessCard,
-            drawBoardFollowupCard,
-            openFamilyMilestoneJoinPrompt,
-            openSharedCardPrompt,
-            submitFamilyMilestoneJoinResponse,
-            clearPendingFamilyMilestoneJoinAction,
-            markFamilyMilestoneSourceActionCompleted,
-            completeFamilyMilestoneAction,
-            submitSharedCardPromptResponse,
-            completeSharedInvestmentAction,
-            completeSharedAssetSaleAction,
-            completeStartupLoanAction,
-            completeTargetEnterprisePurchase,
-            completeOpportunityCard,
-            completeMedicalBoardCardAction,
-            completeDirectHappinessCard,
-            completeInsurancePurchase,
-            completeDepositPurchase,
-            completeStockTrade,
-            completeLoanBorrow,
-            completeBoardTransaction,
-            completePaydayCollection,
-            completeBankEvent,
-            completeHouseConversion,
-            completeHappinessToggle,
-            completeHappinessAdd,
-            completeHappinessRemove,
-            completePlayerOnlyTransaction,
-            completeSharedTransactionAction,
-            completeLoanRepayment,
-            completeDepositWithdrawal,
-            completeCarPurchase,
-            completeStartupUpgradeAction,
-            deferStartupUpgrade,
-            clearSharedCardPrompt,
-            setPendingStartupUpgradeAction,
-            clearPendingStartupUpgradeAction,
-            applyBoardExpenseToAllPlayers,
-            moveCurrentPlayerToSquare,
-            applyBoardMarketPrices,
-            buyCurrentRealEstateCard,
-            buyRealEstateFromMarket,
-            applyVehicleLoss,
-            skipDisconnectedTurn,
-            skipDisconnectedSharedPromptTarget,
-            coachTriggerBoardCard,
-            repeatCurrentBoardEvent,
-            setCoachNextTurn,
-            clearCurrentBoardEvent,
-            forceEndBoardTurn,
-            resyncRoom,
-            retryStaleBoardMovement,
-            movementSettlementError: movementSettlement.error,
-            isSettlingMovement: movementSettlement.busy
-        }}>
+        <RoomActionsContext.Provider value={roomActions}>
+        <RoomStateContext.Provider value={roomState}>
+        <RoomContext.Provider value={contextValue}>
             {children}
             {user&&!room?.id&&<RoomLifecycleRecovery key={`lifecycle:${user.uid}`} uid={user.uid}/>}
             {user&&!room?.id&&<RoomCreationRecovery key={user.uid} uid={user.uid} recover={recoverRoomCreation}/> }
             {user&&room?.sessionId&&(room.promptCompletionAuthority==='server-prompts-v1'||room.bankingAuthority==='server-banking-v1'||room.movementAuthority==='server-movement-v1')&&<ServerCommandRecovery key={`${user.uid}:${room.id}:${room.sessionId}`} uid={user.uid} roomId={room.id} sessionId={room.sessionId} canRetry={isController&&!getRoomCompatibilityError(room)}/>}
         </RoomContext.Provider>
+        </RoomStateContext.Provider>
+        </RoomActionsContext.Provider>
     );
 };
 
 export const useRoom = () => {
     const context = useContext(RoomContext);
     if (!context) throw new Error('useRoom must be used within a RoomProvider');
+    return context;
+};
+
+/** Actions only: identity never changes, so callers do not re-render on room updates. */
+export const useRoomActions = () => {
+    const context = useContext(RoomActionsContext);
+    if (!context) throw new Error('useRoomActions must be used within a RoomProvider');
+    return context;
+};
+
+/** Room data and sync status without the action functions. */
+export const useRoomState = () => {
+    const context = useContext(RoomStateContext);
+    if (!context) throw new Error('useRoomState must be used within a RoomProvider');
     return context;
 };

@@ -46,7 +46,7 @@ vi.mock('firebase/database', () => ({
     serverTimestamp:()=>Date.now(),get:async()=>({val:()=>null})
 }));
 import {HAPPINESS_CARDS} from '../constants/cards';
-import { RoomProvider, useRoom } from './RoomContext';
+import { RoomProvider, useRoom, useRoomActions } from './RoomContext';
 afterEach(() => { cleanup(); localStorage.clear(); mocks.claim=undefined; mocks.user.role='player'; mocks.getDoc.mockClear(); mocks.banking.mockReset(); mocks.server.mockReset();mocks.creation.mockReset();mocks.recoverCreation.mockReset();mocks.setDoc.mockReset();mocks.updateDoc.mockReset();mocks.membership.mockReset();mocks.auth.currentUser={uid:"p1"};vi.unstubAllEnvs(); });
 it.each([true,false])('restores after StrictMode cancels the first read (account resume: %s)', async accountResume => {
     mocks.user.activeGame = accountResume ? {roomId:'123456'} : undefined;
@@ -298,4 +298,17 @@ it('retains uncertain shared outcomes and the original command while distinguish
  const submitted=mocks.server.mock.calls.map(([command])=>command).filter(command=>command.type==='sharedAction');expect(new Set(submitted.map(command=>command.commandId)).size).toBe(1);
  mocks.server.mockRejectedValue(Object.assign(new Error('權限不足'),{code:'functions/permission-denied'}));await act(async()=>expect(await hook.result.current.completeSharedTransactionAction('prompt',tx,{status:'completed'})).toMatchObject({status:'failed',code:'permission-denied',message:'權限不足'}));
  expect(mocks.setDoc).not.toHaveBeenCalled();expect(mocks.updateDoc).not.toHaveBeenCalled();
+});
+
+it('keeps room actions stable while room state changes, so action-only consumers do not re-render',async()=>{
+ mocks.user.activeGame={roomId:'123456'};localStorage.setItem('active_room_p1','123456');
+ mocks.getDoc.mockImplementation(async()=>({exists:()=>true,data:()=>({id:'123456',sessionId:'session',hostId:'coach',status:'playing',members:[{uid:'p1'}]})}));
+ let actionRenders=0;
+ const ActionOnly=React.memo(()=>{useRoomActions();actionRenders++;return null;});
+ const hook=renderHook(()=>({room:useRoom(),actions:useRoomActions()}),{wrapper:({children}:{children:React.ReactNode})=><RoomProvider><ActionOnly/>{children}</RoomProvider>});
+ const firstActions=hook.result.current.actions;
+ await waitFor(()=>expect(hook.result.current.room.room?.id).toBe('123456'));
+ expect(hook.result.current.actions).toBe(firstActions);
+ expect(hook.result.current.room.endTurn).toBe(firstActions.endTurn);
+ expect(actionRenders).toBe(1);
 });
