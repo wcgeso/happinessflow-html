@@ -4,7 +4,9 @@ import { App } from './App';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import './src/styles/global.css';
 import { startPerformanceMode } from './src/utils/performanceMode';
+import { installClientErrorReporting } from './src/utils/clientErrors';
 
+installClientErrorReporting();
 startPerformanceMode();
 
 const rootElement = document.getElementById('root');
