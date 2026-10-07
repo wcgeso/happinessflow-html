@@ -46,6 +46,7 @@ import { PlayerModalFrame } from '../../components/common/PlayerModalFrame';
 import { DICE_PRESENTATION_DURATION_MS, getFamilyDicePresentationReadyAt } from '../../game/board/dicePresentation';
 import { debugWarn } from '../../utils/debugLog';
 import { useFrameJankReport } from '../../utils/frameMonitor';
+import { usePendingAction } from '../../hooks/usePendingAction';
 
 export const marketPricesMatch = (current: Record<string, number> | undefined, target: Record<string, number> | undefined) => {
     if (!current || !target) return false;
@@ -84,6 +85,7 @@ export const GameView: React.FC<{
     isDevMode?: boolean;
 }> = ({ onFinishGame, isDevMode = false }) => {
     useFrameJankReport('player');
+    const pendingAction = usePendingAction();
     const { gameState, setGameState, summary, alertInfo, showAlert, hideAlert } = useGame();
     const { user } = useAuth();
     const {financialSyncError,retryFinancialSync}=useGame();
@@ -3416,11 +3418,11 @@ export const GameView: React.FC<{
                             {activeSharedCardPrompt.kind !== 'expense_adjustment' && (
                                 <button
                                     type="button"
-                                    onClick={handleSharedCardDecline}
-                                    disabled={hasRespondedToSharedCardPrompt}
+                                    onClick={() => void pendingAction.run('shared-decline', handleSharedCardDecline)()}
+                                    disabled={hasRespondedToSharedCardPrompt || pendingAction.isPending('shared-decline')}
                                     className="flex-1 rounded-2xl border border-[#d8c29a] bg-[#f4e6d0] px-4 py-3 text-base font-black text-[#76573a] transition hover:bg-[#ead7b8] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                    {hasRespondedToSharedCardPrompt ? '已回覆' : '放棄'}
+                                    {hasRespondedToSharedCardPrompt ? '已回覆' : pendingAction.isPending('shared-decline') ? '處理中…' : '放棄'}
                                 </button>
                             )}
                             {activeSharedCardPrompt.kind === 'asset_sale' && (
@@ -3436,11 +3438,11 @@ export const GameView: React.FC<{
                             {(activeSharedCardPrompt.kind === 'cash_dividend' || activeSharedCardPrompt.kind === 'stock_dividend') && (
                                 <button
                                     type="button"
-                                    onClick={handleSharedDividendConfirm}
-                                    disabled={hasRespondedToSharedCardPrompt}
+                                    onClick={() => void pendingAction.run('shared-dividend', handleSharedDividendConfirm)()}
+                                    disabled={hasRespondedToSharedCardPrompt || pendingAction.isPending('shared-dividend')}
                                     className="flex-1 rounded-2xl bg-emerald-600 px-4 py-3 text-base font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                    {(activeSharedCardPrompt.kind === 'cash_dividend' ? sharedDividendAmount : sharedStockDividendItems.length) > 0 ? '開始結算' : '關閉'}
+                                    {pendingAction.isPending('shared-dividend') ? '處理中…' : (activeSharedCardPrompt.kind === 'cash_dividend' ? sharedDividendAmount : sharedStockDividendItems.length) > 0 ? '開始結算' : '關閉'}
                                 </button>
                             )}
                             {activeSharedCardPrompt.kind === 'investment' && (
@@ -3587,11 +3589,11 @@ export const GameView: React.FC<{
                             <div className="px-2 pt-1">
                                 <button
                                     type="button"
-                                    onClick={() => { void markBoardCardHandled(); }}
-                                    disabled={hasIncompleteSharedBoardPrompt}
+                                    onClick={() => void pendingAction.run('card-handled', () => markBoardCardHandled())()}
+                                    disabled={hasIncompleteSharedBoardPrompt || pendingAction.isPending('card-handled')}
                                     className="w-full rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-wait disabled:bg-slate-800 disabled:text-slate-400"
                                 >
-                                    {hasIncompleteSharedBoardPrompt ? '等待其他玩家完成' : '完成卡片'}
+                                    {hasIncompleteSharedBoardPrompt ? '等待其他玩家完成' : pendingAction.isPending('card-handled') ? '處理中…' : '完成卡片'}
                                 </button>
                                 {hasIncompleteSharedBoardPrompt && (
                                     <button type="button" onClick={handleCloseBoardCardDrawer}
@@ -3636,21 +3638,21 @@ export const GameView: React.FC<{
                                 <div className={`grid gap-3 ${isForcedActiveBoardCard ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                     {!isForcedActiveBoardCard && (
                                         <button
-                                            onClick={() => { void markBoardCardHandled(); }}
-                                            disabled={isActiveBoardCardHandled}
+                                            onClick={() => void pendingAction.run('card-handled', () => markBoardCardHandled())()}
+                                            disabled={isActiveBoardCardHandled || pendingAction.isPending('card-handled')}
                                             className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             關閉
                                         </button>
                                     )}
                                     <button
-                                        onClick={handleApplyDirectHappiness}
-                                        disabled={isActiveBoardCardHandled}
+                                        onClick={() => void pendingAction.run('apply-happiness', handleApplyDirectHappiness)()}
+                                        disabled={isActiveBoardCardHandled || pendingAction.isPending('apply-happiness')}
                                         className="rounded-2xl bg-emerald-600 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         {isActiveBoardCardHandled
                                             ? '此卡已處理'
-                                            : HAPPINESS_CARD_MAP[activeBoardCard?.cardId || '']?.requiresStorySharing
+                                            : pendingAction.isPending('apply-happiness') ? '處理中…' : HAPPINESS_CARD_MAP[activeBoardCard?.cardId || '']?.requiresStorySharing
                                                 ? (storyShareRequest?.status === 'pending' ? '等待主持人確認' : '送出故事分享確認')
                                                 : activeBoardCardAction.label}
                                     </button>
@@ -3661,8 +3663,8 @@ export const GameView: React.FC<{
                                 <div className={`grid gap-3 ${isForcedActiveBoardCard ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                     {!isForcedActiveBoardCard && (
                                         <button
-                                            onClick={() => { void markBoardCardHandled(); }}
-                                            disabled={isActiveBoardCardHandled}
+                                            onClick={() => void pendingAction.run('card-handled', () => markBoardCardHandled())()}
+                                            disabled={isActiveBoardCardHandled || pendingAction.isPending('card-handled')}
                                             className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             關閉
@@ -3704,8 +3706,8 @@ export const GameView: React.FC<{
                                     </button>
                                     {!isForcedActiveBoardCard && (
                                         <button
-                                            onClick={() => { void markBoardCardHandled(); }}
-                                            disabled={isActiveBoardCardHandled}
+                                            onClick={() => void pendingAction.run('card-handled', () => markBoardCardHandled())()}
+                                            disabled={isActiveBoardCardHandled || pendingAction.isPending('card-handled')}
                                             className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             關閉
@@ -3848,8 +3850,8 @@ export const GameView: React.FC<{
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
-                                            onClick={() => { void markBoardCardHandled(); }}
-                                            disabled={isActiveBoardCardHandled}
+                                            onClick={() => void pendingAction.run('card-handled', () => markBoardCardHandled())()}
+                                            disabled={isActiveBoardCardHandled || pendingAction.isPending('card-handled')}
                                             className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             關閉
@@ -3951,8 +3953,8 @@ export const GameView: React.FC<{
 
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
-                                            onClick={() => { void markBoardCardHandled(); }}
-                                            disabled={isActiveBoardCardHandled}
+                                            onClick={() => void pendingAction.run('card-handled', () => markBoardCardHandled())()}
+                                            disabled={isActiveBoardCardHandled || pendingAction.isPending('card-handled')}
                                             className="rounded-2xl bg-slate-800 py-3.5 text-sm font-black text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             關閉
