@@ -182,7 +182,11 @@ export const enqueueMovementSettlement=onDocumentWritten({document:'rooms/{roomI
   });
 });
 export const settleMovementTask=onTaskDispatched({retryConfig:{maxAttempts:5,minBackoffSeconds:2}},async request=>{
-  const command=parseMovementCommand(request.data),result=await executeMovementCommand(db,command);
+  const command=parseMovementCommand(request.data);
+  let result=await executeMovementCommand(db,command);
+  // Cloud Tasks may fire slightly before scheduleTime; waiting briefly beats a >=2s retry backoff.
+  const early=result.status==='waiting'?Number((result as {retryAt?:number}).retryAt)-Date.now():Infinity;
+  if(early<=1500){await new Promise(resolve=>setTimeout(resolve,Math.max(0,early)+50));result=await executeMovementCommand(db,command);}
   if(result.status==='waiting')throw new HttpsError('unavailable','移動尚未到期');
   if(result.status==='stale')await db.doc(`rooms/${command.roomId}/movementTasks/${keyForMovement(command)}`).set({status:'stale'},{merge:true});
 });

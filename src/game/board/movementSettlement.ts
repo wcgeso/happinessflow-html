@@ -9,6 +9,10 @@ export const movementEndsAt = (movement: BoardMovementState) => movement.started
 export const settlementDueAt = (movement: BoardMovementState, actorUid: string, hostUid: string) =>
     movementEndsAt(movement) + (actorUid === hostUid ? 0 : MOVEMENT_TAKEOVER_GRACE_MS);
 
+/** Server-authority rooms: the moving player settles at once; the host only steps in after the grace. */
+export const serverSettlementDueAt = (movement: BoardMovementState, actorUid: string) =>
+    movementEndsAt(movement) + (actorUid === movement.playerUid ? 0 : MOVEMENT_TAKEOVER_GRACE_MS);
+
 export const canSettleMovement = (
     board: BoardState, expected: BoardMovementState, actorUid: string, hostUid: string, now: number,
 ) => {

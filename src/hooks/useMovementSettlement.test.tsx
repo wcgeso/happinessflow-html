@@ -7,6 +7,19 @@ const movement = { playerUid: 'p1', startedAt: 1000, path: [6], stepDurationMs: 
     introDelayMs: 600, landingDelayMs: 600, isActive: true } as BoardMovementState;
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 describe('movement recovery scheduling', () => {
+    it('in server-authority rooms the mover settles as soon as the animation ends; the host waits for the grace', async () => {
+        vi.useFakeTimers(); vi.setSystemTime(1000);
+        const mover = vi.fn().mockResolvedValue(undefined), host = vi.fn().mockResolvedValue(undefined);
+        renderHook(() => useMovementSettlement({ scope: 'room:server-leg', movement, actorUid: 'p1', hostUid: 'host', enabled: true, settle: mover, serverAuthority: true }));
+        renderHook(() => useMovementSettlement({ scope: 'room:server-leg', movement, actorUid: 'host', hostUid: 'host', enabled: true, settle: host, serverAuthority: true }));
+        await act(async () => { await vi.advanceTimersByTimeAsync(1829); });
+        expect(mover).not.toHaveBeenCalled();
+        await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+        expect(mover).toHaveBeenCalledTimes(1);
+        expect(host).not.toHaveBeenCalled();
+        await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+        expect(host).toHaveBeenCalledTimes(1);
+    });
     it('takes over on a timer while the host remains online and recovers after a failed attempt', async () => {
         vi.useFakeTimers(); vi.setSystemTime(1000);
         const settle = vi.fn().mockRejectedValueOnce({ code: 'permission-denied' }).mockResolvedValue(undefined);

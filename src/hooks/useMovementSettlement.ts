@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { BoardMovementState } from '../types';
-import { settlementDueAt } from '../game/board/movementSettlement';
+import { serverSettlementDueAt, settlementDueAt } from '../game/board/movementSettlement';
 import { serverNow } from '../utils/serverClock';
 
-export function useMovementSettlement({ scope, movement, actorUid, hostUid, enabled, settle }: {
+export function useMovementSettlement({ scope, movement, actorUid, hostUid, enabled, settle, serverAuthority = false }: {
     scope: string; movement?: BoardMovementState | null; actorUid: string; hostUid: string;
     enabled: boolean; settle: () => Promise<void>;
+    /** Server-authority rooms: settle by command as soon as the animation ends (Cloud Tasks stay as backup). */
+    serverAuthority?: boolean;
 }) {
     const callback = useRef(settle);
     callback.current = settle;
@@ -37,7 +39,7 @@ export function useMovementSettlement({ scope, movement, actorUid, hostUid, enab
             if (navigator.onLine === false) return;
             timer = window.setTimeout(() => void runRef.current(), Math.max(0,
                 // The RTDB offset is an estimate; avoid submitting on the strict Rules boundary.
-                settlementDueAt(movement, actorUid, hostUid) + 250 - serverNow()));
+                (serverAuthority ? serverSettlementDueAt(movement, actorUid) : settlementDueAt(movement, actorUid, hostUid)) + 250 - serverNow()));
         };
         const resume = () => { if (document.visibilityState === 'visible') schedule(); };
         schedule();
@@ -50,6 +52,6 @@ export function useMovementSettlement({ scope, movement, actorUid, hostUid, enab
             window.removeEventListener('hf-clock-sync', schedule);
             document.removeEventListener('visibilitychange', resume);
         };
-    }, [scope, enabled, actorUid, hostUid]);
+    }, [scope, enabled, actorUid, hostUid, serverAuthority]);
     return { error: failure?.scope === scope ? failure.message : null, busy: busyScope === scope, retry: run };
 }

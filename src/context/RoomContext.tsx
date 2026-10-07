@@ -5540,7 +5540,13 @@ useEffect(() => {
         if (!room?.id || !settlementMovement?.isActive || !user) return;
         const movement = settlementMovement;
         if(room.movementAuthority==='server-movement-v1') {
-            const result=await submitServerGameCommand<any>({type:'settleMovement',roomId:room.id,sessionId:room.sessionId,commandId:movementCommandId(movement),playerUid:movement.playerUid,startedAt:movement.startedAt});
+            const command={type:'settleMovement',roomId:room.id,sessionId:room.sessionId,commandId:movementCommandId(movement),playerUid:movement.playerUid,startedAt:movement.startedAt};
+            let result=await submitServerGameCommand<any>(command);
+            // A slightly early request (clock estimate) gets 'waiting': wait for the server's deadline once.
+            if(result.status==='waiting'&&Number(result.retryAt)-serverNow()<5000){
+                await new Promise(resolve=>window.setTimeout(resolve,Math.max(0,Number(result.retryAt)-serverNow())+150));
+                result=await submitServerGameCommand<any>(command);
+            }
             if(!['applied','duplicate','stale'].includes(result.status))throw new Error(result.message||'等待後端移動結算');
             return;
         }
@@ -5568,11 +5574,12 @@ useEffect(() => {
     };
     const movementSettlement = useMovementSettlement({
         scope: settlementScope, movement: settlementMovement, actorUid: user?.uid || '', hostUid: room?.hostId || '',
-        enabled: room?.movementAuthority !== 'server-movement-v1' && !!user && isController && room?.status === 'playing'
+        enabled: !!user && isController && room?.status === 'playing'
             && (room.hostId === user.uid || settlementMovement?.playerUid === user.uid),
         settle: settleCurrentMovement,
+        serverAuthority: room?.movementAuthority === 'server-movement-v1',
     });
-    const retryStaleBoardMovement = room?.movementAuthority==='server-movement-v1'?settleCurrentMovement:movementSettlement.retry;
+    const retryStaleBoardMovement = movementSettlement.retry;
     useGameDiagnostics({roomId:room?.id,sessionId:room?.sessionId,uid:user?.uid,
         surface:room?.hostId===user?.uid?'coach':'player',controller:isController});
 
