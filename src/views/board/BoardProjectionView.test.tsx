@@ -7,7 +7,7 @@ vi.mock('../../hooks/useGameDiagnostics',()=>({useGameDiagnostics:()=>{}}));
 vi.mock('../../utils/serverClock',()=>({serverNow:()=>Date.now(),subscribeServerClock:()=>()=>{}}));
 vi.mock('../../utils/telemetry',()=>({trackBoardStage:vi.fn()}));
 vi.mock('../../utils/audio',()=>({AUDIO_SETTINGS_EVENT:'audio',getAudioSettings:()=>({}),setAudioSettings:vi.fn(),audioManager:{unlock:async()=>{},startBackgroundMusic:async()=>{},stopBackgroundMusic:()=>{},syncBackgroundMusic:()=>{},playOnce:async()=>{}}}));
-import {BoardProjectionView} from './BoardProjectionView';
+import {BoardProjectionView, getNextMovementStepDelay } from './BoardProjectionView';
 afterEach(()=>{cleanup();vi.clearAllMocks();mocks.user.uid='coach';});
 it('binds the actual projection page to the current account/room and reconnects without reloading',()=>{
  const reconnect=vi.fn();window.addEventListener('hf-reconnect',reconnect);
@@ -40,4 +40,15 @@ it('removes expired turn notices on foreground and clears them when the event di
   room.boardState={...room.boardState,skippedTurnNotice:{timestamp:100000,playerUids:['p'],nextTurnUid:'p'}};view.rerender(<BoardProjectionView roomCode="123456"/>);expect(screen.getByText('本回合暫停，無法行動')).toBeTruthy();
   room.boardState={...room.boardState,skippedTurnNotice:null};view.rerender(<BoardProjectionView roomCode="123456"/>);expect(screen.queryByText('本回合暫停，無法行動')).toBeNull();
  }finally{cleanup();vi.useRealTimers();mocks.project.mockReturnValue({room:null,syncState:'error'});}
+});
+
+describe('projection movement scheduling', () => {
+  const movement = { startedAt: 1000, introDelayMs: 600, stepDurationMs: 380, path: [1, 2, 3] };
+  it('wakes up exactly when the token reaches the next square, then stops on the last one', () => {
+    expect(getNextMovementStepDelay(movement, 1000)).toBe(601);
+    expect(getNextMovementStepDelay(movement, 1600)).toBe(381);
+    expect(getNextMovementStepDelay(movement, 1800)).toBe(181);
+    expect(getNextMovementStepDelay(movement, 1980)).toBe(381);
+    expect(getNextMovementStepDelay(movement, 2360)).toBeNull();
+  });
 });

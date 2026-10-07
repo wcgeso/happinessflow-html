@@ -40,7 +40,17 @@ const VIEWPORT_PADDING_TOP = 80;
 const VIEWPORT_PADDING_BOTTOM = 32;
 // 投影幕只需跟上每一步的移動，不需要每 80ms 重繪整個棋盤。
 // 160ms 仍有足夠的動畫取樣，並把移動期間的 React 重繪量減半。
-const BOARD_MOVEMENT_TICK_MS = 160;
+// Milliseconds until the moving token reaches its next square; null once it is on the last square.
+export const getNextMovementStepDelay = (
+  movement: Pick<NonNullable<NonNullable<Room['boardState']>['movement']>, 'startedAt' | 'introDelayMs' | 'stepDurationMs' | 'path'>,
+  now: number
+): number | null => {
+  const elapsed = Math.max(0, now - movement.startedAt);
+  if (elapsed < movement.introDelayMs) return movement.introDelayMs - elapsed + 1;
+  const step = Math.floor((elapsed - movement.introDelayMs) / movement.stepDurationMs);
+  if (step >= movement.path.length - 1) return null;
+  return movement.introDelayMs + (step + 1) * movement.stepDurationMs - elapsed + 1;
+};
 const SKIPPED_TURN_NOTICE_MS = 2600;
 
 const playProjectionCue = (cue: AudioCue, eventId: string) => {
@@ -732,6 +742,57 @@ const CardStage: React.FC<{
   );
 };
 
+// One board square. Memoized so token steps only re-render the two squares whose highlight changes.
+const BoardTile = React.memo(({ square, isCurrentEventSquare, isMovementTrailSquare }: {
+  square: BoardSquare; isCurrentEventSquare: boolean; isMovementTrailSquare: boolean;
+}) => {
+  const theme = SQUARE_THEME[square.type];
+  const isSpecialSquare = ['school', 'hospital', 'bank', 'repair'].includes(square.type);
+  return (
+      <div
+        className={[
+          'relative flex h-[92px] w-[132px] flex-col items-center justify-center border text-center transition-[transform,box-shadow,filter] duration-[220ms] motion-reduce:transition-none',
+          isSpecialSquare ? 'rounded-[20px] shadow-[0_12px_22px_-16px_rgba(48,36,20,0.72)]' : 'rounded-[12px] shadow-[0_8px_16px_-15px_rgba(48,36,20,0.58)]',
+          isCurrentEventSquare ? 'z-20 -translate-y-[6px] brightness-110 shadow-[0_22px_36px_-18px_rgba(73,50,20,0.88)]' : 'z-10',
+          isMovementTrailSquare ? 'brightness-110 ring-2 ring-[#fff3c8]/75' : '',
+          theme.bg,
+          theme.border,
+          isSpecialSquare ? theme.glow : ''
+        ].join(' ')}
+        style={getGridPosition(square.index)}
+      >
+        {isCurrentEventSquare && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: [0, 1, 0.55], scale: [0.96, 1.08, 1.03] }}
+            transition={{ duration: 0.6, ease: 'easeOut', times: [0, 0.35, 1] }}
+            className="pointer-events-none absolute -inset-[7px] rounded-[inherit] border-[3px] border-[#fff1b9] shadow-[0_0_26px_rgba(240,190,86,0.72)] motion-reduce:hidden"
+          />
+        )}
+        <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
+          <div className={`absolute inset-0 bg-gradient-to-br ${theme.surface}`} />
+          {isSpecialSquare ? (
+            <>
+              <div className={`absolute inset-[1px] rounded-[inherit] bg-gradient-to-br ${theme.bevel} opacity-65`} />
+              <div className="absolute inset-x-0 bottom-0 h-[28px] bg-gradient-to-t from-[#5c452c]/13 to-transparent" />
+            </>
+          ) : (
+            <>
+              <div className="absolute inset-[2px] rounded-[10px] border border-white/38" />
+              <div className={`absolute inset-x-3 top-0 h-[5px] rounded-b-full ${theme.bg} brightness-90`} />
+            </>
+          )}
+        </div>
+        <div className={`${theme.icon} relative z-10 mb-1.5`}>
+          {getSquareIcon(square, isSpecialSquare ? 28 : 22)}
+        </div>
+        <div className={`relative z-10 text-[24px] font-black leading-none drop-shadow-[0_1px_0_rgba(255,255,255,0.35)] ${theme.text}`}>
+          {square.label}
+        </div>
+      </div>
+  );
+});
+
 export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }) => {
   useFrameJankReport('projection');
   const { user } = useAuth();
@@ -799,14 +860,23 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
     const movement = room?.boardState?.movement;
     if (!movement?.isActive) return;
 
-    const align = () => {if(document.visibilityState!=='hidden')setAnimationNow(serverNow());};
+    // Re-render only when the token reaches the next square instead of on a fixed 160ms tick:
+    // positions change at step boundaries, so the extra renders redrew the whole board for nothing.
+    let timeoutId: number | undefined;
+    const tick = () => {
+      if (document.visibilityState === 'hidden') return;
+      const now = serverNow();
+      setAnimationNow(now);
+      const delay = getNextMovementStepDelay(movement, now);
+      if (delay !== null) timeoutId = window.setTimeout(tick, delay);
+    };
+    const align = () => { if (timeoutId !== undefined) window.clearTimeout(timeoutId); timeoutId = undefined; tick(); };
     align();
-    const intervalId = window.setInterval(align, BOARD_MOVEMENT_TICK_MS);
     document.addEventListener('visibilitychange',align);
     window.addEventListener('focus',align);
     window.addEventListener('online',align);
     window.addEventListener('hf-clock-sync',align);
-    return () => {window.clearInterval(intervalId);document.removeEventListener('visibilitychange',align);window.removeEventListener('focus',align);window.removeEventListener('online',align);window.removeEventListener('hf-clock-sync',align);};
+    return () => {if(timeoutId!==undefined)window.clearTimeout(timeoutId);document.removeEventListener('visibilitychange',align);window.removeEventListener('focus',align);window.removeEventListener('online',align);window.removeEventListener('hf-clock-sync',align);};
   }, [roomCode,room?.sessionId,room?.boardState?.movement]);
 
   useEffect(() => {
@@ -1391,59 +1461,16 @@ export const BoardProjectionView: React.FC<{ roomCode: string }> = ({ roomCode }
               className="absolute grid grid-cols-[repeat(16,132px)] grid-rows-[repeat(12,92px)] gap-[14px]"
               style={{ left: BOARD_PADDING, top: BOARD_PADDING }}
             >
-              {BOARD_SQUARES.map(square => {
-                const theme = SQUARE_THEME[square.type];
-                const isSpecialSquare = ['school', 'hospital', 'bank', 'repair'].includes(square.type);
-                const isCurrentEventSquare = movement?.isActive
-                  ? movingPlayerPosition === square.index
-                  : boardState?.currentEvent?.squareIndex === square.index;
-                const isMovementTrailSquare = movementTrailSquare === square.index;
-
-                return (
-                  <div
-                    key={square.id}
-                    className={[
-                      'relative flex h-[92px] w-[132px] flex-col items-center justify-center border text-center transition-[transform,box-shadow,filter] duration-[220ms] motion-reduce:transition-none',
-                      isSpecialSquare ? 'rounded-[20px] shadow-[0_12px_22px_-16px_rgba(48,36,20,0.72)]' : 'rounded-[12px] shadow-[0_8px_16px_-15px_rgba(48,36,20,0.58)]',
-                      isCurrentEventSquare ? 'z-20 -translate-y-[6px] brightness-110 shadow-[0_22px_36px_-18px_rgba(73,50,20,0.88)]' : 'z-10',
-                      isMovementTrailSquare ? 'brightness-110 ring-2 ring-[#fff3c8]/75' : '',
-                      theme.bg,
-                      theme.border,
-                      isSpecialSquare ? theme.glow : ''
-                    ].join(' ')}
-                    style={getGridPosition(square.index)}
-                  >
-                    {isCurrentEventSquare && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.96 }}
-                        animate={{ opacity: [0, 1, 0.55], scale: [0.96, 1.08, 1.03] }}
-                        transition={{ duration: 0.6, ease: 'easeOut', times: [0, 0.35, 1] }}
-                        className="pointer-events-none absolute -inset-[7px] rounded-[inherit] border-[3px] border-[#fff1b9] shadow-[0_0_26px_rgba(240,190,86,0.72)] motion-reduce:hidden"
-                      />
-                    )}
-                    <div className="absolute inset-0 overflow-hidden rounded-[inherit]">
-                      <div className={`absolute inset-0 bg-gradient-to-br ${theme.surface}`} />
-                      {isSpecialSquare ? (
-                        <>
-                          <div className={`absolute inset-[1px] rounded-[inherit] bg-gradient-to-br ${theme.bevel} opacity-65`} />
-                          <div className="absolute inset-x-0 bottom-0 h-[28px] bg-gradient-to-t from-[#5c452c]/13 to-transparent" />
-                        </>
-                      ) : (
-                        <>
-                          <div className="absolute inset-[2px] rounded-[10px] border border-white/38" />
-                          <div className={`absolute inset-x-3 top-0 h-[5px] rounded-b-full ${theme.bg} brightness-90`} />
-                        </>
-                      )}
-                    </div>
-                    <div className={`${theme.icon} relative z-10 mb-1.5`}>
-                      {getSquareIcon(square, isSpecialSquare ? 28 : 22)}
-                    </div>
-                    <div className={`relative z-10 text-[24px] font-black leading-none drop-shadow-[0_1px_0_rgba(255,255,255,0.35)] ${theme.text}`}>
-                      {square.label}
-                    </div>
-                  </div>
-                );
-              })}
+              {BOARD_SQUARES.map(square => (
+                <BoardTile
+                  key={square.id}
+                  square={square}
+                  isCurrentEventSquare={movement?.isActive
+                    ? movingPlayerPosition === square.index
+                    : boardState?.currentEvent?.squareIndex === square.index}
+                  isMovementTrailSquare={movementTrailSquare === square.index}
+                />
+              ))}
             </div>
 
             <div className="pointer-events-none absolute inset-0 z-[80]">

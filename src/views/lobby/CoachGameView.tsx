@@ -50,6 +50,24 @@ import { debugLog } from '../../utils/debugLog';
 import { useFrameJankReport } from '../../utils/frameMonitor';
 import {coachIntentKey,readCoachIntent,clearCoachIntent,type CoachAction,type CoachIntent} from '../../game/finance/pendingIntent';
 
+const formatCountdown = (seconds: number) =>
+    `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+
+// Owns the per-second tick so only this text re-renders while the game clock runs.
+const CountdownText = React.memo(({ deadline, seconds }: { deadline: number | null; seconds: number }) => {
+    const [now, setNow] = useState(() => serverNow());
+    useEffect(() => {
+        if (deadline == null) return;
+        const tick = () => setNow(serverNow());
+        tick();
+        const id = window.setInterval(tick, 1000);
+        document.addEventListener('visibilitychange', tick);
+        window.addEventListener('hf-clock-sync', tick);
+        return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', tick); window.removeEventListener('hf-clock-sync', tick); };
+    }, [deadline]);
+    return <>{formatCountdown(deadline == null ? seconds : Math.max(0, Math.ceil((deadline - now) / 1000)))}</>;
+});
+
 export const CoachGameView: React.FC = () => {
     useFrameJankReport('coach');
     const { room, pendingRequests: roomPendingRequests, playerStates, presenceStates, leaveRoom, closeRoom, finishRoomGame, updateMarket, adjustPlayerCash, adjustPlayerInvestmentIncome, adjustPlayerLiability, adjustPlayerExpense, updateFinancialAcceleration, grantFinancialSubsidyToAllPlayers, updateRoomTimer, startRoomGame, approveRequest, rejectRequest, skipDisconnectedTurn, skipDisconnectedSharedPromptTarget, coachTriggerBoardCard, repeatCurrentBoardEvent, setCoachNextTurn, clearCurrentBoardEvent, forceEndBoardTurn, resyncRoom, retryStaleBoardMovement } = useRoom();
@@ -214,18 +232,25 @@ export const CoachGameView: React.FC = () => {
         .filter(request => request.status === 'pending' && request.type !== 'family_milestone')
         .sort((a, b) => a.timestamp - b.timestamp || a.id.localeCompare(b.id)), [roomPendingRequests]);
 
-    // 倒數只依照結束時間計算；背景分頁或執行師端高負載恢復後會直接跳到正確秒數。
+    // 倒數只依照結束時間計算；每秒的畫面更新交給 CountdownText，這裡只在時間到時更新狀態，
+    // 避免整個執行師畫面每秒重新渲染。
     useEffect(() => {
         if (!room || room.isTimerPaused || timerDeadlineRef.current == null) return;
-
-        const updateDisplayedTime = () => {
-            const next = Math.max(0, Math.ceil((timerDeadlineRef.current! - serverNow()) / 1000));
-            setTimeLeft(next);
+        const deadline = timerDeadlineRef.current;
+        setTimeLeft(Math.max(0, Math.ceil((deadline - serverNow()) / 1000)));
+        let timeoutId: number | undefined;
+        const check = () => {
+            if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+            const left = deadline - serverNow();
+            if (left <= 0) { setTimeLeft(0); return; }
+            timeoutId = window.setTimeout(check, Math.min(left + 50, 60_000));
         };
-        updateDisplayedTime();
-        const timer = window.setInterval(updateDisplayedTime, 1000);
-        return () => window.clearInterval(timer);
+        check();
+        document.addEventListener('visibilitychange', check);
+        return () => { if (timeoutId !== undefined) window.clearTimeout(timeoutId); document.removeEventListener('visibilitychange', check); };
     }, [room?.id, room?.isTimerPaused, room?.timerEndsAtMs]);
+    const timerDeadline = room && !room.isTimerPaused ? room.timerEndsAtMs ?? null : null;
+    const liveTimeLeft = () => timerDeadline == null ? timeLeft : Math.max(0, Math.ceil((timerDeadline - serverNow()) / 1000));
 
     // 遊戲時間到自動存檔邏輯
     const prevTimeLeftRef = useRef(timeLeft);
@@ -248,7 +273,7 @@ export const CoachGameView: React.FC = () => {
                 await startRoomGame();
                 return;
             }
-            await runCoachAction({kind:'timer',seconds:timeLeft,paused:false,mode:'set'});
+            await runCoachAction({kind:'timer',seconds:liveTimeLeft(),paused:false,mode:'set'});
             setIsPaused(false);
         } catch (error) {
             console.error('開始遊戲失敗:', error);
@@ -279,7 +304,7 @@ export const CoachGameView: React.FC = () => {
         const newPaused = !isPaused;
         setIsUpdatingTimer(true);
         try {
-            await runCoachAction({kind:'timer',seconds:timeLeft,paused:newPaused,mode:newPaused?'pause':'set'});
+            await runCoachAction({kind:'timer',seconds:liveTimeLeft(),paused:newPaused,mode:newPaused?'pause':'set'});
             setIsPaused(newPaused);
         } catch (error) {
             console.error('切換遊戲計時器失敗:', error);
@@ -290,7 +315,7 @@ export const CoachGameView: React.FC = () => {
 
     const handleAdjustTime = async (seconds: number) => {
         if (timeLeft === 0 || isUpdatingTimer) return;
-        const newTime = Math.max(0, timeLeft + seconds);
+        const newTime = Math.max(0, liveTimeLeft() + seconds);
         setIsUpdatingTimer(true);
         try {await runCoachAction({kind:'timer',seconds:newTime,paused:isPaused,mode:'set'});setTimeLeft(newTime);}
         catch(error){setCoachCommandError((error as Error).message || '計時器調整尚待確認');}
@@ -671,11 +696,6 @@ export const CoachGameView: React.FC = () => {
         }
     }, [players, selectedPlayerUid]);
 
-    const formatTime = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    };
 
     const selectedPlayerState = selectedPlayerUid ? playerStates[selectedPlayerUid] : null;
     const selectedLiability = selectedPlayerState?.liabilities?.find(liability => liability.id === selectedLiabilityId) || null;
@@ -1377,7 +1397,7 @@ export const CoachGameView: React.FC = () => {
                                 "text-[10px] font-black tracking-wider tabular-nums transition-colors duration-300",
                                 (!isPaused && timeLeft > 0) ? "text-white" : (showRoomInfo ? "text-white" : "text-slate-400")
                             )}>
-                                {formatTime(timeLeft)}
+                                <CountdownText deadline={timerDeadline} seconds={timeLeft} />
                             </span>
                         </div>
                         <ChevronDown size={11} className={cn("transition-transform duration-300", showRoomInfo && "rotate-180")} />
@@ -1427,7 +1447,7 @@ export const CoachGameView: React.FC = () => {
 
                                     <div className="flex flex-col items-center py-2 bg-slate-800/30 rounded-xl border border-slate-800/50">
                                         <div className="text-3xl font-black text-white tabular-nums tracking-tighter">
-                                            {formatTime(timeLeft)}
+                                            <CountdownText deadline={timerDeadline} seconds={timeLeft} />
                                         </div>
                                     </div>
 
@@ -1695,7 +1715,7 @@ export const CoachGameView: React.FC = () => {
                                                         <div className="text-xs font-bold text-blue-400">遊戲剩餘時間</div>
                                                     </div>
                                                 </div>
-                                                <span className="text-2xl font-black text-blue-400 tabular-nums tracking-tighter drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]">{formatTime(timeLeft)}</span>
+                                                <span className="text-2xl font-black text-blue-400 tabular-nums tracking-tighter drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]"><CountdownText deadline={timerDeadline} seconds={timeLeft} /></span>
                                             </div>
                                         </div>
                                     </div>
