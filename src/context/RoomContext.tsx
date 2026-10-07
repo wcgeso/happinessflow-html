@@ -6,7 +6,7 @@ import {createInitialBoardState} from '../game/board/initialState';
 import {createRoomOnServer,recoverRoomCreationOnServer} from '../game/board/serverRoomCreation';
 import {RoomCreationRecovery} from '../components/RoomCreationRecovery';
 import {getPersonalFinancialHandler} from '../game/finance/transactionRoute';
-import {submitServerGameCommand} from '../game/board/serverPromptCommand';
+import {submitServerGameCommand,callServerGameCommand} from '../game/board/serverPromptCommand';
 import {ServerCommandRecovery,RoomLifecycleRecovery} from '../components/ServerCommandRecovery';
 import {getNextBoardSquare,buildBoardMovementLegResolution,drawBoardCard,hasCarAsset,resolveBoardDiceCount,buildBoardCardResultById} from '../game/board/movementResolution';
 export {buildBoardMovementLegResolution,resolveBoardDiceCount,buildBoardCardResultById} from '../game/board/movementResolution';
@@ -525,6 +525,15 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // ─────────────────────────────────────────────────────────────────────────
 
     useEffect(subscribeServerClock, []);
+    // Keep the game function warm while someone is in the lobby or a room, so taps skip the cold start.
+    useEffect(() => {
+        if (!user?.uid || import.meta.env.VITE_SERVER_GAME_ROOMS !== 'true') return;
+        const warm = () => { if (document.visibilityState !== 'hidden') void Promise.resolve().then(() => callServerGameCommand({type:'warmup'})).catch(() => undefined); };
+        warm();
+        const id = window.setInterval(warm, 10 * 60_000);
+        document.addEventListener('visibilitychange', warm);
+        return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', warm); };
+    }, [user?.uid, room?.id]);
     const isProcessingRef = useRef<boolean>(false);
 
     const runRoomBoardMutation = async <T, R extends BoardRoomSnapshot>(params: RunRoomBoardMutationParams<T, R>): Promise<T> => {

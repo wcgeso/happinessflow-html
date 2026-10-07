@@ -32,15 +32,20 @@ import * as logger from 'firebase-functions/logger';
 import {setGlobalOptions} from 'firebase-functions/v2';
 import {defineString} from 'firebase-functions/params';
 import {onCall,HttpsError} from 'firebase-functions/v2/https';
-import {onDocumentWritten} from 'firebase-functions/v2/firestore';
+import {onDocumentWritten,onDocumentCreated} from 'firebase-functions/v2/firestore';
+import {hasActiveRooms,setWarmPool} from './warmPool';
 import {onTaskDispatched} from 'firebase-functions/v2/tasks';
 import {AUTHORITY,key,executeCommand,parseCommand,type FinalizeCommand} from './commands';
 initializeApp();
 const region=defineString('GAME_FUNCTION_REGION',{default:'asia-east1'});
+// Cloud Run service names of the functions on the tap → result path (lowercase function names).
+const warmServices=defineString('WARM_SERVICES',{default:'gamecommand,enqueuemovementsettlement,settlemovementtask,onpromptresponse'});
 setGlobalOptions({region,maxInstances:5});
 const db=getFirestore();
 export const gameCommand=onCall({enforceAppCheck:process.env.FUNCTIONS_EMULATOR!=='true'},async request=>{
   if(!request.auth)throw new HttpsError('unauthenticated','請先登入');
+  // Sent when a player opens the lobby or a room, so the first real tap does not pay the cold start.
+  if((request.data as {type?:unknown})?.type==='warmup')return {status:'warm'};
   const data:any=await readClientCommand(db,request.data,request.auth.uid);
   if(['adminSetScore','getAdminScoreResult'].includes(data?.type)){
     const command=parseAdminScoreCommand(data),started=performance.now();
@@ -190,4 +195,16 @@ export const recoverDueMovements=onSchedule({schedule:'every 1 minutes',timeZone
       if(result.status==='stale')await job.ref.update({status:'stale'});
     }catch(error){logger.error('movement_recovery_failed',{path:job.ref.path,code:error instanceof HttpsError?error.code:'internal'});}
   }
+});
+
+const warmTarget=()=>({project:process.env.GCLOUD_PROJECT||'',region:region.value(),services:warmServices.value().split(',').map(v=>v.trim()).filter(Boolean)});
+// Warm the tap → result path as soon as a coach opens a room; players join a few minutes later.
+export const warmOnRoomCreated=onDocumentCreated({document:'rooms/{roomId}'},async()=>{
+  if(process.env.FUNCTIONS_EMULATOR==='true')return;
+  await setWarmPool(db,warmTarget(),1);
+});
+// Scale back to zero 30 minutes after the last board activity; re-apply hourly in case a deploy reset it.
+export const maintainWarmPool=onSchedule({schedule:'every 5 minutes',timeZone:'Asia/Taipei'},async()=>{
+  if(process.env.FUNCTIONS_EMULATOR==='true')return;
+  await setWarmPool(db,warmTarget(),await hasActiveRooms(db)?1:0);
 });
