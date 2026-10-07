@@ -38,7 +38,16 @@ export function submitPersistentGameCommand<T>(storage:Storage,uid:string,comman
    let confirmed;
    try{confirmed=await confirmPendingGameCommand(storage,uid,command.roomId,command.sessionId,call);}catch(error){throw Object.assign(new Error(`原操作尚未確認：${(error as Error).message}`),{code:'functions/deadline-exceeded'});}
    if(confirmed?.status==='confirmed') {if(prior.commandId===command.commandId)return confirmed.result;prior=null;}
-   else if(prior.commandId!==command.commandId){reportClientRejection('pending-unconfirmed',command.commandId);throw Object.assign(new Error('上一筆操作尚待確認，請先恢復原操作'),{code:'busy'});}
+   else if(prior.commandId!==command.commandId){
+    // Resend the earlier command with its original ID and contents; the server de-duplicates by
+    // commandId, so this either confirms it or applies it once. Only then continue with the new tap.
+    let settled=false;
+    try{const replay=await call(prior);settled=typeof replay?.status==='string'&&replay.status!=='waiting';}
+    catch(error){settled=!isUncertainGameCommandError(error);/* A definite rejection means it never applied. */}
+    if(!settled){reportClientRejection('pending-unconfirmed',command.commandId);throw Object.assign(new Error('上一筆操作尚待確認，請稍後再試'),{code:'busy'});}
+    if(readPendingGameCommand(storage,uid,command.roomId,command.sessionId)?.commandId===prior.commandId){storage.removeItem(scope);notify();}
+    prior=null;
+   }
   }
   // Persist before submitting; a storage failure must stop the write.
   storage.setItem(scope,payload);notify();

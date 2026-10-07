@@ -1275,9 +1275,16 @@ describe('authoritative board transaction helpers', () => {
 
 it('keeps controller ownership stable when another tab renews its heartbeat', () => {
   expect(selectActiveControllerClaim([
-    {clientId:'owner',claimedAt:1000,lastSeenAt:29000},
-    {clientId:'reader',claimedAt:2000,lastSeenAt:30000}
+    {clientId:'reader',claimedAt:1000,lastSeenAt:30000},
+    {clientId:'owner',claimedAt:2000,lastSeenAt:29000}
   ],30000)?.clientId).toBe('owner');
+});
+
+it('hands control to the newest tab immediately instead of waiting for the old claim to expire', () => {
+  expect(selectActiveControllerClaim([
+    {clientId:'backgrounded-phone-tab',claimedAt:1000,lastSeenAt:29000},
+    {clientId:'reopened-tab',claimedAt:29500,lastSeenAt:29500}
+  ],30000)?.clientId).toBe('reopened-tab');
 });
 
  it('keeps a paid continuation pending through every event advance caller', () => {

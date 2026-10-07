@@ -182,7 +182,9 @@ export const selectActiveControllerClaim = (
         Number.isFinite(Number(claim.lastSeenAt)) &&
         now - Number(claim.lastSeenAt) <= CONTROLLER_CLAIM_TTL_MS
     ))
-    .sort((left, right) => Number(left.claimedAt) - Number(right.claimedAt) || String(left.clientId).localeCompare(String(right.clientId)))[0] || null;
+    // Newest claim wins: the tab the player just opened or returned to is the one they are using.
+    // Heartbeats only renew lastSeenAt, so they never move ownership.
+    .sort((left, right) => Number(right.claimedAt) - Number(left.claimedAt) || String(left.clientId).localeCompare(String(right.clientId)))[0] || null;
 
 export const shouldClearRoomAfterSnapshotError = (code?: string): boolean => code === 'not-found';
 
@@ -660,40 +662,54 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         }, [room?.id, user?.uid, room?.members.map(member => member.uid).sort().join('|')]);
 
-    // 同一帳號多分頁使用獨立 claim；最早仍有效的 claim 持續擁有控制權。
+    // 同一帳號多分頁使用獨立 claim；最新開啟或回到前景的分頁取得控制權。
     // claim 綁定 onDisconnect，異常關閉分頁後不會把舊控制權留在房間裡。
     useEffect(() => {
         if (!user?.uid || !room?.id) {
             setIsController(true);
             return;
         }
-        setIsController(false);
+        // This tab is about to write the newest claim, so it owns control immediately;
+        // waiting for the RTDB round trip used to leave a reopened phone read-only.
+        setIsController(true);
         const controllerRootRef = realtimeRef(realtimeDb, `roomControllers/${room.id}/${user.uid}`);
         const clientId = realtimeClientIdRef.current;
         const controllerRef = realtimeRef(realtimeDb, `roomControllers/${room.id}/${user.uid}/${clientId}`);
-        const claim = { clientId, claimedAt: serverNow(), lastSeenAt: serverNow() };
-        void Promise.all([
-            onRealtimeDisconnect(controllerRef).remove(),
-            setRealtime(controllerRef, claim)
-        ]).catch(error => console.error('取得分頁控制權失敗:', error));
+        let claim = { clientId, claimedAt: serverNow(), lastSeenAt: serverNow() };
+        const writeClaim = () => setRealtime(controllerRef, claim).catch(error => console.error('取得分頁控制權失敗:', error));
+        void onRealtimeDisconnect(controllerRef).remove().catch(error => console.error('設定分頁控制權清理失敗:', error));
+        void writeClaim();
         const unsubscribe = onRealtimeValue(controllerRootRef, snapshot => {
             const latestClaim = selectActiveControllerClaim(
                 Object.values((snapshot.val() || {}) as Record<string, RoomControllerClaim>)
             );
-            setIsController(latestClaim?.clientId === clientId);
+            setIsController(!latestClaim || latestClaim.clientId === clientId);
         }, error => {
+            // The server validates every command; a presence outage must not lock the player's buttons.
             console.error('監聽分頁控制權失敗:', error);
-            setIsController(false);
+            setIsController(true);
         });
+        const reclaim = () => {
+            if (document.visibilityState === 'hidden') return;
+            const now = serverNow();
+            claim = { clientId, claimedAt: now, lastSeenAt: now };
+            setIsController(true);
+            void writeClaim();
+        };
         const heartbeatId = window.setInterval(() => {
-            void setRealtime(controllerRef, {
-                ...claim,
-                lastSeenAt: serverNow()
-            }).catch(error => console.error('更新分頁控制權心跳失敗:', error));
+            if (document.visibilityState === 'hidden') return;
+            claim = { ...claim, lastSeenAt: serverNow() };
+            void writeClaim();
         }, CONTROLLER_CLAIM_HEARTBEAT_MS);
+        document.addEventListener('visibilitychange', reclaim);
+        window.addEventListener('pageshow', reclaim);
+        window.addEventListener('focus', reclaim);
         return () => {
             unsubscribe();
             window.clearInterval(heartbeatId);
+            document.removeEventListener('visibilitychange', reclaim);
+            window.removeEventListener('pageshow', reclaim);
+            window.removeEventListener('focus', reclaim);
             void removeRealtime(controllerRef).catch(error => console.error('清理分頁控制權失敗:', error));
         };
     }, [room?.id, user?.uid]);

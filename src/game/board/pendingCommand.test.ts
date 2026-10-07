@@ -2,14 +2,26 @@ import {beforeEach,expect,it,vi} from 'vitest';
 import {submitPersistentGameCommand,confirmPendingGameCommand,readPendingGameCommand} from './pendingCommand';
 const command={type:'borrowLoan',roomId:'room',sessionId:'s',commandId:'one',amount:10};
 beforeEach(()=>localStorage.clear());
-it('shares identical in-flight work, blocks another command and refuses changed content',async()=>{
- let finish!:(r:unknown)=>void;const call=vi.fn(()=>new Promise(r=>{finish=r;}));
+it('shares identical in-flight work, queues another command and refuses changed content',async()=>{
+ const resolvers:((r:unknown)=>void)[]=[];const call=vi.fn(()=>new Promise(r=>{resolvers.push(r);}));
  const first=submitPersistentGameCommand(localStorage,'u',command,call);
  await Promise.resolve();
  expect(submitPersistentGameCommand(localStorage,'u',{...command},call)).toBe(first);
- await expect(submitPersistentGameCommand(localStorage,'u',{...command,commandId:'other'},call)).rejects.toMatchObject({code:'busy'});
+ const other=submitPersistentGameCommand(localStorage,'u',{...command,commandId:'other'},call);
  await expect(submitPersistentGameCommand(localStorage,'u',{...command,amount:20},call)).rejects.toMatchObject({code:'already-exists'});
- finish({status:'applied'});await first;expect(call).toHaveBeenCalledTimes(1);expect(readPendingGameCommand(localStorage,'u','room','s')).toBeNull();
+ await vi.waitFor(()=>expect(resolvers).toHaveLength(1));
+ resolvers[0]({status:'applied'});await first;
+ await vi.waitFor(()=>expect(resolvers).toHaveLength(2));
+ expect(call.mock.calls[1][0]).toMatchObject({commandId:'other'});
+ resolvers[1]({status:'applied'});await other;
+ expect(call).toHaveBeenCalledTimes(2);expect(readPendingGameCommand(localStorage,'u','room','s')).toBeNull();
+});
+it('resends an unconfirmed earlier command with its original ID before running a new tap',async()=>{
+ localStorage.setItem('hf-server-command:u:room:s',JSON.stringify({...command,commandId:'earlier'}));
+ const call=vi.fn(async(data:any)=>data.type==='getCommandResult'?{status:'waiting'}:{status:'applied'});
+ await expect(submitPersistentGameCommand(localStorage,'u',command,call)).resolves.toEqual({status:'applied'});
+ expect(call.mock.calls.map(([data]:any)=>data.type==='getCommandResult'?'lookup':data.commandId)).toEqual(['lookup','earlier','one']);
+ expect(readPendingGameCommand(localStorage,'u','room','s')).toBeNull();
 });
 it('confirms a timed-out committed write without sending another mutation',async()=>{
  const call=vi.fn().mockRejectedValueOnce({code:'functions/deadline-exceeded'}).mockResolvedValueOnce({status:'confirmed',result:{status:'applied',cash:20}});

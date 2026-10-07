@@ -1,13 +1,14 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 const trackGameEvent=vi.fn(async()=>undefined);
 vi.mock('./telemetry',()=>({trackGameEvent}));
-import {runLockedBoardCommand} from '../game/board/commandLock';
+import {MAX_LOCKED_COMMANDS,runLockedBoardCommand} from '../game/board/commandLock';
 import {submitPersistentGameCommand} from '../game/board/pendingCommand';
 beforeEach(()=>{trackGameEvent.mockClear();localStorage.clear();});
 
-it('reports a click rejected because another command is in flight',async()=>{
+it('reports a click rejected because the command queue is full',async()=>{
  const inFlight=new Map<string,Promise<unknown>>();
- const first=runLockedBoardCommand(inFlight,'roll:a',()=>new Promise(()=>undefined));
+ const hang=()=>new Promise<never>(()=>undefined);
+ const first=Array.from({length:MAX_LOCKED_COMMANDS},(_,i)=>runLockedBoardCommand(inFlight,`card:${i}`,hang));
  await expect(runLockedBoardCommand(inFlight,'turn-end:a',async()=>1)).rejects.toMatchObject({code:'busy'});
  await vi.waitFor(()=>expect(trackGameEvent).toHaveBeenCalledWith('command_rejected_client',{reason:'busy',command_type:'turn-end'}));
  void first;
