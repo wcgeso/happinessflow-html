@@ -1,0 +1,200 @@
+[
+  {
+    "original": "App.tsx.bak",
+    "archive": "scripts/archive/App.tsx.bak",
+    "sha256": "694aa0e9060d6d540b8d5e6af4154c06977594513b7ff7e5c20c493e2df5381d",
+    "bytes": 106849
+  },
+  {
+    "original": "fix_banking_app.py",
+    "archive": "scripts/archive/fix_banking_app.py",
+    "sha256": "1e9663567f997005613819475d822185422c3478edac60d02f50338ee6229968",
+    "bytes": 425
+  },
+  {
+    "original": "fix_banking_loan.py",
+    "archive": "scripts/archive/fix_banking_loan.py",
+    "sha256": "8399fc314ffc01ed34164ffed3d2ec35a03aba65c976ad16685f8398ca951cd0",
+    "bytes": 687
+  },
+  {
+    "original": "fix_bulk.py",
+    "archive": "scripts/archive/fix_bulk.py",
+    "sha256": "618e3a11e52d1468bf3ee0b9abe8319a8260c932b630500592df957ca0bbca56",
+    "bytes": 6664
+  },
+  {
+    "original": "fix_bulk_v2.py",
+    "archive": "scripts/archive/fix_bulk_v2.py",
+    "sha256": "1322011038ff7694d77d9287d55d1779e947fee75f49735a6a5b1d03ac6f5930",
+    "bytes": 7531
+  },
+  {
+    "original": "fix_cards.py",
+    "archive": "scripts/archive/fix_cards.py",
+    "sha256": "91a65b464a300e45135f002971d45af9a317b8e82e7951365f1de1283d37c110",
+    "bytes": 2684
+  },
+  {
+    "original": "fix_cards_v2.py",
+    "archive": "scripts/archive/fix_cards_v2.py",
+    "sha256": "c6df26ad0df9ca5bb5af7b7814196352e683944aeafecd03b1511d7e151223f0",
+    "bytes": 4758
+  },
+  {
+    "original": "fix_cards_v3.py",
+    "archive": "scripts/archive/fix_cards_v3.py",
+    "sha256": "d17aaeeef2b2d52eade71e1b0499c5bc78d0387a2f9f1481599c72c2d4e4f44b",
+    "bytes": 3847
+  },
+  {
+    "original": "fix_drawer.py",
+    "archive": "scripts/archive/fix_drawer.py",
+    "sha256": "f70cc25c0ffd8382f40ebe40603b76e16d9085c4d23ce1a70d984a346d691789",
+    "bytes": 1423
+  },
+  {
+    "original": "fix_drawer_landscape.py",
+    "archive": "scripts/archive/fix_drawer_landscape.py",
+    "sha256": "4f19abca1a8800f12904ad9133f3dbceb543234cafd492ac266982aeb25c0f9c",
+    "bytes": 2993
+  },
+  {
+    "original": "fix_drawer_structure.py",
+    "archive": "scripts/archive/fix_drawer_structure.py",
+    "sha256": "aa1544606f0df689ccbfc33591e69d798dfbf8ce4b0e22a524a8a1aa45225ecd",
+    "bytes": 2419
+  },
+  {
+    "original": "fix_h044.py",
+    "archive": "scripts/archive/fix_h044.py",
+    "sha256": "ab5b8c9f44829553dd5c7501d361d0b08a1190cc737774b35fd204928730d6f7",
+    "bytes": 1274
+  },
+  {
+    "original": "fix_h_cards.py",
+    "archive": "scripts/archive/fix_h_cards.py",
+    "sha256": "0fa43803338977b6d96a097cd9cc336416cce985c12ea8cd6ea0a4ca87c4e15c",
+    "bytes": 3118
+  },
+  {
+    "original": "fix_h_cards_description.py",
+    "archive": "scripts/archive/fix_h_cards_description.py",
+    "sha256": "7a9ae2f5e2eeae3babd124f567b5032b9584d74caa9ce7925dc3f6519fe42d64",
+    "bytes": 654
+  },
+  {
+    "original": "fix_lines.py",
+    "archive": "scripts/archive/fix_lines.py",
+    "sha256": "9827e834845acf13e7e9addaa681a98bd24164d20112e3e487a8c6d6e3b8b9dc",
+    "bytes": 1021
+  },
+  {
+    "original": "fix_n_cards.py",
+    "archive": "scripts/archive/fix_n_cards.py",
+    "sha256": "50fb5096ec364a0f1749510b85ca8879e7d6bd2ca67cd81cc4ba4668e399d90f",
+    "bytes": 820
+  },
+  {
+    "original": "fix_opportunity_category.py",
+    "archive": "scripts/archive/fix_opportunity_category.py",
+    "sha256": "76bdebd8b9cddd4cf2cf9c185eac3cba1efcf36fb2caf3e63a2a50d87d61618b",
+    "bytes": 652
+  },
+  {
+    "original": "fix_room_meta.py",
+    "archive": "scripts/archive/fix_room_meta.py",
+    "sha256": "c5c0783d273cf5b261b7d691d72880ed1762cff711fc0370d9d7f0b791910037",
+    "bytes": 4149
+  },
+  {
+    "original": "patch_all_drawer.py",
+    "archive": "scripts/archive/patch_all_drawer.py",
+    "sha256": "d94c0f1a419b436479763c0965c5132d5317ef2011732b25b1c463421cfd196a",
+    "bytes": 1590
+  },
+  {
+    "original": "patch_back.py",
+    "archive": "scripts/archive/patch_back.py",
+    "sha256": "aba2378d313881b684badc6ad49ef1973c7f8249ab64eefb6354ebdab23ebef7",
+    "bytes": 588
+  },
+  {
+    "original": "patch_boardCardDisplay.py",
+    "archive": "scripts/archive/patch_boardCardDisplay.py",
+    "sha256": "bde52c8b50d84e79555e28c66f56c3ee0013f71da4aada720545df207895c07c",
+    "bytes": 1508
+  },
+  {
+    "original": "patch_boardCardDisplay2.py",
+    "archive": "scripts/archive/patch_boardCardDisplay2.py",
+    "sha256": "f119ce225f08a9bd5d1319e50a9ccc05abc7b47eb3ae8bbd85820bf179c2e519",
+    "bytes": 766
+  },
+  {
+    "original": "patch_boardCardDisplay3.py",
+    "archive": "scripts/archive/patch_boardCardDisplay3.py",
+    "sha256": "911ac0bcdab175701f3aeaade4adef6a0e31dd1d983e88215e7ad264ad34adc2",
+    "bytes": 951
+  },
+  {
+    "original": "patch_display.py",
+    "archive": "scripts/archive/patch_display.py",
+    "sha256": "f6c41e767678703797aba9c75a15789c510dc31c10c56d82a617e98b45668d2d",
+    "bytes": 1151
+  },
+  {
+    "original": "patch_family_milestones.py",
+    "archive": "scripts/archive/patch_family_milestones.py",
+    "sha256": "f3d049fb40bd4919d1ca00c0f048117fdea340fd51651f4da0d4f49a65eedc3c",
+    "bytes": 2630
+  },
+  {
+    "original": "patch_game_actions.py",
+    "archive": "scripts/archive/patch_game_actions.py",
+    "sha256": "578bbb3caed28ec51d265381a2b2ee256359e7f41d089403f7003eeb06219ee3",
+    "bytes": 2186
+  },
+  {
+    "original": "patch_game_view.py",
+    "archive": "scripts/archive/patch_game_view.py",
+    "sha256": "88a6397d023da038663f3677cd47248cf64d07cb5dc76b1e0054ab933496593a",
+    "bytes": 1838
+  },
+  {
+    "original": "patch_game_view2.py",
+    "archive": "scripts/archive/patch_game_view2.py",
+    "sha256": "247070976622e15415a031295f35b4be2cc6f9ce4419418359a88557a34d6506",
+    "bytes": 3489
+  },
+  {
+    "original": "patch_more_roomcontext_0703.py",
+    "archive": "scripts/archive/patch_more_roomcontext_0703.py",
+    "sha256": "bc1d0bac1085e6fe92cc768486ad6de1b72aa9639045baddbf0d3e719732c0b1",
+    "bytes": 2916
+  },
+  {
+    "original": "patch_room.py",
+    "archive": "scripts/archive/patch_room.py",
+    "sha256": "c4ae2536d8aad3ab02a0b5e57e868657707cc9f47a8489f3e1ce232783653ee3",
+    "bytes": 4384
+  },
+  {
+    "original": "patch_roomcontext_0703.py",
+    "archive": "scripts/archive/patch_roomcontext_0703.py",
+    "sha256": "33ffad6eb7090b5f34518613b606f39c93a04be9f5f53a7c4db25de9f47a3fed",
+    "bytes": 8940
+  },
+  {
+    "original": "patch_types.py",
+    "archive": "scripts/archive/patch_types.py",
+    "sha256": "790f71d94a4591f008eafe93f6662ec7609e17cfbddc5f152fea9ab585ceba4d",
+    "bytes": 751
+  },
+  {
+    "original": "patch_wealth_view.py",
+    "archive": "scripts/archive/patch_wealth_view.py",
+    "sha256": "ca003ea3ffb941b36ab9093b86d643052bcf1deb11482c0867756c253c8184b4",
+    "bytes": 2834
+  }
+]

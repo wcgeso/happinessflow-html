@@ -1,0 +1,1424 @@
+{
+  "id": "486997",
+  "name": "執行日記 2026/9/30",
+  "hostId": "Hcokt2PxnegieNeoVfmJLEgmPOOH",
+  "createdAt": {
+    "_methodName": "serverTimestamp"
+  },
+  "maxPlayers": 3,
+  "closedPlayerSlots": [
+    3,
+    4,
+    5
+  ],
+  "duration": 60,
+  "gameTimeLeft": 3600,
+  "syncSchemaVersion": 2,
+  "flowSchemaVersion": 1,
+  "financialHistoryStorage": "subcollection",
+  "financialAcceleration": {
+    "multiplier": 1
+  },
+  "isBoardGame": true,
+  "memberUids": [
+    "Hcokt2PxnegieNeoVfmJLEgmPOOH",
+    "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+    "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+    "BITnJ0A3e1frYvcae76WaIjb3rJh"
+  ],
+  "members": [
+    {
+      "uid": "Hcokt2PxnegieNeoVfmJLEgmPOOH",
+      "name": "Coach",
+      "photoURL": "bee",
+      "email": "coach.local@hf.test",
+      "title": "",
+      "experience": 0,
+      "role": "coach",
+      "joinedAt": {}
+    },
+    {
+      "uid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+      "name": "Player1",
+      "photoURL": "bee",
+      "email": "p1.local@hf.test",
+      "title": "",
+      "experience": 0,
+      "role": "player",
+      "joinedAt": {}
+    },
+    {
+      "uid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+      "name": "Player2",
+      "photoURL": "bee",
+      "email": "p2.local@hf.test",
+      "title": "",
+      "experience": 0,
+      "role": "player",
+      "joinedAt": {}
+    },
+    {
+      "uid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+      "name": "Player3",
+      "photoURL": "bee",
+      "email": "p3.local@hf.test",
+      "title": "",
+      "experience": 0,
+      "role": "player",
+      "joinedAt": {}
+    }
+  ],
+  "pendingRequests": {},
+  "marketPrices": {
+    "A10": 4500,
+    "A20": 6500,
+    "A30": 5500,
+    "A40": 6000,
+    "B50": 9000,
+    "B60": 3000,
+    "B70": 6000,
+    "B80": 8500
+  },
+  "startedAt": 1790773117435,
+  "sessionId": "486997_1790773117435",
+  "previousMarketPrices": {
+    "A10": 4500,
+    "A20": 6500,
+    "A30": 5500,
+    "A40": 6000,
+    "B50": 9000,
+    "B60": 3000,
+    "B70": 6000,
+    "B80": 8500
+  },
+  "status": "playing",
+  "timerEndsAtMs": 1790776720458,
+  "isTimerPaused": false,
+  "publicPlayerStates": {
+    "BITnJ0A3e1frYvcae76WaIjb3rJh": {
+      "uid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+      "playerName": "Player3",
+      "isSetup": true,
+      "selectionStep": "completed",
+      "happinessTotal": 0,
+      "boardPosition": 10,
+      "skipTurns": 0,
+      "lastBoardEvent": "Player3 擲出 2 點，停在 機運",
+      "pendingCardAction": "抽到機運卡：天有不測風雲",
+      "currentRankTitle": "築巢師"
+    },
+    "Z4MolzlSv9ObNGFuOqn3FjoKZS00": {
+      "uid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+      "playerName": "Player1",
+      "isSetup": true,
+      "selectionStep": "completed",
+      "happinessTotal": 0,
+      "boardPosition": 10,
+      "skipTurns": 0,
+      "lastBoardEvent": "Player1 擲出 2 點，停在 機運",
+      "pendingCardAction": "抽到機運卡：通貨膨漲",
+      "currentRankTitle": "築巢師"
+    },
+    "uaxe7bnfZft9jVwyhhZLOrLD2xkC": {
+      "uid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+      "playerName": "Player2",
+      "isSetup": true,
+      "selectionStep": "completed",
+      "happinessTotal": 0,
+      "boardPosition": 10,
+      "skipTurns": 0,
+      "lastBoardEvent": "Player2 擲出 2 點，停在 機運",
+      "pendingCardAction": "抽到機運卡：通貨膨漲",
+      "currentRankTitle": "資深築巢師"
+    }
+  },
+  "boardState": {
+    "turnOrder": [
+      "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+      "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+      "BITnJ0A3e1frYvcae76WaIjb3rJh"
+    ],
+    "revision": 419,
+    "processedCommandIds": [
+      "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:319",
+      "movement:uaxe7bnfZft9jVwyhhZLOrLD2xkC:1790773756722:settle",
+      "reveal:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773756722_opportunity:C022:atomic",
+      "prompt:shared:finalize:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773756722_opportunity_C022_shared",
+      "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:323",
+      "movement:BITnJ0A3e1frYvcae76WaIjb3rJh:1790773767523:settle",
+      "reveal:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773767523_opportunity:C023:atomic",
+      "prompt:shared:finalize:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773767523_opportunity_C023_shared",
+      "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:327",
+      "movement:Z4MolzlSv9ObNGFuOqn3FjoKZS00:1790773775008:settle",
+      "reveal:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773775008_opportunity:C024:atomic",
+      "prompt:shared:finalize:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773775008_opportunity_C024_shared",
+      "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:331",
+      "movement:uaxe7bnfZft9jVwyhhZLOrLD2xkC:1790773782356:settle",
+      "reveal:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773782356_opportunity:C025:atomic",
+      "prompt:shared:finalize:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773782356_opportunity_C025_shared",
+      "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:335",
+      "movement:BITnJ0A3e1frYvcae76WaIjb3rJh:1790773792861:settle",
+      "reveal:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773792861_opportunity:C026:atomic",
+      "prompt:shared:finalize:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773792861_opportunity_C026_shared",
+      "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:339",
+      "movement:Z4MolzlSv9ObNGFuOqn3FjoKZS00:1790773800410:settle",
+      "reveal:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773800410_opportunity:C027:atomic",
+      "prompt:shared:finalize:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773800410_opportunity_C027_shared",
+      "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:343",
+      "movement:uaxe7bnfZft9jVwyhhZLOrLD2xkC:1790773808259:settle",
+      "reveal:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773808259_opportunity:C028:atomic",
+      "prompt:shared:finalize:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773808259_opportunity_C028_shared",
+      "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:347",
+      "movement:BITnJ0A3e1frYvcae76WaIjb3rJh:1790773815887:settle",
+      "reveal:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773815887_opportunity:C029:atomic",
+      "prompt:shared:finalize:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773815887_opportunity_C029_shared",
+      "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:351",
+      "movement:Z4MolzlSv9ObNGFuOqn3FjoKZS00:1790773823484:settle",
+      "reveal:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773823484_opportunity:C030:atomic",
+      "prompt:shared:finalize:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773823484_opportunity_C030_shared",
+      "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:355",
+      "movement:uaxe7bnfZft9jVwyhhZLOrLD2xkC:1790773830320:settle",
+      "reveal:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773830320_opportunity:C031:atomic",
+      "prompt:shared:finalize:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773830320_opportunity_C031_shared",
+      "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:359",
+      "movement:BITnJ0A3e1frYvcae76WaIjb3rJh:1790773837669:settle",
+      "reveal:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773837669_opportunity:C032:atomic",
+      "prompt:shared:finalize:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773837669_opportunity_C032_shared",
+      "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:363",
+      "movement:Z4MolzlSv9ObNGFuOqn3FjoKZS00:1790773845517:settle",
+      "reveal:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773845517_opportunity:C033:atomic",
+      "prompt:shared:finalize:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773845517_opportunity_C033_shared",
+      "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:367",
+      "movement:uaxe7bnfZft9jVwyhhZLOrLD2xkC:1790773852385:settle",
+      "reveal:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773852385_opportunity:C034:atomic",
+      "prompt:shared:finalize:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773852385_opportunity_C034_shared",
+      "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:371",
+      "movement:BITnJ0A3e1frYvcae76WaIjb3rJh:1790773860037:settle",
+      "reveal:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773860037_opportunity:C035:atomic",
+      "medical-card:486997_1790773117435:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773860037_opportunity:BITnJ0A3e1frYvcae76WaIjb3rJh:C035",
+      "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:375",
+      "movement:Z4MolzlSv9ObNGFuOqn3FjoKZS00:1790773904596:settle",
+      "reveal:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773904596_opportunity:C036:atomic",
+      "medical-card:486997_1790773117435:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773904596_opportunity:Z4MolzlSv9ObNGFuOqn3FjoKZS00:C036",
+      "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:379",
+      "movement:uaxe7bnfZft9jVwyhhZLOrLD2xkC:1790773949047:settle",
+      "reveal:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773949047_opportunity:C037:atomic",
+      "medical-card:486997_1790773117435:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773949047_opportunity:uaxe7bnfZft9jVwyhhZLOrLD2xkC:C037",
+      "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:383",
+      "movement:BITnJ0A3e1frYvcae76WaIjb3rJh:1790773993413:settle",
+      "reveal:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773993413_opportunity:C038:atomic",
+      "vehicle-loss:486997:BITnJ0A3e1frYvcae76WaIjb3rJh_1790773993413_opportunity:BITnJ0A3e1frYvcae76WaIjb3rJh",
+      "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:387",
+      "movement:Z4MolzlSv9ObNGFuOqn3FjoKZS00:1790774001237:settle",
+      "reveal:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790774001237_opportunity:C039:atomic",
+      "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:390",
+      "movement:uaxe7bnfZft9jVwyhhZLOrLD2xkC:1790774078208:settle",
+      "reveal:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774078208_opportunity:C040:atomic",
+      "dismiss:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774078208_opportunity:C040",
+      "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:394",
+      "movement:BITnJ0A3e1frYvcae76WaIjb3rJh:1790774086518:settle",
+      "reveal:BITnJ0A3e1frYvcae76WaIjb3rJh_1790774086518_opportunity:C041:atomic",
+      "dismiss:BITnJ0A3e1frYvcae76WaIjb3rJh_1790774086518_opportunity:C041",
+      "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:398",
+      "movement:Z4MolzlSv9ObNGFuOqn3FjoKZS00:1790774094327:settle",
+      "reveal:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790774094327_opportunity:C042:atomic",
+      "dismiss:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790774094327_opportunity:C042",
+      "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:402",
+      "movement:uaxe7bnfZft9jVwyhhZLOrLD2xkC:1790774105206:settle",
+      "reveal:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774105206_opportunity:C043:atomic",
+      "dismiss:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774105206_opportunity:C043",
+      "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:406",
+      "movement:BITnJ0A3e1frYvcae76WaIjb3rJh:1790774112915:settle",
+      "reveal:BITnJ0A3e1frYvcae76WaIjb3rJh_1790774112915_opportunity:C044:atomic",
+      "fin:486997_1790773117435:BITnJ0A3e1frYvcae76WaIjb3rJh:BITnJ0A3e1frYvcae76WaIjb3rJh_1790774112915_opportunity:expense:機運卡：天有不測風雲:8000:",
+      "dismiss:BITnJ0A3e1frYvcae76WaIjb3rJh_1790774112915_opportunity:C044",
+      "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:411",
+      "movement:Z4MolzlSv9ObNGFuOqn3FjoKZS00:1790774121307:settle",
+      "reveal:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790774121307_opportunity:C045:atomic",
+      "prompt:shared:finalize:Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790774121307_opportunity_C045_shared",
+      "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:415",
+      "movement:uaxe7bnfZft9jVwyhhZLOrLD2xkC:1790774133037:settle",
+      "reveal:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774133037_opportunity:C046:atomic",
+      "prompt:shared:finalize:uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774133037_opportunity_C046_shared"
+    ],
+    "lastRoll": {
+      "uid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+      "dice": [
+        1,
+        1
+      ],
+      "total": 2,
+      "timestamp": 1790774133037,
+      "detail": ""
+    },
+    "pendingEvents": [],
+    "movement": null,
+    "realEstateMarket": [],
+    "cardLog": [
+      {
+        "deck": "opportunity",
+        "cardId": "C046",
+        "title": "通貨膨漲",
+        "description": "因為制衣的原物料成本上漲，造成服飾的價格提升。所有玩家月支出的服飾欄，增加2,000H。所有玩家的財務報表的月支出上，服飾欄增加2,000H、月支出總支欄增加2,000H，損益的周結餘欄減少 2,000H。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "月支出（餐飲、服飾、居住類） +2,000",
+          "影響所有玩家。"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774133037_opportunity_C046",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774133037_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790774133037
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C045",
+        "title": "通貨膨漲",
+        "description": "因為種植農作物的成本提高，造成食品價格上漲。所有玩家月支出的飲食欄，增加3,000H。所有玩家的財務報表的月支出上，飲食欄增加3,000H、月支出總支欄增加3,000H，損益的周結餘欄減少 3,000H。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "月支出（餐飲、服飾、居住類） +3,000",
+          "影響所有玩家。"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790774121307_opportunity_C045",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790774121307_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790774121307
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C044",
+        "title": "天有不測風雲",
+        "description": "錢包被盜！因為不小心，遺失了錢包，包含現金與重辦重要證件，共損失了8,000H。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -8,000"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790774112915_opportunity_C044",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790774112915_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790774112915
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C043",
+        "title": "天有不測風雲",
+        "description": "出租的房子因年久失修需要修繕！房客向你反應，房屋的裝潢需要整修。抽到本卡的玩家，若你有出租用的住宅，則需要支付房屋修繕的費用 150,000H。若事先有購買房屋的保險，這筆費用由保險公司代玩家支付（必須每間房子都要有保險，若有至少一間房子沒有保險，仍必須支付費用）。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -150,000",
+          "保險理賠 150,000"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774105206_opportunity_C043",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774105206_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790774105206
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C042",
+        "title": "線路起火",
+        "description": "線路起火！所有出租用住宅需支付修繕費100,000H。若所有出租住宅都有房屋保險則免費。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -100,000",
+          "保險理賠 100,000"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790774094327_opportunity_C042",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790774094327_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790774094327
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C041",
+        "title": "天有不測風雲",
+        "description": "發生地震造成出租的房子需要修繕！房客向你反應，房屋的外牆出現裂縫，需要修理。抽到本卡的玩家，若你有出租用的住宅，則需要支付房屋修繕的費用 200,000H。若事先有購買房屋的保險，這筆費用由保險公司代玩家支付（必須每間房子都要有保險，若有至少一間房子沒有保險，仍必須支付費用）。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -200,000",
+          "保險理賠 200,000"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790774086518_opportunity_C041",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790774086518_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790774086518
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C040",
+        "title": "天有不測風雲",
+        "description": "發生飛禍！開汽車時未注意汽車間距離，不小心撞到前方的汽車，造成你和對方的汽車嚴重受損。抽到本卡的玩家，若你有買汽車，必須直接走到汽車4S專賣店，且停賽一輪，並支付維修費用200,000H。若有經過銀行格，無法領取月結餘。事先有購買汽車保險，則不用支付維修費，因該筆費用由保險公司支付。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -200,000",
+          "保險理賠 200,000"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774078208_opportunity_C040",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790774078208_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790774078208
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C039",
+        "title": "天有不測風雲",
+        "description": "發生飛禍！開汽車時使用通訊工具，未注意飛行安全，不小心撞到路旁的大樹，你的汽車嚴重受損。抽到本卡的玩家，若你有買汽車，必須直接走到汽車4S專賣店，且停賽一輪，並支付維修費用100,000H。若有經過銀行格，無法領取月結餘。買這事先有購買汽車保險，則不用支付維修費，因該筆費用由保險公司支付。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -100,000",
+          "移動至維修廠",
+          "暫停 1 回合",
+          "保險理賠 100,000"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790774001237_opportunity_C039",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790774001237_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790774001237
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C038",
+        "title": "天有不測風雲",
+        "description": "汽車被偷！一夜起來，發現你的汽車被偷了，連忙報案處理。抽到本卡的玩家，若你有買汽車，失去你的汽車一艘，並扣掉對應的幸福點，且之前申請之汽車貸款無法取消。事先有購買汽車產物保險，則可獲得汽車購買價格 80%（400,000H）的保險理賠金。你可以用這筆理賠金去償還汽車貸款。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "保險理賠 400,000"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773993413_opportunity_C038",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773993413_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790773993413
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C037",
+        "title": "天有不測風雲",
+        "description": "發生意外！你運動時不小心跌倒，撞到了頭，被救護車送到了醫院。抽到本卡的玩家，必須直接走到醫院格，且停賽一輪，並支付醫療費用20,000H。若有經過銀行格，無法領取月結餘。事先有購買醫療保險，則可領取保險理賠金50,000H，再用保險理賠金來支付醫療費用。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -20,000",
+          "移動至醫院",
+          "暫停 1 回合",
+          "保險理賠 50,000"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773949047_opportunity_C037",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773949047_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790773949047
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C036",
+        "title": "天有不測風雲",
+        "description": "食物中毒！你沒有注意飲食安全，不小心食用到不新鮮的食品，造成上吐下瀉，必須住院治療。抽到本卡的玩家，必須直接走到醫院格，且停賽一輪，並支付醫療費用25,000H。若有經過銀行格，無法領取月結餘。事先有購買醫療保險，則可領取保險理賠金50,000H，再用保險理賠金來支付醫療費用。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -25,000",
+          "移動至醫院",
+          "暫停 1 回合",
+          "保險理賠 50,000"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773904596_opportunity_C036",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773904596_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790773904596
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C035",
+        "title": "天有不測風雲",
+        "description": "爆發流感事件！你的運氣不好，感染了新型的蜂流感病毒，必須住院治療。抽到本卡的玩家，必須直接走到醫院格，且停賽一輪，並支付醫療費用20,000H。若有經過銀行格，無法領取月結餘。事先有購買醫療保險，則可領取保險理賠金50,000H，再用保險理賠金來支付醫療費用。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -20,000",
+          "移動至醫院",
+          "暫停 1 回合",
+          "保險理賠 50,000"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773860037_opportunity_C035",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773860037_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790773860037
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C034",
+        "title": "企業併購",
+        "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的70倍為收購價格。\n擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "企業併購",
+        "effectLines": [
+          "收購倍率 70 倍月收益",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773852385_opportunity_C034",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773852385_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790773852385
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C033",
+        "title": "企業併購",
+        "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的70倍為收購價格。\n擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "企業併購",
+        "effectLines": [
+          "收購倍率 70 倍月收益",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773845517_opportunity_C033",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773845517_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790773845517
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C032",
+        "title": "企業併購",
+        "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的50倍為收購價格。擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "企業併購",
+        "effectLines": [
+          "收購倍率 50 倍月收益",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773837669_opportunity_C032",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773837669_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790773837669
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C031",
+        "title": "企業併購",
+        "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的60倍為收購價格。\n擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "企業併購",
+        "effectLines": [
+          "收購倍率 60 倍月收益",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773830320_opportunity_C031",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773830320_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790773830320
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C030",
+        "title": "企業併購",
+        "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的50倍為收購價格。\n擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "企業併購",
+        "effectLines": [
+          "收購倍率 50 倍月收益",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773823484_opportunity_C030",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773823484_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790773823484
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C029",
+        "title": "企業併購",
+        "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的60倍為收購價格。\n擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "企業併購",
+        "effectLines": [
+          "收購倍率 60 倍月收益",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773815887_opportunity_C029",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773815887_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790773815887
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C028",
+        "title": "收購 獨特的創業點子",
+        "description": "你擁有的兼職工作室被大型企業看上，願意以5,000,000H 的價格，收購你的兼職工作室。擁有兼職工作室的所有玩家（不含已成功晉升為小型企業），都可以自由決定是否要依此價格出售。但是仍有企業貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "企業併購",
+        "effectLines": [
+          "收購價格 5,000,000",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773808259_opportunity_C028",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773808259_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790773808259
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C027",
+        "title": "收購 獨特的創業點子",
+        "description": "你擁有的兼職工作室被大型企業看上，願意以3,000,000H 的價格，收購你的兼職工作室。擁有兼職工作室的所有玩家（不含已成功晉升為小型企業），都可以自由決定是否要依此價格出售。但是仍有企業貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "企業併購",
+        "effectLines": [
+          "收購價格 3,000,000",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773800410_opportunity_C027",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773800410_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790773800410
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C026",
+        "title": "求購 各類型店面",
+        "description": "吸推出一系列招商政策，吸引外地企業來推投資，帶動商用不動產的需求。到購購買者願意以高於店面總價45%的價格購買，擁有兩各類型店面的所有玩家，都可以自由決定是否依此價定格出售。出出售後取消其租金收入，仍有房屋貸款者，所得款項須！須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 45%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773792861_opportunity_C026",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773792861_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790773792861
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C025",
+        "title": "求購 各類型店面",
+        "description": "景氣提升，商業活動熱絡，造成商用不動產的i需求大增。購買者願意以高於店面總價60%的價格購買，擁有各類型店面的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項/須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 60%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773782356_opportunity_C025",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773782356_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790773782356
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C024",
+        "title": "求購 各類型店面",
+        "description": "推出一系列招商政策，吸引外地企業來投資，帶動商用不動產的需求。購買者願意以高於店面總價55%的價格購買，擁有各類型店面的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 55%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773775008_opportunity_C024",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773775008_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790773775008
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C023",
+        "title": "求購 各類型店面",
+        "description": "景氣提升，商業活動熱絡，造成商用不動產的需求大增。購買者願意以高於店面總價 50%的價格購買，擁有各類型店面的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 50%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773767523_opportunity_C023",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773767523_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790773767523
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C022",
+        "title": "求購 兩房一廳/三房兩廳住宅",
+        "description": "吸引人才政策相當成功。鼓勵專業人士移民，推出一系列吸引人才政策，許多專業人士攜家帶眷來定居。\n購買者願意以高於房屋總價45%的價格購買，擁有兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 45%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773756722_opportunity_C022",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773756722_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790773756722
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C021",
+        "title": "求購 兩房一廳/三房兩廳住宅",
+        "description": "為了滿足人人有房的目標，推出新的首次購屋優惠政策，帶動兩室一廳/三室兩廳住宅的買氣。\n購買者願意以高於房屋總價40%的價格購買，擁有兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 40%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773748973_opportunity_C021",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773748973_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790773748973
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C020",
+        "title": "C020求購 兩房一廳/三房兩廳住宅",
+        "description": "為了滿足人人有房的目標，推出新的首次購屋優惠政策，帶動兩室一廳/三室兩廳住宅的買氣。\n購買者願意以高於房屋總價60% 的價格購買，擁有兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 60%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773741099_opportunity_C020",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773741099_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790773741099
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C019",
+        "title": "求購 兩房一廳/三房兩廳住宅",
+        "description": "為了滿足人人有房的目標，推出新的首次購屋優惠政策，帶動兩室一廳/三室兩廳住宅的買氣。\n購買者願意以高於房屋總價35% 的價格購買，擁有兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 35%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773733505_opportunity_C019",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773733505_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790773733505
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C018",
+        "title": "求購 兩房一廳/三房兩廳住宅",
+        "description": "吸引人才政策相當成功。鼓勵專業人士移民，推出一系列吸引人才政策，許多專業人士攜家帶眷來定居。購買者願意以高於房屋總價50%的價格購買，擁有兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 50%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773722800_opportunity_C018",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773722800_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790773722800
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C017",
+        "title": "C017求購 兩房一廳/三房兩廳住宅",
+        "description": "為了滿足人人有房的目標，推出新的首次購屋優惠政策，帶動兩室一廳/三室兩廳住宅的買氣。\n購買者願意以高於房屋總價130% 的價格購買，擁有\n兩室一廳/三室兩廳住宅的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 30%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773715999_opportunity_C017",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773715999_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790773715999
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C016",
+        "title": "求購 各類型住宅",
+        "description": "未來景氣一致看好，吸引大型地產公司進來投資與收購優質的不動產。購買者願意以高於房屋總價70% 的價格購買，擁有各類型住宅的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 70%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773708976_opportunity_C016",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773708976_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790773708976
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C015",
+        "title": "求購 各類型住宅",
+        "description": "推出新的都市更新政策，吸引大型建設公司前來推動社區開發案。你的住宅位置剛好在開發案中。購買者願意以高於房屋總價40%的價格購買，擁有各類型住宅的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 40%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773702351_opportunity_C015",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773702351_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790773702351
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C014",
+        "title": "求購 各類型住宅",
+        "description": "未來景氣一致看好，吸引大型地產公司進來投資與收購優質的不動產。購買者願意以高於房屋總價60%的價格購買，擁有各類型住宅的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 60%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773694543_opportunity_C014",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773694543_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790773694543
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C013",
+        "title": "求購 各類型住宅",
+        "description": "未來景氣一致看好，吸引大型地產公司進來投資與收購優質的不動產。購買者願意以高於房屋總價50%的價格購買，擁有各類型住宅的所有玩家，都可以自由決定是否依此價格出售。出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "溢價比例 50%",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773687051_opportunity_C013",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773687051_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790773687051
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C012",
+        "title": "求購 單間小套房",
+        "description": "因為推出一系列振興經濟的政策相當成功，帶動整體經濟的成長，產生了許多新的就業機會，形成新一波青年移民潮出現，也造成【單間小套房】需求大增。購買者願意以一間4,000,000H的價格購買，擁有【單間小套房】的所有玩家，都可以自由決定是否依此價格出售，出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "收購價格 4,000,000",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773680064_opportunity_C012",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773680064_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790773680064
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C011",
+        "title": "求購 單間小套房",
+        "description": "因為推出一系列振興經濟的政策相當成功，帶動整體經濟的成長，產生了許多新的就業機會，需求大增。形成新一波青年移民潮出現，也造成【單間小套房】購買者願意以一間4,500,000H 的價格購買，擁有【單間小套房】的所有玩家，都可以自由決定是否依此價格出售，出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "收購價格 4,500,000",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773670276_opportunity_C011",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773670276_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790773670276
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C010",
+        "title": "求購 單間小套房",
+        "description": "因為推出一系列振興經濟的政策相當成功，帶動整體經濟的成長，產生了許多新的就業機會，形成新一波青年移民潮出現，也造成【單間小套房】需求大增。購買者願意以一間3,500,000H 的價格購買，擁有【單間小套房】的所有玩家，都可以自由決定是否依此價格出售，出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "收購價格 3,500,000",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773662203_opportunity_C010",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773662203_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790773662203
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C009",
+        "title": "求購 單間小套房",
+        "description": "因為推出一系列振興經濟的政策相當成功，帶動整體經濟的成長，產生了許多新的就業機會，形成新一波青年移民潮出現，也造成【單間小套房】需求大增。購買者願意以一間13,000,000H的價格購買，擁有【單間小套房】的所有玩家，都可以自由決定是否依此價格出售，出售後取消其租金收入，仍有房屋貸款者，所得款項須要先行扣除貸款金額。",
+        "subtitle": "市場交易",
+        "effectLines": [
+          "收購價格 3,000,000",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773654390_opportunity_C009",
+        "eventId": "Z4MolzlSv9ObNGFuOqn3FjoKZS00_1790773654390_opportunity",
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790773654390
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C008",
+        "title": "終身學習一投資不動產的能力",
+        "description": "你有機會回到學校進修「投資不動產的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費10,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於4，則所有現有與未來供出租不動產的房租收入，全部各增加10,000H。不接受，則回收本卡片。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "學費 10,000",
+          "判定需求：至少 4 點",
+          "移動至學校",
+          "暫停 1 回合"
+        ],
+        "id": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773640283_opportunity_C008",
+        "eventId": "BITnJ0A3e1frYvcae76WaIjb3rJh_1790773640283_opportunity",
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790773640283
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C007",
+        "title": "終身學習一投資不動產的能力",
+        "description": "你有機會回到學校進修「投資不動產的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於4，則所有現有與未來供出租不動產的房租收入，全部各增加 10,000H。不接受，則回收本卡片。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "學費 5,000",
+          "判定需求：至少 4 點",
+          "移動至學校",
+          "暫停 1 回合"
+        ],
+        "id": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773629909_opportunity_C007",
+        "eventId": "uaxe7bnfZft9jVwyhhZLOrLD2xkC_1790773629909_opportunity",
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790773629909
+      }
+    ],
+    "pendingContinuation": null,
+    "diceEvents": [
+      {
+        "id": "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:339",
+        "sequence": 340,
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773800410
+      },
+      {
+        "id": "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:343",
+        "sequence": 344,
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773808259
+      },
+      {
+        "id": "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:347",
+        "sequence": 348,
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773815887
+      },
+      {
+        "id": "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:351",
+        "sequence": 352,
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773823484
+      },
+      {
+        "id": "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:355",
+        "sequence": 356,
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773830320
+      },
+      {
+        "id": "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:359",
+        "sequence": 360,
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773837669
+      },
+      {
+        "id": "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:363",
+        "sequence": 364,
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773845517
+      },
+      {
+        "id": "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:367",
+        "sequence": 368,
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773852385
+      },
+      {
+        "id": "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:371",
+        "sequence": 372,
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773860037
+      },
+      {
+        "id": "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:375",
+        "sequence": 376,
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773904596
+      },
+      {
+        "id": "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:379",
+        "sequence": 380,
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773949047
+      },
+      {
+        "id": "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:383",
+        "sequence": 384,
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790773993413
+      },
+      {
+        "id": "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:387",
+        "sequence": 388,
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790774001237
+      },
+      {
+        "id": "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:390",
+        "sequence": 391,
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790774078208
+      },
+      {
+        "id": "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:394",
+        "sequence": 395,
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790774086518
+      },
+      {
+        "id": "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:398",
+        "sequence": 399,
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790774094327
+      },
+      {
+        "id": "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:402",
+        "sequence": 403,
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790774105206
+      },
+      {
+        "id": "roll:BITnJ0A3e1frYvcae76WaIjb3rJh:406",
+        "sequence": 407,
+        "playerUid": "BITnJ0A3e1frYvcae76WaIjb3rJh",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790774112915
+      },
+      {
+        "id": "roll:Z4MolzlSv9ObNGFuOqn3FjoKZS00:411",
+        "sequence": 412,
+        "playerUid": "Z4MolzlSv9ObNGFuOqn3FjoKZS00",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790774121307
+      },
+      {
+        "id": "roll:uaxe7bnfZft9jVwyhhZLOrLD2xkC:415",
+        "sequence": 416,
+        "playerUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790774133037
+      }
+    ],
+    "sharedExpenseEffect": null,
+    "skipTurns": {
+      "Z4MolzlSv9ObNGFuOqn3FjoKZS00": 0,
+      "uaxe7bnfZft9jVwyhhZLOrLD2xkC": 0,
+      "BITnJ0A3e1frYvcae76WaIjb3rJh": 0
+    },
+    "currentEvent": null,
+    "currentCard": null,
+    "currentCardReveal": null,
+    "familyMilestoneJoinPrompt": null,
+    "sharedCardPrompt": null,
+    "playerPositions": {
+      "Z4MolzlSv9ObNGFuOqn3FjoKZS00": 7,
+      "uaxe7bnfZft9jVwyhhZLOrLD2xkC": 7,
+      "BITnJ0A3e1frYvcae76WaIjb3rJh": 7
+    },
+    "currentTurnUid": "uaxe7bnfZft9jVwyhhZLOrLD2xkC",
+    "updatedAt": 1790774151873,
+    "deckState": {
+      "usedHappiness": [
+        "H001",
+        "H002",
+        "H003",
+        "H004",
+        "H005",
+        "H006",
+        "H007",
+        "H008",
+        "H009",
+        "H010",
+        "H011",
+        "H012",
+        "H013",
+        "H014",
+        "H015",
+        "H016",
+        "H017",
+        "H018",
+        "H019",
+        "H020",
+        "H021",
+        "H022",
+        "H023",
+        "H024",
+        "H025",
+        "H026",
+        "H027",
+        "H028",
+        "H029",
+        "H030",
+        "H031",
+        "H032",
+        "H033",
+        "H034",
+        "H035",
+        "H036",
+        "H037",
+        "H038",
+        "H039",
+        "H040",
+        "H041",
+        "H042",
+        "H043",
+        "H044",
+        "H045",
+        "H046"
+      ],
+      "usedOpportunity": [
+        "C001",
+        "C002",
+        "C003",
+        "C004",
+        "C005",
+        "C006",
+        "C007",
+        "C008",
+        "C009",
+        "C010",
+        "C011",
+        "C012",
+        "C013",
+        "C014",
+        "C015",
+        "C016",
+        "C017",
+        "C018",
+        "C019",
+        "C020",
+        "C021",
+        "C022",
+        "C023",
+        "C024",
+        "C025",
+        "C026",
+        "C027",
+        "C028",
+        "C029",
+        "C030",
+        "C031",
+        "C032",
+        "C033",
+        "C034",
+        "C035",
+        "C036",
+        "C037",
+        "C038",
+        "C039",
+        "C040",
+        "C041",
+        "C042",
+        "C043",
+        "C044",
+        "C045",
+        "C046"
+      ],
+      "usedNews": [],
+      "happiness": [],
+      "opportunity": [
+        "C056",
+        "C055",
+        "C054",
+        "C053",
+        "C052",
+        "C051",
+        "C050",
+        "C049",
+        "C048",
+        "C047"
+      ],
+      "news": [
+        "N017",
+        "N016",
+        "N015",
+        "N014",
+        "N013",
+        "N012",
+        "N011",
+        "N010",
+        "N009",
+        "N008",
+        "N007",
+        "N006",
+        "N005",
+        "N004",
+        "N003",
+        "N002",
+        "N001",
+        "N030",
+        "N053",
+        "N040",
+        "N032",
+        "N043",
+        "N038",
+        "N031",
+        "N050",
+        "N036",
+        "N035",
+        "N058",
+        "N056",
+        "N052",
+        "N018",
+        "N057",
+        "N029",
+        "N042",
+        "N034",
+        "N025",
+        "N023",
+        "N049",
+        "N027",
+        "N048",
+        "N020",
+        "N028",
+        "N047",
+        "N045",
+        "N044",
+        "N022",
+        "N019",
+        "N054",
+        "N024",
+        "N046",
+        "N039",
+        "N055",
+        "N033",
+        "N041",
+        "N051",
+        "N037",
+        "N021",
+        "N026"
+      ]
+    },
+    "hasRolledThisTurn": false
+  }
+}

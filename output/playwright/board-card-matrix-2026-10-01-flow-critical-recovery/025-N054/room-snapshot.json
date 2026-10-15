@@ -1,0 +1,1251 @@
+{
+  "id": "413782",
+  "name": "執行日記 2026/10/1",
+  "hostId": "MG3K0wyhyaDSj4jPMmBayi0S55kY",
+  "createdAt": {
+    "_methodName": "serverTimestamp"
+  },
+  "maxPlayers": 3,
+  "closedPlayerSlots": [
+    3,
+    4,
+    5
+  ],
+  "duration": 60,
+  "gameTimeLeft": 3600,
+  "syncSchemaVersion": 2,
+  "flowSchemaVersion": 1,
+  "financialHistoryStorage": "subcollection",
+  "financialAcceleration": {
+    "multiplier": 1
+  },
+  "isBoardGame": true,
+  "memberUids": [
+    "MG3K0wyhyaDSj4jPMmBayi0S55kY",
+    "mOpR289kRcGmlOl7z1adPB6B78v8",
+    "F60HiFUJpe2lAOmposa8O1422g6r",
+    "0XL0r2rbNLw8M1AFMYdnVnyVxSyx"
+  ],
+  "members": [
+    {
+      "uid": "MG3K0wyhyaDSj4jPMmBayi0S55kY",
+      "name": "Coach",
+      "photoURL": "bee",
+      "email": "coach.local@hf.test",
+      "title": "",
+      "experience": 0,
+      "role": "coach",
+      "joinedAt": {}
+    },
+    {
+      "uid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+      "name": "Player1",
+      "photoURL": "bee",
+      "email": "p1.local@hf.test",
+      "title": "",
+      "experience": 0,
+      "role": "player",
+      "joinedAt": {}
+    },
+    {
+      "uid": "F60HiFUJpe2lAOmposa8O1422g6r",
+      "name": "Player2",
+      "photoURL": "bee",
+      "email": "p2.local@hf.test",
+      "title": "",
+      "experience": 0,
+      "role": "player",
+      "joinedAt": {}
+    },
+    {
+      "uid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+      "name": "Player3",
+      "photoURL": "bee",
+      "email": "p3.local@hf.test",
+      "title": "",
+      "experience": 0,
+      "role": "player",
+      "joinedAt": {}
+    }
+  ],
+  "pendingRequests": {},
+  "startedAt": 1790815126193,
+  "sessionId": "413782_1790815126193",
+  "previousMarketPrices": {
+    "A10": 8000,
+    "A20": 4000,
+    "A30": 8500,
+    "A40": 6000,
+    "B50": 6500,
+    "B60": 6000,
+    "B70": 8000,
+    "B80": 10000
+  },
+  "status": "playing",
+  "timerEndsAtMs": 1790818728823,
+  "isTimerPaused": false,
+  "marketUpdates": {
+    "updates": {
+      "A10": 3000,
+      "A20": 2500,
+      "A30": 6500,
+      "A40": 8000,
+      "B50": 4000,
+      "B60": 4500,
+      "B70": 6000,
+      "B80": 9500
+    },
+    "code": "N026",
+    "isBubble": false,
+    "timestamp": 1790815311285
+  },
+  "marketPrices": {
+    "A10": 3000,
+    "A20": 2500,
+    "A30": 6500,
+    "A40": 8000,
+    "B50": 4000,
+    "B60": 4500,
+    "B70": 6000,
+    "B80": 9500
+  },
+  "publicPlayerStates": {
+    "F60HiFUJpe2lAOmposa8O1422g6r": {
+      "uid": "F60HiFUJpe2lAOmposa8O1422g6r",
+      "playerName": "Player2",
+      "isSetup": true,
+      "selectionStep": "completed",
+      "happinessTotal": 0,
+      "boardPosition": 9,
+      "skipTurns": 0,
+      "lastBoardEvent": "Player2 擲出 2 點，停在 新聞",
+      "pendingCardAction": "抽到新聞卡：商業區中型店面出售",
+      "currentRankTitle": "築巢師"
+    },
+    "0XL0r2rbNLw8M1AFMYdnVnyVxSyx": {
+      "uid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+      "playerName": "Player3",
+      "isSetup": true,
+      "selectionStep": "completed",
+      "happinessTotal": 0,
+      "boardPosition": 9,
+      "skipTurns": 0,
+      "lastBoardEvent": "Player3 擲出 2 點，停在 新聞",
+      "pendingCardAction": "抽到新聞卡：大型店面出售",
+      "currentRankTitle": "助理築巢師"
+    },
+    "mOpR289kRcGmlOl7z1adPB6B78v8": {
+      "uid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+      "playerName": "Player1",
+      "isSetup": true,
+      "selectionStep": "completed",
+      "happinessTotal": 0,
+      "boardPosition": 9,
+      "skipTurns": 0,
+      "lastBoardEvent": "Player1 擲出 2 點，停在 新聞",
+      "pendingCardAction": "抽到新聞卡：大型店面出售",
+      "currentRankTitle": "助理築巢師"
+    }
+  },
+  "boardState": {
+    "turnOrder": [
+      "mOpR289kRcGmlOl7z1adPB6B78v8",
+      "F60HiFUJpe2lAOmposa8O1422g6r",
+      "0XL0r2rbNLw8M1AFMYdnVnyVxSyx"
+    ],
+    "revision": 113,
+    "processedCommandIds": [
+      "fin:413782_1790815126193:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815187510_opportunity:lifelong_learning:機運卡：終身學習一投資股票的能力（接受）:10000:",
+      "skill-roll:413782_1790815126193:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:stock_ability:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815187510_opportunity",
+      "dismiss:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815187510_opportunity:C005",
+      "roll:mOpR289kRcGmlOl7z1adPB6B78v8:16",
+      "movement:mOpR289kRcGmlOl7z1adPB6B78v8:1790815202662:settle",
+      "reveal:mOpR289kRcGmlOl7z1adPB6B78v8_1790815202662_opportunity:C007:atomic",
+      "fin:413782_1790815126193:mOpR289kRcGmlOl7z1adPB6B78v8:mOpR289kRcGmlOl7z1adPB6B78v8_1790815202662_opportunity:lifelong_learning:機運卡：終身學習一投資不動產的能力（接受）:5000:",
+      "skill-roll:413782_1790815126193:mOpR289kRcGmlOl7z1adPB6B78v8:real_estate_ability:mOpR289kRcGmlOl7z1adPB6B78v8_1790815202662_opportunity",
+      "dismiss:mOpR289kRcGmlOl7z1adPB6B78v8_1790815202662_opportunity:C007",
+      "roll:F60HiFUJpe2lAOmposa8O1422g6r:22",
+      "movement:F60HiFUJpe2lAOmposa8O1422g6r:1790815218199:settle",
+      "reveal:F60HiFUJpe2lAOmposa8O1422g6r_1790815218199_opportunity:C034:atomic",
+      "prompt:shared:finalize:F60HiFUJpe2lAOmposa8O1422g6r_1790815218199_opportunity_C034_shared",
+      "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:26",
+      "movement:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:1790815225903:settle",
+      "reveal:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815225903_opportunity:C040:atomic",
+      "fin:413782_1790815126193:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815225903_opportunity:expense:機運卡：天有不測風雲:200000:",
+      "dismiss:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815225903_opportunity:C040",
+      "roll:mOpR289kRcGmlOl7z1adPB6B78v8:31",
+      "movement:mOpR289kRcGmlOl7z1adPB6B78v8:1790815236739:settle",
+      "reveal:mOpR289kRcGmlOl7z1adPB6B78v8_1790815236739_opportunity:C041:atomic",
+      "fin:413782_1790815126193:mOpR289kRcGmlOl7z1adPB6B78v8:mOpR289kRcGmlOl7z1adPB6B78v8_1790815236739_opportunity:expense:機運卡：天有不測風雲:600000:",
+      "dismiss:mOpR289kRcGmlOl7z1adPB6B78v8_1790815236739_opportunity:C041",
+      "roll:F60HiFUJpe2lAOmposa8O1422g6r:36",
+      "movement:F60HiFUJpe2lAOmposa8O1422g6r:1790815247593:settle",
+      "reveal:F60HiFUJpe2lAOmposa8O1422g6r_1790815247593_opportunity:C042:atomic",
+      "fin:413782_1790815126193:F60HiFUJpe2lAOmposa8O1422g6r:F60HiFUJpe2lAOmposa8O1422g6r_1790815247593_opportunity:expense:機運卡：線路起火:300000:",
+      "dismiss:F60HiFUJpe2lAOmposa8O1422g6r_1790815247593_opportunity:C042",
+      "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:41",
+      "movement:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:1790815258389:settle",
+      "reveal:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815258389_opportunity:C043:atomic",
+      "fin:413782_1790815126193:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815258389_opportunity:expense:機運卡：天有不測風雲:450000:",
+      "dismiss:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815258389_opportunity:C043",
+      "roll:mOpR289kRcGmlOl7z1adPB6B78v8:46",
+      "movement:mOpR289kRcGmlOl7z1adPB6B78v8:1790815268154:settle",
+      "reveal:mOpR289kRcGmlOl7z1adPB6B78v8_1790815268154_opportunity:C045:atomic",
+      "prompt:shared:finalize:mOpR289kRcGmlOl7z1adPB6B78v8_1790815268154_opportunity_C045_shared",
+      "roll:F60HiFUJpe2lAOmposa8O1422g6r:50",
+      "movement:F60HiFUJpe2lAOmposa8O1422g6r:1790815276075:settle",
+      "reveal:F60HiFUJpe2lAOmposa8O1422g6r_1790815276075_opportunity:C046:atomic",
+      "prompt:shared:finalize:F60HiFUJpe2lAOmposa8O1422g6r_1790815276075_opportunity_C046_shared",
+      "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:54",
+      "movement:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:1790815284099:settle",
+      "reveal:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815284099_opportunity:C047:atomic",
+      "prompt:shared:finalize:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815284099_opportunity_C047_shared",
+      "roll:mOpR289kRcGmlOl7z1adPB6B78v8:58",
+      "movement:mOpR289kRcGmlOl7z1adPB6B78v8:1790815291999:settle",
+      "reveal:mOpR289kRcGmlOl7z1adPB6B78v8_1790815291999_opportunity:C048:atomic",
+      "prompt:shared:finalize:mOpR289kRcGmlOl7z1adPB6B78v8_1790815291999_opportunity_C048_shared",
+      "roll:F60HiFUJpe2lAOmposa8O1422g6r:62",
+      "movement:F60HiFUJpe2lAOmposa8O1422g6r:1790815299923:settle",
+      "reveal:F60HiFUJpe2lAOmposa8O1422g6r_1790815299923_opportunity:C056:atomic",
+      "draw-followup:F60HiFUJpe2lAOmposa8O1422g6r_1790815299923_opportunity:news",
+      "reveal:F60HiFUJpe2lAOmposa8O1422g6r_1790815307001_news_followup:N026:atomic",
+      "market:N026:F60HiFUJpe2lAOmposa8O1422g6r_1790815307001_news_followup",
+      "dismiss:F60HiFUJpe2lAOmposa8O1422g6r_1790815307001_news_followup:N026",
+      "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:69",
+      "movement:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:1790815312270:settle",
+      "reveal:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815312270_news:N044:atomic",
+      "card-purchase:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815312270_news:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:N044",
+      "roll:mOpR289kRcGmlOl7z1adPB6B78v8:73",
+      "movement:mOpR289kRcGmlOl7z1adPB6B78v8:1790815320171:settle",
+      "reveal:mOpR289kRcGmlOl7z1adPB6B78v8_1790815320171_news:N045:atomic",
+      "card-purchase:mOpR289kRcGmlOl7z1adPB6B78v8_1790815320171_news:mOpR289kRcGmlOl7z1adPB6B78v8:N045",
+      "roll:F60HiFUJpe2lAOmposa8O1422g6r:77",
+      "movement:F60HiFUJpe2lAOmposa8O1422g6r:1790815328034:settle",
+      "reveal:F60HiFUJpe2lAOmposa8O1422g6r_1790815328034_news:N046:atomic",
+      "card-purchase:F60HiFUJpe2lAOmposa8O1422g6r_1790815328034_news:F60HiFUJpe2lAOmposa8O1422g6r:N046",
+      "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:81",
+      "movement:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:1790815336008:settle",
+      "reveal:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815336008_news:N047:atomic",
+      "card-purchase:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815336008_news:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:N047",
+      "roll:mOpR289kRcGmlOl7z1adPB6B78v8:85",
+      "movement:mOpR289kRcGmlOl7z1adPB6B78v8:1790815389818:settle",
+      "reveal:mOpR289kRcGmlOl7z1adPB6B78v8_1790815389818_news:N048:atomic",
+      "card-purchase:mOpR289kRcGmlOl7z1adPB6B78v8_1790815389818_news:mOpR289kRcGmlOl7z1adPB6B78v8:N048",
+      "roll:F60HiFUJpe2lAOmposa8O1422g6r:89",
+      "movement:F60HiFUJpe2lAOmposa8O1422g6r:1790815443328:settle",
+      "reveal:F60HiFUJpe2lAOmposa8O1422g6r_1790815443328_news:N049:atomic",
+      "card-purchase:F60HiFUJpe2lAOmposa8O1422g6r_1790815443328_news:F60HiFUJpe2lAOmposa8O1422g6r:N049",
+      "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:93",
+      "movement:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:1790815496912:settle",
+      "reveal:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815496912_news:N050:atomic",
+      "card-purchase:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815496912_news:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:N050",
+      "roll:mOpR289kRcGmlOl7z1adPB6B78v8:97",
+      "movement:mOpR289kRcGmlOl7z1adPB6B78v8:1790815550623:settle",
+      "reveal:mOpR289kRcGmlOl7z1adPB6B78v8_1790815550623_news:N051:atomic",
+      "card-purchase:mOpR289kRcGmlOl7z1adPB6B78v8_1790815550623_news:mOpR289kRcGmlOl7z1adPB6B78v8:N051",
+      "roll:F60HiFUJpe2lAOmposa8O1422g6r:101",
+      "movement:F60HiFUJpe2lAOmposa8O1422g6r:1790815604504:settle",
+      "reveal:F60HiFUJpe2lAOmposa8O1422g6r_1790815604504_news:N052:atomic",
+      "card-purchase:F60HiFUJpe2lAOmposa8O1422g6r_1790815604504_news:F60HiFUJpe2lAOmposa8O1422g6r:N052",
+      "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:105",
+      "movement:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:1790815658299:settle",
+      "reveal:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815658299_news:N053:atomic",
+      "card-purchase:0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815658299_news:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:N053",
+      "roll:mOpR289kRcGmlOl7z1adPB6B78v8:109",
+      "movement:mOpR289kRcGmlOl7z1adPB6B78v8:1790815712115:settle",
+      "reveal:mOpR289kRcGmlOl7z1adPB6B78v8_1790815712115_news:N054:atomic",
+      "card-purchase:mOpR289kRcGmlOl7z1adPB6B78v8_1790815712115_news:mOpR289kRcGmlOl7z1adPB6B78v8:N054"
+    ],
+    "lastRoll": {
+      "uid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+      "dice": [
+        1,
+        1
+      ],
+      "total": 2,
+      "timestamp": 1790815712115,
+      "detail": ""
+    },
+    "currentCard": null,
+    "currentCardReveal": null,
+    "currentEvent": null,
+    "pendingEvents": [],
+    "movement": null,
+    "realEstateMarket": [],
+    "cardLog": [
+      {
+        "deck": "news",
+        "cardId": "N054",
+        "title": "大型店面出售",
+        "description": "商業區大型店面求售。",
+        "subtitle": "房市新訊",
+        "effectLines": [
+          "總價：16,000,000",
+          "頭期款：6,000,000",
+          "貸款：10,000,000",
+          "貸款利息（月）：50,000",
+          "租金收入（月）：200,000",
+          "淨收益（月）：+150,000"
+        ],
+        "id": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815712115_news_N054",
+        "eventId": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815712115_news",
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "summary": "Player1 停在新聞",
+        "drawnAt": 1790815712115
+      },
+      {
+        "deck": "news",
+        "cardId": "N053",
+        "title": "大型店面出售",
+        "description": "商業區大型店面求售。",
+        "subtitle": "房市新訊",
+        "effectLines": [
+          "總價：12,000,000",
+          "頭期款：4,000,000",
+          "貸款：8,000,000",
+          "貸款利息（月）：40,000",
+          "租金收入（月）：150,000",
+          "淨收益（月）：+110,000"
+        ],
+        "id": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815658299_news_N053",
+        "eventId": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815658299_news",
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "summary": "Player3 停在新聞",
+        "drawnAt": 1790815658299
+      },
+      {
+        "deck": "news",
+        "cardId": "N052",
+        "title": "商業區中型店面出售",
+        "description": "商業區中型店面求售。",
+        "subtitle": "房市新訊",
+        "effectLines": [
+          "總價：6,000,000",
+          "頭期款：3,000,000",
+          "貸款：3,000,000",
+          "貸款利息（月）：15,000",
+          "租金收入（月）：60,000",
+          "淨收益（月）：+45,000"
+        ],
+        "id": "F60HiFUJpe2lAOmposa8O1422g6r_1790815604504_news_N052",
+        "eventId": "F60HiFUJpe2lAOmposa8O1422g6r_1790815604504_news",
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "summary": "Player2 停在新聞",
+        "drawnAt": 1790815604504
+      },
+      {
+        "deck": "news",
+        "cardId": "N051",
+        "title": "中型店面出售",
+        "description": "商業區中型店面釋出出售，適合穩定收租與長期經營。",
+        "subtitle": "房市新訊",
+        "effectLines": [
+          "總價：5,000,000",
+          "頭期款：1,000,000",
+          "貸款：4,000,000",
+          "貸款利息（月）：20,000",
+          "租金收入（月）：40,000",
+          "淨收益（月）：+20,000"
+        ],
+        "id": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815550623_news_N051",
+        "eventId": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815550623_news",
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "summary": "Player1 停在新聞",
+        "drawnAt": 1790815550623
+      },
+      {
+        "deck": "news",
+        "cardId": "N050",
+        "title": "商業區小型店面出售",
+        "description": "商業區小型店面求售。",
+        "subtitle": "房市新訊",
+        "effectLines": [
+          "總價：2,000,000",
+          "頭期款：400,000",
+          "貸款：1,600,000",
+          "貸款利息（月）：8,000",
+          "租金收入（月）：22,000",
+          "淨收益（月）：+14,000"
+        ],
+        "id": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815496912_news_N050",
+        "eventId": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815496912_news",
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "summary": "Player3 停在新聞",
+        "drawnAt": 1790815496912
+      },
+      {
+        "deck": "news",
+        "cardId": "N049",
+        "title": "小型店面出售",
+        "description": "商業區微型店面求售。",
+        "subtitle": "房市新訊",
+        "effectLines": [
+          "總價：1,000,000",
+          "頭期款：80,000",
+          "貸款：920,000",
+          "貸款利息（月）：4,600",
+          "租金收入（月）：10,000",
+          "淨收益（月）：+5,400"
+        ],
+        "id": "F60HiFUJpe2lAOmposa8O1422g6r_1790815443328_news_N049",
+        "eventId": "F60HiFUJpe2lAOmposa8O1422g6r_1790815443328_news",
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "summary": "Player2 停在新聞",
+        "drawnAt": 1790815443328
+      },
+      {
+        "deck": "news",
+        "cardId": "N048",
+        "title": "小型店面出售",
+        "description": "商業區小型店面求售。",
+        "subtitle": "房市新訊",
+        "effectLines": [
+          "總價：1,800,000",
+          "頭期款：180,000",
+          "貸款：1,620,000",
+          "貸款利息（月）：8,100",
+          "租金收入（月）：20,000",
+          "淨收益（月）：+11,900"
+        ],
+        "id": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815389818_news_N048",
+        "eventId": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815389818_news",
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "summary": "Player1 停在新聞",
+        "drawnAt": 1790815389818
+      },
+      {
+        "deck": "news",
+        "cardId": "N047",
+        "title": "小型店面出售",
+        "description": "商業區微型店面求售。",
+        "subtitle": "房市新訊",
+        "effectLines": [
+          "總價：1,200,000",
+          "頭期款：120,000",
+          "貸款：1,080,000",
+          "貸款利息（月）：5,400",
+          "租金收入（月）：15,000",
+          "淨收益（月）：+9,600"
+        ],
+        "id": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815336008_news_N047",
+        "eventId": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815336008_news",
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "summary": "Player3 停在新聞",
+        "drawnAt": 1790815336008
+      },
+      {
+        "deck": "news",
+        "cardId": "N046",
+        "title": "五房三廳豪宅出售",
+        "description": "急售求現。因經濟不景氣，造成新一波售屋潮。",
+        "subtitle": "房市新訊",
+        "effectLines": [
+          "總價：9,000,000",
+          "頭期款：1,000,000",
+          "貸款：8,000,000",
+          "貸款利息（月）：40,000",
+          "租金收入（月）：50,000",
+          "淨收益（月）：+10,000",
+          "自用幸福：+8"
+        ],
+        "id": "F60HiFUJpe2lAOmposa8O1422g6r_1790815328034_news_N046",
+        "eventId": "F60HiFUJpe2lAOmposa8O1422g6r_1790815328034_news",
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "summary": "Player2 停在新聞",
+        "drawnAt": 1790815328034
+      },
+      {
+        "deck": "news",
+        "cardId": "N045",
+        "title": "五房三廳豪宅出售",
+        "description": "二手豪宅出售。原屋主計畫移民，欲出讓位於精華區的豪華住宅。",
+        "subtitle": "房市新訊",
+        "effectLines": [
+          "總價：16,000,000",
+          "頭期款：5,000,000",
+          "貸款：11,000,000",
+          "貸款利息（月）：55,000",
+          "租金收入（月）：55,000",
+          "淨收益（月）：0",
+          "自用幸福：+8"
+        ],
+        "id": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815320171_news_N045",
+        "eventId": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815320171_news",
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "summary": "Player1 停在新聞",
+        "drawnAt": 1790815320171
+      },
+      {
+        "deck": "news",
+        "cardId": "N044",
+        "title": "五房三廳豪宅出售",
+        "description": "振興房市專案。配合經濟振興政策，推出低首付華宅方案，機會難得。",
+        "subtitle": "房市新訊",
+        "effectLines": [
+          "總價：12,000,000",
+          "頭期款：1,200,000",
+          "貸款：10,800,000",
+          "貸款利息（月）：54,000",
+          "租金收入（月）：50,000",
+          "淨收益（月）：-4,000",
+          "自用幸福：+8"
+        ],
+        "id": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815312270_news_N044",
+        "eventId": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815312270_news",
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "summary": "Player3 停在新聞",
+        "drawnAt": 1790815312270
+      },
+      {
+        "deck": "news",
+        "cardId": "N026",
+        "title": "新能源降運輸成本",
+        "description": "新能源發現，將降低運輸成本。",
+        "subtitle": "股市新訊",
+        "effectLines": [
+          "更新股票價格（依卡片價格表）。所有玩家皆可依更新價格，以「張」為單位自由買賣股票。",
+          "A10：3,000",
+          "A20：2,500",
+          "A30：6,500",
+          "A40：8,000",
+          "B50：4,000",
+          "B60：4,500",
+          "B70：6,000",
+          "B80：9,500"
+        ],
+        "id": "F60HiFUJpe2lAOmposa8O1422g6r_1790815307001_news_followup_N026",
+        "eventId": "F60HiFUJpe2lAOmposa8O1422g6r_1790815307001_news_followup",
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "summary": "善用時間 後續抽卡",
+        "drawnAt": 1790815307001
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C056",
+        "title": "善用時間",
+        "description": "善用時間。\n你懂得如何好好運用時間，尤其是懂得如何利用零碎的時間來學習。\n抽到本卡的玩家，只要說出一種善用時間的做法或案例，就可以抽取一張新聞卡。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "後續抽一張新聞卡",
+          "需要完成口頭分享"
+        ],
+        "id": "F60HiFUJpe2lAOmposa8O1422g6r_1790815299923_opportunity_C056",
+        "eventId": "F60HiFUJpe2lAOmposa8O1422g6r_1790815299923_opportunity",
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790815299923
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C048",
+        "title": "通貨膨漲",
+        "description": "因為整體物價節節上升，提高了日用品的價格。所有玩家月支出的居住欄，增加 1,000H。所有玩家的財務報表的月支出上，居住欄增加1,000H、月支出總支欄增加1,000H，損益的周結餘欄減少 1,000H。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "月支出（餐飲、服飾、居住類） +1,000",
+          "影響所有玩家。"
+        ],
+        "id": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815291999_opportunity_C048",
+        "eventId": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815291999_opportunity",
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790815291999
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C047",
+        "title": "通貨膨漲",
+        "description": "因為能源礦產的減少，造成油價提升。所有玩家月支出的交通，增加2,000H。所有玩家的財務報表的月支出上，交通欄增加2,000H、月支出總支欄增加 2,000H，損益的周結餘欄減少2,000H。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "月支出（交通、教育、娛樂類） +2,000",
+          "影響所有玩家。"
+        ],
+        "id": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815284099_opportunity_C047",
+        "eventId": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815284099_opportunity",
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790815284099
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C046",
+        "title": "通貨膨漲",
+        "description": "因為制衣的原物料成本上漲，造成服飾的價格提升。所有玩家月支出的服飾欄，增加2,000H。所有玩家的財務報表的月支出上，服飾欄增加2,000H、月支出總支欄增加2,000H，損益的周結餘欄減少 2,000H。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "月支出（餐飲、服飾、居住類） +2,000",
+          "影響所有玩家。"
+        ],
+        "id": "F60HiFUJpe2lAOmposa8O1422g6r_1790815276075_opportunity_C046",
+        "eventId": "F60HiFUJpe2lAOmposa8O1422g6r_1790815276075_opportunity",
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790815276075
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C045",
+        "title": "通貨膨漲",
+        "description": "因為種植農作物的成本提高，造成食品價格上漲。所有玩家月支出的飲食欄，增加3,000H。所有玩家的財務報表的月支出上，飲食欄增加3,000H、月支出總支欄增加3,000H，損益的周結餘欄減少 3,000H。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "月支出（餐飲、服飾、居住類） +3,000",
+          "影響所有玩家。"
+        ],
+        "id": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815268154_opportunity_C045",
+        "eventId": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815268154_opportunity",
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790815268154
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C043",
+        "title": "天有不測風雲",
+        "description": "出租的房子因年久失修需要修繕！房客向你反應，房屋的裝潢需要整修。抽到本卡的玩家，若你有出租用的住宅，則需要支付房屋修繕的費用 150,000H。若事先有購買房屋的保險，這筆費用由保險公司代玩家支付（必須每間房子都要有保險，若有至少一間房子沒有保險，仍必須支付費用）。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -150,000",
+          "保險理賠 150,000"
+        ],
+        "id": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815258389_opportunity_C043",
+        "eventId": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815258389_opportunity",
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790815258389
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C042",
+        "title": "線路起火",
+        "description": "線路起火！所有出租用住宅需支付修繕費100,000H。若所有出租住宅都有房屋保險則免費。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -100,000",
+          "保險理賠 100,000"
+        ],
+        "id": "F60HiFUJpe2lAOmposa8O1422g6r_1790815247593_opportunity_C042",
+        "eventId": "F60HiFUJpe2lAOmposa8O1422g6r_1790815247593_opportunity",
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790815247593
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C041",
+        "title": "天有不測風雲",
+        "description": "發生地震造成出租的房子需要修繕！房客向你反應，房屋的外牆出現裂縫，需要修理。抽到本卡的玩家，若你有出租用的住宅，則需要支付房屋修繕的費用 200,000H。若事先有購買房屋的保險，這筆費用由保險公司代玩家支付（必須每間房子都要有保險，若有至少一間房子沒有保險，仍必須支付費用）。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -200,000",
+          "保險理賠 200,000"
+        ],
+        "id": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815236739_opportunity_C041",
+        "eventId": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815236739_opportunity",
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790815236739
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C040",
+        "title": "天有不測風雲",
+        "description": "發生飛禍！開汽車時未注意汽車間距離，不小心撞到前方的汽車，造成你和對方的汽車嚴重受損。抽到本卡的玩家，若你有買汽車，必須直接走到汽車4S專賣店，且停賽一輪，並支付維修費用200,000H。若有經過銀行格，無法領取月結餘。事先有購買汽車保險，則不用支付維修費，因該筆費用由保險公司支付。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "現金 -200,000",
+          "保險理賠 200,000"
+        ],
+        "id": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815225903_opportunity_C040",
+        "eventId": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815225903_opportunity",
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790815225903
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C034",
+        "title": "企業併購",
+        "description": "某間跨國的商業集團有意併購你所投資的企業。收購條件為你擁有企業之月收益的70倍為收購價格。\n擁有各型企業的所有玩家，都可以自由決定是否依此價格出售。",
+        "subtitle": "企業併購",
+        "effectLines": [
+          "收購倍率 70 倍月收益",
+          "所有符合條件的玩家可各自決定是否處理自己的效果。"
+        ],
+        "id": "F60HiFUJpe2lAOmposa8O1422g6r_1790815218199_opportunity_C034",
+        "eventId": "F60HiFUJpe2lAOmposa8O1422g6r_1790815218199_opportunity",
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790815218199
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C007",
+        "title": "終身學習一投資不動產的能力",
+        "description": "你有機會回到學校進修「投資不動產的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於4，則所有現有與未來供出租不動產的房租收入，全部各增加 10,000H。不接受，則回收本卡片。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "學費 5,000",
+          "判定需求：至少 4 點",
+          "移動至學校",
+          "暫停 1 回合"
+        ],
+        "id": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815202662_opportunity_C007",
+        "eventId": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815202662_opportunity",
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "summary": "Player1 停在機運",
+        "drawnAt": 1790815202662
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C005",
+        "title": "終身學習一投資股票的能力",
+        "description": "你有機會回到學校進修「投資股票的專業知識」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費 10,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於4，則持有股票的股數全部增加一倍（100%）。不接受，則回收本卡片。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "學費 10,000",
+          "判定需求：至少 4 點",
+          "移動至學校",
+          "暫停 1 回合"
+        ],
+        "id": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815187510_opportunity_C005",
+        "eventId": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx_1790815187510_opportunity",
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "summary": "Player3 停在機運",
+        "drawnAt": 1790815187510
+      },
+      {
+        "deck": "opportunity",
+        "cardId": "C003",
+        "title": "終身學習一增強職業能力",
+        "description": "你有機會回到學校進修「職業的能力」。抽到卡片的玩家，可以自由決定是否接受。接受，則先支付學費5,000H後，直接走到學校格，且停賽一輪。並擲一顆骰子，若點數大於、等於2，則職業等級無條件晉升一級（職業等級已升到最高級者無效）。不接受，則回收本卡片。",
+        "subtitle": "機運事件",
+        "effectLines": [
+          "學費 5,000",
+          "判定需求：至少 2 點",
+          "移動至學校",
+          "暫停 1 回合"
+        ],
+        "id": "F60HiFUJpe2lAOmposa8O1422g6r_1790815171920_opportunity_C003",
+        "eventId": "F60HiFUJpe2lAOmposa8O1422g6r_1790815171920_opportunity",
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "summary": "Player2 停在機運",
+        "drawnAt": 1790815171920
+      },
+      {
+        "deck": "happiness",
+        "cardId": "H009",
+        "title": "美味的大餐",
+        "description": "我曾經有過一次豪華的大餐，每次回想起都相當讓人回味無窮，還想要再享受一次。抽到卡片的玩家，跟大家分享一個美味的經歷，就能獲得幸福值2點。",
+        "subtitle": "幸福回憶",
+        "effectLines": [
+          "幸福 +2",
+          "需要玩家分享故事"
+        ],
+        "id": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815161643_happiness_H009",
+        "eventId": "mOpR289kRcGmlOl7z1adPB6B78v8_1790815161643_happiness",
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "summary": "Player1 停在幸福",
+        "drawnAt": 1790815161643
+      }
+    ],
+    "diceEvents": [
+      {
+        "id": "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:26",
+        "sequence": 27,
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815225903
+      },
+      {
+        "id": "roll:mOpR289kRcGmlOl7z1adPB6B78v8:31",
+        "sequence": 32,
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815236739
+      },
+      {
+        "id": "roll:F60HiFUJpe2lAOmposa8O1422g6r:36",
+        "sequence": 37,
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815247593
+      },
+      {
+        "id": "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:41",
+        "sequence": 42,
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815258389
+      },
+      {
+        "id": "roll:mOpR289kRcGmlOl7z1adPB6B78v8:46",
+        "sequence": 47,
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815268154
+      },
+      {
+        "id": "roll:F60HiFUJpe2lAOmposa8O1422g6r:50",
+        "sequence": 51,
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815276075
+      },
+      {
+        "id": "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:54",
+        "sequence": 55,
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815284099
+      },
+      {
+        "id": "roll:mOpR289kRcGmlOl7z1adPB6B78v8:58",
+        "sequence": 59,
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815291999
+      },
+      {
+        "id": "roll:F60HiFUJpe2lAOmposa8O1422g6r:62",
+        "sequence": 63,
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815299923
+      },
+      {
+        "id": "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:69",
+        "sequence": 70,
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815312270
+      },
+      {
+        "id": "roll:mOpR289kRcGmlOl7z1adPB6B78v8:73",
+        "sequence": 74,
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815320171
+      },
+      {
+        "id": "roll:F60HiFUJpe2lAOmposa8O1422g6r:77",
+        "sequence": 78,
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815328034
+      },
+      {
+        "id": "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:81",
+        "sequence": 82,
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815336008
+      },
+      {
+        "id": "roll:mOpR289kRcGmlOl7z1adPB6B78v8:85",
+        "sequence": 86,
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815389818
+      },
+      {
+        "id": "roll:F60HiFUJpe2lAOmposa8O1422g6r:89",
+        "sequence": 90,
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815443328
+      },
+      {
+        "id": "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:93",
+        "sequence": 94,
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815496912
+      },
+      {
+        "id": "roll:mOpR289kRcGmlOl7z1adPB6B78v8:97",
+        "sequence": 98,
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815550623
+      },
+      {
+        "id": "roll:F60HiFUJpe2lAOmposa8O1422g6r:101",
+        "sequence": 102,
+        "playerUid": "F60HiFUJpe2lAOmposa8O1422g6r",
+        "playerName": "Player2",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815604504
+      },
+      {
+        "id": "roll:0XL0r2rbNLw8M1AFMYdnVnyVxSyx:105",
+        "sequence": 106,
+        "playerUid": "0XL0r2rbNLw8M1AFMYdnVnyVxSyx",
+        "playerName": "Player3",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815658299
+      },
+      {
+        "id": "roll:mOpR289kRcGmlOl7z1adPB6B78v8:109",
+        "sequence": 110,
+        "playerUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+        "playerName": "Player1",
+        "kind": "board-movement",
+        "dice": [
+          1,
+          1
+        ],
+        "total": 2,
+        "detail": "",
+        "timestamp": 1790815712115
+      }
+    ],
+    "sharedExpenseEffect": null,
+    "skipTurns": {
+      "F60HiFUJpe2lAOmposa8O1422g6r": 0,
+      "0XL0r2rbNLw8M1AFMYdnVnyVxSyx": 0,
+      "mOpR289kRcGmlOl7z1adPB6B78v8": 0
+    },
+    "pendingContinuation": null,
+    "currentTurnUid": "mOpR289kRcGmlOl7z1adPB6B78v8",
+    "updatedAt": 1790815719516,
+    "deckState": {
+      "happiness": [
+        "H007",
+        "H017",
+        "H045",
+        "H038",
+        "H019",
+        "H006",
+        "H036",
+        "H043",
+        "H030",
+        "H034",
+        "H010",
+        "H021",
+        "H032",
+        "H037",
+        "H005",
+        "H041",
+        "H027",
+        "H033",
+        "H022",
+        "H014",
+        "H008",
+        "H025",
+        "H044",
+        "H026",
+        "H001",
+        "H018",
+        "H040",
+        "H024",
+        "H004",
+        "H031",
+        "H003",
+        "H015",
+        "H028",
+        "H039",
+        "H042",
+        "H023",
+        "H035",
+        "H016",
+        "H020",
+        "H002",
+        "H013",
+        "H011",
+        "H046",
+        "H029",
+        "H012"
+      ],
+      "usedHappiness": [
+        "H009"
+      ],
+      "usedOpportunity": [
+        "C003",
+        "C005",
+        "C007",
+        "C034",
+        "C040",
+        "C041",
+        "C042",
+        "C043",
+        "C045",
+        "C046",
+        "C047",
+        "C048",
+        "C056"
+      ],
+      "usedNews": [
+        "N026",
+        "N044",
+        "N045",
+        "N046",
+        "N047",
+        "N048",
+        "N049",
+        "N050",
+        "N051",
+        "N052",
+        "N053",
+        "N054"
+      ],
+      "opportunity": [
+        "C055",
+        "C037",
+        "C020",
+        "C050",
+        "C051",
+        "C025",
+        "C019",
+        "C024",
+        "C030",
+        "C026",
+        "C011",
+        "C009",
+        "C028",
+        "C018",
+        "C035",
+        "C054",
+        "C002",
+        "C004",
+        "C049",
+        "C013",
+        "C039",
+        "C001",
+        "C044",
+        "C023",
+        "C022",
+        "C052",
+        "C012",
+        "C010",
+        "C032",
+        "C008",
+        "C017",
+        "C033",
+        "C014",
+        "C027",
+        "C029",
+        "C053",
+        "C015",
+        "C038",
+        "C016",
+        "C036",
+        "C006",
+        "C021",
+        "C031"
+      ],
+      "news": [
+        "N042",
+        "N016",
+        "N055",
+        "N031",
+        "N036",
+        "N020",
+        "N010",
+        "N015",
+        "N057",
+        "N025",
+        "N002",
+        "N030",
+        "N027",
+        "N004",
+        "N034",
+        "N043",
+        "N007",
+        "N014",
+        "N037",
+        "N039",
+        "N024",
+        "N006",
+        "N033",
+        "N001",
+        "N018",
+        "N028",
+        "N003",
+        "N032",
+        "N019",
+        "N012",
+        "N017",
+        "N035",
+        "N021",
+        "N008",
+        "N040",
+        "N011",
+        "N058",
+        "N041",
+        "N005",
+        "N056",
+        "N038",
+        "N029",
+        "N013",
+        "N022",
+        "N009",
+        "N023"
+      ]
+    },
+    "playerPositions": {
+      "F60HiFUJpe2lAOmposa8O1422g6r": 9,
+      "0XL0r2rbNLw8M1AFMYdnVnyVxSyx": 9,
+      "mOpR289kRcGmlOl7z1adPB6B78v8": 9
+    },
+    "hasRolledThisTurn": true
+  }
+}

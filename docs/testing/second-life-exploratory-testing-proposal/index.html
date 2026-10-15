@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#132b3a">
+  <meta name="description" content="《第二人生》先行版給一般玩家的白話測試指南">
+  <title>《第二人生》先行版｜玩家測試指南</title>
+  <style>
+    :root {
+      --blue: #132b3a; --ink: #26383c; --gray: #68787b; --cream: #fffaf0; --white: #fffdf8;
+      --line: #eadfcf; --gold: #c8913f; --gold-light: #f7eddc; --coral: #c55b5b; --green: #287962;
+      --shadow: 0 14px 34px rgba(24, 42, 49, .09);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; color: var(--ink); background: var(--cream); font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; line-height: 1.75; }
+    a { color: var(--coral); }
+    .wrap { width: min(1060px, calc(100% - 32px)); margin: 0 auto; }
+    .hero { color: #fffdf8; background: radial-gradient(circle at 90% 10%, #31586a 0, transparent 34%), linear-gradient(135deg, var(--blue), #0d202b 72%); padding: 48px 16px 42px; }
+    .eyebrow { color: #f5d79a; font-size: .84rem; font-weight: 800; letter-spacing: .13em; }
+    h1, h2, h3 { line-height: 1.3; margin: 0; }
+    h1 { max-width: 780px; margin-top: 12px; font-size: clamp(2rem, 5vw, 3.8rem); letter-spacing: -.03em; }
+    h2 { color: var(--blue); font-size: clamp(1.45rem, 3vw, 2.1rem); }
+    h3 { color: var(--blue); font-size: 1.13rem; }
+    .lead { max-width: 710px; margin: 18px 0 0; color: #dce9e8; font-size: clamp(1rem, 2vw, 1.2rem); }
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 24px; }
+    .pill { border: 1px solid rgba(255,255,255,.28); border-radius: 999px; padding: 4px 11px; color: #f7ead1; font-size: .88rem; }
+    nav { position: sticky; top: 0; z-index: 3; background: rgba(255, 253, 248, .96); border-bottom: 1px solid var(--line); backdrop-filter: blur(10px); }
+    .nav-inner { display: flex; gap: 7px; overflow-x: auto; padding: 9px 0; scrollbar-width: thin; }
+    nav a { white-space: nowrap; color: var(--blue); text-decoration: none; font-size: .9rem; padding: 5px 9px; border-radius: 999px; }
+    nav a:hover, nav a:focus-visible { background: var(--gold-light); outline: none; }
+    main { padding: 28px 0 64px; }
+    section { scroll-margin-top: 64px; margin-top: 32px; }
+    .section-head { margin-bottom: 14px; }
+    .section-no { color: var(--gold); font-weight: 900; font-size: .8rem; letter-spacing: .12em; }
+    .intro { margin: 6px 0 0; color: var(--gray); }
+    .panel, .card { background: var(--white); border: 1px solid var(--line); border-radius: 17px; box-shadow: var(--shadow); }
+    .panel { padding: clamp(19px, 4vw, 30px); }
+    .card { padding: 19px; box-shadow: none; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .card p, .card ul { margin-bottom: 0; }
+    .callout { margin-top: 16px; padding: 15px 17px; border-left: 4px solid var(--gold); border-radius: 0 13px 13px 0; background: var(--gold-light); }
+    .callout.green { border-color: var(--green); background: #e8f3ee; }
+    .callout.coral { border-color: var(--coral); background: #fbeceb; }
+    ul, ol { padding-left: 1.25rem; }
+    li + li { margin-top: 5px; }
+    .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+    .flow-step { color: #fff; background: var(--blue); padding: 15px 13px; border-radius: 13px; min-height: 116px; }
+    .flow-step b { display: block; color: #f5d79a; margin-bottom: 5px; }
+    table { width: 100%; border-collapse: collapse; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 13px; background: var(--white); }
+    th, td { padding: 12px 13px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+    th { color: var(--blue); background: #f8f0e2; font-size: .9rem; }
+    tr:last-child td { border-bottom: 0; }
+    .checklist { list-style: none; padding-left: 0; }
+    .checklist li { display: flex; gap: 9px; align-items: flex-start; padding: 7px 0; border-bottom: 1px dashed var(--line); }
+    .checklist li:last-child { border-bottom: 0; }
+    input[type="checkbox"] { flex: 0 0 auto; width: 19px; height: 19px; margin-top: 5px; accent-color: var(--green); }
+    .record { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+    .record div { border: 1px solid var(--line); border-radius: 10px; padding: 11px; min-height: 58px; }
+    .record b { display: block; color: var(--gray); font-size: .8rem; }
+    pre { overflow-x: auto; white-space: pre-wrap; padding: 14px; border-radius: 10px; color: var(--blue); background: var(--blue-light); }
+    .simple-tag { display: inline-block; border-radius: 6px; padding: 1px 7px; font-size: .8rem; font-weight: 800; }
+    .stop { color: #9d202d; background: #f7d9dd; } .fix { color: #9b4a21; background: #f8e0cb; } .look { color: #3b6570; background: #dcecef; }
+    .print { border: 0; border-radius: 999px; background: var(--gold); color: #1c2b30; cursor: pointer; font: inherit; font-weight: 800; padding: 8px 15px; }
+    .print:hover, .print:focus-visible { background: #e4b665; outline: 3px solid rgba(228,182,101,.35); outline-offset: 2px; }
+    .small { color: var(--gray); font-size: .9rem; }
+    footer { color: #dce9e8; background: var(--blue); padding: 30px 16px; }
+    footer h2 { color: #fffdf8; }
+    @media (max-width: 740px) { .wrap { width: min(100% - 26px, 1060px); } .hero { padding: 38px 13px 32px; } .grid, .grid.two, .flow { grid-template-columns: 1fr; } .record { grid-template-columns: 1fr; } main { padding-top: 17px; } }
+    @media print { nav, .print { display: none; } body { background: #fff; font-size: 10pt; } .hero { color: #000; background: #fff; border-bottom: 2px solid #000; padding: 18px 0; } .hero .lead, .pill { color: #333; } .panel, .card { box-shadow: none; break-inside: avoid; } section { margin-top: 20px; } footer { color: #000; background: #fff; border-top: 1px solid #000; } }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <header class="hero"><div class="wrap"><div class="eyebrow">SECOND LIFE · 玩家測試指南</div><h1>《第二人生》先行版<br>一起玩，也一起找問題</h1><p class="lead">這不是考試，也不需要懂技術。請照著下面的步驟玩；看到奇怪的地方，就把發生什麼事告訴我們。</p><div class="hero-meta"><span class="pill">給一般玩家使用</span><span class="pill">建議 3～6 位玩家＋1 位執行師</span><span class="pill">可使用手機與電腦</span><button class="print" type="button" onclick="window.print()">列印／另存 PDF</button></div></div></header>
+  <nav aria-label="頁面導覽"><div class="wrap nav-inner"><a href="#game">玩什麼</a><a href="#before">開始前</a><a href="#article">文章重點</a><a href="#steps">怎麼玩</a><a href="#check">要試什麼</a><a href="#report">怎麼回報</a><a href="#severity">問題分級</a><a href="#finish">什麼算完成</a><a href="#full">完整附錄</a></div></nav>
+  <main class="wrap">
+    <section id="game"><div class="section-head"><div class="section-no">01 / 先了解遊戲</div><h2>《第二人生》在玩什麼？</h2><p class="intro">大家一起擲骰子走棋盤，遇到不同事件時做選擇。</p></div><div class="grid"><div class="card"><h3>擲骰子走棋盤</h3><p>輪到你的時候擲骰子，依照點數前進，看看這次會走到哪裡。</p></div><div class="card"><h3>抽卡遇到事件</h3><p>可能遇到工作、房屋、家庭、投資或生活中的突發事件。</p></div><div class="card"><h3>做出你的選擇</h3><p>你要考慮手上的錢和未來的目標，決定要參加、購買、投資或放棄。</p></div></div><div class="callout"><strong>測試時請記得：</strong>不只看自己畫面，也留意朋友有沒有看到同樣的事件、能不能做出自己的選擇，以及大家是否能順利進入下一回合。</div></section>
+    <section id="before"><div class="section-head"><div class="section-no">02 / 開始前</div><h2>需要準備什麼？</h2></div><div class="grid two"><div class="panel"><h3>人員</h3><ul><li>建議 4 位玩家，最多 6 位。</li><li>另需要 1 位執行師帶領遊戲。</li><li>每位玩家準備一支手機。</li><li>執行師準備一台電腦顯示共同地圖。</li></ul></div><div class="panel"><h3>測試前提醒</h3><ul><li>使用測試用帳號登入。</li><li>先確認每個人都能進入同一個房間。</li><li>請保留操作畫面或截圖，方便說明問題。</li><li>測試時不要害怕做錯，奇怪的地方都值得記下來。</li></ul></div></div></section>
+    <section id="article"><div class="section-head"><div class="section-no">03 / 參考文章與測試方法</div><h2>文章重點：不要只正常玩，要用不同方式找問題</h2><p class="intro">這篇文章研究的是遊戲測試方法，我們把它改成《第二人生》可以使用的版本。</p></div><div class="grid two"><div class="panel"><h3>摘要重點</h3><ol><li>先正常玩一次，了解遊戲應該怎麼進行。</li><li>接著用不同的玩家方式去玩，找出平常不容易遇到的問題。</li><li>每次測試設定一個小目標，並記錄看到的情況。</li><li>發現一個問題後，要繼續檢查附近的功能，因為相關問題可能不只一個。</li><li>用錄影、截圖和白話描述，讓開發者可以重現問題。</li></ol></div><div class="panel"><h3>文章裡的七種玩法</h3><ul><li><strong>觀光客：</strong>正常走完流程，也看看其他選項。</li><li><strong>隨意亂試：</strong>做一些平常不會做的操作。</li><li><strong>專門找碴：</strong>集中測試一個功能，想辦法找出問題。</li><li><strong>快速遊玩：</strong>快速連續完成很多回合。</li><li><strong>走冷門路線：</strong>測試很少人使用的功能。</li><li><strong>畫面檢查：</strong>檢查按鈕、視窗、滑動和文字。</li><li><strong>問題附近再找：</strong>一個地方出錯，就把相關功能一起檢查。</li></ul></div></div><div class="panel" style="margin-top:13px"><h3>1｜對照《第二人生》的測試策略</h3><p>平台遊戲原本是在測試關卡、跳躍和操作；《第二人生》則要改成測試「多人一起做事時，大家是否看到同樣的結果」。所以每個策略都要加入：同時操作、重新開啟、完成後換回合，以及金錢結果是否正確。</p><h3 style="margin-top:18px">2｜整理成可執行的測試計畫</h3><ol><li>先用 3 位玩家完成一局正常遊戲。</li><li>再分別測試幸福家庭歷程、房市、貸款、保險、定存、工作室和卡片日誌。</li><li>每個功能都試一次正常使用、一次做錯、一次重新開啟後再做。</li><li>安排兩位以上玩家同時擲骰、回覆或購買，觀察是否有人看不到或結果不一致。</li><li>發現問題後，沿著同一功能和相似卡片繼續檢查。</li><li>修正後，使用原本的操作再做一次，確認問題真的消失。</li></ol><h3 style="margin-top:18px">3｜這套方法適合《第二人生》嗎？</h3><div class="callout green"><strong>適合，但需要加上多人測試。</strong>文章的方法很適合用來發現未知問題；不過《第二人生》還要多確認玩家之間的畫面、回合、金錢和事件是否一致。因此「一般人實際遊玩」搭配「多人一起測試」最適合目前階段。</div></div></section>
+    <section id="steps"><div class="section-head"><div class="section-no">04 / 遊玩順序</div><h2>請照這個順序測試</h2></div><div class="flow"><div class="flow-step"><b>1｜進入房間</b>執行師開房，所有玩家加入並完成開局選擇。</div><div class="flow-step"><b>2｜正常遊玩</b>輪流擲骰、走棋盤、抽卡並完成事件。</div><div class="flow-step"><b>3｜試試特殊情況</b>多人同時操作、重新開啟畫面、再做一次相同動作。</div><div class="flow-step"><b>4｜完成一局</b>確認能結算，再開第二局確認可以重新開始。</div></div><div class="callout green"><strong>最重要的原則：</strong>先正常玩一遍，知道正確流程後，再試著快速點擊、關閉畫面、重新進入，看看遊戲能不能接著玩。</div></section>
+    <section id="check"><div class="section-head"><div class="section-no">05 / 試玩清單</div><h2>這些功能請務必試試看</h2><p class="intro">可以直接勾選。每個項目都完成後，再進入下一項。</p></div><div class="grid two"><div class="panel"><h3>開局與回合</h3><ul class="checklist"><li><input type="checkbox">每個人都有看到完整的開局選擇。</li><li><input type="checkbox">每個人的幸福值都是正確的初始數字。</li><li><input type="checkbox">輪到誰，誰才能擲骰子。</li><li><input type="checkbox">擲完骰子後，棋子走到正確位置。</li><li><input type="checkbox">完成事件後，可以順利進入下一回合。</li><li><input type="checkbox">重新開啟後，可以回到原本的遊戲進度。</li></ul></div><div class="panel"><h3>幸福家庭歷程</h3><ul class="checklist"><li><input type="checkbox">抽到卡片的人可以先選擇要不要參加。</li><li><input type="checkbox">其他玩家要先擲到 4 點以上，才看到參加選項。</li><li><input type="checkbox">沒有達到條件的人，不會一直重複跳出視窗。</li><li><input type="checkbox">每個人的家庭歷程依自己的進度往下走。</li><li><input type="checkbox">大家同時操作後，畫面沒有消失或卡住。</li><li><input type="checkbox">所有人完成後，抽卡的人可以結束回合。</li></ul></div><div class="panel"><h3>房屋與金錢</h3><ul class="checklist"><li><input type="checkbox">每位玩家都可以嘗試購買房市中的房屋。</li><li><input type="checkbox">兩人同時買同一間時，只有一人成功扣款。</li><li><input type="checkbox">買房成功後，房屋、金錢與貸款都正確。</li><li><input type="checkbox">買房失敗後，不會錯誤扣錢。</li><li><input type="checkbox">放棄購買的房屋會回到房市。</li><li><input type="checkbox">定存、貸款與保險的結果都正確出現。</li></ul></div><div class="panel"><h3>卡片與畫面</h3><ul class="checklist"><li><input type="checkbox">先看到卡片內容，再看到卡片帶來的結果。</li><li><input type="checkbox">卡片說明可以完整滑動查看。</li><li><input type="checkbox">所有需要回覆的玩家都有看到視窗。</li><li><input type="checkbox">卡片日誌有留下剛剛的卡片。</li><li><input type="checkbox">手機畫面可以滑動，按鈕都按得到。</li><li><input type="checkbox">執行師重新開一局後，可以正常開始。</li></ul></div></div></section>
+    <section id="report"><div class="section-head"><div class="section-no">06 / 發現問題時</div><h2>請用白話記下來</h2><p class="intro">不用猜原因，只要把看到的情況寫清楚。</p></div><div class="grid two"><div class="panel"><h3>哪些情況要回報？</h3><ul><li><span class="simple-tag stop">卡住</span> 按鈕按不到、不能滑動、不能進入下一回合。</li><li><span class="simple-tag fix">結果不對</span> 金錢變錯、同一筆結果出現兩次、該有的東西沒有出現。</li><li><span class="simple-tag look">畫面奇怪</span> 視窗消失、重複跳出、朋友看不到或看到不同內容。</li></ul></div><div class="panel"><h3>回報時請提供</h3><ul><li>剛剛做了哪些操作？</li><li>原本以為會發生什麼？</li><li>實際發生了什麼？</li><li>還能不能繼續玩？</li><li>有截圖或錄影就一起附上。</li></ul></div></div><div class="panel" style="margin-top:13px"><h3>簡單回報格式</h3><div class="record"><div><b>什麼時候發生？</b>日期、約幾點</div><div><b>哪位玩家遇到？</b>玩家 1／2／3</div><div><b>當時在做什麼？</b>例如：幸福歷程按下參加</div><div><b>實際看到什麼？</b>用自己的話描述</div><div><b>能不能繼續？</b>可以／需要重開／完全卡住</div><div><b>附件</b>截圖、錄影或畫面照片</div></div><div class="callout coral"><strong>如果整場卡住：</strong>先不要一直重複按，也不要急著關掉所有畫面。先截圖或錄影，再通知執行師。</div></div></section>
+    <section id="severity"><div class="section-head"><div class="section-no">07 / 問題分級</div><h2>發現問題後，分成 A、B、C 三級</h2><p class="intro">不用分析技術原因，只要看它對遊戲的影響有多大。</p></div><div class="table-wrap"><table><thead><tr><th>等級</th><th>白話判斷</th><th>例子</th><th>怎麼做</th></tr></thead><tbody><tr><td><span class="simple-tag stop">A｜最嚴重</span></td><td>遊戲完全不能繼續，或結果會造成很大錯誤。</td><td>整場卡住、不能換回合、金錢被扣兩次、房屋或貸款出現錯誤。</td><td>先停止操作，截圖或錄影，馬上通知執行師。</td></tr><tr><td><span class="simple-tag fix">B｜需要修正</span></td><td>功能結果不對，但還能用其他方式繼續。</td><td>卡片結果沒有出現、某個按鈕不能用、部分玩家沒有看到訊息。</td><td>記下操作和結果；如果不影響資料，可以繼續測其他項目。</td></tr><tr><td><span class="simple-tag look">C｜小問題</span></td><td>畫面、文字或操作感覺不順，但不影響遊戲進行。</td><td>文字太小、視窗短暫閃一下、顏色不明顯、動畫不順。</td><td>截圖或用文字記下來，測試可以繼續。</td></tr></tbody></table></div><div class="callout"><strong>不確定時：</strong>先按照 B 級回報，並說明「目前還能不能繼續玩」，由執行師或開發者再確認。</div></section>
+    <section id="finish"><div class="section-head"><div class="section-no">08 / 測試完成</div><h2>什麼情況算完成？</h2></div><div class="panel"><ul class="checklist"><li><input type="checkbox">大家都能加入房間並完成開局。</li><li><input type="checkbox">至少正常完成 5 個回合。</li><li><input type="checkbox">試過幸福家庭歷程、房市與至少一種金錢功能。</li><li><input type="checkbox">試過重新開啟後繼續遊戲。</li><li><input type="checkbox">遊戲可以正常結束並進入結算。</li><li><input type="checkbox">再開一局時，沒有帶到上一局的畫面或結果。</li><li><input type="checkbox">所有發現的問題都有留下白話說明和 A／B／C 等級。</li></ul><div class="callout green"><strong>給測試夥伴：</strong>你的工作不是找出哪裡寫錯，而是告訴我們「玩家做了什麼、看到了什麼、能不能繼續」。這樣就很有幫助了。</div><p class="small">本頁的勾選內容只會保存在目前這台裝置上，重新換裝置或清除瀏覽資料後需要重新勾選。</p></div></section>
+    <section id="full"><div class="section-head"><div class="section-no">09 / 完整提案附錄</div><h2>完整測試方法與詳細執行內容</h2><p class="intro">前面的內容是一般夥伴直接使用的版本；這裡保留完整提案，方便執行師或開發夥伴深入安排測試。</p></div><div class="panel"><details><summary>一、文章重點摘要</summary><p>這篇文章的核心不是「一直玩遊戲找 Bug」，而是：</p><div class="callout"><strong>讓測試員帶著不同目的與玩家行為去探索遊戲，並用固定時間、錄影、嚴重度分級與問題連鎖追查，提高找錯效率。</strong></div><p>主要方法包括：</p><ol><li>先正常玩一次，了解完整流程。</li><li>將測試切成固定時間的小回合。</li><li>使用不同測試策略，模擬不同類型玩家。</li><li>全程錄影並記錄操作與思考。</li><li>發現問題後，繼續測試相關功能。</li><li>對已出錯區域進行「危險街區」深度追查。</li><li>提供測試專用捷徑或管理工具，避免浪費時間重玩前置流程。</li></ol><h3>文中的七種策略</h3><div class="table-wrap"><table><thead><tr><th>策略</th><th>目的</th></tr></thead><tbody><tr><td>觀光客</td><td>正常走完整流程，也探索分支功能。</td></tr><tr><td>探索性冒煙</td><td>隨機做不尋常操作，找意外錯誤。</td></tr><tr><td>連續犯罪之旅</td><td>集中破壞某個功能或規則。</td></tr><tr><td>垃圾收集者</td><td>快速連續操作，測試極限與流程銜接。</td></tr><tr><td>後巷之旅</td><td>測試冷門、少使用或隱藏功能。</td></tr><tr><td>使用者介面探索</td><td>專門測試按鈕、彈窗、滑動與版面。</td></tr><tr><td>危險街區</td><td>針對已發現的問題，繼續檢查周邊功能。</td></tr></tbody></table></div><p class="small">文中「先正常玩一次」比較像前置階段，不完全算在七大策略內。</p></details>
+      <details><summary>二、對照《第二人生》的適用方式</summary><p>這套方法很適合《第二人生》，但不能直接照搬。</p><div class="grid two"><div class="card"><h3>平台遊戲主要測試</h3><ul><li>關卡</li><li>跳躍</li><li>物理碰撞</li><li>操作手感</li><li>畫面與選單</li></ul></div><div class="card"><h3>《第二人生》更重要的是</h3><ul><li>多人同時操作</li><li>遊戲畫面與資料同步</li><li>回合狀態</li><li>財務交易</li><li>卡片事件</li><li>斷線重連</li><li>玩家權限與資料隔離</li><li>重複送出與同時操作</li></ul></div></div><div class="callout green"><strong>因此應改成：</strong>探索性人工測試＋多人一起測試＋本地測試資料驗證。</div><h3 style="margin-top:18px">對應測試方式</h3><div class="table-wrap"><table><thead><tr><th>文章策略</th><th>《第二人生》實際測試</th></tr></thead><tbody><tr><td>觀光客</td><td>從開房、登入、職業選擇、擲骰、抽卡到結算完整走一次。</td></tr><tr><td>冒煙測試</td><td>快速連點、重新開啟、切換分頁、快速關閉視窗、同時送出。</td></tr><tr><td>連續犯罪</td><td>專門測試房市購買、幸福歷程、企業貸款或保險。</td></tr><tr><td>垃圾收集者</td><td>快速完成多回合，連續擲骰、抽卡、結束回合。</td></tr><tr><td>後巷之旅</td><td>測試執行師工具、重複事件、第二局、離開後重連、舊房間。</td></tr><tr><td>UI 探索</td><td>測試手機滑動、彈窗、按鈕、文字、鍵盤與錯誤訊息。</td></tr><tr><td>危險街區</td><td>發現 H011 同步錯誤後，擴大測試 H011～H016、多人回覆與重連流程。</td></tr></tbody></table></div></details>
+      <details><summary>三、建議的可執行測試計畫</summary><h3>階段 1：正常流程基準測試</h3><p>使用 3 位玩家＋1 位執行師、本地 Firebase Emulator、每位玩家獨立瀏覽器分頁、執行師一個大地圖分頁，並全程錄影。</p><ol><li>開房。</li><li>三位玩家加入。</li><li>完成職業、目標事業、人生夢想選擇。</li><li>開始遊戲。</li><li>正常擲骰與換回合。</li><li>抽卡、購買、保險、貸款。</li><li>完成幸福歷程。</li><li>遊戲結算。</li><li>同一批帳號重新開第二局。</li></ol><p><strong>目的：</strong>先確認正常玩家流程是否可以完整完成。</p><h3>階段 2：核心功能探索</h3><p>每個主題建議限時 15～20 分鐘。</p><div class="grid two"><div class="card"><h3>A. 幸福歷程</h3><ul><li>抽卡玩家直接選擇參與或放棄。</li><li>其他玩家擲骰小於 4。</li><li>其他玩家擲骰大於等於 4。</li><li>多名玩家同時擲骰。</li><li>玩家同時完成回覆。</li><li>抽卡玩家最後完成。</li><li>非抽卡玩家最後完成。</li><li>玩家重新開啟後繼續。</li><li>完成後結束回合。</li><li>五個階段依玩家個別進度遞進。</li></ul></div><div class="card"><h3>B. 房市</h3><ul><li>多位玩家同時購買同一物件。</li><li>購買後房屋從房市消失。</li><li>放棄後房屋回到房市。</li><li>不同玩家購買不同物件。</li><li>檢查失敗後重新嘗試。</li><li>重複點擊購買按鈕。</li></ul></div><div class="card"><h3>C. 金錢功能</h3><ul><li>現金剛好足夠與少 1 元。</li><li>信貸與企業貸款。</li><li>定存與解約。</li><li>汽車貸款。</li><li>房屋、汽車、醫療保險。</li><li>股票買賣。</li><li>購買企業或人生夢想。</li><li>工作室升級成功、失敗與重試。</li></ul></div><div class="card"><h3>D. 重新進入遊戲</h3><ul><li>玩家重新整理畫面。</li><li>玩家關閉後重新登入。</li><li>執行師重新整理。</li><li>大地圖重新整理。</li><li>幸福歷程中重新整理。</li><li>擲骰動畫中重新整理。</li><li>第二局確認上一局資料不殘留。</li></ul></div></div><h3>階段 3：七種探索策略</h3><div class="table-wrap"><table><thead><tr><th>策略</th><th>實際做法</th></tr></thead><tbody><tr><td>1. 觀光客</td><td>正常玩完整一局，順便探索所有看到的按鈕與分支。</td></tr><tr><td>2. 探索性冒煙</td><td>快速連點、多分頁同時操作、操作後立刻重新整理、同時關閉與送出、切換玩家帳號、事件結束瞬間再送出一次。</td></tr><tr><td>3. 連續犯罪</td><td>一次只攻擊一項功能，例如房市：兩人同時買同一房屋、反覆點購買、購買後立即重新整理、購買失敗後再操作其他金錢功能、切換玩家後再次購買。</td></tr><tr><td>4. 垃圾收集者</td><td>快速連續完成 10～20 回合，觀察回合是否錯位、舊視窗是否出現、卡片是否重複、金錢是否重複扣除、revision 是否持續遞增。</td></tr><tr><td>5. 後巷之旅</td><td>專測執行師卡片發送、指定下一回合、重複事件、第二局、離開後重連、保險理賠、企業貸款升級與卡片日誌。</td></tr><tr><td>6. UI 探索</td><td>專測手機 390×844、桌面 1440px、彈窗滑動、按鈕遮蔽、錯誤訊息、不可按狀態、鍵盤焦點與多個彈窗。</td></tr><tr><td>7. 危險街區</td><td>例如 H011 出錯後，追查 H011～H016、抽卡玩家與其他玩家、成功與失敗骰值、同時送出、重新整理後重送、最後完成者與財務檢查。</td></tr></tbody></table></div></details>
+      <details><summary>四、完整測試紀錄格式</summary><p>一般夥伴可使用前面的白話回報格式；若要提供更完整的資料，可照下面記錄：</p><pre>測試編號：
+測試策略：
+玩家人數：
+執行師：
+房間 ID：
+目前回合：
+操作步驟：
+預期結果：
+實際結果：
+是否同步：
+是否可重連：
+是否重複扣款：
+Firestore revision：
+事件 ID：
+嚴重度：
+影片／截圖：</pre><div class="callout"><strong>提醒：</strong>一般夥伴不需要理解 Firestore、revision 或事件 ID；只要把前面的白話欄位填好即可。這一區是提供給執行師與開發夥伴補充使用。</div><h3>詳細版問題分級</h3><ul><li><strong>P0：</strong>資料外洩、重複扣款、資產毀損、結算錯誤。</li><li><strong>P1：</strong>流程卡住、無法換回合、無法重連。</li><li><strong>P2：</strong>功能失效但可以繞過。</li><li><strong>P3：</strong>畫面、文字、動畫或提示問題。</li></ul><p class="small">一般測試夥伴只需要使用本頁前面的 A／B／C；P0～P3 是給內部整理問題時使用的較細分版本。</p></details>
+      <details><summary>五、這套方法是否適合目前遊戲？</summary><p><strong>結論：適合，約有 80% 可以直接採用。</strong></p><h3>最適合直接採用的部分</h3><ul><li>固定時間測試。</li><li>不同玩家行為策略。</li><li>全程錄影。</li><li>問題區域延伸追查。</li><li>測試專用執行師工具。</li><li>嚴重度分級。</li><li>先正常玩，再進行特殊操作測試。</li></ul><h3>需要調整的部分</h3><ol><li>平台遊戲是單人，《第二人生》必須加入多人一起操作的測試。</li><li>不能只依賴真人遊玩，金錢與權限要用本地測試資料驗證。</li><li>測試單位不能只用「關卡」，應改成「完整事件流程」。</li><li>必須加入斷線、重新整理、切換分頁與第二局測試。</li><li>需要記錄事件、交易結果與遊戲資料前後是否一致。</li></ol><div class="callout green"><strong>最終建議順序：</strong>正常流程 → 觀光客 → 畫面檢查 → 連續犯罪 → 快速回合 → 後巷功能 → 危險街區追查 → 本地多人測試 → 小規模正式封測。</div><p>在幸福歷程、房市交易、企業貸款與斷線重連仍有 A 級問題前，不建議正式全面開放。</p><p>這篇文章的方法適合當作「找問題的探索框架」，但《第二人生》是否能正式運行，還必須搭配多人一起操作、資料前後一致與重新進入遊戲的驗收。</p></details></div></section>
+  </main>
+  <footer><div class="wrap"><h2>《第二人生》先行版玩家測試指南</h2><p>請把這頁分享給測試夥伴，照著玩、照著記錄，就能完成一次有用的測試。</p></div></footer>
+  <script>
+    const boxes = [...document.querySelectorAll('input[type="checkbox"]')];
+    const storageKey = 'second-life-player-test-checks';
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      boxes.forEach((box, index) => { box.checked = saved[index] === true; });
+      boxes.forEach((box) => box.addEventListener('change', () => localStorage.setItem(storageKey, JSON.stringify(boxes.map(item => item.checked))))
+    } catch (_) { /* 勾選功能仍可在本次瀏覽使用 */ }
+  </script>
+</body>
+</html>
